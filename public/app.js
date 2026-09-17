@@ -189,7 +189,12 @@
       if (data.error) throw new Error(data.error);
 
       if (data.magicLink) {
-        elements.magicStatusMsg.innerHTML = `✨ Magic link created! <br><a href="${data.magicLink}" style="color: #6366f1; text-decoration: underline; word-break: break-all;">Click here to instant log in</a>`;
+        elements.magicStatusMsg.innerHTML = `
+          <div style="margin-top: 0.75rem; text-align: center;">
+            <p style="color: #a5b4fc; font-weight: 500; margin-bottom: 0.5rem;">✨ Magic Login Ready!</p>
+            <a href="${data.magicLink}" class="btn btn-primary" style="display: block; text-decoration: none; padding: 0.75rem 1rem; border-radius: 8px; font-weight: 600; text-align: center; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);">🚀 Click Here to Log In Instantly</a>
+          </div>
+        `;
       } else {
         elements.magicStatusMsg.textContent = `📧 Magic login link sent to ${email}! Please check your inbox.`;
       }
