@@ -313,6 +313,7 @@
         const data = await res.json();
         if (data.positions) {
           state.playbackPositions = data.positions;
+          renderContinueShelf();
         }
       }
     } catch (e) {}
@@ -320,6 +321,11 @@
 
   async function savePlaybackPositionToD1(episodeGuid, positionSeconds, completed = false) {
     if (!episodeGuid) return;
+    state.playbackPositions[episodeGuid] = {
+      position: positionSeconds,
+      completed: completed ? 1 : 0
+    };
+    renderContinueShelf();
     try {
       const headers = { 'Content-Type': 'application/json' };
       if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
@@ -520,7 +526,7 @@
 
     const inProgressEps = state.allEpisodes.filter(ep => {
       const pos = state.playbackPositions[ep.guid];
-      return pos && pos.position > 5 && !pos.completed;
+      return pos && pos.position > 1 && !pos.completed;
     });
 
     if (elements.continueCount) {
@@ -811,7 +817,13 @@
     }
 
     const savedPos = state.playbackPositions[episode.guid];
-    const startTime = (savedPos && savedPos.position > 5) ? savedPos.position : 0;
+    const startTime = (savedPos && savedPos.position > 1) ? savedPos.position : 0;
+
+    state.playbackPositions[episode.guid] = {
+      position: startTime || 2,
+      completed: false
+    };
+    renderContinueShelf();
 
     if (episode.isYouTube || episode.videoId || episode.playlistId) {
       state.activeEngine = 'youtube';
