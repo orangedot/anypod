@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Private Podcast Web Player</title>
+  <title>Podcast Pulse - Private Podcast Player</title>
   <meta name="description" content="Personal private podcast RSS feed aggregator and continuous audio player hosted on Cloudflare.">
   <meta name="theme-color" content="#0d0f17">
 
@@ -136,9 +136,9 @@
           <button class="btn-close" id="btn-close-add">&times;</button>
         </div>
         <div class="modal-body">
-          <label for="feed-url-input">Podcast RSS Feed URL</label>
-          <input type="url" id="feed-url-input" placeholder="https://example.com/podcast/rss.xml" required>
-          <p class="help-text">Enter any public or private RSS XML feed URL.</p>
+          <label for="feed-url-input">Podcast RSS Feed or YouTube Music Playlist URL</label>
+          <input type="url" id="feed-url-input" placeholder="https://music.youtube.com/playlist?list=..." required>
+          <p class="help-text">Paste standard RSS XML URLs or YouTube/YouTube Music Playlist links.</p>
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" id="btn-cancel-add">Cancel</button>
@@ -170,6 +170,11 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Hidden YouTube Player Container -->
+    <div id="yt-player-container" style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden;">
+      <div id="yt-player"></div>
     </div>
 
     <!-- Sticky Audio Player Footer -->
@@ -210,7 +215,7 @@
       <div class="player-right-options">
         <button class="btn-pill" id="btn-speed-toggle" title="Playback Speed">1.0x</button>
         <button class="btn-icon" id="btn-open-sleep" title="Sleep Timer">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 15 15"></polyline></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 15 15"></polyline></svg>
           <span class="badge hidden" id="sleep-badge"></span>
         </button>
       </div>
@@ -221,6 +226,8 @@
 
   </div>
 
+  <!-- YouTube Iframe API -->
+  <script src="https://www.youtube.com/iframe_api"></script>
   <script src="app.js"></script>
 </body>
 </html>

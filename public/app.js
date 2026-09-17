@@ -1,32 +1,32 @@
 /**
  * Podcast Pulse - Main Application Logic
- * Pure Client-side JS with Cloudflare Workers API backend integration
+ * Hybrid Player: Supports both standard RSS (.mp3/.m4a) & YouTube Music Playlists seamlessly
  */
 
 (function () {
   'use strict';
 
-  // State
   const STORAGE_KEYS = {
-    FEEDS: 'podcast_pulse_feeds',
-    POSITION: 'podcast_pulse_last_position',
-    SETTINGS: 'podcast_pulse_settings'
+    FEEDS: 'podcast_pulse_feeds'
   };
 
   const DEFAULT_FEEDS = [
-    'https://feeds.simplecast.com/54521442', // Syntax FM
-    'https://changelog.com/podcast/feed'     // The Changelog
+    'https://feeds.simplecast.com/54521442',
+    'https://music.youtube.com/playlist?list=PLAcLMO3ar8_8f4D8CAD_nsLdoey6YKA-z'
   ];
 
   let state = {
-    feeds: [],           // List of RSS feed URLs
-    feedMetadata: {},    // Map of feedUrl -> feed object
-    allEpisodes: [],     // Aggregated episodes
-    filteredEpisodes: [],// Displayed episodes
-    currentEpisode: null,// Currently playing episode
-    playbackSpeed: 1.0,  // Audio playback rate
-    sortOrder: 'newest', // 'newest' | 'oldest'
+    feeds: [],
+    feedMetadata: {},
+    allEpisodes: [],
+    filteredEpisodes: [],
+    currentEpisode: null,
+    playbackSpeed: 1.0,
+    sortOrder: 'newest',
     searchQuery: '',
+    ytPlayer: null,
+    ytReady: false,
+    activeEngine: 'audio', // 'audio' | 'youtube'
     sleepTimer: {
       active: false,
       minutes: 0,
@@ -37,39 +37,31 @@
     }
   };
 
-  // DOM Elements
   const elements = {
-    // Tabs & Panels
     tabs: document.querySelectorAll('.nav-tab'),
     panels: document.querySelectorAll('.tab-panel'),
     feedCount: document.getElementById('feed-count'),
 
-    // Toolbar & Search
     searchInput: document.getElementById('search-input'),
     sortOrderSelect: document.getElementById('sort-order'),
     btnOpenAddModal: document.getElementById('btn-open-add-modal'),
     btnRefreshAll: document.getElementById('btn-refresh-all'),
     statusBanner: document.getElementById('status-banner'),
 
-    // Content Lists
     timelineList: document.getElementById('timeline-list'),
     feedsGrid: document.getElementById('feeds-grid'),
-    btnEmptyAdd: document.getElementById('btn-empty-add'),
 
-    // Settings & OPML
     opmlFileInput: document.getElementById('opml-file-input'),
     btnExportOpml: document.getElementById('btn-export-opml'),
     btnLoadDefaults: document.getElementById('btn-load-defaults'),
     btnClearStorage: document.getElementById('btn-clear-storage'),
 
-    // Add Feed Modal
     addModal: document.getElementById('add-modal'),
     feedUrlInput: document.getElementById('feed-url-input'),
     btnCloseAdd: document.getElementById('btn-close-add'),
     btnCancelAdd: document.getElementById('btn-cancel-add'),
     btnSubmitFeed: document.getElementById('btn-submit-feed'),
 
-    // Sleep Timer Modal
     sleepModal: document.getElementById('sleep-modal'),
     btnCloseSleep: document.getElementById('btn-close-sleep'),
     btnOpenSleep: document.getElementById('btn-open-sleep'),
@@ -77,7 +69,6 @@
     timerBtns: document.querySelectorAll('.timer-btn'),
     fadeoutCheck: document.getElementById('fadeout-check'),
 
-    // Sticky Audio Player
     audio: document.getElementById('audio-engine'),
     playerArtwork: document.getElementById('player-artwork'),
     playerTitle: document.getElementById('player-title'),
@@ -93,11 +84,39 @@
     btnSpeedToggle: document.getElementById('btn-speed-toggle')
   };
 
-  // --- INITIALIZATION ---
+  // Setup global YouTube Iframe API callback
+  window.onYouTubeIframeAPIReady = function () {
+    state.ytPlayer = new YT.Player('yt-player', {
+      height: '1',
+      width: '1',
+      playerVars: {
+        autoplay: 0,
+        controls: 0,
+        playsinline: 1
+      },
+      events: {
+        onReady: () => {
+          state.ytReady = true;
+        },
+        onStateChange: (event) => {
+          if (state.activeEngine === 'youtube') {
+            if (event.data === YT.PlayerState.PLAYING) {
+              updatePlayerUI(true);
+            } else if (event.data === YT.PlayerState.PAUSED) {
+              updatePlayerUI(false);
+            } else if (event.data === YT.PlayerState.ENDED) {
+              onEpisodeEnded();
+            }
+          }
+        }
+      }
+    });
+  };
+
   function init() {
     loadFeedsFromStorage();
     setupEventListeners();
-    setupAudioEngine();
+    setupAudioEngines();
     
     if (state.feeds.length > 0) {
       refreshAllFeeds();
@@ -106,14 +125,12 @@
     }
   }
 
-  // --- STORAGE ---
   function loadFeedsFromStorage() {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.FEEDS);
       state.feeds = saved ? JSON.parse(saved) : [];
       updateFeedCountUI();
     } catch (e) {
-      console.error('Failed to load feeds from localStorage', e);
       state.feeds = [];
     }
   }
@@ -122,9 +139,7 @@
     try {
       localStorage.setItem(STORAGE_KEYS.FEEDS, JSON.stringify(state.feeds));
       updateFeedCountUI();
-    } catch (e) {
-      console.error('Failed to save feeds to localStorage', e);
-    }
+    } catch (e) {}
   }
 
   function updateFeedCountUI() {
@@ -133,14 +148,13 @@
     }
   }
 
-  // --- FEED FETCHING & AGGREGATION ---
   async function refreshAllFeeds() {
     if (state.feeds.length === 0) {
       renderTimeline();
       return;
     }
 
-    showStatus('Refreshing feeds...');
+    showStatus('Refreshing feeds & YouTube playlists...');
     state.allEpisodes = [];
     state.feedMetadata = {};
 
@@ -175,7 +189,6 @@
 
       return feedData;
     } catch (err) {
-      console.warn(`Error loading feed (${url}):`, err.message);
       state.feedMetadata[url] = {
         title: 'Error Loading Feed',
         artwork: '',
@@ -189,7 +202,6 @@
   function processAndSortEpisodes() {
     let list = [...state.allEpisodes];
 
-    // Filter by search
     if (state.searchQuery) {
       const q = state.searchQuery.toLowerCase();
       list = list.filter(ep => 
@@ -199,7 +211,6 @@
       );
     }
 
-    // Sort order
     if (state.sortOrder === 'newest') {
       list.sort((a, b) => b.timestamp - a.timestamp);
     } else {
@@ -209,7 +220,6 @@
     state.filteredEpisodes = list;
   }
 
-  // --- UI RENDERERS ---
   function renderTimeline() {
     const container = elements.timelineList;
     container.innerHTML = '';
@@ -219,7 +229,7 @@
         <div class="empty-state">
           <div class="empty-icon">🎙️</div>
           <h3>No podcast feeds added yet</h3>
-          <p>Add an RSS feed URL or import an OPML file to start listening.</p>
+          <p>Add an RSS feed URL or YouTube Music Playlist to start listening.</p>
           <button class="btn btn-primary" id="btn-empty-add-trigger">Add Your First Feed</button>
         </div>
       `;
@@ -239,10 +249,11 @@
     }
 
     state.filteredEpisodes.forEach(ep => {
-      const isPlaying = state.currentEpisode && state.currentEpisode.guid === ep.guid;
+      const isCurrentlyPlaying = state.currentEpisode && state.currentEpisode.guid === ep.guid;
+      const isPlayingActive = isCurrentlyPlaying && isEnginePlaying();
 
       const card = document.createElement('div');
-      card.className = `episode-card ${isPlaying ? 'playing' : ''}`;
+      card.className = `episode-card ${isCurrentlyPlaying ? 'playing' : ''}`;
       card.dataset.guid = ep.guid;
 
       const formattedDate = ep.timestamp 
@@ -252,7 +263,7 @@
       card.innerHTML = `
         <img class="episode-artwork" src="${ep.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E'}" alt="" loading="lazy">
         <div class="episode-details">
-          <div class="episode-podcast-name">${escapeHtml(ep.podcastTitle)}</div>
+          <div class="episode-podcast-name">${ep.isYouTube ? '▶️ YOUTUBE MUSIC' : escapeHtml(ep.podcastTitle)}</div>
           <div class="episode-title">${escapeHtml(ep.title)}</div>
           <div class="episode-desc">${escapeHtml(ep.description || '')}</div>
           <div class="episode-meta">
@@ -260,8 +271,8 @@
             ${ep.duration ? `<span>⏱️ ${escapeHtml(ep.duration)}</span>` : ''}
           </div>
         </div>
-        <button class="btn-play-ep" title="${isPlaying && !elements.audio.paused ? 'Pause' : 'Play'}">
-          ${isPlaying && !elements.audio.paused 
+        <button class="btn-play-ep" title="${isPlayingActive ? 'Pause' : 'Play'}">
+          ${isPlayingActive 
             ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`
             : `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`
           }
@@ -312,68 +323,122 @@
     });
   }
 
-  // --- AUDIO ENGINE & PLAYBACK ---
-  function setupAudioEngine() {
+  // --- DUAL ENGINE PLAYER SETUP ---
+  function setupAudioEngines() {
     const audio = elements.audio;
 
-    audio.addEventListener('timeupdate', updateProgress);
-    audio.addEventListener('loadedmetadata', updateDuration);
-    audio.addEventListener('ended', onEpisodeEnded);
-    audio.addEventListener('play', () => updatePlayerUI(true));
-    audio.addEventListener('pause', () => updatePlayerUI(false));
+    audio.addEventListener('timeupdate', () => {
+      if (state.activeEngine === 'audio') updateProgress();
+    });
+    audio.addEventListener('loadedmetadata', () => {
+      if (state.activeEngine === 'audio') updateDuration();
+    });
+    audio.addEventListener('ended', () => {
+      if (state.activeEngine === 'audio') onEpisodeEnded();
+    });
+    audio.addEventListener('play', () => {
+      if (state.activeEngine === 'audio') updatePlayerUI(true);
+    });
+    audio.addEventListener('pause', () => {
+      if (state.activeEngine === 'audio') updatePlayerUI(false);
+    });
 
+    // Unified Scrubber for both engines
     elements.seekBar.addEventListener('input', () => {
-      if (audio.duration) {
-        audio.currentTime = (elements.seekBar.value / 100) * audio.duration;
+      const pct = elements.seekBar.value / 100;
+      if (state.activeEngine === 'audio' && audio.duration) {
+        audio.currentTime = pct * audio.duration;
+      } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getDuration) {
+        const dur = state.ytPlayer.getDuration();
+        state.ytPlayer.seekTo(pct * dur, true);
       }
     });
 
+    // YouTube Progress Polling Interval
+    setInterval(() => {
+      if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
+        updateProgress();
+        updateDuration();
+      }
+    }, 500);
+
     elements.btnPlayToggle.addEventListener('click', () => {
       if (!state.currentEpisode) {
-        if (state.filteredEpisodes.length > 0) {
-          playEpisode(state.filteredEpisodes[0]);
-        }
+        if (state.filteredEpisodes.length > 0) playEpisode(state.filteredEpisodes[0]);
         return;
       }
 
-      if (audio.paused) {
-        audio.play();
+      if (isEnginePlaying()) {
+        pauseCurrentEngine();
       } else {
-        audio.pause();
+        playCurrentEngine();
       }
     });
 
     elements.btnPrev15.addEventListener('click', () => {
-      audio.currentTime = Math.max(0, audio.currentTime - 15);
+      if (state.activeEngine === 'audio') {
+        audio.currentTime = Math.max(0, audio.currentTime - 15);
+      } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
+        const cur = state.ytPlayer.getCurrentTime();
+        state.ytPlayer.seekTo(Math.max(0, cur - 15), true);
+      }
     });
 
     elements.btnNext15.addEventListener('click', () => {
-      if (audio.duration) {
+      if (state.activeEngine === 'audio' && audio.duration) {
         audio.currentTime = Math.min(audio.duration, audio.currentTime + 15);
+      } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
+        const cur = state.ytPlayer.getCurrentTime();
+        const dur = state.ytPlayer.getDuration();
+        state.ytPlayer.seekTo(Math.min(dur, cur + 15), true);
       }
     });
 
     elements.btnSpeedToggle.addEventListener('click', cyclePlaybackSpeed);
 
-    // Setup MediaSession API for lock screen controls
     if ('mediaSession' in navigator) {
-      navigator.mediaSession.setActionHandler('play', () => audio.play());
-      navigator.mediaSession.setActionHandler('pause', () => audio.pause());
+      navigator.mediaSession.setActionHandler('play', () => playCurrentEngine());
+      navigator.mediaSession.setActionHandler('pause', () => pauseCurrentEngine());
       navigator.mediaSession.setActionHandler('seekbackward', () => {
-        audio.currentTime = Math.max(0, audio.currentTime - 15);
+        if (state.activeEngine === 'audio') audio.currentTime = Math.max(0, audio.currentTime - 15);
       });
       navigator.mediaSession.setActionHandler('seekforward', () => {
-        if (audio.duration) audio.currentTime = Math.min(audio.duration, audio.currentTime + 15);
+        if (state.activeEngine === 'audio' && audio.duration) audio.currentTime = Math.min(audio.duration, audio.currentTime + 15);
       });
+    }
+  }
+
+  function isEnginePlaying() {
+    if (state.activeEngine === 'audio') {
+      return !elements.audio.paused;
+    } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getPlayerState) {
+      return state.ytPlayer.getPlayerState() === YT.PlayerState.PLAYING;
+    }
+    return false;
+  }
+
+  function playCurrentEngine() {
+    if (state.activeEngine === 'audio') {
+      elements.audio.play();
+    } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
+      state.ytPlayer.playVideo();
+    }
+  }
+
+  function pauseCurrentEngine() {
+    if (state.activeEngine === 'audio') {
+      elements.audio.pause();
+    } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
+      state.ytPlayer.pauseVideo();
     }
   }
 
   function toggleEpisodePlayback(episode) {
     if (state.currentEpisode && state.currentEpisode.guid === episode.guid) {
-      if (elements.audio.paused) {
-        elements.audio.play();
+      if (isEnginePlaying()) {
+        pauseCurrentEngine();
       } else {
-        elements.audio.pause();
+        playCurrentEngine();
       }
     } else {
       playEpisode(episode);
@@ -382,11 +447,28 @@
 
   function playEpisode(episode) {
     state.currentEpisode = episode;
-    const audio = elements.audio;
 
-    audio.src = episode.audioUrl;
-    audio.playbackRate = state.playbackSpeed;
-    audio.play().catch(e => console.warn('Autoplay blocked:', e));
+    // Pause opposite engine
+    elements.audio.pause();
+    if (state.ytPlayer && state.ytPlayer.stopVideo) {
+      state.ytPlayer.stopVideo();
+    }
+
+    if (episode.isYouTube || episode.videoId) {
+      state.activeEngine = 'youtube';
+      if (state.ytReady && state.ytPlayer && state.ytPlayer.loadVideoById) {
+        state.ytPlayer.loadVideoById(episode.videoId);
+        state.ytPlayer.setPlaybackRate(state.playbackSpeed);
+      } else {
+        alert('YouTube Player is loading, please try playing in a few seconds.');
+        return;
+      }
+    } else {
+      state.activeEngine = 'audio';
+      elements.audio.src = episode.audioUrl;
+      elements.audio.playbackRate = state.playbackSpeed;
+      elements.audio.play().catch(e => console.warn('Autoplay blocked:', e));
+    }
 
     elements.playerTitle.textContent = episode.title;
     elements.playerPodcast.textContent = episode.podcastTitle;
@@ -394,7 +476,6 @@
       elements.playerArtwork.src = episode.artwork;
     }
 
-    // MediaSession update
     if ('mediaSession' in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: episode.title,
@@ -407,37 +488,53 @@
   }
 
   function updateProgress() {
-    const audio = elements.audio;
-    if (!audio.duration) return;
+    let current = 0;
+    let total = 0;
 
-    const current = audio.currentTime;
-    const total = audio.duration;
+    if (state.activeEngine === 'audio') {
+      current = elements.audio.currentTime || 0;
+      total = elements.audio.duration || 0;
+    } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
+      current = state.ytPlayer.getCurrentTime() || 0;
+      total = state.ytPlayer.getDuration() || 0;
+    }
 
     elements.currentTimeLabel.textContent = formatTime(current);
-    elements.seekBar.value = (current / total) * 100;
+    if (total > 0) {
+      elements.seekBar.value = (current / total) * 100;
+    }
 
-    // Check Sleep Timer Fadeout
     if (state.sleepTimer.active && state.sleepTimer.fadeout && state.sleepTimer.endTime) {
       const remainingSec = Math.max(0, (state.sleepTimer.endTime - Date.now()) / 1000);
       if (remainingSec <= 30 && remainingSec > 0) {
-        audio.volume = Math.max(0, remainingSec / 30 * state.sleepTimer.initialVolume);
+        if (state.activeEngine === 'audio') {
+          elements.audio.volume = Math.max(0, (remainingSec / 30) * state.sleepTimer.initialVolume);
+        } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
+          state.ytPlayer.setVolume(Math.max(0, (remainingSec / 30) * 100));
+        }
       }
     }
   }
 
   function updateDuration() {
-    elements.totalDurationLabel.textContent = formatTime(elements.audio.duration);
+    let dur = 0;
+    if (state.activeEngine === 'audio') {
+      dur = elements.audio.duration;
+    } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getDuration) {
+      dur = state.ytPlayer.getDuration();
+    }
+    if (dur) {
+      elements.totalDurationLabel.textContent = formatTime(dur);
+    }
   }
 
   function onEpisodeEnded() {
-    // Check if sleep timer set to end of episode
     if (state.sleepTimer.active && state.sleepTimer.minutes === 'end') {
       stopSleepTimer();
-      elements.audio.pause();
+      pauseCurrentEngine();
       return;
     }
 
-    // Continuous Playback: Play next episode in list
     if (state.currentEpisode) {
       const idx = state.filteredEpisodes.findIndex(e => e.guid === state.currentEpisode.guid);
       if (idx !== -1 && idx + 1 < state.filteredEpisodes.length) {
@@ -463,14 +560,19 @@
     if (nextIdx >= speeds.length) nextIdx = 0;
 
     state.playbackSpeed = speeds[nextIdx];
-    elements.audio.playbackRate = state.playbackSpeed;
+    
+    if (state.activeEngine === 'audio') {
+      elements.audio.playbackRate = state.playbackSpeed;
+    } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.setPlaybackRate) {
+      state.ytPlayer.setPlaybackRate(state.playbackSpeed);
+    }
+
     elements.btnSpeedToggle.textContent = `${state.playbackSpeed}x`;
   }
 
   // --- SLEEP TIMER ---
   function startSleepTimer(minutes) {
     stopSleepTimer();
-
     if (minutes === 0) return;
 
     state.sleepTimer.active = true;
@@ -484,8 +586,8 @@
       state.sleepTimer.intervalId = setInterval(() => {
         const remaining = Math.max(0, state.sleepTimer.endTime - Date.now());
         if (remaining <= 0) {
-          elements.audio.pause();
-          elements.audio.volume = state.sleepTimer.initialVolume; // reset volume
+          pauseCurrentEngine();
+          elements.audio.volume = state.sleepTimer.initialVolume;
           stopSleepTimer();
         }
       }, 1000);
@@ -557,7 +659,7 @@
         refreshAllFeeds();
         alert(`Successfully imported ${addedCount} podcast feeds!`);
       } else {
-        alert('No new podcast RSS feeds found in this OPML file.');
+        alert('No new podcast feeds found in this OPML file.');
       }
     };
     reader.readAsText(file);
@@ -581,9 +683,8 @@
     a.click();
   }
 
-  // --- EVENT LISTENERS & NAVIGATION ---
+  // --- EVENT LISTENERS ---
   function setupEventListeners() {
-    // Navigation Tabs
     elements.tabs.forEach(tab => {
       tab.addEventListener('click', () => {
         const targetTab = tab.dataset.tab;
@@ -595,7 +696,6 @@
       });
     });
 
-    // Search & Sort
     elements.searchInput.addEventListener('input', (e) => {
       state.searchQuery = e.target.value;
       processAndSortEpisodes();
@@ -608,16 +708,13 @@
       renderTimeline();
     });
 
-    // Toolbar buttons
     elements.btnOpenAddModal.addEventListener('click', openAddModal);
     elements.btnRefreshAll.addEventListener('click', refreshAllFeeds);
 
-    // Add Feed Modal
     elements.btnCloseAdd.addEventListener('click', closeAddModal);
     elements.btnCancelAdd.addEventListener('click', closeAddModal);
     elements.btnSubmitFeed.addEventListener('click', () => addFeed(elements.feedUrlInput.value));
 
-    // Sleep Modal
     elements.btnOpenSleep.addEventListener('click', openSleepModal);
     elements.btnCloseSleep.addEventListener('click', closeSleepModal);
     elements.timerBtns.forEach(btn => {
@@ -630,13 +727,9 @@
       state.sleepTimer.fadeout = e.target.checked;
     });
 
-    // Settings
     elements.opmlFileInput.addEventListener('change', (e) => {
-      if (e.target.files.length > 0) {
-        importOpml(e.target.files[0]);
-      }
+      if (e.target.files.length > 0) importOpml(e.target.files[0]);
     });
-
     elements.btnExportOpml.addEventListener('click', exportOpml);
 
     elements.btnLoadDefaults.addEventListener('click', () => {
@@ -648,14 +741,14 @@
     });
 
     elements.btnClearStorage.addEventListener('click', () => {
-      if (confirm('Are you sure you want to clear all feeds and listening state?')) {
+      if (confirm('Are you sure you want to clear all feeds and state?')) {
         localStorage.clear();
         state.feeds = [];
         state.feedMetadata = {};
         state.allEpisodes = [];
         state.filteredEpisodes = [];
         state.currentEpisode = null;
-        elements.audio.pause();
+        pauseCurrentEngine();
         updateFeedCountUI();
         renderTimeline();
         renderFeedsGrid();
@@ -663,7 +756,6 @@
     });
   }
 
-  // Modals helpers
   function openAddModal() {
     elements.addModal.classList.remove('hidden');
     elements.feedUrlInput.focus();
@@ -682,7 +774,6 @@
     elements.sleepModal.classList.add('hidden');
   }
 
-  // Helpers
   function showStatus(msg) {
     elements.statusBanner.textContent = msg;
     elements.statusBanner.classList.remove('hidden');
@@ -697,7 +788,6 @@
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
-
     const secStr = secs < 10 ? `0${secs}` : `${secs}`;
     if (hrs > 0) {
       const minStr = mins < 10 ? `0${mins}` : `${mins}`;
@@ -716,6 +806,5 @@
       .replace(/'/g, '&#39;');
   }
 
-  // Boot
   document.addEventListener('DOMContentLoaded', init);
 })();
