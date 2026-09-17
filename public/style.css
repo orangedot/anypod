@@ -97,6 +97,49 @@ body {
   -webkit-text-fill-color: transparent;
 }
 
+.user-status-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid var(--border-light);
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #94a3b8;
+  transition: background 0.3s, box-shadow 0.3s;
+}
+
+.status-indicator.online {
+  background: #22c55e;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+}
+
+.btn-pill-action {
+  background: transparent;
+  border: none;
+  color: var(--primary);
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 0.25rem;
+  font-size: 0.8rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.btn-pill-action:hover {
+  background: rgba(99, 102, 241, 0.15);
+}
+
 .nav-tabs {
   display: flex;
   gap: 0.5rem;

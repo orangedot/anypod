@@ -49,6 +49,10 @@
     magicStatusMsg: document.getElementById('magic-status-msg'),
     userSyncStatus: document.getElementById('user-sync-status'),
     btnShowLogin: document.getElementById('btn-show-login'),
+    userStatusPill: document.getElementById('user-status-pill'),
+    statusIndicator: document.getElementById('status-indicator'),
+    userEmailLabel: document.getElementById('user-email-label'),
+    btnAccountToggle: document.getElementById('btn-account-toggle'),
 
     tabs: document.querySelectorAll('.nav-tab'),
     panels: document.querySelectorAll('.tab-panel'),
@@ -182,9 +186,22 @@
     }
   }
 
-  function updateSyncStatusUI(statusText) {
+  function updateSyncStatusUI(statusText, email = '', isConnected = false) {
     if (elements.userSyncStatus) {
       elements.userSyncStatus.textContent = statusText;
+    }
+    if (elements.statusIndicator) {
+      if (isConnected) {
+        elements.statusIndicator.classList.add('online');
+      } else {
+        elements.statusIndicator.classList.remove('online');
+      }
+    }
+    if (elements.userEmailLabel) {
+      elements.userEmailLabel.textContent = email || (isConnected ? 'Logged In' : 'Guest Mode');
+    }
+    if (elements.btnAccountToggle) {
+      elements.btnAccountToggle.textContent = isConnected ? 'Sign Out' : 'Log In';
     }
   }
 
@@ -224,11 +241,17 @@
       if (res.status === 401) {
         localStorage.removeItem(STORAGE_KEYS.SESSION);
         state.sessionToken = '';
+        updateSyncStatusUI('Session Expired', '', false);
         elements.authModal.classList.remove('hidden');
         return;
       }
 
       const data = await res.json();
+      if (data.userEmail) {
+        state.userEmail = data.userEmail;
+      }
+      updateSyncStatusUI('Cloud D1 Synced', state.userEmail, true);
+
       const remoteFeeds = Array.isArray(data.feeds) ? data.feeds : [];
       const remoteUrls = new Set(remoteFeeds.map(f => f.feed_url));
 
@@ -979,6 +1002,21 @@
     if (elements.btnShowLogin) {
       elements.btnShowLogin.addEventListener('click', () => {
         elements.authModal.classList.remove('hidden');
+      });
+    }
+
+    if (elements.btnAccountToggle) {
+      elements.btnAccountToggle.addEventListener('click', () => {
+        if (elements.statusIndicator && elements.statusIndicator.classList.contains('online')) {
+          localStorage.removeItem(STORAGE_KEYS.SESSION);
+          state.sessionToken = '';
+          state.userEmail = '';
+          document.cookie = 'podcast_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+          updateSyncStatusUI('Logged Out', '', false);
+          elements.authModal.classList.remove('hidden');
+        } else {
+          elements.authModal.classList.remove('hidden');
+        }
       });
     }
 

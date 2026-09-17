@@ -28,7 +28,7 @@ export async function onRequest(context) {
   try {
     if (request.method === 'GET') {
       const rows = await db.prepare('SELECT feed_url, title, artwork FROM subscriptions WHERE user_id = ? ORDER BY created_at ASC').bind(userId).all();
-      return new Response(JSON.stringify({ feeds: rows.results || [] }), { headers: corsHeaders, status: 200 });
+      return new Response(JSON.stringify({ feeds: rows.results || [], userEmail: user.email }), { headers: corsHeaders, status: 200 });
     }
 
     if (request.method === 'POST') {
