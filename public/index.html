@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Private Podcast Web Player</title>
+  <meta name="description" content="Personal private podcast RSS feed aggregator and continuous audio player hosted on Cloudflare.">
+  <meta name="theme-color" content="#0d0f17">
+
+  <!-- Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+
+    <!-- Header Navigation -->
+    <header class="app-header">
+      <div class="logo-area">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="22"></line>
+            <line x1="8" y1="22" x2="16" y2="22"></line>
+          </svg>
+        </div>
+        <h1>Podcast Pulse</h1>
+      </div>
+
+      <nav class="nav-tabs" aria-label="Main Navigation">
+        <button class="nav-tab active" data-tab="timeline" id="tab-timeline">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          Timeline
+        </button>
+        <button class="nav-tab" data-tab="feeds" id="tab-feeds">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg>
+          Feeds (<span id="feed-count">0</span>)
+        </button>
+        <button class="nav-tab" data-tab="settings" id="tab-settings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          Settings
+        </button>
+      </nav>
+    </header>
+
+    <!-- Global Controls Toolbar -->
+    <section class="toolbar">
+      <div class="search-bar">
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="search-input" placeholder="Search episodes or podcasts..." aria-label="Search episodes">
+      </div>
+
+      <div class="toolbar-actions">
+        <select id="sort-order" aria-label="Sort Order">
+          <option value="newest">Latest to Oldest</option>
+          <option value="oldest">Oldest to Latest</option>
+        </select>
+
+        <button class="btn btn-primary" id="btn-open-add-modal">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Add Feed
+        </button>
+
+        <button class="btn btn-secondary" id="btn-refresh-all" title="Refresh all feeds">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          Refresh
+        </button>
+      </div>
+    </section>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      
+      <!-- TAB 1: Timeline Feed -->
+      <section class="tab-panel active" id="panel-timeline">
+        <div class="status-banner hidden" id="status-banner"></div>
+        <div class="episode-list" id="timeline-list">
+          <div class="empty-state">
+            <div class="empty-icon">🎙️</div>
+            <h3>No podcasts added yet</h3>
+            <p>Add an RSS feed URL or import an OPML file to start listening to your private collection.</p>
+            <button class="btn btn-primary" id="btn-empty-add">Add First Feed</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: Subscribed Feeds -->
+      <section class="tab-panel" id="panel-feeds">
+        <div class="feeds-grid" id="feeds-grid">
+          <!-- Populated dynamically -->
+        </div>
+      </section>
+
+      <!-- TAB 3: Settings & Storage -->
+      <section class="tab-panel" id="panel-settings">
+        <div class="settings-card">
+          <h3>📥 Import / Export Feeds (OPML)</h3>
+          <p>Easily transfer subscriptions from YouTube Music, Apple Podcasts, or Pocket Casts using OPML.</p>
+          <div class="settings-actions">
+            <label for="opml-file-input" class="btn btn-secondary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              Import OPML File
+            </label>
+            <input type="file" id="opml-file-input" accept=".opml,.xml" style="display: none;">
+
+            <button class="btn btn-secondary" id="btn-export-opml">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              Export Subscriptions (OPML)
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <h3>⚡ Default Feeds Setup</h3>
+          <p>Pre-populate your web app with default starter podcast feeds.</p>
+          <button class="btn btn-secondary" id="btn-load-defaults">Load Sample Tech/News Feeds</button>
+        </div>
+
+        <div class="settings-card danger-zone">
+          <h3>🗑️ Clear Local Cache</h3>
+          <p>Reset local storage, cached episode state, and saved feeds.</p>
+          <button class="btn btn-danger" id="btn-clear-storage">Clear All Storage</button>
+        </div>
+      </section>
+    </main>
+
+    <!-- Modal: Add Feed -->
+    <div class="modal-overlay hidden" id="add-modal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>Add Podcast Feed</h2>
+          <button class="btn-close" id="btn-close-add">&times;</button>
+        </div>
+        <div class="modal-body">
+          <label for="feed-url-input">Podcast RSS Feed URL</label>
+          <input type="url" id="feed-url-input" placeholder="https://example.com/podcast/rss.xml" required>
+          <p class="help-text">Enter any public or private RSS XML feed URL.</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="btn-cancel-add">Cancel</button>
+          <button class="btn btn-primary" id="btn-submit-feed">Add Feed</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Sleep Timer -->
+    <div class="modal-overlay hidden" id="sleep-modal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>⏱️ Sleep Timer</h2>
+          <button class="btn-close" id="btn-close-sleep">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>Automatically stop audio playback after specified time:</p>
+          <div class="timer-grid">
+            <button class="timer-btn" data-minutes="15">15 Min</button>
+            <button class="timer-btn" data-minutes="30">30 Min</button>
+            <button class="timer-btn" data-minutes="45">45 Min</button>
+            <button class="timer-btn" data-minutes="60">60 Min</button>
+            <button class="timer-btn" data-minutes="end">End of Episode</button>
+            <button class="timer-btn timer-cancel" data-minutes="0">Turn Off</button>
+          </div>
+          <div class="fade-toggle">
+            <input type="checkbox" id="fadeout-check" checked>
+            <label for="fadeout-check">Gradually fade out volume over last 30s</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sticky Audio Player Footer -->
+    <footer class="player-bar" id="player-bar">
+      <div class="player-track-info">
+        <img id="player-artwork" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='50' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpath d='M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z'/%3E%3C/svg%3E" alt="Episode Artwork">
+        <div class="track-text">
+          <div class="track-title" id="player-title">Select an episode to play</div>
+          <div class="track-podcast" id="player-podcast">Podcast Pulse</div>
+        </div>
+      </div>
+
+      <div class="player-center-controls">
+        <div class="control-buttons">
+          <button class="btn-icon" id="btn-prev-15" title="Skip back 15s">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 19l-9-7 9-7v14z"></path><path d="M22 19l-9-7 9-7v14z"></path></svg>
+            <span class="btn-subtext">15</span>
+          </button>
+
+          <button class="btn-play-pause" id="btn-play-toggle" aria-label="Play / Pause">
+            <svg class="icon-play" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            <svg class="icon-pause hidden" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+          </button>
+
+          <button class="btn-icon" id="btn-next-15" title="Skip forward 15s">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 19l9-7-9-7v14z"></path><path d="M2 19l9-7-9-7v14z"></path></svg>
+            <span class="btn-subtext">15</span>
+          </button>
+        </div>
+
+        <div class="time-scrubber">
+          <span class="time-label" id="current-time">0:00</span>
+          <input type="range" id="seek-bar" min="0" max="100" value="0" step="0.1" aria-label="Seek position">
+          <span class="time-label" id="total-duration">0:00</span>
+        </div>
+      </div>
+
+      <div class="player-right-options">
+        <button class="btn-pill" id="btn-speed-toggle" title="Playback Speed">1.0x</button>
+        <button class="btn-icon" id="btn-open-sleep" title="Sleep Timer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 15 15"></polyline></svg>
+          <span class="badge hidden" id="sleep-badge"></span>
+        </button>
+      </div>
+    </footer>
+
+    <!-- Native Audio Element -->
+    <audio id="audio-engine" preload="metadata"></audio>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

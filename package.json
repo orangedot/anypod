@@ -1,0 +1,23 @@
+{
+  "name": "private-podcast-player",
+  "version": "1.0.0",
+  "description": "Private podcast RSS feed aggregator and web player hosted on Cloudflare Pages/Workers",
+  "main": "public/index.html",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler pages dev public --port 8788",
+    "deploy": "wrangler pages deploy public"
+  },
+  "devDependencies": {
+    "wrangler": "^3.100.0"
+  },
+  "keywords": [
+    "podcast",
+    "rss",
+    "cloudflare",
+    "wrangler",
+    "web-player"
+  ],
+  "author": "",
+  "license": "MIT"
+}
