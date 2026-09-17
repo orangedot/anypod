@@ -1,7 +1,4 @@
-/**
- * Cloudflare Pages Function: /api/auth/send-link
- * Generates a passwordless Magic Login Token and dispatches login link
- */
+import { hashToken } from '../utils.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -26,9 +23,9 @@ export async function onRequest(context) {
 
   try {
     const body = await request.json();
-    const rawEmail = body.email ? String(body.email).trim().toLowerCase() : '';
+    const email = body.email ? String(body.email).trim().toLowerCase() : '';
 
-    if (!rawEmail || !rawEmail.includes('@')) {
+    if (!email || !email.includes('@')) {
       return new Response(JSON.stringify({ error: 'Valid email address required.' }), {
         headers: corsHeaders,
         status: 400
@@ -43,64 +40,54 @@ export async function onRequest(context) {
       });
     }
 
-    // Ensure user exists in D1
-    let user = await db.prepare('SELECT id, email FROM users WHERE email = ?').bind(rawEmail).first();
+    let user = await db.prepare('SELECT id, email FROM users WHERE email = ?').bind(email).first();
     if (!user) {
-      const userId = 'usr_' + crypto.randomUUID();
-      await db.prepare('INSERT INTO users (id, email) VALUES (?, ?)').bind(userId, rawEmail).run();
-      user = { id: userId, email: rawEmail };
+      return new Response(JSON.stringify({ success: true }), {
+        headers: corsHeaders,
+        status: 200
+      });
     }
 
-    // Generate Magic Token (expires in 15 minutes)
     const tokenBuffer = new Uint8Array(32);
     crypto.getRandomValues(tokenBuffer);
-    const magicToken = Array.from(tokenBuffer).map(b => b.toString(16).padStart(2, '0')).join('');
-    
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    const rawToken = Array.from(tokenBuffer).map(b => b.toString(16).padStart(2, '0')).join('');
+    const tokenHash = await hashToken(rawToken);
+
+    const expiresAt = Math.floor(Date.now() / 1000) + 15 * 60;
 
     await db.prepare(
-      'INSERT INTO auth_tokens (token, email, expires_at) VALUES (?, ?, ?)'
-    ).bind(magicToken, rawEmail, expiresAt).run();
+      'INSERT INTO auth_tokens (token_hash, user_id, expires_at, used) VALUES (?, ?, ?, 0)'
+    ).bind(tokenHash, user.id, expiresAt).run();
 
-    // Construct Magic Link URL
-    const host = new URL(request.url).origin;
-    const magicLink = `${host}/api/auth/verify?token=${magicToken}`;
+    const appUrl = (env.APP_URL || new URL(request.url).origin).replace(/\/$/, '');
+    const fromEmail = env.FROM_EMAIL || 'onboarding@resend.dev';
+    const verifyUrl = `${appUrl}/auth/verify?token=${rawToken}`;
 
-    // Dispatch Email via Resend / MailChannels if API key configured
-    if (env.RESEND_API_KEY) {
-      try {
-        await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${env.RESEND_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            from: 'Podcast Pulse <login@podany.pages.dev>',
-            to: [rawEmail],
-            subject: '🔑 Your Magic Login Link - Podcast Pulse',
-            html: `
-              <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; background: #0d0f17; color: #fff; border-radius: 12px;">
-                <h2 style="color: #6366f1;">Podcast Pulse Magic Login</h2>
-                <p>Click the button below to log in to your private podcast app:</p>
-                <p style="margin: 25px 0;">
-                  <a href="${magicLink}" style="background: #6366f1; color: #fff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; display: inline-block;">Unlock & Log In</a>
-                </p>
-                <p style="color: #888; font-size: 12px;">This magic link expires in 15 minutes.</p>
-              </div>
-            `
-          })
-        });
-      } catch (emailErr) {
-        console.warn('Resend email error:', emailErr);
-      }
+    const resendKey = env.RESEND_API_KEY;
+    if (!resendKey) {
+      throw new Error('RESEND_API_KEY environment variable is not configured');
     }
 
-    return new Response(JSON.stringify({
-      success: true,
-      message: `Magic link created for ${rawEmail}!`,
-      magicLink: magicLink // Included for instant friction-free testing
-    }), {
+    const resendRes = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: [email],
+        subject: 'Your Sign-In Link',
+        html: `<p>Click the link below to sign in:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`
+      })
+    });
+
+    if (!resendRes.ok) {
+      const errText = await resendRes.text();
+      throw new Error(`Resend email delivery failed (${resendRes.status}): ${errText}`);
+    }
+
+    return new Response(JSON.stringify({ success: true }), {
       headers: corsHeaders,
       status: 200
     });

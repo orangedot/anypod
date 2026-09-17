@@ -1,7 +1,4 @@
-/**
- * Cloudflare Pages Function: /api/sync/feeds
- * Syncs user podcast subscriptions with D1 SQLite Database
- */
+import { getUserFromRequest } from '../utils.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -21,18 +18,12 @@ export async function onRequest(context) {
     return new Response(JSON.stringify({ error: 'DB not bound' }), { headers: corsHeaders, status: 500 });
   }
 
-  // Validate Session Token
-  const sessionToken = request.headers.get('X-Session-Token') || request.headers.get('Authorization')?.replace('Bearer ', '');
-  if (!sessionToken) {
+  const user = await getUserFromRequest(request, env);
+  if (!user) {
     return new Response(JSON.stringify({ error: 'Unauthorized: Session required' }), { headers: corsHeaders, status: 401 });
   }
 
-  const session = await db.prepare('SELECT user_id, email FROM user_sessions WHERE session_token = ? AND expires_at > CURRENT_TIMESTAMP').bind(sessionToken).first();
-  if (!session) {
-    return new Response(JSON.stringify({ error: 'Unauthorized: Invalid or expired session' }), { headers: corsHeaders, status: 401 });
-  }
-
-  const userId = session.user_id;
+  const userId = user.id;
 
   try {
     if (request.method === 'GET') {

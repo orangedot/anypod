@@ -1,68 +1,83 @@
-/**
- * Cloudflare Pages Function: /api/auth/verify
- * Validates Magic Token, creates 30-day user session, and redirects to app
- */
+import { hashToken } from '../utils.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
-  const urlParams = new URL(request.url).searchParams;
-  const token = urlParams.get('token');
 
-  if (!token) {
-    return new Response('Missing magic link token.', { status: 400 });
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Content-Type': 'application/json; charset=utf-8'
+  };
+
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders, status: 204 });
   }
 
-  const db = env.DB;
-  if (!db) {
-    return new Response('Database error', { status: 500 });
+  if (request.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      headers: corsHeaders,
+      status: 405
+    });
   }
 
   try {
-    // Query magic token
-    const record = await db.prepare(
-      'SELECT token, email, expires_at, used FROM auth_tokens WHERE token = ?'
-    ).bind(token).first();
+    const body = await request.json();
+    const token = body.token ? String(body.token).trim() : '';
 
-    if (!record || record.used === 1) {
-      return new Response('Invalid or already used magic link.', { status: 400 });
+    if (!token) {
+      return new Response(JSON.stringify({ error: 'Token is required' }), {
+        headers: corsHeaders,
+        status: 400
+      });
     }
 
-    if (new Date(record.expires_at) < new Date()) {
-      return new Response('Magic link has expired. Please request a new one.', { status: 400 });
+    const db = env.DB;
+    if (!db) {
+      return new Response(JSON.stringify({ error: 'Database binding unconfigured' }), {
+        headers: corsHeaders,
+        status: 500
+      });
     }
 
-    // Mark token as used
-    await db.prepare('UPDATE auth_tokens SET used = 1 WHERE token = ?').bind(token).run();
+    const tokenHash = await hashToken(token);
 
-    // Get user
-    const user = await db.prepare('SELECT id FROM users WHERE email = ?').bind(record.email).first();
-    if (!user) {
-      return new Response('User record not found.', { status: 404 });
+    const updateResult = await db.prepare(
+      'UPDATE auth_tokens SET used = 1 WHERE token_hash = ? AND used = 0 AND expires_at > unixepoch() RETURNING user_id'
+    ).bind(tokenHash).all();
+
+    if (!updateResult.results || updateResult.results.length === 0) {
+      return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
+        headers: corsHeaders,
+        status: 401
+      });
     }
 
-    // Create 30-day session token
+    const userId = updateResult.results[0].user_id;
+
     const sessionBuffer = new Uint8Array(32);
     crypto.getRandomValues(sessionBuffer);
-    const sessionToken = Array.from(sessionBuffer).map(b => b.toString(16).padStart(2, '0')).join('');
-    const sessionExpires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const rawSessionToken = Array.from(sessionBuffer).map(b => b.toString(16).padStart(2, '0')).join('');
+    const sessionHash = await hashToken(rawSessionToken);
+
+    const sessionExpiresAt = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
 
     await db.prepare(
-      'INSERT INTO user_sessions (session_token, user_id, email, expires_at) VALUES (?, ?, ?, ?)'
-    ).bind(sessionToken, user.id, record.email, sessionExpires).run();
+      'INSERT INTO user_sessions (session_hash, user_id, expires_at) VALUES (?, ?, ?)'
+    ).bind(sessionHash, userId, sessionExpiresAt).run();
 
-    // Redirect to frontend with session parameter & set HTTP-only cookie
-    const origin = new URL(request.url).origin;
-    const redirectUrl = `${origin}/?session=${sessionToken}`;
+    const headers = new Headers(corsHeaders);
+    headers.set('Set-Cookie', `podcast_session=${rawSessionToken}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`);
 
-    return new Response(null, {
-      status: 302,
-      headers: {
-        'Location': redirectUrl,
-        'Set-Cookie': `podcast_session=${sessionToken}; Path=/; Max-Age=${30 * 24 * 3600}; SameSite=Lax; Secure`
-      }
+    return new Response(JSON.stringify({ success: true }), {
+      headers,
+      status: 200
     });
 
   } catch (err) {
-    return new Response(`Authentication Error: ${err.message}`, { status: 500 });
+    return new Response(JSON.stringify({ error: err.message }), {
+      headers: corsHeaders,
+      status: 500
+    });
   }
 }

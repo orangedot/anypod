@@ -1,7 +1,4 @@
-/**
- * Cloudflare Pages Function: /api/sync/position
- * Syncs exact episode playback position timestamps across devices in D1
- */
+import { getUserFromRequest } from '../utils.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -21,17 +18,12 @@ export async function onRequest(context) {
     return new Response(JSON.stringify({ error: 'DB unconfigured' }), { headers: corsHeaders, status: 500 });
   }
 
-  const sessionToken = request.headers.get('X-Session-Token') || request.headers.get('Authorization')?.replace('Bearer ', '');
-  if (!sessionToken) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { headers: corsHeaders, status: 401 });
+  const user = await getUserFromRequest(request, env);
+  if (!user) {
+    return new Response(JSON.stringify({ error: 'Unauthorized: Session required' }), { headers: corsHeaders, status: 401 });
   }
 
-  const session = await db.prepare('SELECT user_id FROM user_sessions WHERE session_token = ? AND expires_at > CURRENT_TIMESTAMP').bind(sessionToken).first();
-  if (!session) {
-    return new Response(JSON.stringify({ error: 'Unauthorized: Session expired' }), { headers: corsHeaders, status: 401 });
-  }
-
-  const userId = session.user_id;
+  const userId = user.id;
 
   try {
     if (request.method === 'GET') {
@@ -65,11 +57,11 @@ export async function onRequest(context) {
 
       await db.prepare(
         `INSERT INTO playback_state (id, user_id, episode_guid, position_seconds, completed, last_listened_at)
-         VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+         VALUES (?, ?, ?, ?, ?, unixepoch())
          ON CONFLICT(user_id, episode_guid) DO UPDATE SET
            position_seconds = excluded.position_seconds,
            completed = excluded.completed,
-           last_listened_at = CURRENT_TIMESTAMP`
+           last_listened_at = unixepoch()`
       ).bind(id, userId, episodeGuid, posSec, isCompleted).run();
 
       return new Response(JSON.stringify({ success: true, episodeGuid, positionSeconds: posSec }), { headers: corsHeaders, status: 200 });

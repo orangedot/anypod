@@ -1,8 +1,4 @@
-/**
- * Cloudflare Pages Function: /api/feed
- * Accepts ?url=<rss_feed_url> or YouTube Music/Playlist URL
- * Authenticates via Session Token verified against Cloudflare D1
- */
+import { getUserFromRequest } from './utils.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -20,18 +16,10 @@ export async function onRequest(context) {
     return new Response(null, { headers: corsHeaders, status: 204 });
   }
 
-  // Authenticate via Session Token in D1
-  const sessionToken = request.headers.get('X-Session-Token') || urlParams.get('session');
-  let isAuthorized = false;
-
-  if (sessionToken && env.DB) {
-    const session = await env.DB.prepare('SELECT user_id FROM user_sessions WHERE session_token = ? AND expires_at > CURRENT_TIMESTAMP').bind(sessionToken).first();
-    if (session) isAuthorized = true;
-  }
-
-  if (!isAuthorized) {
+  const user = await getUserFromRequest(request, env);
+  if (!user) {
     return new Response(JSON.stringify({ 
-      error: 'Unauthorized: Magic email session token required.' 
+      error: 'Unauthorized: Magic session token required.' 
     }), {
       headers: corsHeaders,
       status: 401
