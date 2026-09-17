@@ -60,6 +60,7 @@
     btnConfirmDelete: document.getElementById('btn-confirm-delete'),
     btnPrev15: document.getElementById('btn-prev-15'),
     btnNext15: document.getElementById('btn-next-15'),
+    btnSkipEpisode: document.getElementById('btn-skip-episode'),
 
     tabs: document.querySelectorAll('.nav-tab'),
     panels: document.querySelectorAll('.tab-panel'),
@@ -1157,6 +1158,12 @@
           const cur = state.ytPlayer.getCurrentTime();
           state.ytPlayer.seekTo(cur + 15, true);
         }
+      });
+    }
+
+    if (elements.btnSkipEpisode) {
+      elements.btnSkipEpisode.addEventListener('click', () => {
+        onEpisodeEnded();
       });
     }
 
