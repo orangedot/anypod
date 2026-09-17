@@ -105,6 +105,17 @@
       <!-- TAB 1: Timeline Feed -->
       <section class="tab-panel active" id="panel-timeline">
         <div class="status-banner hidden" id="status-banner"></div>
+        <div class="filter-bar" id="filter-bar">
+          <button class="chip-filter active" data-filter="all">All Episodes</button>
+          <button class="chip-filter" data-filter="continue">⏯️ Continue Listening (<span id="continue-count">0</span>)</button>
+          <button class="chip-filter" data-filter="unplayed">🎧 Unplayed</button>
+        </div>
+        <div class="continue-shelf hidden" id="continue-shelf">
+          <div class="shelf-header">
+            <h3>⏯️ Continue Listening</h3>
+          </div>
+          <div class="shelf-grid" id="continue-grid"></div>
+        </div>
         <div class="episode-list" id="timeline-list">
           <div class="empty-state">
             <div class="empty-icon">🎙️</div>

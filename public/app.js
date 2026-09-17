@@ -435,6 +435,18 @@
       );
     }
 
+    if (state.filterMode === 'continue') {
+      list = list.filter(ep => {
+        const pos = state.playbackPositions[ep.guid];
+        return pos && pos.position > 5 && !pos.completed;
+      });
+    } else if (state.filterMode === 'unplayed') {
+      list = list.filter(ep => {
+        const pos = state.playbackPositions[ep.guid];
+        return !pos || !pos.completed;
+      });
+    }
+
     if (state.sortOrder === 'newest') {
       list.sort((a, b) => b.timestamp - a.timestamp);
     } else {
@@ -442,6 +454,7 @@
     }
 
     state.filteredEpisodes = list;
+    renderContinueShelf();
   }
 
   async function searchPodcastDirectory(query) {
@@ -499,6 +512,53 @@
       }
 
       container.appendChild(card);
+    });
+  }
+
+  function renderContinueShelf() {
+    if (!elements.continueShelf || !elements.continueGrid) return;
+
+    const inProgressEps = state.allEpisodes.filter(ep => {
+      const pos = state.playbackPositions[ep.guid];
+      return pos && pos.position > 5 && !pos.completed;
+    });
+
+    if (elements.continueCount) {
+      elements.continueCount.textContent = inProgressEps.length;
+    }
+
+    if (inProgressEps.length === 0) {
+      elements.continueShelf.classList.add('hidden');
+      return;
+    }
+
+    elements.continueShelf.classList.remove('hidden');
+    elements.continueGrid.innerHTML = '';
+
+    inProgressEps.slice(0, 6).forEach(ep => {
+      const savedPos = state.playbackPositions[ep.guid];
+      const posSec = savedPos ? savedPos.position : 0;
+      const card = document.createElement('div');
+      card.className = 'continue-card';
+
+      card.innerHTML = `
+        <div class="continue-card-top">
+          <img class="continue-art" src="${ep.artwork || ''}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E';">
+          <div class="continue-info">
+            <div class="continue-title">${escapeHtml(ep.title)}</div>
+            <div class="continue-podcast">${escapeHtml(ep.podcastTitle)}</div>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-sm btn-resume-ep" style="width: 100%;">
+          ▶ Resume at ${formatTime(posSec)}
+        </button>
+      `;
+
+      card.querySelector('.btn-resume-ep').addEventListener('click', () => {
+        playEpisode(ep);
+      });
+
+      elements.continueGrid.appendChild(card);
     });
   }
 
@@ -1019,6 +1079,18 @@
     if (elements.btnShowLogin) {
       elements.btnShowLogin.addEventListener('click', () => {
         elements.authModal.classList.remove('hidden');
+      });
+    }
+
+    if (elements.filterChips) {
+      elements.filterChips.forEach(chip => {
+        chip.addEventListener('click', () => {
+          elements.filterChips.forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          state.filterMode = chip.dataset.filter || 'all';
+          processAndSortEpisodes();
+          renderTimeline();
+        });
       });
     }
 
