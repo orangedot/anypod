@@ -214,13 +214,12 @@
   }
 
   async function syncFeedsWithD1() {
-    if (!state.sessionToken) return;
-
     showStatus('Syncing feeds & playback state with Cloud D1...');
     try {
-      const res = await fetch('/api/sync/feeds', {
-        headers: { 'X-Session-Token': state.sessionToken }
-      });
+      const headers = {};
+      if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
+
+      const res = await fetch('/api/sync/feeds', { headers });
 
       if (res.status === 401) {
         localStorage.removeItem(STORAGE_KEYS.SESSION);
@@ -230,10 +229,19 @@
       }
 
       const data = await res.json();
-      if (Array.isArray(data.feeds) && data.feeds.length > 0) {
-        state.feeds = data.feeds.map(f => f.feed_url);
-        saveFeedsToStorage();
+      const remoteFeeds = Array.isArray(data.feeds) ? data.feeds : [];
+      const remoteUrls = new Set(remoteFeeds.map(f => f.feed_url));
+
+      for (const localUrl of state.feeds) {
+        if (!remoteUrls.has(localUrl)) {
+          const meta = state.feedMetadata[localUrl] || {};
+          await saveFeedToD1(localUrl, meta.title || '', meta.artwork || '');
+        }
       }
+
+      const combinedUrls = new Set([...state.feeds, ...remoteUrls]);
+      state.feeds = Array.from(combinedUrls);
+      saveFeedsToStorage();
 
       await loadPlaybackPositionsFromD1();
       await refreshAllFeeds();
@@ -246,39 +254,34 @@
   }
 
   async function saveFeedToD1(feedUrl, title = '', artwork = '') {
-    if (!state.sessionToken) return;
     try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
       await fetch('/api/sync/feeds', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Session-Token': state.sessionToken
-        },
+        headers,
         body: JSON.stringify({ feedUrl, title, artwork })
       });
     } catch (e) {}
   }
 
   async function removeFeedFromD1(feedUrl) {
-    if (!state.sessionToken) return;
     try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
       await fetch('/api/sync/feeds', {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Session-Token': state.sessionToken
-        },
+        headers,
         body: JSON.stringify({ feedUrl })
       });
     } catch (e) {}
   }
 
   async function loadPlaybackPositionsFromD1() {
-    if (!state.sessionToken) return;
     try {
-      const res = await fetch('/api/sync/position', {
-        headers: { 'X-Session-Token': state.sessionToken }
-      });
+      const headers = {};
+      if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
+      const res = await fetch('/api/sync/position', { headers });
       if (res.ok) {
         const data = await res.json();
         if (data.positions) {
@@ -289,14 +292,13 @@
   }
 
   async function savePlaybackPositionToD1(episodeGuid, positionSeconds, completed = false) {
-    if (!state.sessionToken || !episodeGuid) return;
+    if (!episodeGuid) return;
     try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
       await fetch('/api/sync/position', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Session-Token': state.sessionToken
-        },
+        headers,
         body: JSON.stringify({ episodeGuid, positionSeconds, completed })
       });
     } catch (e) {}
