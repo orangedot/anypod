@@ -113,7 +113,12 @@
             throw new Error(data.error || 'Verification failed');
           }
 
-          window.location.href = '/';
+          if (data.sessionToken) {
+            localStorage.setItem('podcast_pulse_session_token', data.sessionToken);
+            window.location.href = '/?session=' + encodeURIComponent(data.sessionToken);
+          } else {
+            window.location.href = '/';
+          }
         } catch (err) {
           btn.disabled = false;
           btn.textContent = 'Confirm Sign In';

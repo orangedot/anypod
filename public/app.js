@@ -149,19 +149,36 @@
     }
   }
 
-  function checkAuth() {
+  async function checkAuth() {
     if (state.sessionToken) {
       elements.authModal.classList.add('hidden');
       updateSyncStatusUI('Authenticated via Magic Session (Cloud D1 Synced)');
       syncFeedsWithD1();
-    } else {
-      elements.authModal.classList.remove('hidden');
-      updateSyncStatusUI('Logged in as guest / local device storage');
-      if (state.feeds.length > 0) {
-        refreshAllFeeds();
-      } else {
-        renderTimeline();
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/sync/feeds');
+      if (res.ok) {
+        const data = await res.json();
+        elements.authModal.classList.add('hidden');
+        updateSyncStatusUI('Authenticated via Session Cookie (Cloud D1 Synced)');
+        if (Array.isArray(data.feeds) && data.feeds.length > 0) {
+          state.feeds = data.feeds.map(f => f.feed_url);
+          saveFeedsToStorage();
+        }
+        await loadPlaybackPositionsFromD1();
+        await refreshAllFeeds();
+        return;
       }
+    } catch (e) {}
+
+    elements.authModal.classList.remove('hidden');
+    updateSyncStatusUI('Logged in as guest / local device storage');
+    if (state.feeds.length > 0) {
+      refreshAllFeeds();
+    } else {
+      renderTimeline();
     }
   }
 

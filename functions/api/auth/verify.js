@@ -69,7 +69,7 @@ export async function onRequest(context) {
     const headers = new Headers(corsHeaders);
     headers.set('Set-Cookie', `podcast_session=${rawSessionToken}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`);
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, sessionToken: rawSessionToken }), {
       headers,
       status: 200
     });
