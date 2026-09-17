@@ -15,6 +15,27 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Lock Screen Auth Overlay -->
+  <div class="modal-overlay hidden" id="auth-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>🔒 Magic Email Login</h2>
+      </div>
+
+      <!-- Magic Link Email Form -->
+      <form id="magic-auth-form" action="javascript:void(0);">
+        <div class="modal-body">
+          <label for="magic-email-input">Enter Email for Passwordless Magic Login Link</label>
+          <input type="email" id="magic-email-input" placeholder="you@example.com" autocomplete="email" required>
+          <p class="help-text" id="magic-status-msg" style="display: none; font-size: 0.85rem; color: #a5b4fc; margin-top: 0.5rem;"></p>
+        </div>
+        <div class="modal-footer" style="flex-direction: column; gap: 0.5rem; align-items: stretch;">
+          <button type="submit" class="btn btn-primary" id="btn-submit-magic">Send Magic Login Link ✉️</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div class="app-container">
 
     <!-- Header Navigation -->
@@ -51,7 +72,7 @@
     <section class="toolbar">
       <div class="search-bar">
         <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        <input type="text" id="search-input" placeholder="Search episodes or podcasts..." aria-label="Search episodes">
+        <input type="text" id="search-input" placeholder="Search loaded episodes..." aria-label="Search episodes">
       </div>
 
       <div class="toolbar-actions">
@@ -62,7 +83,7 @@
 
         <button class="btn btn-primary" id="btn-open-add-modal">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          Add Feed
+          Find / Add Podcast
         </button>
 
         <button class="btn btn-secondary" id="btn-refresh-all" title="Refresh all feeds">
@@ -82,8 +103,8 @@
           <div class="empty-state">
             <div class="empty-icon">🎙️</div>
             <h3>No podcasts added yet</h3>
-            <p>Add an RSS feed URL or import an OPML file to start listening to your private collection.</p>
-            <button class="btn btn-primary" id="btn-empty-add">Add First Feed</button>
+            <p>Search for any podcast by name or paste an RSS feed URL to start listening.</p>
+            <button class="btn btn-primary" id="btn-empty-add-trigger">Search / Add Podcast</button>
           </div>
         </div>
       </section>
@@ -97,6 +118,12 @@
 
       <!-- TAB 3: Settings & Storage -->
       <section class="tab-panel" id="panel-settings">
+        <div class="settings-card">
+          <h3>☁️ Cloud D1 Sync Status</h3>
+          <p id="user-sync-status">Logged in as guest / local state.</p>
+          <button class="btn btn-secondary" id="btn-show-login">Account / Magic Login</button>
+        </div>
+
         <div class="settings-card">
           <h3>📥 Import / Export Feeds (OPML)</h3>
           <p>Easily transfer subscriptions from YouTube Music, Apple Podcasts, or Pocket Casts using OPML.</p>
@@ -115,9 +142,9 @@
         </div>
 
         <div class="settings-card">
-          <h3>⚡ Default Feeds Setup</h3>
-          <p>Pre-populate your web app with default starter podcast feeds.</p>
-          <button class="btn btn-secondary" id="btn-load-defaults">Load Sample Tech/News Feeds</button>
+          <h3>⚡ Popular German & International Starter Feeds</h3>
+          <p>Instantly subscribe to top podcasts (ZEIT, Weltspiegel, Syntax, etc.).</p>
+          <button class="btn btn-secondary" id="btn-load-defaults">Load Recommended Starter Feeds</button>
         </div>
 
         <div class="settings-card danger-zone">
@@ -128,21 +155,31 @@
       </section>
     </main>
 
-    <!-- Modal: Add Feed -->
+    <!-- Modal: Search & Add Feed -->
     <div class="modal-overlay hidden" id="add-modal">
-      <div class="modal-card">
+      <div class="modal-card" style="max-width: 600px;">
         <div class="modal-header">
-          <h2>Add Podcast Feed</h2>
+          <h2>🔍 Find or Add Podcast Feed</h2>
           <button class="btn-close" id="btn-close-add">&times;</button>
         </div>
         <div class="modal-body">
-          <label for="feed-url-input">Podcast RSS Feed or YouTube Music Playlist URL</label>
-          <input type="url" id="feed-url-input" placeholder="https://music.youtube.com/playlist?list=..." required>
-          <p class="help-text">Paste standard RSS XML URLs or YouTube/YouTube Music Playlist links.</p>
+          <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+            <input type="text" id="podcast-search-query" placeholder="Type podcast name (e.g. ZEIT Geschichte, Weltspiegel...)" style="flex: 1; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 0.75rem 1rem; color: #fff;">
+            <button class="btn btn-primary" id="btn-search-directory">Search</button>
+          </div>
+
+          <div id="search-directory-results" style="max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem;">
+            <!-- Search results populated dynamically -->
+          </div>
+
+          <hr style="border: none; border-top: 1px solid var(--border-light); margin-bottom: 1rem;">
+
+          <label for="feed-url-input">Or Paste Direct RSS Feed URL</label>
+          <input type="url" id="feed-url-input" placeholder="https://example.com/podcast/rss.xml">
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" id="btn-cancel-add">Cancel</button>
-          <button class="btn btn-primary" id="btn-submit-feed">Add Feed</button>
+          <button class="btn btn-primary" id="btn-submit-feed">Add Direct URL</button>
         </div>
       </div>
     </div>
@@ -172,7 +209,7 @@
       </div>
     </div>
 
-    <!-- Hidden YouTube Player Container -->
+    <!-- Hidden YouTube Player Container (Fallback) -->
     <div id="yt-player-container" style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden;">
       <div id="yt-player"></div>
     </div>
@@ -180,7 +217,7 @@
     <!-- Sticky Audio Player Footer -->
     <footer class="player-bar" id="player-bar">
       <div class="player-track-info">
-        <img id="player-artwork" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='50' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpath d='M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z'/%3E%3C/svg%3E" alt="Episode Artwork">
+        <img id="player-artwork" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='50' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpath d='M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z'/%3E%3C/svg%3E" alt="Episode Artwork" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E';">
         <div class="track-text">
           <div class="track-title" id="player-title">Select an episode to play</div>
           <div class="track-podcast" id="player-podcast">Podcast Pulse</div>

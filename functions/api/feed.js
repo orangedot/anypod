@@ -1,23 +1,41 @@
 /**
  * Cloudflare Pages Function: /api/feed
  * Accepts ?url=<rss_feed_url> or YouTube Music/Playlist URL
- * Fetches RSS/Atom XML, with YouTube oEmbed fallback for YouTube Music playlists.
+ * Authenticates via Session Token verified against Cloudflare D1
  */
 
 export async function onRequest(context) {
-  const { request } = context;
+  const { request, env } = context;
   const urlParams = new URL(request.url).searchParams;
   let targetUrl = urlParams.get('url');
 
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Session-Token',
     'Content-Type': 'application/json; charset=utf-8'
   };
 
   if (request.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders, status: 204 });
+  }
+
+  // Authenticate via Session Token in D1
+  const sessionToken = request.headers.get('X-Session-Token') || urlParams.get('session');
+  let isAuthorized = false;
+
+  if (sessionToken && env.DB) {
+    const session = await env.DB.prepare('SELECT user_id FROM user_sessions WHERE session_token = ? AND expires_at > CURRENT_TIMESTAMP').bind(sessionToken).first();
+    if (session) isAuthorized = true;
+  }
+
+  if (!isAuthorized) {
+    return new Response(JSON.stringify({ 
+      error: 'Unauthorized: Magic email session token required.' 
+    }), {
+      headers: corsHeaders,
+      status: 401
+    });
   }
 
   if (request.method === 'POST') {
@@ -60,7 +78,6 @@ export async function onRequest(context) {
       status: 200
     });
   } catch (error) {
-    // Return graceful JSON error response (never HTTP 500)
     return new Response(JSON.stringify({ 
       error: error.message || 'Failed to process feed',
       title: 'Unavailable Feed',
@@ -86,7 +103,6 @@ async function fetchAndParseFeed(inputUrl) {
   } catch (e) {}
 
   if (isYouTubeUrl && playlistId) {
-    // Try YouTube native RSS XML endpoint first
     const rssUrl = `https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistId}`;
     try {
       const res = await fetch(rssUrl, {
@@ -103,15 +119,11 @@ async function fetchAndParseFeed(inputUrl) {
           return feedData;
         }
       }
-    } catch (err) {
-      // Fallback to oEmbed if XML endpoint fails or returns 404
-    }
+    } catch (err) {}
 
-    // FALLBACK: YouTube official oEmbed API for playlists
     return fetchYouTubeOEmbedFallback(playlistId, inputUrl);
   }
 
-  // Regular Podcast RSS XML Feed
   const response = await fetch(inputUrl, {
     headers: {
       'User-Agent': 'PrivatePodcastPlayer/1.0 (+CloudflarePages)',
@@ -127,9 +139,6 @@ async function fetchAndParseFeed(inputUrl) {
   return parsePodcastXml(xmlText, inputUrl, inputUrl);
 }
 
-/**
- * YouTube oEmbed Fallback for YouTube Music Playlists that return 404 on legacy RSS
- */
 async function fetchYouTubeOEmbedFallback(playlistId, originalUrl) {
   const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/playlist?list=${playlistId}`)}&format=json`;
   
@@ -141,7 +150,7 @@ async function fetchYouTubeOEmbedFallback(playlistId, originalUrl) {
   const data = await res.json();
   const title = data.title || 'YouTube Music Podcast Playlist';
   const author = data.author_name || 'YouTube Creator';
-  const artwork = data.thumbnail_url || '';
+  const artwork = data.thumbnail_url || 'https://i.ytimg.com/vi/default.jpg';
 
   const singleEpisode = {
     guid: `yt-playlist-${playlistId}`,
@@ -171,9 +180,6 @@ async function fetchYouTubeOEmbedFallback(playlistId, originalUrl) {
   };
 }
 
-/**
- * XML parser for RSS 2.0 and Atom feeds
- */
 function parsePodcastXml(xml, feedUrl, originalUrl) {
   const getTagContent = (xmlSegment, tagName) => {
     const regex = new RegExp(`<(${tagName}|itunes:${tagName}|yt:${tagName}|media:${tagName})[^>]*>([\\s\\S]*?)<\\/\\1\\b[^>]*>`, 'i');

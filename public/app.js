@@ -1,32 +1,36 @@
 /**
  * Podcast Pulse - Main Application Logic
- * Hybrid Player: Supports both standard RSS (.mp3/.m4a) & YouTube Music Playlists seamlessly
+ * Passwordless Magic Email Authentication & Cloudflare D1 Sync
  */
 
 (function () {
   'use strict';
 
   const STORAGE_KEYS = {
-    FEEDS: 'podcast_pulse_feeds'
+    FEEDS: 'podcast_pulse_feeds',
+    SESSION: 'podcast_pulse_session_token'
   };
 
-  const DEFAULT_FEEDS = [
+  const DEFAULT_STARTER_FEEDS = [
     'https://feeds.simplecast.com/54521442',
-    'https://music.youtube.com/playlist?list=PLAcLMO3ar8_8f4D8CAD_nsLdoey6YKA-z'
+    'https://changelog.com/podcast/feed'
   ];
 
   let state = {
+    sessionToken: '',
+    userEmail: '',
     feeds: [],
     feedMetadata: {},
     allEpisodes: [],
     filteredEpisodes: [],
+    playbackPositions: {},
     currentEpisode: null,
     playbackSpeed: 1.0,
     sortOrder: 'newest',
     searchQuery: '',
     ytPlayer: null,
     ytReady: false,
-    activeEngine: 'audio', // 'audio' | 'youtube'
+    activeEngine: 'audio',
     sleepTimer: {
       active: false,
       minutes: 0,
@@ -38,6 +42,14 @@
   };
 
   const elements = {
+    authModal: document.getElementById('auth-modal'),
+    magicAuthForm: document.getElementById('magic-auth-form'),
+    magicEmailInput: document.getElementById('magic-email-input'),
+    btnSubmitMagic: document.getElementById('btn-submit-magic'),
+    magicStatusMsg: document.getElementById('magic-status-msg'),
+    userSyncStatus: document.getElementById('user-sync-status'),
+    btnShowLogin: document.getElementById('btn-show-login'),
+
     tabs: document.querySelectorAll('.nav-tab'),
     panels: document.querySelectorAll('.tab-panel'),
     feedCount: document.getElementById('feed-count'),
@@ -57,6 +69,9 @@
     btnClearStorage: document.getElementById('btn-clear-storage'),
 
     addModal: document.getElementById('add-modal'),
+    podcastSearchQuery: document.getElementById('podcast-search-query'),
+    btnSearchDirectory: document.getElementById('btn-search-directory'),
+    searchDirectoryResults: document.getElementById('search-directory-results'),
     feedUrlInput: document.getElementById('feed-url-input'),
     btnCloseAdd: document.getElementById('btn-close-add'),
     btnCancelAdd: document.getElementById('btn-cancel-add'),
@@ -84,7 +99,6 @@
     btnSpeedToggle: document.getElementById('btn-speed-toggle')
   };
 
-  // Setup YouTube Iframe API
   window.onYouTubeIframeAPIReady = function () {
     state.ytPlayer = new YT.Player('yt-player', {
       height: '1',
@@ -92,7 +106,9 @@
       playerVars: {
         autoplay: 0,
         controls: 0,
-        playsinline: 1
+        playsinline: 1,
+        enablejsapi: 1,
+        origin: window.location.origin
       },
       events: {
         onReady: () => {
@@ -114,15 +130,162 @@
   };
 
   function init() {
+    checkUrlSessionParam();
     loadFeedsFromStorage();
     setupEventListeners();
     setupAudioEngines();
-    
-    if (state.feeds.length > 0) {
-      refreshAllFeeds();
+    checkAuth();
+  }
+
+  function checkUrlSessionParam() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionParam = urlParams.get('session');
+    if (sessionParam) {
+      state.sessionToken = sessionParam;
+      localStorage.setItem(STORAGE_KEYS.SESSION, sessionParam);
+      window.history.replaceState({}, document.title, window.location.pathname);
     } else {
-      renderTimeline();
+      state.sessionToken = localStorage.getItem(STORAGE_KEYS.SESSION) || '';
     }
+  }
+
+  function checkAuth() {
+    if (state.sessionToken) {
+      elements.authModal.classList.add('hidden');
+      updateSyncStatusUI('Authenticated via Magic Session (Cloud D1 Synced)');
+      syncFeedsWithD1();
+    } else {
+      elements.authModal.classList.remove('hidden');
+      updateSyncStatusUI('Logged in as guest / local device storage');
+      if (state.feeds.length > 0) {
+        refreshAllFeeds();
+      } else {
+        renderTimeline();
+      }
+    }
+  }
+
+  function updateSyncStatusUI(statusText) {
+    if (elements.userSyncStatus) {
+      elements.userSyncStatus.textContent = statusText;
+    }
+  }
+
+  async function submitMagicAuth() {
+    const email = elements.magicEmailInput.value.trim();
+    if (!email || !email.includes('@')) return;
+
+    elements.magicStatusMsg.style.display = 'block';
+    elements.magicStatusMsg.textContent = 'Generating magic link...';
+
+    try {
+      const res = await fetch('/api/auth/send-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      if (data.magicLink) {
+        elements.magicStatusMsg.innerHTML = `✨ Magic link created! <br><a href="${data.magicLink}" style="color: #6366f1; text-decoration: underline; word-break: break-all;">Click here to instant log in</a>`;
+      } else {
+        elements.magicStatusMsg.textContent = `📧 Magic login link sent to ${email}! Please check your inbox.`;
+      }
+    } catch (e) {
+      elements.magicStatusMsg.style.color = '#fca5a5';
+      elements.magicStatusMsg.textContent = `Error: ${e.message}`;
+    }
+  }
+
+  async function syncFeedsWithD1() {
+    if (!state.sessionToken) return;
+
+    showStatus('Syncing feeds & playback state with Cloud D1...');
+    try {
+      const res = await fetch('/api/sync/feeds', {
+        headers: { 'X-Session-Token': state.sessionToken }
+      });
+
+      if (res.status === 401) {
+        localStorage.removeItem(STORAGE_KEYS.SESSION);
+        state.sessionToken = '';
+        elements.authModal.classList.remove('hidden');
+        return;
+      }
+
+      const data = await res.json();
+      if (Array.isArray(data.feeds) && data.feeds.length > 0) {
+        state.feeds = data.feeds.map(f => f.feed_url);
+        saveFeedsToStorage();
+      }
+
+      await loadPlaybackPositionsFromD1();
+      await refreshAllFeeds();
+
+    } catch (err) {
+      console.warn('D1 sync warning:', err);
+    } finally {
+      hideStatus();
+    }
+  }
+
+  async function saveFeedToD1(feedUrl, title = '', artwork = '') {
+    if (!state.sessionToken) return;
+    try {
+      await fetch('/api/sync/feeds', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Session-Token': state.sessionToken
+        },
+        body: JSON.stringify({ feedUrl, title, artwork })
+      });
+    } catch (e) {}
+  }
+
+  async function removeFeedFromD1(feedUrl) {
+    if (!state.sessionToken) return;
+    try {
+      await fetch('/api/sync/feeds', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Session-Token': state.sessionToken
+        },
+        body: JSON.stringify({ feedUrl })
+      });
+    } catch (e) {}
+  }
+
+  async function loadPlaybackPositionsFromD1() {
+    if (!state.sessionToken) return;
+    try {
+      const res = await fetch('/api/sync/position', {
+        headers: { 'X-Session-Token': state.sessionToken }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.positions) {
+          state.playbackPositions = data.positions;
+        }
+      }
+    } catch (e) {}
+  }
+
+  async function savePlaybackPositionToD1(episodeGuid, positionSeconds, completed = false) {
+    if (!state.sessionToken || !episodeGuid) return;
+    try {
+      await fetch('/api/sync/position', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Session-Token': state.sessionToken
+        },
+        body: JSON.stringify({ episodeGuid, positionSeconds, completed })
+      });
+    } catch (e) {}
   }
 
   function loadFeedsFromStorage() {
@@ -151,10 +314,11 @@
   async function refreshAllFeeds() {
     if (state.feeds.length === 0) {
       renderTimeline();
+      renderFeedsGrid();
       return;
     }
 
-    showStatus('Refreshing feeds & YouTube Music playlists...');
+    showStatus('Refreshing feeds...');
     state.allEpisodes = [];
     state.feedMetadata = {};
 
@@ -170,7 +334,16 @@
   async function fetchSingleFeed(url) {
     try {
       const apiUrl = `/api/feed?url=${encodeURIComponent(url)}`;
-      const response = await fetch(apiUrl);
+      const headers = {};
+      if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
+
+      const response = await fetch(apiUrl, { headers });
+
+      if (response.status === 401) {
+        elements.authModal.classList.remove('hidden');
+        throw new Error('Unauthorized');
+      }
+
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const feedData = await response.json();
@@ -228,6 +401,64 @@
     state.filteredEpisodes = list;
   }
 
+  async function searchPodcastDirectory(query) {
+    const q = query.trim();
+    if (!q) return;
+
+    elements.searchDirectoryResults.innerHTML = `<p style="color: var(--text-muted); padding: 0.5rem;">Searching directory...</p>`;
+
+    try {
+      const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=podcast&limit=8`;
+      const res = await fetch(searchUrl);
+      if (!res.ok) throw new Error('Search failed');
+
+      const data = await res.json();
+      renderDirectorySearchResults(data.results || []);
+    } catch (e) {
+      elements.searchDirectoryResults.innerHTML = `<p style="color: #fca5a5; padding: 0.5rem;">Error searching directory: ${escapeHtml(e.message)}</p>`;
+    }
+  }
+
+  function renderDirectorySearchResults(results) {
+    const container = elements.searchDirectoryResults;
+    container.innerHTML = '';
+
+    if (results.length === 0) {
+      container.innerHTML = `<p style="color: var(--text-muted); padding: 0.5rem;">No podcasts found matching your query.</p>`;
+      return;
+    }
+
+    results.forEach(item => {
+      if (!item.feedUrl) return;
+
+      const isSubbed = state.feeds.includes(item.feedUrl);
+
+      const card = document.createElement('div');
+      card.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 0.75rem;';
+
+      card.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 0.75rem; min-width: 0;">
+          <img src="${item.artworkUrl100 || item.artworkUrl600}" alt="" style="width: 44px; height: 44px; border-radius: 6px; object-fit: cover;">
+          <div style="min-width: 0;">
+            <div style="font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.collectionName || item.trackName)}</div>
+            <div style="font-size: 0.775rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.artistName || '')}</div>
+          </div>
+        </div>
+        <button class="btn ${isSubbed ? 'btn-secondary' : 'btn-primary'} btn-sm btn-sub-dir" ${isSubbed ? 'disabled' : ''}>
+          ${isSubbed ? 'Subscribed' : 'Add Feed'}
+        </button>
+      `;
+
+      if (!isSubbed) {
+        card.querySelector('.btn-sub-dir').addEventListener('click', () => {
+          addFeed(item.feedUrl, item.collectionName || item.trackName, item.artworkUrl600 || item.artworkUrl100);
+        });
+      }
+
+      container.appendChild(card);
+    });
+  }
+
   function renderTimeline() {
     const container = elements.timelineList;
     container.innerHTML = '';
@@ -236,9 +467,9 @@
       container.innerHTML = `
         <div class="empty-state">
           <div class="empty-icon">🎙️</div>
-          <h3>No podcast feeds added yet</h3>
-          <p>Add an RSS feed URL or YouTube Music Playlist to start listening.</p>
-          <button class="btn btn-primary" id="btn-empty-add-trigger">Add Your First Feed</button>
+          <h3>No podcasts added yet</h3>
+          <p>Search for any podcast by name or paste an RSS feed URL to start listening.</p>
+          <button class="btn btn-primary" id="btn-empty-add-trigger">Search / Add Podcast</button>
         </div>
       `;
       document.getElementById('btn-empty-add-trigger')?.addEventListener('click', openAddModal);
@@ -260,6 +491,9 @@
       const isCurrentlyPlaying = state.currentEpisode && state.currentEpisode.guid === ep.guid;
       const isPlayingActive = isCurrentlyPlaying && isEnginePlaying();
 
+      const savedPos = state.playbackPositions[ep.guid];
+      const resumeTimeStr = savedPos && savedPos.position > 5 ? ` • Resumes at ${formatTime(savedPos.position)}` : '';
+
       const card = document.createElement('div');
       card.className = `episode-card ${isCurrentlyPlaying ? 'playing' : ''}`;
       card.dataset.guid = ep.guid;
@@ -269,7 +503,7 @@
         : 'Unknown date';
 
       card.innerHTML = `
-        <img class="episode-artwork" src="${ep.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E'}" alt="" loading="lazy">
+        <img class="episode-artwork" src="${ep.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E'}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E';">
         <div class="episode-details">
           <div class="episode-podcast-name">${ep.isYouTube ? '▶️ YOUTUBE MUSIC' : escapeHtml(ep.podcastTitle)}</div>
           <div class="episode-title">${escapeHtml(ep.title)}</div>
@@ -277,6 +511,7 @@
           <div class="episode-meta">
             <span>📅 ${formattedDate}</span>
             ${ep.duration ? `<span>⏱️ ${escapeHtml(ep.duration)}</span>` : ''}
+            <span style="color: #a5b4fc;">${resumeTimeStr}</span>
           </div>
         </div>
         <button class="btn-play-ep" title="${isPlayingActive ? 'Pause' : 'Play'}">
@@ -312,7 +547,7 @@
 
       card.innerHTML = `
         <div class="feed-header">
-          <img class="feed-art" src="${meta.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E'}" alt="">
+          <img class="feed-art" src="${meta.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E'}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E';">
           <div class="feed-info">
             <h4>${escapeHtml(meta.title || url)}</h4>
             <p>${meta.error ? `<span style="color: #fca5a5;">${escapeHtml(meta.error)}</span>` : `${meta.episodesCount} episodes`}</p>
@@ -331,7 +566,6 @@
     });
   }
 
-  // --- PLAYBACK ENGINE ---
   function setupAudioEngines() {
     const audio = elements.audio;
 
@@ -360,6 +594,20 @@
         if (dur) state.ytPlayer.seekTo(pct * dur, true);
       }
     });
+
+    setInterval(() => {
+      if (state.currentEpisode && isEnginePlaying()) {
+        let currentPos = 0;
+        if (state.activeEngine === 'audio') {
+          currentPos = elements.audio.currentTime || 0;
+        } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
+          currentPos = state.ytPlayer.getCurrentTime() || 0;
+        }
+        if (currentPos > 3) {
+          savePlaybackPositionToD1(state.currentEpisode.guid, currentPos);
+        }
+      }
+    }, 8000);
 
     setInterval(() => {
       if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
@@ -459,6 +707,9 @@
       state.ytPlayer.stopVideo();
     }
 
+    const savedPos = state.playbackPositions[episode.guid];
+    const startTime = (savedPos && savedPos.position > 5) ? savedPos.position : 0;
+
     if (episode.isYouTube || episode.videoId || episode.playlistId) {
       state.activeEngine = 'youtube';
       if (state.ytReady && state.ytPlayer) {
@@ -468,7 +719,7 @@
             listType: 'playlist'
           });
         } else if (episode.videoId) {
-          state.ytPlayer.loadVideoById(episode.videoId);
+          state.ytPlayer.loadVideoById({ videoId: episode.videoId, startSeconds: startTime });
         }
         state.ytPlayer.setPlaybackRate(state.playbackSpeed);
       } else {
@@ -479,6 +730,7 @@
       state.activeEngine = 'audio';
       elements.audio.src = episode.audioUrl;
       elements.audio.playbackRate = state.playbackSpeed;
+      if (startTime > 0) elements.audio.currentTime = startTime;
       elements.audio.play().catch(e => console.warn('Autoplay blocked:', e));
     }
 
@@ -541,6 +793,10 @@
   }
 
   function onEpisodeEnded() {
+    if (state.currentEpisode) {
+      savePlaybackPositionToD1(state.currentEpisode.guid, 0, true);
+    }
+
     if (state.sleepTimer.active && state.sleepTimer.minutes === 'end') {
       stopSleepTimer();
       pauseCurrentEngine();
@@ -624,13 +880,14 @@
     closeSleepModal();
   }
 
-  function addFeed(url) {
+  function addFeed(url, title = '', artwork = '') {
     const cleanUrl = url.trim();
     if (!cleanUrl) return;
 
     if (!state.feeds.includes(cleanUrl)) {
       state.feeds.push(cleanUrl);
       saveFeedsToStorage();
+      saveFeedToD1(cleanUrl, title, artwork);
       closeAddModal();
       refreshAllFeeds();
     } else {
@@ -642,6 +899,7 @@
     state.feeds = state.feeds.filter(f => f !== url);
     delete state.feedMetadata[url];
     saveFeedsToStorage();
+    removeFeedFromD1(url);
     processAndSortEpisodes();
     renderTimeline();
     renderFeedsGrid();
@@ -660,6 +918,7 @@
         const feedUrl = node.getAttribute('xmlUrl') || node.getAttribute('xmlurl');
         if (feedUrl && !state.feeds.includes(feedUrl)) {
           state.feeds.push(feedUrl);
+          saveFeedToD1(feedUrl, node.getAttribute('text') || '');
           addedCount++;
         }
       });
@@ -694,6 +953,29 @@
   }
 
   function setupEventListeners() {
+    if (elements.magicAuthForm) {
+      elements.magicAuthForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        submitMagicAuth();
+      });
+    }
+
+    if (elements.btnShowLogin) {
+      elements.btnShowLogin.addEventListener('click', () => {
+        elements.authModal.classList.remove('hidden');
+      });
+    }
+
+    elements.btnSearchDirectory.addEventListener('click', () => {
+      searchPodcastDirectory(elements.podcastSearchQuery.value);
+    });
+    elements.podcastSearchQuery.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        searchPodcastDirectory(elements.podcastSearchQuery.value);
+      }
+    });
+
     elements.tabs.forEach(tab => {
       tab.addEventListener('click', () => {
         const targetTab = tab.dataset.tab;
@@ -722,7 +1004,9 @@
 
     elements.btnCloseAdd.addEventListener('click', closeAddModal);
     elements.btnCancelAdd.addEventListener('click', closeAddModal);
-    elements.btnSubmitFeed.addEventListener('click', () => addFeed(elements.feedUrlInput.value));
+    elements.btnSubmitFeed.addEventListener('click', () => {
+      if (elements.feedUrlInput.value) addFeed(elements.feedUrlInput.value);
+    });
 
     elements.btnOpenSleep.addEventListener('click', openSleepModal);
     elements.btnCloseSleep.addEventListener('click', closeSleepModal);
@@ -741,10 +1025,23 @@
     });
     elements.btnExportOpml.addEventListener('click', exportOpml);
 
-    elements.btnLoadDefaults.addEventListener('click', () => {
-      DEFAULT_FEEDS.forEach(url => {
-        if (!state.feeds.includes(url)) state.feeds.push(url);
-      });
+    elements.btnLoadDefaults.addEventListener('click', async () => {
+      showStatus('Adding recommended starter feeds...');
+      const searchTerms = ['ZEIT Geschichte', 'ZEIT WISSEN', 'Weltspiegel Podcast', 'Syntax Podcast'];
+      for (const term of searchTerms) {
+        try {
+          const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=podcast&limit=1`);
+          const data = await res.json();
+          if (data.results && data.results[0] && data.results[0].feedUrl) {
+            const feedUrl = data.results[0].feedUrl;
+            if (!state.feeds.includes(feedUrl)) {
+              state.feeds.push(feedUrl);
+              saveFeedToD1(feedUrl, data.results[0].collectionName, data.results[0].artworkUrl600);
+            }
+          }
+        } catch (e) {}
+      }
+
       saveFeedsToStorage();
       refreshAllFeeds();
     });
@@ -767,11 +1064,13 @@
 
   function openAddModal() {
     elements.addModal.classList.remove('hidden');
-    elements.feedUrlInput.focus();
+    elements.podcastSearchQuery.focus();
   }
 
   function closeAddModal() {
     elements.addModal.classList.add('hidden');
+    elements.podcastSearchQuery.value = '';
+    elements.searchDirectoryResults.innerHTML = '';
     elements.feedUrlInput.value = '';
   }
 
