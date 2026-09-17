@@ -77,7 +77,7 @@ export async function onRequest(context) {
       body: JSON.stringify({
         from: fromEmail,
         to: [email],
-        subject: 'Your Sign-In Link',
+        subject: 'Podany Magic Login Link',
         html: `<p>Click the link below to sign in:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`
       })
     });

@@ -1,14 +1,9 @@
-/**
- * Podcast Pulse - Main Application Logic
- * Passwordless Magic Email Authentication & Cloudflare D1 Sync
- */
-
 (function () {
   'use strict';
 
   const STORAGE_KEYS = {
-    FEEDS: 'podcast_pulse_feeds',
-    SESSION: 'podcast_pulse_session_token'
+    FEEDS: 'podany_feeds',
+    SESSION: 'podany_session_token'
   };
 
   const DEFAULT_STARTER_FEEDS = [
@@ -157,7 +152,7 @@
       localStorage.setItem(STORAGE_KEYS.SESSION, sessionParam);
       window.history.replaceState({}, document.title, window.location.pathname);
     } else {
-      state.sessionToken = localStorage.getItem(STORAGE_KEYS.SESSION) || '';
+      state.sessionToken = localStorage.getItem(STORAGE_KEYS.SESSION) || localStorage.getItem('podcast_pulse_session_token') || '';
     }
   }
 
@@ -340,7 +335,7 @@
 
   function loadFeedsFromStorage() {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.FEEDS);
+      const saved = localStorage.getItem(STORAGE_KEYS.FEEDS) || localStorage.getItem('podcast_pulse_feeds');
       state.feeds = saved ? JSON.parse(saved) : [];
       updateFeedCountUI();
     } catch (e) {
@@ -1064,7 +1059,7 @@
   }
 
   function exportOpml() {
-    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<opml version="2.0">\n  <head>\n    <title>Podcast Pulse Export</title>\n  </head>\n  <body>\n`;
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<opml version="2.0">\n  <head>\n    <title>Podany Export</title>\n  </head>\n  <body>\n`;
     
     state.feeds.forEach(url => {
       const meta = state.feedMetadata[url] || {};
@@ -1077,7 +1072,7 @@
     const blob = new Blob([xml], { type: 'text/xml' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'podcast_subscriptions.opml';
+    a.download = 'podany_subscriptions.opml';
     a.click();
   }
 

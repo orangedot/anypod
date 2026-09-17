@@ -95,7 +95,7 @@ async function fetchAndParseFeed(inputUrl) {
     try {
       const res = await fetch(rssUrl, {
         headers: {
-          'User-Agent': 'PrivatePodcastPlayer/1.0 (+CloudflarePages)',
+          'User-Agent': 'Podany/1.0 (+CloudflarePages)',
           'Accept': 'application/atom+xml, application/xml, text/xml, */*'
         }
       });
@@ -114,7 +114,7 @@ async function fetchAndParseFeed(inputUrl) {
 
   const response = await fetch(inputUrl, {
     headers: {
-      'User-Agent': 'PrivatePodcastPlayer/1.0 (+CloudflarePages)',
+      'User-Agent': 'Podany/1.0 (+CloudflarePages)',
       'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
     }
   });

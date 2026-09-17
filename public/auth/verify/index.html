@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Confirm Sign In - Podcast Pulse</title>
+  <title>Confirm Sign In - Podany</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -76,7 +76,7 @@
   <div class="card">
     <div class="icon">🔑</div>
     <h1>Confirm Sign In</h1>
-    <p id="info-text">Click the button below to complete your authentication and open Podcast Pulse.</p>
+    <p id="info-text">Click the button below to complete your authentication and open Podany.</p>
     <button class="btn" id="btn-confirm">Confirm Sign In</button>
     <div class="error-msg" id="error-box"></div>
   </div>
@@ -114,7 +114,7 @@
           }
 
           if (data.sessionToken) {
-            localStorage.setItem('podcast_pulse_session_token', data.sessionToken);
+            localStorage.setItem('podany_session_token', data.sessionToken);
             window.location.href = '/?session=' + encodeURIComponent(data.sessionToken);
           } else {
             window.location.href = '/';
