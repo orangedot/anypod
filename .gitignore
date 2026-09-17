@@ -1,15 +1,6 @@
-# Dependencies
-node_modules/
-
-# Cloudflare / Wrangler
-.wrangler/
-dist/
-
-# Environment / Secrets
-.env
-.env.local
-*.pem
-
-# System files
+node_modules
+app/node_modules
+.wrangler
+app/.wrangler
 .DS_Store
-Thumbs.db
+*.log

@@ -20,6 +20,7 @@ jobs:
           node-version: 20
 
       - name: Install Dependencies
+        working-directory: app
         run: npm ci || npm install
 
       - name: Deploy to Cloudflare Pages
@@ -28,5 +29,5 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: podany
-          directory: public
+          directory: app/public
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
