@@ -12,5 +12,9 @@
       "database_name": "podany-db",
       "database_id": "a75faccd-ee65-42dd-9db8-e70c7c43ab4e"
     }
-  ]
+  ],
+  "vars": {
+    "APP_URL": "https://podany.pages.dev",
+    "FROM_EMAIL": "onboarding@resend.dev"
+  }
 }
