@@ -260,18 +260,15 @@
       updateSyncStatusUI('Cloud D1 Synced', state.userEmail, true);
 
       const remoteFeeds = Array.isArray(data.feeds) ? data.feeds : [];
-      const remoteUrls = new Set(remoteFeeds.map(f => f.feed_url));
-
-      for (const localUrl of state.feeds) {
-        if (!remoteUrls.has(localUrl)) {
+      if (remoteFeeds.length > 0) {
+        state.feeds = remoteFeeds.map(f => f.feed_url);
+        saveFeedsToStorage();
+      } else if (state.feeds.length > 0) {
+        for (const localUrl of state.feeds) {
           const meta = state.feedMetadata[localUrl] || {};
           await saveFeedToD1(localUrl, meta.title || '', meta.artwork || '');
         }
       }
-
-      const combinedUrls = new Set([...state.feeds, ...remoteUrls]);
-      state.feeds = Array.from(combinedUrls);
-      saveFeedsToStorage();
 
       await loadPlaybackPositionsFromD1();
       await refreshAllFeeds();
