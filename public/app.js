@@ -54,6 +54,13 @@
     userEmailLabel: document.getElementById('user-email-label'),
     btnAccountToggle: document.getElementById('btn-account-toggle'),
 
+    confirmModal: document.getElementById('confirm-modal'),
+    confirmModalMsg: document.getElementById('confirm-modal-msg'),
+    btnConfirmCancel: document.getElementById('btn-confirm-cancel'),
+    btnConfirmDelete: document.getElementById('btn-confirm-delete'),
+    btnPrev15: document.getElementById('btn-prev-15'),
+    btnNext15: document.getElementById('btn-next-15'),
+
     tabs: document.querySelectorAll('.nav-tab'),
     panels: document.querySelectorAll('.tab-panel'),
     feedCount: document.getElementById('feed-count'),
@@ -598,7 +605,7 @@
       `;
 
       card.querySelector('.btn-remove-feed').addEventListener('click', () => {
-        removeFeed(url);
+        promptRemoveFeed(url);
       });
 
       grid.appendChild(card);
@@ -934,7 +941,20 @@
     }
   }
 
+  function promptRemoveFeed(url) {
+    state.feedToDelete = url;
+    const meta = state.feedMetadata[url] || {};
+    const title = meta.title || 'this podcast';
+    if (elements.confirmModalMsg) {
+      elements.confirmModalMsg.textContent = `Are you sure you want to remove "${title}"? This will unsubscribe from the feed and clear saved playback progress.`;
+    }
+    if (elements.confirmModal) {
+      elements.confirmModal.classList.remove('hidden');
+    }
+  }
+
   function removeFeed(url) {
+    state.allEpisodes = state.allEpisodes.filter(ep => ep.feedUrl !== url);
     state.feeds = state.feeds.filter(f => f !== url);
     delete state.feedMetadata[url];
     saveFeedsToStorage();
@@ -1016,6 +1036,45 @@
           elements.authModal.classList.remove('hidden');
         } else {
           elements.authModal.classList.remove('hidden');
+        }
+      });
+    }
+
+    if (elements.btnConfirmCancel) {
+      elements.btnConfirmCancel.addEventListener('click', () => {
+        state.feedToDelete = null;
+        if (elements.confirmModal) elements.confirmModal.classList.add('hidden');
+      });
+    }
+
+    if (elements.btnConfirmDelete) {
+      elements.btnConfirmDelete.addEventListener('click', () => {
+        if (state.feedToDelete) {
+          removeFeed(state.feedToDelete);
+          state.feedToDelete = null;
+        }
+        if (elements.confirmModal) elements.confirmModal.classList.add('hidden');
+      });
+    }
+
+    if (elements.btnPrev15) {
+      elements.btnPrev15.addEventListener('click', () => {
+        if (state.activeEngine === 'audio') {
+          elements.audio.currentTime = Math.max(0, elements.audio.currentTime - 15);
+        } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
+          const cur = state.ytPlayer.getCurrentTime();
+          state.ytPlayer.seekTo(Math.max(0, cur - 15), true);
+        }
+      });
+    }
+
+    if (elements.btnNext15) {
+      elements.btnNext15.addEventListener('click', () => {
+        if (state.activeEngine === 'audio') {
+          elements.audio.currentTime = Math.min(elements.audio.duration || 0, elements.audio.currentTime + 15);
+        } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
+          const cur = state.ytPlayer.getCurrentTime();
+          state.ytPlayer.seekTo(cur + 15, true);
         }
       });
     }

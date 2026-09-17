@@ -52,15 +52,15 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  padding-bottom: 110px; /* space for fixed player bar */
+  padding-bottom: 180px;
 }
 
-/* Header & Nav */
 .app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.25rem 2rem;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
   background: var(--bg-glass);
   backdrop-filter: var(--backdrop-blur);
   -webkit-backdrop-filter: var(--backdrop-blur);
