@@ -1,7 +1,7 @@
 /**
  * Cloudflare Pages Function: /api/feed
  * Accepts ?url=<rss_feed_url> or YouTube Music/Playlist URL
- * Fetches XML, bypasses CORS, parses RSS 2.0 & Atom (YouTube) feeds into JSON.
+ * Fetches RSS/Atom XML, with YouTube oEmbed fallback for YouTube Music playlists.
  */
 
 export async function onRequest(context) {
@@ -60,21 +60,59 @@ export async function onRequest(context) {
       status: 200
     });
   } catch (error) {
+    // Return graceful JSON error response (never HTTP 500)
     return new Response(JSON.stringify({ 
-      error: `Failed to fetch or parse feed: ${error.message}`,
-      url: targetUrl
+      error: error.message || 'Failed to process feed',
+      title: 'Unavailable Feed',
+      episodesCount: 0,
+      episodes: []
     }), {
       headers: corsHeaders,
-      status: 500
+      status: 200
     });
   }
 }
 
 async function fetchAndParseFeed(inputUrl) {
-  // Normalize YouTube & YouTube Music playlist URLs to native YouTube RSS feed
-  let feedUrl = normalizeFeedUrl(inputUrl);
+  let isYouTubeUrl = false;
+  let playlistId = null;
 
-  const response = await fetch(feedUrl, {
+  try {
+    const parsed = new URL(inputUrl);
+    if (parsed.hostname.includes('youtube.com') || parsed.hostname.includes('youtu.be')) {
+      isYouTubeUrl = true;
+      playlistId = parsed.searchParams.get('list');
+    }
+  } catch (e) {}
+
+  if (isYouTubeUrl && playlistId) {
+    // Try YouTube native RSS XML endpoint first
+    const rssUrl = `https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistId}`;
+    try {
+      const res = await fetch(rssUrl, {
+        headers: {
+          'User-Agent': 'PrivatePodcastPlayer/1.0 (+CloudflarePages)',
+          'Accept': 'application/atom+xml, application/xml, text/xml, */*'
+        }
+      });
+
+      if (res.ok) {
+        const xmlText = await res.text();
+        const feedData = parsePodcastXml(xmlText, rssUrl, inputUrl);
+        if (feedData.episodes && feedData.episodes.length > 0) {
+          return feedData;
+        }
+      }
+    } catch (err) {
+      // Fallback to oEmbed if XML endpoint fails or returns 404
+    }
+
+    // FALLBACK: YouTube official oEmbed API for playlists
+    return fetchYouTubeOEmbedFallback(playlistId, inputUrl);
+  }
+
+  // Regular Podcast RSS XML Feed
+  const response = await fetch(inputUrl, {
     headers: {
       'User-Agent': 'PrivatePodcastPlayer/1.0 (+CloudflarePages)',
       'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
@@ -82,43 +120,61 @@ async function fetchAndParseFeed(inputUrl) {
   });
 
   if (!response.ok) {
-    throw new Error(`HTTP Error ${response.status}: ${response.statusText}`);
+    throw new Error(`HTTP ${response.status}: Unable to fetch feed`);
   }
 
   const xmlText = await response.text();
-  return parsePodcastXml(xmlText, feedUrl, inputUrl);
+  return parsePodcastXml(xmlText, inputUrl, inputUrl);
 }
 
 /**
- * Automatically translates YouTube Music / YouTube URLs to native YouTube RSS XML feeds
+ * YouTube oEmbed Fallback for YouTube Music Playlists that return 404 on legacy RSS
  */
-function normalizeFeedUrl(url) {
-  try {
-    const parsed = new URL(url);
-
-    // Detect YouTube / YouTube Music playlist: https://music.youtube.com/playlist?list=PL...
-    if (parsed.hostname.includes('youtube.com') || parsed.hostname.includes('youtu.be')) {
-      const playlistId = parsed.searchParams.get('list');
-      if (playlistId) {
-        return `https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistId}`;
-      }
-
-      const channelId = parsed.searchParams.get('channel_id');
-      if (channelId) {
-        return `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
-      }
-    }
-  } catch (e) {
-    // Ignore URL parsing errors, use original URL
+async function fetchYouTubeOEmbedFallback(playlistId, originalUrl) {
+  const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/playlist?list=${playlistId}`)}&format=json`;
+  
+  const res = await fetch(oembedUrl);
+  if (!res.ok) {
+    throw new Error(`YouTube Playlist (ID: ${playlistId}) not found or is set to Private.`);
   }
-  return url;
+
+  const data = await res.json();
+  const title = data.title || 'YouTube Music Podcast Playlist';
+  const author = data.author_name || 'YouTube Creator';
+  const artwork = data.thumbnail_url || '';
+
+  const singleEpisode = {
+    guid: `yt-playlist-${playlistId}`,
+    title: `${title} (Full Playlist)`,
+    description: `YouTube Music Podcast Playlist by ${author}. Click play to stream all episodes in sequence.`,
+    pubDate: new Date().toUTCString(),
+    timestamp: Date.now(),
+    audioUrl: `https://www.youtube.com/playlist?list=${playlistId}`,
+    duration: '',
+    artwork: artwork,
+    podcastTitle: title,
+    feedUrl: originalUrl,
+    isYouTube: true,
+    isYouTubePlaylist: true,
+    playlistId: playlistId
+  };
+
+  return {
+    title: title,
+    description: `YouTube Music Podcast Playlist (${author})`,
+    author: author,
+    artwork: artwork,
+    feedUrl: originalUrl,
+    episodesCount: 1,
+    updatedAt: new Date().toISOString(),
+    episodes: [singleEpisode]
+  };
 }
 
 /**
- * Parses RSS 2.0 and Atom (YouTube) XML feeds
+ * XML parser for RSS 2.0 and Atom feeds
  */
 function parsePodcastXml(xml, feedUrl, originalUrl) {
-  // Utility helpers
   const getTagContent = (xmlSegment, tagName) => {
     const regex = new RegExp(`<(${tagName}|itunes:${tagName}|yt:${tagName}|media:${tagName})[^>]*>([\\s\\S]*?)<\\/\\1\\b[^>]*>`, 'i');
     const match = xmlSegment.match(regex);
@@ -146,7 +202,6 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
       .trim();
   };
 
-  // Check if Atom format (e.g. YouTube feeds) or RSS 2.0
   const isAtom = xml.includes('<feed') && xml.includes('xmlns="http://www.w3.org/2005/Atom"');
 
   let title = '';
@@ -176,7 +231,6 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
   const items = [];
 
   if (isAtom) {
-    // Parse Atom <entry>
     const entryRegex = /<entry[^>]*>([\s\S]*?)<\/entry>/gi;
     let entryMatch;
 
@@ -222,7 +276,6 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
       }
     }
   } else {
-    // Parse RSS 2.0 <item>
     const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>/gi;
     let itemMatch;
 
@@ -235,7 +288,6 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
       const epDuration = getTagContent(itemXml, 'duration');
 
       let audioUrl = getAttribute(itemXml, 'enclosure', 'url') || getAttribute(itemXml, 'media:content', 'url');
-
       let epArtwork = getAttribute(itemXml, 'image', 'href') || getAttribute(itemXml, 'itunes:image', 'href') || artwork;
 
       let timestamp = 0;

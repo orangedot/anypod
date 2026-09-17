@@ -84,7 +84,7 @@
     btnSpeedToggle: document.getElementById('btn-speed-toggle')
   };
 
-  // Setup global YouTube Iframe API callback
+  // Setup YouTube Iframe API
   window.onYouTubeIframeAPIReady = function () {
     state.ytPlayer = new YT.Player('yt-player', {
       height: '1',
@@ -154,7 +154,7 @@
       return;
     }
 
-    showStatus('Refreshing feeds & YouTube playlists...');
+    showStatus('Refreshing feeds & YouTube Music playlists...');
     state.allEpisodes = [];
     state.feedMetadata = {};
 
@@ -174,7 +174,15 @@
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const feedData = await response.json();
-      if (feedData.error) throw new Error(feedData.error);
+      if (feedData.error) {
+        state.feedMetadata[url] = {
+          title: feedData.title || 'Unavailable Feed',
+          artwork: '',
+          episodesCount: 0,
+          error: feedData.error
+        };
+        return null;
+      }
 
       state.feedMetadata[url] = {
         title: feedData.title,
@@ -307,7 +315,7 @@
           <img class="feed-art" src="${meta.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E'}" alt="">
           <div class="feed-info">
             <h4>${escapeHtml(meta.title || url)}</h4>
-            <p>${meta.episodesCount !== undefined ? `${meta.episodesCount} episodes` : 'Loading...'}</p>
+            <p>${meta.error ? `<span style="color: #fca5a5;">${escapeHtml(meta.error)}</span>` : `${meta.episodesCount} episodes`}</p>
           </div>
         </div>
         <div class="feed-actions">
@@ -323,7 +331,7 @@
     });
   }
 
-  // --- DUAL ENGINE PLAYER SETUP ---
+  // --- PLAYBACK ENGINE ---
   function setupAudioEngines() {
     const audio = elements.audio;
 
@@ -343,18 +351,16 @@
       if (state.activeEngine === 'audio') updatePlayerUI(false);
     });
 
-    // Unified Scrubber for both engines
     elements.seekBar.addEventListener('input', () => {
       const pct = elements.seekBar.value / 100;
       if (state.activeEngine === 'audio' && audio.duration) {
         audio.currentTime = pct * audio.duration;
       } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getDuration) {
         const dur = state.ytPlayer.getDuration();
-        state.ytPlayer.seekTo(pct * dur, true);
+        if (dur) state.ytPlayer.seekTo(pct * dur, true);
       }
     });
 
-    // YouTube Progress Polling Interval
     setInterval(() => {
       if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
         updateProgress();
@@ -448,19 +454,25 @@
   function playEpisode(episode) {
     state.currentEpisode = episode;
 
-    // Pause opposite engine
     elements.audio.pause();
     if (state.ytPlayer && state.ytPlayer.stopVideo) {
       state.ytPlayer.stopVideo();
     }
 
-    if (episode.isYouTube || episode.videoId) {
+    if (episode.isYouTube || episode.videoId || episode.playlistId) {
       state.activeEngine = 'youtube';
-      if (state.ytReady && state.ytPlayer && state.ytPlayer.loadVideoById) {
-        state.ytPlayer.loadVideoById(episode.videoId);
+      if (state.ytReady && state.ytPlayer) {
+        if (episode.isYouTubePlaylist && episode.playlistId) {
+          state.ytPlayer.loadPlaylist({
+            list: episode.playlistId,
+            listType: 'playlist'
+          });
+        } else if (episode.videoId) {
+          state.ytPlayer.loadVideoById(episode.videoId);
+        }
         state.ytPlayer.setPlaybackRate(state.playbackSpeed);
       } else {
-        alert('YouTube Player is loading, please try playing in a few seconds.');
+        alert('YouTube Player is initializing, please try playing in a few seconds.');
         return;
       }
     } else {
@@ -570,7 +582,6 @@
     elements.btnSpeedToggle.textContent = `${state.playbackSpeed}x`;
   }
 
-  // --- SLEEP TIMER ---
   function startSleepTimer(minutes) {
     stopSleepTimer();
     if (minutes === 0) return;
@@ -613,7 +624,6 @@
     closeSleepModal();
   }
 
-  // --- FEED MANAGEMENT & OPML ---
   function addFeed(url) {
     const cleanUrl = url.trim();
     if (!cleanUrl) return;
@@ -683,7 +693,6 @@
     a.click();
   }
 
-  // --- EVENT LISTENERS ---
   function setupEventListeners() {
     elements.tabs.forEach(tab => {
       tab.addEventListener('click', () => {
