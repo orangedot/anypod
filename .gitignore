@@ -1,6 +1,4 @@
 node_modules
-app/node_modules
 .wrangler
-app/.wrangler
 .DS_Store
 *.log
