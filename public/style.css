@@ -125,26 +125,12 @@ body {
 .logo-area {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-}
-
-.logo-icon {
-  width: 36px;
-  height: 36px;
-  background: var(--text-primary);
-  color: var(--bg-dark);
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 1.1rem;
 }
 
 .logo-area h1 {
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
   color: var(--text-primary);
 }
 
@@ -210,12 +196,12 @@ body {
 }
 
 .chip-filter {
-  background: rgba(30, 41, 59, 0.6);
+  background: var(--bg-card);
   border: 1px solid var(--border-light);
-  color: var(--text-muted);
-  padding: 0.4rem 0.9rem;
+  color: var(--text-secondary);
+  padding: 0.35rem 0.75rem;
   border-radius: var(--radius-full);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
@@ -229,7 +215,7 @@ body {
 
 .chip-filter.active {
   background: var(--text-primary);
-  color: var(--bg-dark);
+  color: var(--bg-main);
   border-color: var(--text-primary);
   font-weight: 600;
 }
@@ -291,6 +277,12 @@ body {
   gap: 0.75rem;
   min-width: 0;
   overflow: hidden;
+  transition: all 0.25s ease;
+}
+
+.continue-card.playing {
+  border-color: var(--accent-orange);
+  box-shadow: 0 0 16px rgba(249, 115, 22, 0.2);
 }
 
 .continue-card-top {
@@ -446,19 +438,13 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-full);
-  padding: 0.45rem 0.9rem;
+  padding: 0.45rem 1rem;
   width: 100%;
-  gap: 0.6rem;
   transition: border-color 0.2s;
 }
 
 .search-bar:focus-within {
   border-color: var(--border-focus);
-}
-
-.search-icon {
-  color: var(--text-muted);
-  flex-shrink: 0;
 }
 
 .search-bar input {
@@ -719,22 +705,25 @@ select {
 }
 
 .btn-play-ep {
-  width: 36px;
-  height: 36px;
+  padding: 0.35rem 0.85rem;
   border-radius: var(--radius-full);
   background: var(--text-primary);
   border: none;
   color: var(--bg-dark);
-  display: flex;
+  font-family: inherit;
+  font-size: 0.775rem;
+  font-weight: 600;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
   transition: all 0.2s ease;
+  min-width: 52px;
 }
 
 .btn-play-ep:hover {
-  transform: scale(1.08);
+  transform: translateY(-1px);
 }
 
 .episode-card.playing .btn-play-ep {
@@ -743,13 +732,15 @@ select {
 }
 
 .btn-mark-played {
-  width: 32px;
-  height: 32px;
+  padding: 0.35rem 0.65rem;
   border-radius: var(--radius-full);
   background: transparent;
   border: 1px solid var(--border-light);
   color: var(--text-muted);
-  display: flex;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
@@ -767,6 +758,7 @@ select {
   background: var(--text-primary);
   color: var(--bg-dark);
   border-color: var(--text-primary);
+  font-weight: 600;
 }
 
 .empty-state {
@@ -1014,6 +1006,19 @@ select {
   border-radius: var(--radius-full);
   padding: 0.35rem 0.65rem;
   box-shadow: var(--shadow-main);
+}
+
+.dock-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.dock-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border-light);
+  margin: 0 0.25rem;
 }
 
 .bottom-action-dock select {
@@ -1359,19 +1364,17 @@ select {
     width: 100%;
   }
 
-  .btn-header-add span {
-    display: none;
-  }
-
   .btn-header-add {
-    padding: 0.55rem;
-    border-radius: var(--radius-full);
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
   }
 
   .bottom-action-dock {
     bottom: 110px;
-    right: 1rem;
-    left: auto;
+    right: 0.75rem;
+    left: 0.75rem;
+    justify-content: space-between;
+    overflow-x: auto;
     padding: 0.3rem 0.5rem;
   }
 

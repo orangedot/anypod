@@ -10,12 +10,6 @@
     THEME: 'podany_theme'
   };
 
-  const ICONS = {
-    PLAY: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>',
-    PAUSE: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>',
-    SPINNER: '<svg class="spinner" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"></path></svg>',
-    CHECK: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>'
-  };
 
   const DEFAULT_STARTER_FEEDS = [
     'https://feeds.simplecast.com/54521442',
@@ -593,9 +587,11 @@
 
   function updateFilterBadges() {
     if (!elements.continueCount) return;
+    const currentGuid = state.currentEpisode ? state.currentEpisode.guid : null;
     const inProgressCount = state.allEpisodes.filter(ep => {
       const pos = state.playbackPositions[ep.guid];
-      return pos && pos.position > 15 && !pos.completed;
+      const isCurrent = currentGuid && ep.guid === currentGuid;
+      return (!pos || !pos.completed) && (isCurrent || (pos && pos.position > 2));
     }).length;
     elements.continueCount.textContent = inProgressCount;
   }
@@ -612,15 +608,27 @@
       );
     }
 
+    const currentGuid = state.currentEpisode ? state.currentEpisode.guid : null;
+
     if (state.filterMode === 'continue') {
       list = list.filter(ep => {
         const pos = state.playbackPositions[ep.guid];
-        return pos && pos.position > 15 && !pos.completed;
+        const isCurrent = currentGuid && ep.guid === currentGuid;
+        return (!pos || !pos.completed) && (isCurrent || (pos && pos.position > 2));
       });
+      if (currentGuid) {
+        const curIdx = list.findIndex(e => e.guid === currentGuid);
+        if (curIdx > 0) {
+          const cur = list.splice(curIdx, 1)[0];
+          list.unshift(cur);
+        }
+      }
     } else if (state.filterMode === 'unplayed') {
       list = list.filter(ep => {
         const pos = state.playbackPositions[ep.guid];
-        return !pos || (!pos.completed && (!pos.position || pos.position <= 15));
+        const isCurrent = currentGuid && ep.guid === currentGuid;
+        if (isCurrent) return false;
+        return !pos || (!pos.completed && (!pos.position || pos.position <= 2));
       });
     }
 
@@ -697,10 +705,21 @@
   function renderContinueShelf() {
     if (!elements.continueShelf || !elements.continueGrid) return;
 
-    const inProgressEps = state.allEpisodes.filter(ep => {
+    const currentGuid = state.currentEpisode ? state.currentEpisode.guid : null;
+
+    let inProgressEps = state.allEpisodes.filter(ep => {
       const pos = state.playbackPositions[ep.guid];
-      return pos && pos.position > 15 && !pos.completed;
+      const isCurrent = currentGuid && ep.guid === currentGuid;
+      return (!pos || !pos.completed) && (isCurrent || (pos && pos.position > 2));
     });
+
+    if (currentGuid) {
+      const curIdx = inProgressEps.findIndex(e => e.guid === currentGuid);
+      if (curIdx > 0) {
+        const cur = inProgressEps.splice(curIdx, 1)[0];
+        inProgressEps.unshift(cur);
+      }
+    }
 
     if (elements.continueCount) {
       elements.continueCount.textContent = inProgressEps.length;
@@ -717,20 +736,22 @@
     inProgressEps.slice(0, 10).forEach(ep => {
       const savedPos = state.playbackPositions[ep.guid];
       const posSec = savedPos ? savedPos.position : 0;
+      const isCurrent = currentGuid && ep.guid === currentGuid;
+      const isPlaying = isCurrent && state.playbackStatus === 'playing';
       const card = document.createElement('div');
-      card.className = 'continue-card';
+      card.className = `continue-card ${isCurrent ? 'playing' : ''}`;
+      card.dataset.guid = ep.guid;
 
       card.innerHTML = `
         <div class="continue-card-top">
-          <img class="continue-art" src="${ep.artwork || ''}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E';">
+          <img class="continue-art" src="${ep.artwork || ''}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E';">
           <div class="continue-info">
             <div class="continue-title">${escapeHtml(ep.title)}</div>
             <div class="continue-podcast">${escapeHtml(ep.podcastTitle)}</div>
           </div>
         </div>
         <button class="btn-resume-ep" style="width: 100%;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-          <span>Resume at ${formatTime(posSec)}</span>
+          <span>${isPlaying ? 'Playing' : (posSec > 15 ? `Resume at ${formatTime(posSec)}` : 'Continue')}</span>
         </button>
       `;
 
@@ -743,7 +764,11 @@
       }
 
       card.querySelector('.btn-resume-ep').addEventListener('click', () => {
-        playEpisode(ep);
+        if (state.currentEpisode && state.currentEpisode.guid === ep.guid) {
+          toggleEpisodePlayback(ep);
+        } else {
+          playEpisode(ep);
+        }
       });
 
       elements.continueGrid.appendChild(card);
@@ -833,15 +858,16 @@
       renderTimeline();
     } else {
       renderContinueShelf();
-      const card = elements.timelineList.querySelector(`.episode-card[data-guid="${ep.guid}"]`);
-      if (card) {
+      const cards = document.querySelectorAll(`.episode-card[data-guid="${ep.guid}"]`);
+      cards.forEach(card => {
         card.classList.toggle('is-played', !isCompleted);
         const checkBtn = card.querySelector('.btn-mark-played');
         if (checkBtn) {
           checkBtn.classList.toggle('is-completed', !isCompleted);
+          checkBtn.textContent = !isCompleted ? 'Played' : 'Mark';
           checkBtn.title = !isCompleted ? 'Mark as Unplayed' : 'Mark as Played';
         }
-      }
+      });
     }
   }
 
@@ -862,19 +888,16 @@
       ? new Date(ep.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
       : 'Unknown date';
 
-    let btnIcon = ICONS.PLAY;
-    let btnTitle = 'Play';
+    let btnText = 'Play';
     if (isLoading) {
-      btnIcon = ICONS.SPINNER;
-      btnTitle = 'Loading...';
+      btnText = '...';
     } else if (isPlaying) {
-      btnIcon = ICONS.PAUSE;
-      btnTitle = 'Pause';
+      btnText = 'Pause';
     }
 
     card.innerHTML = `
       <div class="episode-card-top">
-        <img class="episode-artwork" src="${ep.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E'}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E';">
+        <img class="episode-artwork" src="${ep.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E'}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E';">
         <div class="episode-header-info">
           <div class="episode-podcast-name">${ep.isYouTube ? 'YOUTUBE' : escapeHtml(ep.podcastTitle)}</div>
           <div class="episode-title">${escapeHtml(ep.title)}</div>
@@ -889,10 +912,10 @@
         </div>
         <div class="episode-card-actions">
           <button class="btn-mark-played ${isCompleted ? 'is-completed' : ''}" title="${isCompleted ? 'Mark as Unplayed' : 'Mark as Played'}">
-            ${ICONS.CHECK}
+            ${isCompleted ? 'Played' : 'Mark'}
           </button>
-          <button class="btn-play-ep" title="${btnTitle}">
-            ${btnIcon}
+          <button class="btn-play-ep" title="${btnText}">
+            ${btnText}
           </button>
         </div>
       </div>
@@ -935,7 +958,7 @@
 
       card.innerHTML = `
         <div class="feed-header">
-          <img class="feed-art" src="${meta.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E'}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E';">
+          <img class="feed-art" src="${meta.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E'}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E';">
           <div class="feed-info">
             <h4>${escapeHtml(meta.title || url)}</h4>
             <p>${meta.error ? `<span style="color: #ef4444;">${escapeHtml(meta.error)}</span>` : `${meta.episodesCount} episodes`}</p>
@@ -979,11 +1002,11 @@
 
     header.innerHTML = `
       <div class="feed-detail-top-nav">
-        <button class="btn btn-secondary btn-sm" id="btn-feed-back">&larr; Back</button>
+        <button class="btn btn-secondary btn-sm" id="btn-feed-back">Back</button>
         <button class="btn btn-danger btn-sm" id="btn-feed-unsubscribe">Unsubscribe</button>
       </div>
       <div class="feed-detail-main">
-        <img class="feed-detail-art" src="${meta.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E'}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E';">
+        <img class="feed-detail-art" src="${meta.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E'}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E';">
         <div class="feed-detail-info">
           <div class="feed-detail-title">${escapeHtml(meta.title || 'Untitled Podcast')}</div>
           <div class="feed-detail-author">${escapeHtml(meta.author || '')}</div>
@@ -1324,32 +1347,46 @@
 
   function playNextEpisode() {
     let nextEp = null;
-    if (state.currentEpisode) {
-      const currentGuid = state.currentEpisode.guid;
+    const currentGuid = state.currentEpisode ? state.currentEpisode.guid : null;
+
+    if (state.filterMode === 'continue') {
+      const continueList = state.allEpisodes.filter(ep => {
+        const pos = state.playbackPositions[ep.guid];
+        return (!pos || !pos.completed) && (pos && pos.position > 2);
+      });
+      const idx = continueList.findIndex(e => e.guid === currentGuid);
+      if (idx !== -1 && idx + 1 < continueList.length) {
+        nextEp = continueList[idx + 1];
+      } else if (continueList.length > 0) {
+        nextEp = continueList[0];
+      }
+    }
+
+    if (!nextEp && state.filteredEpisodes.length > 0) {
       const idx = state.filteredEpisodes.findIndex(e => e.guid === currentGuid);
       if (idx !== -1 && idx + 1 < state.filteredEpisodes.length) {
         nextEp = state.filteredEpisodes[idx + 1];
-      } else if (idx === -1 && state.filteredEpisodes.length > 0) {
+      } else if (idx === -1) {
         nextEp = state.filteredEpisodes[0];
-      } else {
-        const allIdx = state.allEpisodes.findIndex(e => e.guid === currentGuid);
-        if (allIdx !== -1 && allIdx + 1 < state.allEpisodes.length) {
-          nextEp = state.allEpisodes[allIdx + 1];
-        } else if (state.allEpisodes.length > 0) {
-          nextEp = state.allEpisodes[0];
-        }
       }
-    } else if (state.filteredEpisodes.length > 0) {
-      nextEp = state.filteredEpisodes[0];
-    } else if (state.allEpisodes.length > 0) {
-      nextEp = state.allEpisodes[0];
+    }
+
+    if (!nextEp) {
+      const allIdx = state.allEpisodes.findIndex(e => e.guid === currentGuid);
+      if (allIdx !== -1 && allIdx + 1 < state.allEpisodes.length) {
+        nextEp = state.allEpisodes[allIdx + 1];
+      } else if (state.allEpisodes.length > 0) {
+        nextEp = state.allEpisodes[0];
+      }
     }
 
     if (nextEp) {
       playEpisode(nextEp);
-      if (state.filterMode === 'unplayed' || state.filterMode === 'continue') {
-        processAndSortEpisodes();
-        renderTimeline();
+      processAndSortEpisodes();
+      renderTimeline();
+      renderContinueShelf();
+      if (state.activeFeedDetailUrl) {
+        renderFeedDetail(state.activeFeedDetailUrl);
       }
     } else {
       state.playbackStatus = 'idle';
@@ -1399,19 +1436,40 @@
       if (state.currentEpisode && state.currentEpisode.guid === guid) {
         card.classList.add('playing');
         if (isLoading) {
-          btn.innerHTML = ICONS.SPINNER;
+          btn.textContent = '...';
           btn.title = 'Loading...';
         } else if (isPlaying) {
-          btn.innerHTML = ICONS.PAUSE;
+          btn.textContent = 'Pause';
           btn.title = 'Pause';
         } else {
-          btn.innerHTML = ICONS.PLAY;
+          btn.textContent = 'Play';
           btn.title = 'Play';
         }
       } else {
         card.classList.remove('playing');
-        btn.innerHTML = ICONS.PLAY;
+        btn.textContent = 'Play';
         btn.title = 'Play';
+      }
+    });
+
+    const continueCards = document.querySelectorAll('.continue-card');
+    continueCards.forEach(card => {
+      const guid = card.dataset.guid;
+      const btnSpan = card.querySelector('.btn-resume-ep span');
+      if (!btnSpan) return;
+      const isCurrent = state.currentEpisode && state.currentEpisode.guid === guid;
+      if (isCurrent) {
+        card.classList.add('playing');
+        if (isPlaying) {
+          btnSpan.textContent = 'Playing';
+        } else {
+          const pos = state.playbackPositions[guid]?.position || 0;
+          btnSpan.textContent = pos > 15 ? `Resume at ${formatTime(pos)}` : 'Continue';
+        }
+      } else {
+        card.classList.remove('playing');
+        const pos = state.playbackPositions[guid]?.position || 0;
+        btnSpan.textContent = pos > 15 ? `Resume at ${formatTime(pos)}` : 'Continue';
       }
     });
   }
