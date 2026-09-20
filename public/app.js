@@ -5,13 +5,15 @@
     FEEDS: 'podany_feeds',
     SESSION: 'podany_session_token',
     CACHED_EPISODES: 'podany_cached_episodes',
-    CACHED_METADATA: 'podany_cached_metadata'
+    CACHED_METADATA: 'podany_cached_metadata',
+    POSITIONS: 'podany_playback_positions'
   };
 
   const ICONS = {
     PLAY: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>',
     PAUSE: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>',
-    SPINNER: '<svg class="spinner" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"></path></svg>'
+    SPINNER: '<svg class="spinner" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"></path></svg>',
+    CHECK: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>'
   };
 
   const DEFAULT_STARTER_FEEDS = [
@@ -31,6 +33,7 @@
     playbackSpeed: 1.0,
     sortOrder: 'newest',
     searchQuery: '',
+    filterMode: 'unplayed',
     ytPlayer: null,
     ytReady: false,
     activeEngine: 'audio',
@@ -80,6 +83,10 @@
 
     timelineList: document.getElementById('timeline-list'),
     feedsGrid: document.getElementById('feeds-grid'),
+    continueShelf: document.getElementById('continue-shelf'),
+    continueGrid: document.getElementById('continue-grid'),
+    continueCount: document.getElementById('continue-count'),
+    filterChips: document.querySelectorAll('.chip-filter'),
 
     opmlFileInput: document.getElementById('opml-file-input'),
     btnExportOpml: document.getElementById('btn-export-opml'),
@@ -157,6 +164,7 @@
 
   function init() {
     checkUrlSessionParam();
+    loadPositionsFromStorage();
     loadFeedsFromStorage();
     loadCacheFromStorage();
     setupEventListeners();
@@ -320,7 +328,23 @@
     } catch (e) {}
   }
 
+  function savePositionsToStorage() {
+    try {
+      localStorage.setItem(STORAGE_KEYS.POSITIONS, JSON.stringify(state.playbackPositions));
+    } catch (e) {}
+  }
+
+  function loadPositionsFromStorage() {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.POSITIONS);
+      if (saved) {
+        state.playbackPositions = JSON.parse(saved);
+      }
+    } catch (e) {}
+  }
+
   async function loadPlaybackPositionsFromD1() {
+    loadPositionsFromStorage();
     try {
       const headers = {};
       if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
@@ -328,11 +352,13 @@
       if (res.ok) {
         const data = await res.json();
         if (data.positions) {
-          state.playbackPositions = data.positions;
-          renderContinueShelf();
+          state.playbackPositions = { ...state.playbackPositions, ...data.positions };
+          savePositionsToStorage();
         }
       }
     } catch (e) {}
+    renderContinueShelf();
+    updateFilterBadges();
   }
 
   async function savePlaybackPositionToD1(episodeGuid, positionSeconds, completed = false) {
@@ -341,7 +367,9 @@
       position: positionSeconds,
       completed: completed ? 1 : 0
     };
+    savePositionsToStorage();
     renderContinueShelf();
+    updateFilterBadges();
     try {
       const headers = { 'Content-Type': 'application/json' };
       if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
@@ -521,6 +549,15 @@
     }
   }
 
+  function updateFilterBadges() {
+    if (!elements.continueCount) return;
+    const inProgressCount = state.allEpisodes.filter(ep => {
+      const pos = state.playbackPositions[ep.guid];
+      return pos && pos.position > 15 && !pos.completed;
+    }).length;
+    elements.continueCount.textContent = inProgressCount;
+  }
+
   function processAndSortEpisodes() {
     let list = [...state.allEpisodes];
 
@@ -536,12 +573,12 @@
     if (state.filterMode === 'continue') {
       list = list.filter(ep => {
         const pos = state.playbackPositions[ep.guid];
-        return pos && pos.position > 5 && !pos.completed;
+        return pos && pos.position > 15 && !pos.completed;
       });
     } else if (state.filterMode === 'unplayed') {
       list = list.filter(ep => {
         const pos = state.playbackPositions[ep.guid];
-        return !pos || !pos.completed;
+        return !pos || (!pos.completed && (!pos.position || pos.position <= 15));
       });
     }
 
@@ -553,6 +590,7 @@
 
     state.filteredEpisodes = list;
     state.timelinePage = 1;
+    updateFilterBadges();
     renderContinueShelf();
   }
 
@@ -619,7 +657,7 @@
 
     const inProgressEps = state.allEpisodes.filter(ep => {
       const pos = state.playbackPositions[ep.guid];
-      return pos && pos.position > 1 && !pos.completed;
+      return pos && pos.position > 15 && !pos.completed;
     });
 
     if (elements.continueCount) {
@@ -733,16 +771,42 @@
     sentinelObserver.observe(sentinel);
   }
 
+  function toggleMarkPlayed(ep) {
+    const current = state.playbackPositions[ep.guid];
+    const isCompleted = current && (current.completed === 1 || current.completed === true);
+    if (isCompleted) {
+      savePlaybackPositionToD1(ep.guid, 0, false);
+    } else {
+      savePlaybackPositionToD1(ep.guid, 0, true);
+    }
+    if (state.filterMode === 'unplayed' || state.filterMode === 'continue') {
+      processAndSortEpisodes();
+      renderTimeline();
+    } else {
+      renderContinueShelf();
+      const card = elements.timelineList.querySelector(`.episode-card[data-guid="${ep.guid}"]`);
+      if (card) {
+        card.classList.toggle('is-played', !isCompleted);
+        const checkBtn = card.querySelector('.btn-mark-played');
+        if (checkBtn) {
+          checkBtn.classList.toggle('is-completed', !isCompleted);
+          checkBtn.title = !isCompleted ? 'Mark as Unplayed' : 'Mark as Played';
+        }
+      }
+    }
+  }
+
   function createEpisodeCard(ep) {
     const isCurrentlyActive = state.currentEpisode && state.currentEpisode.guid === ep.guid;
     const isPlaying = isCurrentlyActive && state.playbackStatus === 'playing';
     const isLoading = isCurrentlyActive && state.playbackStatus === 'loading';
 
     const savedPos = state.playbackPositions[ep.guid];
-    const resumeTimeStr = savedPos && savedPos.position > 5 ? ` • Resumes at ${formatTime(savedPos.position)}` : '';
+    const isCompleted = savedPos && (savedPos.completed === 1 || savedPos.completed === true);
+    const resumeTimeStr = savedPos && savedPos.position > 15 && !isCompleted ? ` • Resumes at ${formatTime(savedPos.position)}` : '';
 
     const card = document.createElement('div');
-    card.className = `episode-card ${isCurrentlyActive ? 'playing' : ''}`;
+    card.className = `episode-card ${isCurrentlyActive ? 'playing' : ''} ${isCompleted ? 'is-played' : ''}`;
     card.dataset.guid = ep.guid;
 
     const formattedDate = ep.timestamp 
@@ -760,25 +824,39 @@
     }
 
     card.innerHTML = `
-      <img class="episode-artwork" src="${ep.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E'}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E';">
-      <div class="episode-details">
-        <div class="episode-podcast-name">${ep.isYouTube ? '▶️ YOUTUBE MUSIC' : escapeHtml(ep.podcastTitle)}</div>
-        <div class="episode-title">${escapeHtml(ep.title)}</div>
-        <div class="episode-desc">${escapeHtml(ep.description || '')}</div>
+      <div class="episode-card-top">
+        <img class="episode-artwork" src="${ep.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E'}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E';">
+        <div class="episode-header-info">
+          <div class="episode-podcast-name">${ep.isYouTube ? '▶️ YOUTUBE MUSIC' : escapeHtml(ep.podcastTitle)}</div>
+          <div class="episode-title">${escapeHtml(ep.title)}</div>
+        </div>
+      </div>
+      ${ep.description ? `<div class="episode-desc">${escapeHtml(ep.description)}</div>` : ''}
+      <div class="episode-footer">
         <div class="episode-meta">
           <span>📅 ${formattedDate}</span>
           ${ep.duration ? `<span>⏱️ ${escapeHtml(ep.duration)}</span>` : ''}
           <span style="color: #a5b4fc;">${resumeTimeStr}</span>
         </div>
+        <div class="episode-card-actions">
+          <button class="btn-mark-played ${isCompleted ? 'is-completed' : ''}" title="${isCompleted ? 'Mark as Unplayed' : 'Mark as Played'}">
+            ${ICONS.CHECK}
+          </button>
+          <button class="btn-play-ep" title="${btnTitle}">
+            ${btnIcon}
+          </button>
+        </div>
       </div>
-      <button class="btn-play-ep" title="${btnTitle}">
-        ${btnIcon}
-      </button>
     `;
 
     card.querySelector('.btn-play-ep').addEventListener('click', (e) => {
       e.stopPropagation();
       toggleEpisodePlayback(ep);
+    });
+
+    card.querySelector('.btn-mark-played').addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleMarkPlayed(ep);
     });
 
     return card;
@@ -1015,7 +1093,9 @@
       position: startTime || 2,
       completed: false
     };
+    savePositionsToStorage();
     renderContinueShelf();
+    updateFilterBadges();
 
     if (episode.isYouTube || episode.videoId || episode.playlistId) {
       state.activeEngine = 'youtube';

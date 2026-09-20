@@ -94,19 +94,9 @@
         <div class="status-banner hidden" id="status-banner"></div>
         <div class="filter-bar" id="filter-bar">
           <div class="filter-chips">
-            <button class="chip-filter active" data-filter="all">All Episodes</button>
+            <button class="chip-filter active" data-filter="unplayed">🎧 Unplayed</button>
             <button class="chip-filter" data-filter="continue">⏯️ Continue Listening (<span id="continue-count">0</span>)</button>
-            <button class="chip-filter" data-filter="unplayed">🎧 Unplayed</button>
-          </div>
-          <div class="filter-actions">
-            <select id="sort-order" aria-label="Sort Order">
-              <option value="newest">Latest to Oldest</option>
-              <option value="oldest">Oldest to Latest</option>
-            </select>
-            <button class="btn btn-secondary btn-sm" id="btn-refresh-all" title="Refresh all feeds">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-              <span>Refresh</span>
-            </button>
+            <button class="chip-filter" data-filter="all">All Episodes</button>
           </div>
         </div>
         <div class="continue-shelf hidden" id="continue-shelf">
@@ -244,6 +234,17 @@
     <div id="yt-player-container" style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden;">
       <div id="yt-player"></div>
     </div>
+
+    <aside class="bottom-action-dock" id="bottom-action-dock" aria-label="Quick Actions">
+      <select id="sort-order" aria-label="Sort Order">
+        <option value="newest">Latest to Oldest</option>
+        <option value="oldest">Oldest to Latest</option>
+      </select>
+      <button class="btn btn-secondary btn-sm btn-dock-refresh" id="btn-refresh-all" title="Refresh all feeds">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+        <span>Refresh</span>
+      </button>
+    </aside>
 
     <!-- Sticky Audio Player Footer -->
     <footer class="player-bar" id="player-bar">
