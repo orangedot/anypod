@@ -35,6 +35,8 @@
     ytReady: false,
     activeEngine: 'audio',
     playbackStatus: 'idle',
+    timelinePage: 1,
+    pageSize: 30,
     sleepTimer: {
       active: false,
       minutes: 0,
@@ -550,6 +552,7 @@
     }
 
     state.filteredEpisodes = list;
+    state.timelinePage = 1;
     renderContinueShelf();
   }
 
@@ -686,56 +689,99 @@
       return;
     }
 
-    state.filteredEpisodes.forEach(ep => {
-      const isCurrentlyActive = state.currentEpisode && state.currentEpisode.guid === ep.guid;
-      const isPlaying = isCurrentlyActive && state.playbackStatus === 'playing';
-      const isLoading = isCurrentlyActive && state.playbackStatus === 'loading';
+    state.timelinePage = 1;
+    appendTimelineBatch();
+  }
 
-      const savedPos = state.playbackPositions[ep.guid];
-      const resumeTimeStr = savedPos && savedPos.position > 5 ? ` • Resumes at ${formatTime(savedPos.position)}` : '';
+  let sentinelObserver = null;
 
-      const card = document.createElement('div');
-      card.className = `episode-card ${isCurrentlyActive ? 'playing' : ''}`;
-      card.dataset.guid = ep.guid;
+  function appendTimelineBatch() {
+    const container = elements.timelineList;
+    if (!container) return;
 
-      const formattedDate = ep.timestamp 
-        ? new Date(ep.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-        : 'Unknown date';
+    const existingSentinel = document.getElementById('timeline-sentinel');
+    if (existingSentinel) existingSentinel.remove();
 
-      let btnIcon = ICONS.PLAY;
-      let btnTitle = 'Play';
-      if (isLoading) {
-        btnIcon = ICONS.SPINNER;
-        btnTitle = 'Loading...';
-      } else if (isPlaying) {
-        btnIcon = ICONS.PAUSE;
-        btnTitle = 'Pause';
-      }
+    const start = (state.timelinePage - 1) * state.pageSize;
+    const end = state.timelinePage * state.pageSize;
+    const batch = state.filteredEpisodes.slice(start, end);
 
-      card.innerHTML = `
-        <img class="episode-artwork" src="${ep.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E'}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E';">
-        <div class="episode-details">
-          <div class="episode-podcast-name">${ep.isYouTube ? '▶️ YOUTUBE MUSIC' : escapeHtml(ep.podcastTitle)}</div>
-          <div class="episode-title">${escapeHtml(ep.title)}</div>
-          <div class="episode-desc">${escapeHtml(ep.description || '')}</div>
-          <div class="episode-meta">
-            <span>📅 ${formattedDate}</span>
-            ${ep.duration ? `<span>⏱️ ${escapeHtml(ep.duration)}</span>` : ''}
-            <span style="color: #a5b4fc;">${resumeTimeStr}</span>
-          </div>
-        </div>
-        <button class="btn-play-ep" title="${btnTitle}">
-          ${btnIcon}
-        </button>
-      `;
-
-      card.querySelector('.btn-play-ep').addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleEpisodePlayback(ep);
-      });
-
-      container.appendChild(card);
+    const frag = document.createDocumentFragment();
+    batch.forEach(ep => {
+      frag.appendChild(createEpisodeCard(ep));
     });
+    container.appendChild(frag);
+
+    if (end < state.filteredEpisodes.length) {
+      const sentinel = document.createElement('div');
+      sentinel.id = 'timeline-sentinel';
+      sentinel.className = 'timeline-sentinel';
+      container.appendChild(sentinel);
+      setupSentinelObserver(sentinel);
+    }
+  }
+
+  function setupSentinelObserver(sentinel) {
+    if (sentinelObserver) sentinelObserver.disconnect();
+    sentinelObserver = new IntersectionObserver((entries) => {
+      if (entries[0] && entries[0].isIntersecting) {
+        sentinelObserver.disconnect();
+        state.timelinePage++;
+        appendTimelineBatch();
+      }
+    }, { rootMargin: '400px' });
+    sentinelObserver.observe(sentinel);
+  }
+
+  function createEpisodeCard(ep) {
+    const isCurrentlyActive = state.currentEpisode && state.currentEpisode.guid === ep.guid;
+    const isPlaying = isCurrentlyActive && state.playbackStatus === 'playing';
+    const isLoading = isCurrentlyActive && state.playbackStatus === 'loading';
+
+    const savedPos = state.playbackPositions[ep.guid];
+    const resumeTimeStr = savedPos && savedPos.position > 5 ? ` • Resumes at ${formatTime(savedPos.position)}` : '';
+
+    const card = document.createElement('div');
+    card.className = `episode-card ${isCurrentlyActive ? 'playing' : ''}`;
+    card.dataset.guid = ep.guid;
+
+    const formattedDate = ep.timestamp 
+      ? new Date(ep.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+      : 'Unknown date';
+
+    let btnIcon = ICONS.PLAY;
+    let btnTitle = 'Play';
+    if (isLoading) {
+      btnIcon = ICONS.SPINNER;
+      btnTitle = 'Loading...';
+    } else if (isPlaying) {
+      btnIcon = ICONS.PAUSE;
+      btnTitle = 'Pause';
+    }
+
+    card.innerHTML = `
+      <img class="episode-artwork" src="${ep.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E'}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E';">
+      <div class="episode-details">
+        <div class="episode-podcast-name">${ep.isYouTube ? '▶️ YOUTUBE MUSIC' : escapeHtml(ep.podcastTitle)}</div>
+        <div class="episode-title">${escapeHtml(ep.title)}</div>
+        <div class="episode-desc">${escapeHtml(ep.description || '')}</div>
+        <div class="episode-meta">
+          <span>📅 ${formattedDate}</span>
+          ${ep.duration ? `<span>⏱️ ${escapeHtml(ep.duration)}</span>` : ''}
+          <span style="color: #a5b4fc;">${resumeTimeStr}</span>
+        </div>
+      </div>
+      <button class="btn-play-ep" title="${btnTitle}">
+        ${btnIcon}
+      </button>
+    `;
+
+    card.querySelector('.btn-play-ep').addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleEpisodePlayback(ep);
+    });
+
+    return card;
   }
 
   function renderFeedsGrid() {

@@ -446,6 +446,8 @@ select {
   padding: 1rem 1.25rem;
   backdrop-filter: var(--backdrop-blur);
   transition: all 0.25s ease;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 100px;
 }
 
 .episode-card:hover {
@@ -1015,4 +1017,10 @@ select {
 @keyframes shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+.timeline-sentinel {
+  height: 20px;
+  width: 100%;
+  margin: 0.5rem 0;
 }
