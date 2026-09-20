@@ -6,7 +6,8 @@
     SESSION: 'podany_session_token',
     CACHED_EPISODES: 'podany_cached_episodes',
     CACHED_METADATA: 'podany_cached_metadata',
-    POSITIONS: 'podany_playback_positions'
+    POSITIONS: 'podany_playback_positions',
+    THEME: 'podany_theme'
   };
 
   const ICONS = {
@@ -40,6 +41,7 @@
     playbackStatus: 'idle',
     timelinePage: 1,
     pageSize: 30,
+    activeFeedDetailUrl: null,
     sleepTimer: {
       active: false,
       minutes: 0,
@@ -73,6 +75,10 @@
 
     tabs: document.querySelectorAll('.nav-tab'),
     panels: document.querySelectorAll('.tab-panel'),
+    panelFeedDetail: document.getElementById('panel-feed-detail'),
+    feedDetailHeader: document.getElementById('feed-detail-header'),
+    feedDetailEpisodes: document.getElementById('feed-detail-episodes'),
+    themeBtns: document.querySelectorAll('.btn-theme'),
     feedCount: document.getElementById('feed-count'),
 
     searchInput: document.getElementById('search-input'),
@@ -162,7 +168,43 @@
     });
   };
 
+  function initTheme() {
+    const saved = localStorage.getItem(STORAGE_KEYS.THEME) || 'system';
+    applyTheme(saved);
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        const current = localStorage.getItem(STORAGE_KEYS.THEME) || 'system';
+        if (current === 'system') {
+          applyTheme('system');
+        }
+      });
+    }
+  }
+
+  function applyTheme(theme) {
+    if (theme === 'system') {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+    if (elements.themeBtns) {
+      elements.themeBtns.forEach(btn => {
+        if (btn.dataset.themeVal === theme) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+    }
+  }
+
+  function setTheme(theme) {
+    localStorage.setItem(STORAGE_KEYS.THEME, theme);
+    applyTheme(theme);
+  }
+
   function init() {
+    initTheme();
     checkUrlSessionParam();
     loadPositionsFromStorage();
     loadFeedsFromStorage();
@@ -254,9 +296,9 @@
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || 'Failed to send link');
 
-      elements.magicStatusMsg.textContent = `📧 Sign-in link sent! Check your email inbox to complete sign in.`;
+      elements.magicStatusMsg.textContent = 'Sign-in link sent! Check your email inbox to complete sign in.';
     } catch (e) {
-      elements.magicStatusMsg.style.color = '#fca5a5';
+      elements.magicStatusMsg.style.color = '#ef4444';
       elements.magicStatusMsg.textContent = `Error: ${e.message}`;
     }
   }
@@ -692,6 +734,14 @@
         </button>
       `;
 
+      const podEl = card.querySelector('.continue-podcast');
+      if (podEl && ep.feedUrl) {
+        podEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openFeedDetail(ep.feedUrl);
+        });
+      }
+
       card.querySelector('.btn-resume-ep').addEventListener('click', () => {
         playEpisode(ep);
       });
@@ -707,10 +757,9 @@
     if (state.feeds.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
-          <div class="empty-icon">🎙️</div>
           <h3>No podcasts added yet</h3>
           <p>Search for any podcast by name or paste an RSS feed URL to start listening.</p>
-          <button class="btn btn-primary" id="btn-empty-add-trigger">Search / Add Podcast</button>
+          <button class="btn btn-primary" id="btn-empty-add-trigger">Add Podcast</button>
         </div>
       `;
       document.getElementById('btn-empty-add-trigger')?.addEventListener('click', openAddModal);
@@ -720,7 +769,6 @@
     if (state.filteredEpisodes.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
-          <div class="empty-icon">🔍</div>
           <h3>No episodes found</h3>
           <p>Try clearing your search query or refreshing your feeds.</p>
         </div>
@@ -828,16 +876,16 @@
       <div class="episode-card-top">
         <img class="episode-artwork" src="${ep.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E'}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E';">
         <div class="episode-header-info">
-          <div class="episode-podcast-name">${ep.isYouTube ? '▶️ YOUTUBE MUSIC' : escapeHtml(ep.podcastTitle)}</div>
+          <div class="episode-podcast-name">${ep.isYouTube ? 'YOUTUBE' : escapeHtml(ep.podcastTitle)}</div>
           <div class="episode-title">${escapeHtml(ep.title)}</div>
         </div>
       </div>
       ${ep.description ? `<div class="episode-desc">${escapeHtml(ep.description)}</div>` : ''}
       <div class="episode-footer">
         <div class="episode-meta">
-          <span>📅 ${formattedDate}</span>
-          ${ep.duration ? `<span>⏱️ ${escapeHtml(ep.duration)}</span>` : ''}
-          <span style="color: #a5b4fc;">${resumeTimeStr}</span>
+          <span>${formattedDate}</span>
+          ${ep.duration ? `<span>${escapeHtml(ep.duration)}</span>` : ''}
+          <span style="color: var(--accent-orange);">${resumeTimeStr}</span>
         </div>
         <div class="episode-card-actions">
           <button class="btn-mark-played ${isCompleted ? 'is-completed' : ''}" title="${isCompleted ? 'Mark as Unplayed' : 'Mark as Played'}">
@@ -849,6 +897,14 @@
         </div>
       </div>
     `;
+
+    const podNameEl = card.querySelector('.episode-podcast-name');
+    if (podNameEl && ep.feedUrl) {
+      podNameEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openFeedDetail(ep.feedUrl);
+      });
+    }
 
     card.querySelector('.btn-play-ep').addEventListener('click', (e) => {
       e.stopPropagation();
@@ -882,7 +938,7 @@
           <img class="feed-art" src="${meta.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E'}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E';">
           <div class="feed-info">
             <h4>${escapeHtml(meta.title || url)}</h4>
-            <p>${meta.error ? `<span style="color: #fca5a5;">${escapeHtml(meta.error)}</span>` : `${meta.episodesCount} episodes`}</p>
+            <p>${meta.error ? `<span style="color: #ef4444;">${escapeHtml(meta.error)}</span>` : `${meta.episodesCount} episodes`}</p>
           </div>
         </div>
         <div class="feed-actions">
@@ -890,12 +946,91 @@
         </div>
       `;
 
-      card.querySelector('.btn-remove-feed').addEventListener('click', () => {
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.btn-remove-feed')) return;
+        openFeedDetail(url);
+      });
+
+      card.querySelector('.btn-remove-feed').addEventListener('click', (e) => {
+        e.stopPropagation();
         promptRemoveFeed(url);
       });
 
       grid.appendChild(card);
     });
+  }
+
+  function openFeedDetail(feedUrl) {
+    state.activeFeedDetailUrl = feedUrl;
+    elements.tabs.forEach(t => t.classList.remove('active'));
+    elements.panels.forEach(p => p.classList.remove('active'));
+    if (elements.panelFeedDetail) {
+      elements.panelFeedDetail.classList.add('active');
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    renderFeedDetail(feedUrl);
+  }
+
+  function renderFeedDetail(feedUrl) {
+    const meta = state.feedMetadata[feedUrl] || {};
+    const episodes = state.allEpisodes.filter(e => e.feedUrl === feedUrl);
+    const header = elements.feedDetailHeader;
+    if (!header) return;
+
+    header.innerHTML = `
+      <div class="feed-detail-top-nav">
+        <button class="btn btn-secondary btn-sm" id="btn-feed-back">&larr; Back</button>
+        <button class="btn btn-danger btn-sm" id="btn-feed-unsubscribe">Unsubscribe</button>
+      </div>
+      <div class="feed-detail-main">
+        <img class="feed-detail-art" src="${meta.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E'}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'50\' height=\'50\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23666\' stroke-width=\'2\'%3E%3Cpath d=\'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z\'/%3E%3C/svg%3E';">
+        <div class="feed-detail-info">
+          <div class="feed-detail-title">${escapeHtml(meta.title || 'Untitled Podcast')}</div>
+          <div class="feed-detail-author">${escapeHtml(meta.author || '')}</div>
+          ${meta.description ? `<div class="feed-detail-desc">${escapeHtml(meta.description)}</div>` : ''}
+          <div class="feed-detail-links">
+            ${meta.link ? `<a href="${escapeHtml(meta.link)}" target="_blank" rel="noopener noreferrer" class="feed-link-badge">Website</a>` : ''}
+            <button class="feed-link-badge" id="btn-copy-rss" title="Copy RSS Feed URL">Copy RSS</button>
+            <span class="feed-link-badge" style="cursor: default;">${episodes.length} episodes</span>
+          </div>
+        </div>
+      </div>
+    `;
+
+    header.querySelector('#btn-feed-back').addEventListener('click', () => {
+      if (elements.panelFeedDetail) elements.panelFeedDetail.classList.remove('active');
+      const activeTab = document.querySelector('.nav-tab.active')?.dataset.tab || 'timeline';
+      const target = document.getElementById(`panel-${activeTab}`);
+      if (target) target.classList.add('active');
+    });
+
+    header.querySelector('#btn-feed-unsubscribe').addEventListener('click', () => {
+      promptRemoveFeed(feedUrl);
+    });
+
+    header.querySelector('#btn-copy-rss').addEventListener('click', () => {
+      navigator.clipboard.writeText(feedUrl).then(() => {
+        const btn = header.querySelector('#btn-copy-rss');
+        if (btn) btn.textContent = 'Copied!';
+        setTimeout(() => {
+          if (btn) btn.textContent = 'Copy RSS';
+        }, 2000);
+      });
+    });
+
+    const list = elements.feedDetailEpisodes;
+    if (!list) return;
+    list.innerHTML = '';
+    if (episodes.length === 0) {
+      list.innerHTML = `<div class="empty-state"><h3>No episodes found for this podcast</h3></div>`;
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    episodes.forEach(ep => {
+      frag.appendChild(createEpisodeCard(ep));
+    });
+    list.appendChild(frag);
   }
 
   function setupAudioEngines() {
@@ -1372,6 +1507,16 @@
   }
 
   function removeFeed(url) {
+    if (state.activeFeedDetailUrl === url) {
+      state.activeFeedDetailUrl = null;
+      if (elements.panelFeedDetail) elements.panelFeedDetail.classList.remove('active');
+      const feedsTab = document.getElementById('tab-feeds');
+      const feedsPanel = document.getElementById('panel-feeds');
+      elements.tabs.forEach(t => t.classList.remove('active'));
+      elements.panels.forEach(p => p.classList.remove('active'));
+      if (feedsTab) feedsTab.classList.add('active');
+      if (feedsPanel) feedsPanel.classList.add('active');
+    }
     state.allEpisodes = state.allEpisodes.filter(ep => ep.feedUrl !== url);
     state.feeds = state.feeds.filter(f => f !== url);
     delete state.feedMetadata[url];
@@ -1528,6 +1673,7 @@
     elements.tabs.forEach(tab => {
       tab.addEventListener('click', () => {
         const targetTab = tab.dataset.tab;
+        state.activeFeedDetailUrl = null;
         elements.tabs.forEach(t => t.classList.remove('active'));
         elements.panels.forEach(p => p.classList.remove('active'));
 
@@ -1535,6 +1681,14 @@
         document.getElementById(`panel-${targetTab}`).classList.add('active');
       });
     });
+
+    if (elements.themeBtns) {
+      elements.themeBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          setTheme(btn.dataset.themeVal);
+        });
+      });
+    }
 
     elements.searchInput.addEventListener('input', (e) => {
       state.searchQuery = e.target.value;

@@ -202,11 +202,13 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
   let description = '';
   let author = '';
   let artwork = '';
+  let link = '';
 
   if (isAtom) {
     title = getTagContent(xml, 'title') || 'YouTube Podcast Feed';
     author = getTagContent(xml, 'name') || 'YouTube Creator';
     description = `YouTube Playlist Feed (${originalUrl})`;
+    link = getAttribute(xml, 'link', 'href') || originalUrl;
   } else {
     const channelMatch = xml.match(/<channel[^>]*>([\s\S]*?)<\/channel>/i);
     const channelXml = channelMatch ? channelMatch[1] : xml;
@@ -214,6 +216,7 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
     title = getTagContent(channelXml, 'title') || 'Untitled Podcast';
     description = getTagContent(channelXml, 'description') || getTagContent(channelXml, 'summary');
     author = getTagContent(channelXml, 'author') || getTagContent(channelXml, 'owner');
+    link = getTagContent(channelXml, 'link') || getAttribute(channelXml, 'link', 'href') || '';
     
     artwork = getAttribute(channelXml, 'image', 'href') || getAttribute(channelXml, 'itunes:image', 'href');
     if (!artwork) {
@@ -314,6 +317,7 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
     description: description.substring(0, 500),
     author,
     artwork: artwork || (items.length > 0 ? items[0].artwork : ''),
+    link: link || originalUrl,
     feedUrl: originalUrl,
     episodesCount: items.length,
     updatedAt: new Date().toISOString(),

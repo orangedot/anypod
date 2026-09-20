@@ -19,7 +19,7 @@
   <div class="modal-overlay hidden" id="auth-modal">
     <div class="modal-card">
       <div class="modal-header">
-        <h2>🔒 Magic Email Login</h2>
+        <h2>Magic Email Login</h2>
       </div>
 
       <!-- Magic Link Email Form -->
@@ -30,7 +30,7 @@
           <p class="help-text" id="magic-status-msg" style="display: none; font-size: 0.85rem; color: #a5b4fc; margin-top: 0.5rem;"></p>
         </div>
         <div class="modal-footer" style="flex-direction: column; gap: 0.5rem; align-items: stretch;">
-          <button type="submit" class="btn btn-primary" id="btn-submit-magic">Send Magic Login Link ✉️</button>
+          <button type="submit" class="btn btn-primary" id="btn-submit-magic">Send Magic Login Link</button>
         </div>
       </form>
     </div>
@@ -60,24 +60,14 @@
       </div>
 
       <nav class="nav-tabs" aria-label="Main Navigation">
-        <button class="nav-tab active" data-tab="timeline" id="tab-timeline">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-          Timeline
-        </button>
-        <button class="nav-tab" data-tab="feeds" id="tab-feeds">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg>
-          Feeds (<span id="feed-count">0</span>)
-        </button>
-        <button class="nav-tab" data-tab="settings" id="tab-settings">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-          Settings
-        </button>
+        <button class="nav-tab active" data-tab="timeline" id="tab-timeline">Timeline</button>
+        <button class="nav-tab" data-tab="feeds" id="tab-feeds">Feeds (<span id="feed-count">0</span>)</button>
+        <button class="nav-tab" data-tab="settings" id="tab-settings">Settings</button>
       </nav>
 
       <div class="header-actions">
         <button class="btn btn-primary btn-header-add" id="btn-open-add-modal" title="Add Podcast Feed">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          <span>Add Podcast</span>
+          <span>+ Add Podcast</span>
         </button>
 
         <div class="user-status-pill" id="user-status-pill">
@@ -92,18 +82,24 @@
       
       <section class="tab-panel active" id="panel-timeline">
         <div class="status-banner hidden" id="status-banner"></div>
+        <div class="filter-bar" id="filter-bar">
+          <div class="filter-chips">
+            <button class="chip-filter active" data-filter="unplayed">Unplayed</button>
+            <button class="chip-filter" data-filter="continue">Continue (<span id="continue-count">0</span>)</button>
+            <button class="chip-filter" data-filter="all">All Episodes</button>
+          </div>
+        </div>
         <div class="continue-shelf hidden" id="continue-shelf">
           <div class="shelf-header">
-            <h3>⏯️ Continue Listening</h3>
+            <h3>Continue Listening</h3>
           </div>
           <div class="shelf-grid" id="continue-grid"></div>
         </div>
         <div class="episode-list" id="timeline-list">
           <div class="empty-state">
-            <div class="empty-icon">🎙️</div>
             <h3>No podcasts added yet</h3>
             <p>Search for any podcast by name or paste an RSS feed URL to start listening.</p>
-            <button class="btn btn-primary" id="btn-empty-add-trigger">Search / Add Podcast</button>
+            <button class="btn btn-primary" id="btn-empty-add-trigger">Add Podcast</button>
           </div>
         </div>
       </section>
@@ -115,39 +111,53 @@
         </div>
       </section>
 
+      <!-- TAB 4: Feed Detail View -->
+      <section class="tab-panel" id="panel-feed-detail">
+        <div class="feed-detail-header" id="feed-detail-header"></div>
+        <div class="episode-list" id="feed-detail-episodes"></div>
+      </section>
+
       <!-- TAB 3: Settings & Storage -->
       <section class="tab-panel" id="panel-settings">
         <div class="settings-card">
-          <h3>☁️ Cloud D1 Sync Status</h3>
+          <h3>Appearance</h3>
+          <p>Choose interface theme or match your system preferences.</p>
+          <div class="theme-switch-group">
+            <button class="btn btn-secondary btn-theme" data-theme-val="system">System</button>
+            <button class="btn btn-secondary btn-theme" data-theme-val="dark">Dark</button>
+            <button class="btn btn-secondary btn-theme" data-theme-val="light">Light</button>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <h3>Cloud Sync Status</h3>
           <p id="user-sync-status">Logged in as guest / local state.</p>
           <button class="btn btn-secondary" id="btn-show-login">Account / Magic Login</button>
         </div>
 
         <div class="settings-card">
-          <h3>📥 Import / Export Feeds (OPML)</h3>
+          <h3>Import / Export Feeds (OPML)</h3>
           <p>Easily transfer subscriptions from YouTube Music, Apple Podcasts, or Pocket Casts using OPML.</p>
           <div class="settings-actions">
             <label for="opml-file-input" class="btn btn-secondary">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
               Import OPML File
             </label>
             <input type="file" id="opml-file-input" accept=".opml,.xml" style="display: none;">
 
             <button class="btn btn-secondary" id="btn-export-opml">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
               Export Subscriptions (OPML)
             </button>
           </div>
         </div>
 
         <div class="settings-card">
-          <h3>⚡ Popular German & International Starter Feeds</h3>
+          <h3>Starter Feeds</h3>
           <p>Instantly subscribe to top podcasts (ZEIT, Weltspiegel, Syntax, etc.).</p>
           <button class="btn btn-secondary" id="btn-load-defaults">Load Recommended Starter Feeds</button>
         </div>
 
         <div class="settings-card danger-zone">
-          <h3>🗑️ Clear Local Cache</h3>
+          <h3>Clear Local Cache</h3>
           <p>Reset local storage, cached episode state, and saved feeds.</p>
           <button class="btn btn-danger" id="btn-clear-storage">Clear All Storage</button>
         </div>
@@ -158,17 +168,16 @@
     <div class="modal-overlay hidden" id="add-modal">
       <div class="modal-card" style="max-width: 600px;">
         <div class="modal-header">
-          <h2>🔍 Find or Add Podcast Feed</h2>
+          <h2>Find or Add Podcast Feed</h2>
           <button class="btn-close" id="btn-close-add">&times;</button>
         </div>
         <div class="modal-body">
           <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
-            <input type="text" id="podcast-search-query" placeholder="Type podcast name (e.g. ZEIT Geschichte, Weltspiegel...)" style="flex: 1; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 0.75rem 1rem; color: #fff;">
+            <input type="text" id="podcast-search-query" placeholder="Type podcast name (e.g. ZEIT Geschichte, Weltspiegel...)" style="flex: 1; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 0.75rem 1rem; color: var(--text-primary);">
             <button class="btn btn-primary" id="btn-search-directory">Search</button>
           </div>
 
           <div id="search-directory-results" style="max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem;">
-            <!-- Search results populated dynamically -->
           </div>
 
           <hr style="border: none; border-top: 1px solid var(--border-light); margin-bottom: 1rem;">
@@ -187,7 +196,7 @@
     <div class="modal-overlay hidden" id="sleep-modal">
       <div class="modal-card">
         <div class="modal-header">
-          <h2>⏱️ Sleep Timer</h2>
+          <h2>Sleep Timer</h2>
           <button class="btn-close" id="btn-close-sleep">&times;</button>
         </div>
         <div class="modal-body">
@@ -211,7 +220,7 @@
     <div class="modal-overlay hidden" id="confirm-modal">
       <div class="modal-card" style="max-width: 400px; text-align: center;">
         <div class="modal-header" style="justify-content: center;">
-          <h2 style="color: #fca5a5;">⚠️ Confirm Delete Feed</h2>
+          <h2 style="color: #ef4444;">Confirm Delete Feed</h2>
         </div>
         <div class="modal-body">
           <p id="confirm-modal-msg" style="color: var(--text-muted); line-height: 1.5; margin-bottom: 1rem;">Are you sure you want to remove this podcast feed?</p>
@@ -229,20 +238,11 @@
     </div>
 
     <aside class="bottom-action-dock" id="bottom-action-dock" aria-label="Quick Actions">
-      <div class="filter-chips">
-        <button class="chip-filter active" data-filter="unplayed">🎧 Unplayed</button>
-        <button class="chip-filter" data-filter="continue">⏯️ Continue Listening (<span id="continue-count">0</span>)</button>
-        <button class="chip-filter" data-filter="all">All Episodes</button>
-      </div>
-      <div class="dock-divider"></div>
       <select id="sort-order" aria-label="Sort Order">
         <option value="newest">Latest to Oldest</option>
         <option value="oldest">Oldest to Latest</option>
       </select>
-      <button class="btn btn-secondary btn-sm btn-dock-refresh" id="btn-refresh-all" title="Refresh all feeds">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-        <span>Refresh</span>
-      </button>
+      <button class="btn btn-secondary btn-sm btn-dock-refresh" id="btn-refresh-all" title="Refresh all feeds">Refresh</button>
     </aside>
 
     <!-- Sticky Audio Player Footer -->
