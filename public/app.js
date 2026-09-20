@@ -707,8 +707,13 @@
       `;
 
       if (!isSubbed) {
-        card.querySelector('.btn-sub-dir').addEventListener('click', () => {
+        const subBtn = card.querySelector('.btn-sub-dir');
+        subBtn.addEventListener('click', () => {
           addFeed(item.feedUrl, item.collectionName || item.trackName, item.artworkUrl600 || item.artworkUrl100);
+          subBtn.textContent = 'Subscribed';
+          subBtn.classList.remove('btn-primary');
+          subBtn.classList.add('btn-secondary');
+          subBtn.disabled = true;
         });
       }
 
@@ -1571,8 +1576,10 @@
       state.feeds.push(cleanUrl);
       saveFeedsToStorage();
       saveFeedToD1(cleanUrl, title, artwork);
-      closeAddModal();
       refreshAllFeeds();
+      if (elements.feedUrlInput && elements.feedUrlInput.value.trim() === cleanUrl) {
+        elements.feedUrlInput.value = '';
+      }
     } else {
       alert('This feed is already in your subscriptions.');
     }
@@ -1792,7 +1799,27 @@
     elements.btnCloseAdd.addEventListener('click', closeAddModal);
     elements.btnCancelAdd.addEventListener('click', closeAddModal);
     elements.btnSubmitFeed.addEventListener('click', () => {
-      if (elements.feedUrlInput.value) addFeed(elements.feedUrlInput.value);
+      if (elements.feedUrlInput.value) {
+        addFeed(elements.feedUrlInput.value);
+        const origText = elements.btnSubmitFeed.textContent;
+        elements.btnSubmitFeed.textContent = 'Subscribed!';
+        setTimeout(() => {
+          elements.btnSubmitFeed.textContent = origText;
+        }, 2000);
+      }
+    });
+    elements.feedUrlInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (elements.feedUrlInput.value) {
+          addFeed(elements.feedUrlInput.value);
+          const origText = elements.btnSubmitFeed.textContent;
+          elements.btnSubmitFeed.textContent = 'Subscribed!';
+          setTimeout(() => {
+            elements.btnSubmitFeed.textContent = origText;
+          }, 2000);
+        }
+      }
     });
 
     elements.btnOpenSleep.addEventListener('click', openSleepModal);
