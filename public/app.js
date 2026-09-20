@@ -86,6 +86,7 @@
     continueShelf: document.getElementById('continue-shelf'),
     continueGrid: document.getElementById('continue-grid'),
     continueCount: document.getElementById('continue-count'),
+    playedCount: document.getElementById('played-count'),
     filterChips: document.querySelectorAll('.chip-filter'),
 
     opmlFileInput: document.getElementById('opml-file-input'),
@@ -586,14 +587,22 @@
   }
 
   function updateFilterBadges() {
-    if (!elements.continueCount) return;
     const currentGuid = state.currentEpisode ? state.currentEpisode.guid : null;
-    const inProgressCount = state.allEpisodes.filter(ep => {
-      const pos = state.playbackPositions[ep.guid];
-      const isCurrent = currentGuid && ep.guid === currentGuid;
-      return (!pos || !pos.completed) && (isCurrent || (pos && pos.position > 2));
-    }).length;
-    elements.continueCount.textContent = inProgressCount;
+    if (elements.continueCount) {
+      const inProgressCount = state.allEpisodes.filter(ep => {
+        const pos = state.playbackPositions[ep.guid];
+        const isCurrent = currentGuid && ep.guid === currentGuid;
+        return (!pos || !pos.completed) && (isCurrent || (pos && pos.position > 2));
+      }).length;
+      elements.continueCount.textContent = inProgressCount;
+    }
+    if (elements.playedCount) {
+      const playedCount = state.allEpisodes.filter(ep => {
+        const pos = state.playbackPositions[ep.guid];
+        return pos && (pos.completed === 1 || pos.completed === true);
+      }).length;
+      elements.playedCount.textContent = playedCount;
+    }
   }
 
   function processAndSortEpisodes() {
@@ -629,6 +638,11 @@
         const isCurrent = currentGuid && ep.guid === currentGuid;
         if (isCurrent) return false;
         return !pos || (!pos.completed && (!pos.position || pos.position <= 2));
+      });
+    } else if (state.filterMode === 'played') {
+      list = list.filter(ep => {
+        const pos = state.playbackPositions[ep.guid];
+        return pos && (pos.completed === 1 || pos.completed === true);
       });
     }
 
@@ -725,7 +739,7 @@
       elements.continueCount.textContent = inProgressEps.length;
     }
 
-    if (inProgressEps.length === 0) {
+    if (inProgressEps.length === 0 || state.filterMode === 'played') {
       elements.continueShelf.classList.add('hidden');
       return;
     }
@@ -792,10 +806,22 @@
     }
 
     if (state.filteredEpisodes.length === 0) {
+      let emptyTitle = 'No episodes found';
+      let emptyMsg = 'Try clearing your search query or refreshing your feeds.';
+      if (state.filterMode === 'played') {
+        emptyTitle = 'No played episodes';
+        emptyMsg = 'Episodes you finish or mark as played will appear here.';
+      } else if (state.filterMode === 'continue') {
+        emptyTitle = 'No episodes in progress';
+        emptyMsg = 'Episodes you start listening to will appear here.';
+      } else if (state.filterMode === 'unplayed') {
+        emptyTitle = 'All caught up';
+        emptyMsg = 'You have listened to all episodes.';
+      }
       container.innerHTML = `
         <div class="empty-state">
-          <h3>No episodes found</h3>
-          <p>Try clearing your search query or refreshing your feeds.</p>
+          <h3>${emptyTitle}</h3>
+          <p>${emptyMsg}</p>
         </div>
       `;
       return;
@@ -853,7 +879,7 @@
     } else {
       savePlaybackPositionToD1(ep.guid, 0, true);
     }
-    if (state.filterMode === 'unplayed' || state.filterMode === 'continue') {
+    if (state.filterMode === 'unplayed' || state.filterMode === 'continue' || state.filterMode === 'played') {
       processAndSortEpisodes();
       renderTimeline();
     } else {
