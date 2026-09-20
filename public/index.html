@@ -92,13 +92,6 @@
       
       <section class="tab-panel active" id="panel-timeline">
         <div class="status-banner hidden" id="status-banner"></div>
-        <div class="filter-bar" id="filter-bar">
-          <div class="filter-chips">
-            <button class="chip-filter active" data-filter="unplayed">🎧 Unplayed</button>
-            <button class="chip-filter" data-filter="continue">⏯️ Continue Listening (<span id="continue-count">0</span>)</button>
-            <button class="chip-filter" data-filter="all">All Episodes</button>
-          </div>
-        </div>
         <div class="continue-shelf hidden" id="continue-shelf">
           <div class="shelf-header">
             <h3>⏯️ Continue Listening</h3>
@@ -236,6 +229,12 @@
     </div>
 
     <aside class="bottom-action-dock" id="bottom-action-dock" aria-label="Quick Actions">
+      <div class="filter-chips">
+        <button class="chip-filter active" data-filter="unplayed">🎧 Unplayed</button>
+        <button class="chip-filter" data-filter="continue">⏯️ Continue Listening (<span id="continue-count">0</span>)</button>
+        <button class="chip-filter" data-filter="all">All Episodes</button>
+      </div>
+      <div class="dock-divider"></div>
       <select id="sort-order" aria-label="Sort Order">
         <option value="newest">Latest to Oldest</option>
         <option value="oldest">Oldest to Latest</option>

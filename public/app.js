@@ -672,7 +672,7 @@
     elements.continueShelf.classList.remove('hidden');
     elements.continueGrid.innerHTML = '';
 
-    inProgressEps.slice(0, 6).forEach(ep => {
+    inProgressEps.slice(0, 10).forEach(ep => {
       const savedPos = state.playbackPositions[ep.guid];
       const posSec = savedPos ? savedPos.position : 0;
       const card = document.createElement('div');
@@ -686,8 +686,9 @@
             <div class="continue-podcast">${escapeHtml(ep.podcastTitle)}</div>
           </div>
         </div>
-        <button class="btn btn-primary btn-sm btn-resume-ep" style="width: 100%;">
-          ▶ Resume at ${formatTime(posSec)}
+        <button class="btn-resume-ep" style="width: 100%;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          <span>Resume at ${formatTime(posSec)}</span>
         </button>
       `;
 
@@ -1029,6 +1030,7 @@
       navigator.mediaSession.setActionHandler('seekforward', () => {
         if (state.activeEngine === 'audio' && audio.duration) audio.currentTime = Math.min(audio.duration, audio.currentTime + 15);
       });
+      navigator.mediaSession.setActionHandler('nexttrack', () => onEpisodeEnded());
     }
   }
 
@@ -1185,6 +1187,41 @@
     }
   }
 
+  function playNextEpisode() {
+    let nextEp = null;
+    if (state.currentEpisode) {
+      const currentGuid = state.currentEpisode.guid;
+      const idx = state.filteredEpisodes.findIndex(e => e.guid === currentGuid);
+      if (idx !== -1 && idx + 1 < state.filteredEpisodes.length) {
+        nextEp = state.filteredEpisodes[idx + 1];
+      } else if (idx === -1 && state.filteredEpisodes.length > 0) {
+        nextEp = state.filteredEpisodes[0];
+      } else {
+        const allIdx = state.allEpisodes.findIndex(e => e.guid === currentGuid);
+        if (allIdx !== -1 && allIdx + 1 < state.allEpisodes.length) {
+          nextEp = state.allEpisodes[allIdx + 1];
+        } else if (state.allEpisodes.length > 0) {
+          nextEp = state.allEpisodes[0];
+        }
+      }
+    } else if (state.filteredEpisodes.length > 0) {
+      nextEp = state.filteredEpisodes[0];
+    } else if (state.allEpisodes.length > 0) {
+      nextEp = state.allEpisodes[0];
+    }
+
+    if (nextEp) {
+      playEpisode(nextEp);
+      if (state.filterMode === 'unplayed' || state.filterMode === 'continue') {
+        processAndSortEpisodes();
+        renderTimeline();
+      }
+    } else {
+      state.playbackStatus = 'idle';
+      syncPlaybackButtons();
+    }
+  }
+
   function onEpisodeEnded() {
     if (state.currentEpisode) {
       savePlaybackPositionToD1(state.currentEpisode.guid, 0, true);
@@ -1196,12 +1233,7 @@
       return;
     }
 
-    if (state.currentEpisode) {
-      const idx = state.filteredEpisodes.findIndex(e => e.guid === state.currentEpisode.guid);
-      if (idx !== -1 && idx + 1 < state.filteredEpisodes.length) {
-        playEpisode(state.filteredEpisodes[idx + 1]);
-      }
-    }
+    playNextEpisode();
   }
 
   function syncPlaybackButtons() {
