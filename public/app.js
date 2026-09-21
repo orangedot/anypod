@@ -18,8 +18,8 @@
   };
 
   const DEFAULT_STARTER_FEEDS = [
-    'https://feeds.simplecast.com/54521442',
-    'https://changelog.com/podcast/feed'
+    'https://changelog.com/podcast/feed',
+    'https://feeds.feedburner.com/syntaxfm'
   ];
 
   let state = {
@@ -54,6 +54,8 @@
 
   const elements = {
     authModal: document.getElementById('auth-modal'),
+    btnCloseAuth: document.getElementById('btn-close-auth'),
+    btnCancelAuth: document.getElementById('btn-cancel-auth'),
     magicAuthForm: document.getElementById('magic-auth-form'),
     magicEmailInput: document.getElementById('magic-email-input'),
     btnSubmitMagic: document.getElementById('btn-submit-magic'),
@@ -1679,6 +1681,18 @@
       elements.magicAuthForm.addEventListener('submit', (e) => {
         e.preventDefault();
         submitMagicAuth();
+      });
+    }
+
+    if (elements.btnCloseAuth) {
+      elements.btnCloseAuth.addEventListener('click', () => {
+        elements.authModal.classList.add('hidden');
+      });
+    }
+
+    if (elements.btnCancelAuth) {
+      elements.btnCancelAuth.addEventListener('click', () => {
+        elements.authModal.classList.add('hidden');
       });
     }
 
