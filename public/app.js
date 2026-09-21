@@ -414,7 +414,8 @@
     if (!episodeGuid) return;
     state.playbackPositions[episodeGuid] = {
       position: positionSeconds,
-      completed: completed ? 1 : 0
+      completed: completed ? 1 : 0,
+      lastListenedAt: Math.floor(Date.now() / 1000)
     };
     savePositionsToStorage();
     renderContinueShelf();
@@ -658,7 +659,22 @@
       });
     }
 
-    if (state.sortOrder === 'newest') {
+    if (state.filterMode === 'continue') {
+      list.sort((a, b) => {
+        const posA = state.playbackPositions[a.guid];
+        const posB = state.playbackPositions[b.guid];
+        const timeA = (posA && posA.lastListenedAt) || (a.timestamp ? a.timestamp / 1000 : 0);
+        const timeB = (posB && posB.lastListenedAt) || (b.timestamp ? b.timestamp / 1000 : 0);
+        return timeB - timeA;
+      });
+      if (currentGuid) {
+        const curIdx = list.findIndex(e => e.guid === currentGuid);
+        if (curIdx > 0) {
+          const cur = list.splice(curIdx, 1)[0];
+          list.unshift(cur);
+        }
+      }
+    } else if (state.sortOrder === 'newest') {
       list.sort((a, b) => b.timestamp - a.timestamp);
     } else {
       list.sort((a, b) => a.timestamp - b.timestamp);
@@ -742,6 +758,14 @@
       const pos = state.playbackPositions[ep.guid];
       const isCurrent = currentGuid && ep.guid === currentGuid;
       return (!pos || !pos.completed) && (isCurrent || (pos && pos.position > 2));
+    });
+
+    inProgressEps.sort((a, b) => {
+      const posA = state.playbackPositions[a.guid];
+      const posB = state.playbackPositions[b.guid];
+      const timeA = (posA && posA.lastListenedAt) || (a.timestamp ? a.timestamp / 1000 : 0);
+      const timeB = (posB && posB.lastListenedAt) || (b.timestamp ? b.timestamp / 1000 : 0);
+      return timeB - timeA;
     });
 
     if (currentGuid) {
