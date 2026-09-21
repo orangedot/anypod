@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler pages dev public --port 8788",
+    "dev:init-db": "mkdir -p .wrangler/state/v3/d1/miniflare-D1DatabaseObject && sqlite3 .wrangler/state/v3/d1/miniflare-D1DatabaseObject/1d2c6f471d53ebbab1505a69a966ce3e563bc9428255f6f61ad83474526c0fe6.sqlite < schema.sql",
     "deploy": "wrangler pages deploy public"
   },
   "devDependencies": {
