@@ -65,7 +65,14 @@ export async function onRequest(context) {
 
     const resendKey = env.RESEND_API_KEY;
     if (!resendKey) {
-      throw new Error('RESEND_API_KEY environment variable is not configured');
+      return new Response(JSON.stringify({ 
+        success: true, 
+        devNotice: 'No RESEND_API_KEY configured. Click link below to sign in locally:',
+        verifyUrl 
+      }), {
+        headers: corsHeaders,
+        status: 200
+      });
     }
 
     const resendRes = await fetch('https://api.resend.com/emails', {

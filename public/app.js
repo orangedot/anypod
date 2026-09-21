@@ -299,7 +299,11 @@
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || 'Failed to send link');
 
-      elements.magicStatusMsg.textContent = 'Sign-in link sent! Check your email inbox to complete sign in.';
+      if (data.verifyUrl) {
+        elements.magicStatusMsg.innerHTML = `<span style="color:#22c55e;">Development Mode:</span> <a href="${data.verifyUrl}" style="color:#60a5fa; text-decoration:underline;">Click here to sign in instantly</a>`;
+      } else {
+        elements.magicStatusMsg.textContent = 'Sign-in link sent! Check your email inbox to complete sign in.';
+      }
     } catch (e) {
       elements.magicStatusMsg.style.color = '#ef4444';
       elements.magicStatusMsg.textContent = `Error: ${e.message}`;
