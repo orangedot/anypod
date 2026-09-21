@@ -10,6 +10,12 @@
     THEME: 'podany_theme'
   };
 
+  const CARD_ICONS = {
+    PLAY: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>',
+    PAUSE: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>',
+    SPINNER: '<svg class="spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"></path></svg>',
+    CHECK: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>'
+  };
 
   const DEFAULT_STARTER_FEEDS = [
     'https://feeds.simplecast.com/54521442',
@@ -895,7 +901,7 @@
         const checkBtn = card.querySelector('.btn-mark-played');
         if (checkBtn) {
           checkBtn.classList.toggle('is-completed', !isCompleted);
-          checkBtn.textContent = !isCompleted ? 'Played' : 'Mark';
+          checkBtn.innerHTML = CARD_ICONS.CHECK;
           checkBtn.title = !isCompleted ? 'Mark as Unplayed' : 'Mark as Played';
         }
       });
@@ -919,11 +925,14 @@
       ? new Date(ep.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
       : 'Unknown date';
 
-    let btnText = 'Play';
+    let btnHtml = CARD_ICONS.PLAY;
+    let btnTitle = 'Play';
     if (isLoading) {
-      btnText = '...';
+      btnHtml = CARD_ICONS.SPINNER;
+      btnTitle = 'Loading...';
     } else if (isPlaying) {
-      btnText = 'Pause';
+      btnHtml = CARD_ICONS.PAUSE;
+      btnTitle = 'Pause';
     }
 
     card.innerHTML = `
@@ -943,10 +952,10 @@
         </div>
         <div class="episode-card-actions">
           <button class="btn-mark-played ${isCompleted ? 'is-completed' : ''}" title="${isCompleted ? 'Mark as Unplayed' : 'Mark as Played'}">
-            ${isCompleted ? 'Played' : 'Mark'}
+            ${CARD_ICONS.CHECK}
           </button>
-          <button class="btn-play-ep" title="${btnText}">
-            ${btnText}
+          <button class="btn-play-ep" title="${btnTitle}">
+            ${btnHtml}
           </button>
         </div>
       </div>
@@ -1467,18 +1476,18 @@
       if (state.currentEpisode && state.currentEpisode.guid === guid) {
         card.classList.add('playing');
         if (isLoading) {
-          btn.textContent = '...';
+          btn.innerHTML = CARD_ICONS.SPINNER;
           btn.title = 'Loading...';
         } else if (isPlaying) {
-          btn.textContent = 'Pause';
+          btn.innerHTML = CARD_ICONS.PAUSE;
           btn.title = 'Pause';
         } else {
-          btn.textContent = 'Play';
+          btn.innerHTML = CARD_ICONS.PLAY;
           btn.title = 'Play';
         }
       } else {
         card.classList.remove('playing');
-        btn.textContent = 'Play';
+        btn.innerHTML = CARD_ICONS.PLAY;
         btn.title = 'Play';
       }
     });

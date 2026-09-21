@@ -705,47 +705,57 @@ select {
 }
 
 .btn-play-ep {
-  padding: 0.35rem 0.85rem;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-full);
-  background: var(--text-primary);
-  border: none;
-  color: var(--bg-dark);
-  font-family: inherit;
-  font-size: 0.775rem;
-  font-weight: 600;
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border-light);
+  color: var(--text-primary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
   transition: all 0.2s ease;
-  min-width: 52px;
+  padding: 0;
+}
+
+.btn-play-ep svg {
+  width: 14px;
+  height: 14px;
 }
 
 .btn-play-ep:hover {
+  background: var(--border-light);
+  color: var(--text-primary);
   transform: translateY(-1px);
 }
 
 .episode-card.playing .btn-play-ep {
   background: var(--accent-orange);
+  border-color: var(--accent-orange);
   color: #fff;
 }
 
 .btn-mark-played {
-  padding: 0.35rem 0.65rem;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-full);
   background: transparent;
   border: 1px solid var(--border-light);
   color: var(--text-muted);
-  font-family: inherit;
-  font-size: 0.75rem;
-  font-weight: 500;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
   transition: all 0.2s ease;
+  padding: 0;
+}
+
+.btn-mark-played svg {
+  width: 14px;
+  height: 14px;
 }
 
 .btn-mark-played:hover {
@@ -755,10 +765,9 @@ select {
 }
 
 .btn-mark-played.is-completed {
-  background: var(--text-primary);
-  color: var(--bg-dark);
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
   border-color: var(--text-primary);
-  font-weight: 600;
 }
 
 .empty-state {
