@@ -119,6 +119,7 @@
     fadeoutCheck: document.getElementById('fadeout-check'),
 
     audio: document.getElementById('audio-engine'),
+    playerBar: document.getElementById('player-bar'),
     playerArtwork: document.getElementById('player-artwork'),
     playerTitle: document.getElementById('player-title'),
     playerPodcast: document.getElementById('player-podcast'),
@@ -1370,6 +1371,11 @@
         artwork: episode.artwork ? [{ src: episode.artwork, sizes: '512x512', type: 'image/png' }] : []
       });
     }
+
+    if (elements.playerBar) {
+      elements.playerBar.classList.add('active-episode');
+    }
+    document.body.classList.add('has-active-episode');
 
     syncPlaybackButtons();
   }

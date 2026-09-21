@@ -1072,6 +1072,7 @@ select {
   gap: 1.5rem;
   z-index: 100;
   box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.6);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
 }
 
 .player-track-info {
@@ -1431,6 +1432,14 @@ select {
     white-space: nowrap;
   }
 
+  .app-container {
+    padding-bottom: 70px;
+  }
+
+  body.has-active-episode .app-container {
+    padding-bottom: 170px;
+  }
+
   .main-content {
     padding: 0 0.5rem 1rem 0.5rem;
     width: 100%;
@@ -1501,7 +1510,7 @@ select {
   }
 
   .bottom-action-dock {
-    bottom: 110px;
+    bottom: 0.75rem;
     right: 0.5rem;
     left: 0.5rem;
     justify-content: space-between;
@@ -1510,6 +1519,11 @@ select {
     gap: 0.25rem;
     max-width: calc(100vw - 1rem);
     box-sizing: border-box;
+    transition: bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  body.has-active-episode .bottom-action-dock {
+    bottom: 110px;
   }
 
   .bottom-action-dock select {
@@ -1530,6 +1544,15 @@ select {
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
+    transform: translateY(105%);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .player-bar.active-episode {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .player-track-info {
