@@ -250,11 +250,10 @@
       if (res.ok) {
         const data = await res.json();
         elements.authModal.classList.add('hidden');
-        updateSyncStatusUI('Authenticated via Session Cookie (Cloud D1 Synced)');
-        if (Array.isArray(data.feeds) && data.feeds.length > 0) {
-          state.feeds = data.feeds.map(f => f.feed_url);
-          saveFeedsToStorage();
-        }
+        state.userEmail = data.userEmail || '';
+        updateSyncStatusUI('Authenticated via Session Cookie (Cloud D1 Synced)', state.userEmail, true);
+        state.feeds = Array.isArray(data.feeds) ? data.feeds.map(f => f.feed_url) : [];
+        saveFeedsToStorage();
         await loadPlaybackPositionsFromD1();
         await refreshAllFeeds();
         return;
@@ -341,15 +340,8 @@
       updateSyncStatusUI('Cloud D1 Synced', state.userEmail, true);
 
       const remoteFeeds = Array.isArray(data.feeds) ? data.feeds : [];
-      if (remoteFeeds.length > 0) {
-        state.feeds = remoteFeeds.map(f => f.feed_url);
-        saveFeedsToStorage();
-      } else if (state.feeds.length > 0) {
-        for (const localUrl of state.feeds) {
-          const meta = state.feedMetadata[localUrl] || {};
-          await saveFeedToD1(localUrl, meta.title || '', meta.artwork || '');
-        }
-      }
+      state.feeds = remoteFeeds.map(f => f.feed_url);
+      saveFeedsToStorage();
 
       await loadPlaybackPositionsFromD1();
       await refreshAllFeeds();
@@ -401,17 +393,14 @@
   }
 
   async function loadPlaybackPositionsFromD1() {
-    loadPositionsFromStorage();
     try {
       const headers = {};
       if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
       const res = await fetch('/api/sync/position', { headers });
       if (res.ok) {
         const data = await res.json();
-        if (data.positions) {
-          state.playbackPositions = { ...state.playbackPositions, ...data.positions };
-          savePositionsToStorage();
-        }
+        state.playbackPositions = data.positions || {};
+        savePositionsToStorage();
       }
     } catch (e) {}
     renderContinueShelf();
@@ -1757,9 +1746,32 @@
       elements.btnAccountToggle.addEventListener('click', () => {
         if (elements.statusIndicator && elements.statusIndicator.classList.contains('online')) {
           localStorage.removeItem(STORAGE_KEYS.SESSION);
+          localStorage.removeItem(STORAGE_KEYS.FEEDS);
+          localStorage.removeItem(STORAGE_KEYS.POSITIONS);
+          localStorage.removeItem(STORAGE_KEYS.CACHED_EPISODES);
+          localStorage.removeItem(STORAGE_KEYS.CACHED_METADATA);
+          document.cookie = 'podcast_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
           state.sessionToken = '';
           state.userEmail = '';
-          document.cookie = 'podcast_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+          state.feeds = [];
+          state.playbackPositions = {};
+          state.allEpisodes = [];
+          state.filteredEpisodes = [];
+          state.feedMetadata = {};
+          if (elements.audio) {
+            elements.audio.pause();
+            elements.audio.src = '';
+          }
+          if (state.ytPlayer && state.ytPlayer.stopVideo) {
+            state.ytPlayer.stopVideo();
+          }
+          state.currentEpisode = null;
+          state.playbackStatus = 'idle';
+          updatePlayerUI(false);
+          updateFeedCountUI();
+          renderContinueShelf();
+          renderTimeline();
+          renderFeedsGrid();
           updateSyncStatusUI('Logged Out', '', false);
           elements.authModal.classList.remove('hidden');
         } else {
