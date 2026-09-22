@@ -7,14 +7,17 @@
     CACHED_EPISODES: 'podany_cached_episodes',
     CACHED_METADATA: 'podany_cached_metadata',
     POSITIONS: 'podany_playback_positions',
-    THEME: 'podany_theme'
+    THEME: 'podany_theme',
+    QUEUE: 'podany_playback_queue'
   };
 
   const CARD_ICONS = {
     PLAY: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>',
     PAUSE: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>',
     SPINNER: '<svg class="spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"></path></svg>',
-    CHECK: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>'
+    CHECK: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+    QUEUE: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h7"></path><path d="M18 15v6M15 18h6"></path></svg>',
+    QUEUE_ADDED: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h7"></path><polyline points="15 18 18 21 23 15"></polyline></svg>'
   };
 
   const DEFAULT_STARTER_FEEDS = [
@@ -43,6 +46,7 @@
     pageSize: 30,
     activeFeedDetailUrl: null,
     continueCollapsed: true,
+    queue: [],
     sleepTimer: {
       active: false,
       minutes: 0,
@@ -125,6 +129,15 @@
     timerBtns: document.querySelectorAll('.timer-btn'),
     fadeoutCheck: document.getElementById('fadeout-check'),
 
+    btnOpenQueue: document.getElementById('btn-open-queue'),
+    btnCloseQueue: document.getElementById('btn-close-queue'),
+    btnClearQueue: document.getElementById('btn-clear-queue'),
+    queueModal: document.getElementById('queue-modal'),
+    queueBadge: document.getElementById('queue-badge'),
+    queueCountBadge: document.getElementById('queue-count-badge'),
+    queueNowPlayingContainer: document.getElementById('queue-now-playing-container'),
+    queueItemsContainer: document.getElementById('queue-items-container'),
+
     audio: document.getElementById('audio-engine'),
     playerBar: document.getElementById('player-bar'),
     playerArtwork: document.getElementById('player-artwork'),
@@ -134,8 +147,6 @@
     iconPlay: document.querySelector('.icon-play'),
     iconPause: document.querySelector('.icon-pause'),
     iconSpinner: document.querySelector('.icon-spinner'),
-    btnPrev15: document.getElementById('btn-prev-15'),
-    btnNext15: document.getElementById('btn-next-15'),
     currentTimeLabel: document.getElementById('current-time'),
     totalDurationLabel: document.getElementById('total-duration'),
     seekBar: document.getElementById('seek-bar'),
@@ -220,8 +231,10 @@
     loadPositionsFromStorage();
     loadFeedsFromStorage();
     loadCacheFromStorage();
+    loadQueueFromStorage();
     setupEventListeners();
     setupAudioEngines();
+    updateQueueUI();
     checkAuth();
   }
 
@@ -544,6 +557,189 @@
         localStorage.setItem(STORAGE_KEYS.CACHED_METADATA, JSON.stringify(state.feedMetadata));
       }
     } catch (e) {}
+  }
+
+  function loadQueueFromStorage() {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.QUEUE);
+      if (stored) {
+        state.queue = JSON.parse(stored);
+        if (!Array.isArray(state.queue)) {
+          state.queue = [];
+        }
+      } else {
+        state.queue = [];
+      }
+    } catch (e) {
+      state.queue = [];
+    }
+  }
+
+  function saveQueueToStorage() {
+    try {
+      const minimalQueue = state.queue.map(ep => ({
+        guid: ep.guid,
+        title: ep.title,
+        podcastTitle: ep.podcastTitle,
+        audioUrl: ep.audioUrl,
+        artwork: ep.artwork,
+        duration: ep.duration,
+        isYouTube: !!ep.isYouTube,
+        videoId: ep.videoId,
+        playlistId: ep.playlistId,
+        feedUrl: ep.feedUrl,
+        timestamp: ep.timestamp
+      }));
+      localStorage.setItem(STORAGE_KEYS.QUEUE, JSON.stringify(minimalQueue));
+    } catch (e) {}
+  }
+
+  function isEpisodeQueued(guid) {
+    if (!state.queue || !Array.isArray(state.queue)) return false;
+    return state.queue.some(ep => ep.guid === guid);
+  }
+
+  function toggleEpisodeQueue(episode) {
+    const idx = state.queue.findIndex(ep => ep.guid === episode.guid);
+    if (idx !== -1) {
+      state.queue.splice(idx, 1);
+    } else {
+      state.queue.push(episode);
+    }
+    saveQueueToStorage();
+    updateQueueUI();
+  }
+
+  function removeFromQueue(guid) {
+    state.queue = state.queue.filter(ep => ep.guid !== guid);
+    saveQueueToStorage();
+    updateQueueUI();
+  }
+
+  function clearQueue() {
+    state.queue = [];
+    saveQueueToStorage();
+    updateQueueUI();
+  }
+
+  function updateQueueUI() {
+    const count = (state.queue && Array.isArray(state.queue)) ? state.queue.length : 0;
+    if (elements.queueBadge) {
+      if (count > 0) {
+        elements.queueBadge.textContent = count;
+        elements.queueBadge.classList.remove('hidden');
+      } else {
+        elements.queueBadge.classList.add('hidden');
+      }
+    }
+
+    if (elements.queueCountBadge) {
+      elements.queueCountBadge.textContent = count === 1 ? '1 episode' : `${count} episodes`;
+    }
+
+    const cards = document.querySelectorAll('.episode-card');
+    cards.forEach(card => {
+      const guid = card.dataset.guid;
+      const qBtn = card.querySelector('.btn-queue-ep');
+      if (qBtn) {
+        const inQueue = isEpisodeQueued(guid);
+        if (inQueue) {
+          qBtn.classList.add('is-queued');
+          qBtn.innerHTML = CARD_ICONS.QUEUE_ADDED;
+          qBtn.title = 'Remove from Up Next';
+        } else {
+          qBtn.classList.remove('is-queued');
+          qBtn.innerHTML = CARD_ICONS.QUEUE;
+          qBtn.title = 'Add to Up Next';
+        }
+      }
+    });
+
+    if (elements.queueModal && !elements.queueModal.classList.contains('hidden')) {
+      renderQueueModalContent();
+    }
+  }
+
+  function renderQueueModalContent() {
+    if (!elements.queueNowPlayingContainer || !elements.queueItemsContainer) return;
+
+    if (state.currentEpisode) {
+      const cur = state.currentEpisode;
+      const fallbackArt = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E';
+      elements.queueNowPlayingContainer.innerHTML = `
+        <div class="queue-now-playing-card">
+          <div class="queue-now-playing-label">Now Playing</div>
+          <div class="queue-now-playing-row">
+            <img class="queue-item-artwork" src="${cur.artwork || fallbackArt}" alt="" onerror="this.src='${fallbackArt}';">
+            <div class="queue-item-info">
+              <div class="queue-item-title">${escapeHtml(cur.title)}</div>
+              <div class="queue-item-meta">${cur.isYouTube ? 'YouTube' : escapeHtml(cur.podcastTitle)}</div>
+            </div>
+            <div class="queue-now-playing-indicator">
+              <span></span><span></span><span></span>
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      elements.queueNowPlayingContainer.innerHTML = '';
+    }
+
+    elements.queueItemsContainer.innerHTML = '';
+    if (!state.queue || state.queue.length === 0) {
+      elements.queueItemsContainer.innerHTML = `
+        <div class="queue-empty-box">
+          <p>Your queue is empty</p>
+          <span>Click the queue icon on any episode to queue it up next.</span>
+        </div>
+      `;
+      return;
+    }
+
+    const fallbackArt = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E';
+    state.queue.forEach((ep, idx) => {
+      const row = document.createElement('div');
+      row.className = 'queue-item-row';
+      row.dataset.guid = ep.guid;
+      row.innerHTML = `
+        <span class="queue-item-index">${idx + 1}</span>
+        <img class="queue-item-artwork" src="${ep.artwork || fallbackArt}" alt="" onerror="this.src='${fallbackArt}';">
+        <div class="queue-item-info">
+          <div class="queue-item-title">${escapeHtml(ep.title)}</div>
+          <div class="queue-item-meta">${escapeHtml(ep.podcastTitle)}${ep.duration ? ` • ${escapeHtml(ep.duration)}` : ''}</div>
+        </div>
+        <div class="queue-item-actions">
+          <button class="btn-queue-item-play" title="Play Now">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
+          </button>
+          <button class="btn-queue-item-remove" title="Remove from Queue">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+      `;
+
+      row.querySelector('.btn-queue-item-play').addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeFromQueue(ep.guid);
+        playEpisode(ep);
+      });
+
+      row.querySelector('.btn-queue-item-remove').addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeFromQueue(ep.guid);
+      });
+
+      elements.queueItemsContainer.appendChild(row);
+    });
+  }
+
+  function openQueueModal() {
+    elements.queueModal.classList.remove('hidden');
+    renderQueueModalContent();
+  }
+
+  function closeQueueModal() {
+    elements.queueModal.classList.add('hidden');
   }
 
   function renderSkeletonTimeline() {
@@ -1113,6 +1309,9 @@
       savePlaybackPositionToD1(ep.guid, 0, false);
     } else {
       savePlaybackPositionToD1(ep.guid, 0, true);
+      if (isEpisodeQueued(ep.guid)) {
+        removeFromQueue(ep.guid);
+      }
     }
     renderContinueShelf();
     if (state.filterMode === 'unplayed' || state.filterMode === 'continue' || state.filterMode === 'played') {
@@ -1136,6 +1335,7 @@
     const isCurrentlyActive = state.currentEpisode && state.currentEpisode.guid === ep.guid;
     const isPlaying = isCurrentlyActive && state.playbackStatus === 'playing';
     const isLoading = isCurrentlyActive && state.playbackStatus === 'loading';
+    const isQueued = isEpisodeQueued(ep.guid);
 
     const savedPos = state.playbackPositions[ep.guid];
     const isCompleted = savedPos && (savedPos.completed === 1 || savedPos.completed === true);
@@ -1189,6 +1389,9 @@
           ${resumeTimeStr ? `<span class="ep-resume-time">• ${resumeTimeStr}</span>` : ''}
         </div>
         <div class="episode-card-actions">
+          <button class="btn-queue-ep ${isQueued ? 'is-queued' : ''}" title="${isQueued ? 'Remove from Up Next' : 'Add to Up Next'}">
+            ${isQueued ? CARD_ICONS.QUEUE_ADDED : CARD_ICONS.QUEUE}
+          </button>
           <button class="btn-mark-played ${isCompleted ? 'is-completed' : ''}" title="${isCompleted ? 'Mark as Unplayed' : 'Mark as Played'}">
             ${CARD_ICONS.CHECK}
           </button>
@@ -1210,6 +1413,11 @@
     card.querySelector('.btn-play-ep').addEventListener('click', (e) => {
       e.stopPropagation();
       toggleEpisodePlayback(ep);
+    });
+
+    card.querySelector('.btn-queue-ep').addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleEpisodeQueue(ep);
     });
 
     card.querySelector('.btn-mark-played').addEventListener('click', (e) => {
@@ -1580,8 +1788,20 @@
       completed: false
     };
     savePositionsToStorage();
+
+    if (isEpisodeQueued(episode.guid)) {
+      state.queue = state.queue.filter(q => q.guid !== episode.guid);
+      saveQueueToStorage();
+      updateQueueUI();
+    }
+
     renderContinueShelf();
     updateFilterBadges();
+
+    if (state.filterMode === 'unplayed' || state.filterMode === 'continue') {
+      processAndSortEpisodes();
+      renderTimeline();
+    }
 
     if (episode.isYouTube || episode.videoId || episode.playlistId) {
       state.activeEngine = 'youtube';
@@ -1680,7 +1900,13 @@
     let nextEp = null;
     const currentGuid = state.currentEpisode ? state.currentEpisode.guid : null;
 
-    if (state.filterMode === 'continue') {
+    if (state.queue && state.queue.length > 0) {
+      nextEp = state.queue.shift();
+      saveQueueToStorage();
+      updateQueueUI();
+    }
+
+    if (!nextEp && state.filterMode === 'continue') {
       const continueList = state.allEpisodes.filter(ep => {
         const pos = state.playbackPositions[ep.guid];
         return (!pos || !pos.completed) && (pos && pos.position > 2);
@@ -2027,6 +2253,7 @@
           localStorage.removeItem(STORAGE_KEYS.POSITIONS);
           localStorage.removeItem(STORAGE_KEYS.CACHED_EPISODES);
           localStorage.removeItem(STORAGE_KEYS.CACHED_METADATA);
+          localStorage.removeItem(STORAGE_KEYS.QUEUE);
           document.cookie = 'podcast_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
           window.history.replaceState({}, document.title, window.location.pathname);
           state.sessionToken = '';
@@ -2036,6 +2263,7 @@
           state.allEpisodes = [];
           state.filteredEpisodes = [];
           state.feedMetadata = {};
+          state.queue = [];
           if (elements.audio) {
             elements.audio.pause();
             elements.audio.src = '';
@@ -2049,6 +2277,7 @@
           document.body.classList.remove('has-active-episode');
           updatePlayerUI(false);
           updateFeedCountUI();
+          updateQueueUI();
           renderContinueShelf();
           renderTimeline();
           renderFeedsGrid();
@@ -2195,6 +2424,15 @@
       state.sleepTimer.fadeout = e.target.checked;
     });
 
+    if (elements.btnOpenQueue) elements.btnOpenQueue.addEventListener('click', openQueueModal);
+    if (elements.btnCloseQueue) elements.btnCloseQueue.addEventListener('click', closeQueueModal);
+    if (elements.btnClearQueue) elements.btnClearQueue.addEventListener('click', clearQueue);
+    if (elements.queueModal) {
+      elements.queueModal.addEventListener('click', (e) => {
+        if (e.target === elements.queueModal) closeQueueModal();
+      });
+    }
+
     elements.opmlFileInput.addEventListener('change', (e) => {
       if (e.target.files.length > 0) importOpml(e.target.files[0]);
     });
@@ -2228,6 +2466,7 @@
         state.feedMetadata = {};
         state.allEpisodes = [];
         state.filteredEpisodes = [];
+        state.queue = [];
         state.currentEpisode = null;
         state.playbackStatus = 'idle';
         if (elements.playerBar) elements.playerBar.classList.remove('active-episode');
@@ -2235,6 +2474,7 @@
         pauseCurrentEngine();
         syncPlaybackButtons();
         updateFeedCountUI();
+        updateQueueUI();
         renderContinueShelf();
         renderTimeline();
         renderFeedsGrid();

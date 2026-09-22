@@ -241,6 +241,26 @@
       </div>
     </div>
 
+    <div class="modal-overlay hidden" id="queue-modal">
+      <div class="modal-card queue-modal-card">
+        <div class="modal-header">
+          <div class="queue-header-title-wrap">
+            <h2>Up Next</h2>
+            <span class="queue-count-badge" id="queue-count-badge">0 episodes</span>
+          </div>
+          <button class="btn-close" id="btn-close-queue">&times;</button>
+        </div>
+        <div class="modal-body queue-modal-body">
+          <div id="queue-now-playing-container"></div>
+          <div class="queue-section-header">
+            <span class="queue-subhead">Queue Order</span>
+            <button class="btn-text-subtle" id="btn-clear-queue">Clear all</button>
+          </div>
+          <div class="queue-list" id="queue-items-container"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Hidden YouTube Player Container (Fallback) -->
     <div id="yt-player-container" style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden;">
       <div id="yt-player"></div>
@@ -308,6 +328,10 @@
 
       <div class="player-right-options">
         <button class="btn-pill" id="btn-speed-toggle" title="Playback Speed">1.0x</button>
+        <button class="btn-icon" id="btn-open-queue" title="Up Next Queue">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h7"></path><path d="M18 15v6M15 18h6"></path></svg>
+          <span class="badge hidden" id="queue-badge"></span>
+        </button>
         <button class="btn-icon" id="btn-open-sleep" title="Sleep Timer">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 15 15"></polyline></svg>
           <span class="badge hidden" id="sleep-badge"></span>

@@ -792,6 +792,39 @@ select {
   border-color: var(--text-primary);
 }
 
+.btn-queue-ep {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: transparent;
+  border: 1px solid var(--border-light);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.btn-queue-ep svg {
+  width: 14px;
+  height: 14px;
+}
+
+.btn-queue-ep:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+.btn-queue-ep.is-queued {
+  background: rgba(224, 90, 43, 0.15);
+  color: var(--accent-orange);
+  border-color: var(--accent-orange);
+}
+
 .empty-state {
   grid-column: 1 / -1;
   text-align: center;
@@ -1665,6 +1698,22 @@ body.has-active-episode .bottom-action-dock {
   border-radius: 50%;
 }
 
+#queue-badge {
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  font-size: 9px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #141414;
+  background: var(--accent);
+  top: -4px;
+  right: -4px;
+}
+
 /* Modals */
 .modal-overlay {
   position: fixed;
@@ -1924,13 +1973,15 @@ body.has-active-episode .bottom-action-dock {
   }
 
   .btn-play-ep,
-  .btn-mark-played {
+  .btn-mark-played,
+  .btn-queue-ep {
     width: 28px;
     height: 28px;
   }
 
   .btn-play-ep svg,
-  .btn-mark-played svg {
+  .btn-mark-played svg,
+  .btn-queue-ep svg {
     width: 12px;
     height: 12px;
   }
@@ -2067,4 +2118,226 @@ body.has-active-episode .bottom-action-dock {
   height: 20px;
   width: 100%;
   margin: 0.5rem 0;
+}
+
+.queue-modal-card {
+  max-width: 520px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.queue-header-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.queue-count-badge {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-full);
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  color: var(--text-secondary);
+}
+
+.queue-modal-body {
+  overflow-y: auto;
+  max-height: calc(85vh - 120px);
+  padding-right: 0.25rem;
+}
+
+.queue-now-playing-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem;
+}
+
+.queue-now-playing-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent-orange);
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.queue-now-playing-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.queue-item-artwork {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--bg-card-hover);
+}
+
+.queue-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.queue-item-title {
+  font-size: 0.88rem;
+  font-weight: 450;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.queue-item-meta {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 0.15rem;
+}
+
+.queue-now-playing-indicator {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 16px;
+  padding-right: 0.5rem;
+}
+
+.queue-now-playing-indicator span {
+  width: 3px;
+  background: var(--accent-orange);
+  border-radius: 1px;
+  animation: soundBar 1s ease-in-out infinite alternate;
+}
+
+.queue-now-playing-indicator span:nth-child(1) { height: 60%; animation-delay: 0.1s; }
+.queue-now-playing-indicator span:nth-child(2) { height: 100%; animation-delay: 0.3s; }
+.queue-now-playing-indicator span:nth-child(3) { height: 40%; animation-delay: 0.2s; }
+
+@keyframes soundBar {
+  0% { height: 25%; }
+  100% { height: 100%; }
+}
+
+.queue-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.75rem;
+  padding-bottom: 0.25rem;
+}
+
+.queue-subhead {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.btn-text-subtle {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  transition: color 0.15s ease;
+}
+
+.btn-text-subtle:hover {
+  color: var(--text-primary);
+}
+
+.queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.queue-item-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease;
+}
+
+.queue-item-row:hover {
+  background: var(--bg-card-hover);
+}
+
+.queue-item-index {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.queue-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.btn-queue-item-play,
+.btn-queue-item-remove {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-full);
+  background: transparent;
+  border: 1px solid var(--border-light);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.btn-queue-item-play:hover {
+  background: var(--text-primary);
+  color: var(--bg-dark);
+  border-color: var(--text-primary);
+}
+
+.btn-queue-item-remove:hover {
+  background: rgba(224, 90, 43, 0.15);
+  color: var(--accent-orange);
+  border-color: var(--accent-orange);
+}
+
+.queue-empty-box {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-light);
+  border-radius: var(--radius-sm);
+}
+
+.queue-empty-box p {
+  font-size: 0.92rem;
+  font-weight: 450;
+  color: var(--text-primary);
+  margin-bottom: 0.35rem;
+}
+
+.queue-empty-box span {
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
