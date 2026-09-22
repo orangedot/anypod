@@ -105,6 +105,8 @@ body {
 
 body {
   font-family: var(--font-family);
+  font-weight: 300;
+  letter-spacing: -0.01em;
   background-color: var(--bg-dark);
   color: var(--text-primary);
   min-height: 100vh;
@@ -147,8 +149,8 @@ body.has-active-episode .app-container {
 
 .logo-area h1 {
   font-size: 1.35rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-weight: 450;
+  letter-spacing: -0.02em;
   color: var(--text-primary);
 }
 
@@ -235,7 +237,7 @@ body.has-active-episode .app-container {
   background: var(--text-primary);
   color: var(--bg-dark);
   border-color: var(--text-primary);
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .continue-shelf {
@@ -260,7 +262,8 @@ body.has-active-episode .app-container {
 
 .shelf-header h3 {
   font-size: 1.1rem;
-  font-weight: 600;
+  font-weight: 450;
+  letter-spacing: -0.01em;
   margin: 0;
   color: var(--text-primary);
 }
@@ -625,7 +628,7 @@ select {
 
 .episode-podcast-name {
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--primary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -642,7 +645,7 @@ select {
 
 .episode-title {
   font-size: 0.925rem;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--text-primary);
   line-height: 1.35;
   display: -webkit-box;
@@ -654,6 +657,7 @@ select {
 
 .episode-desc {
   font-size: 0.8rem;
+  font-weight: 300;
   color: var(--text-secondary);
   line-height: 1.35;
   display: -webkit-box;
@@ -784,7 +788,8 @@ select {
 
 .empty-state h3 {
   font-size: 1.35rem;
-  font-weight: 600;
+  font-weight: 400;
+  letter-spacing: -0.02em;
   margin-bottom: 0.6rem;
   color: var(--text-primary);
 }
@@ -792,9 +797,87 @@ select {
 .empty-state p {
   color: var(--text-secondary);
   max-width: 480px;
-  margin: 0 auto 1.75rem auto;
+  margin: 0 auto 1.5rem auto;
   font-size: 0.925rem;
+  font-weight: 300;
   line-height: 1.5;
+}
+
+.empty-quick-add {
+  max-width: 480px;
+  margin: 0 auto 1.5rem auto;
+  width: 100%;
+}
+
+.quick-add-form {
+  width: 100%;
+}
+
+.quick-add-input-wrap {
+  display: flex;
+  align-items: center;
+  position: relative;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.4rem 0.35rem 0.75rem;
+  gap: 0.5rem;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+[data-theme="light"] .quick-add-input-wrap,
+:root:not([data-theme="dark"]) .quick-add-input-wrap {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.quick-add-input-wrap:focus-within {
+  border-color: var(--border-focus);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="light"] .quick-add-input-wrap:focus-within,
+:root:not([data-theme="dark"]) .quick-add-input-wrap:focus-within {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.quick-add-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.quick-add-input-wrap input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 300;
+  color: var(--text-primary);
+  min-width: 0;
+}
+
+.quick-add-input-wrap input::placeholder {
+  color: var(--text-muted);
+  font-weight: 300;
+}
+
+.btn-quick-submit {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.825rem;
+  font-weight: 500;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.quick-results-container {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 280px;
+  overflow-y: auto;
 }
 
 .empty-actions {
@@ -855,7 +938,7 @@ select {
 
 .feed-info h4 {
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .feed-info p {
@@ -1006,12 +1089,15 @@ select {
 
 .settings-card h3 {
   font-size: 1.1rem;
+  font-weight: 450;
+  letter-spacing: -0.01em;
   margin-bottom: 0.5rem;
 }
 
 .settings-card p {
   color: var(--text-secondary);
   font-size: 0.9rem;
+  font-weight: 300;
   margin-bottom: 1rem;
 }
 
@@ -1335,6 +1421,8 @@ body.has-active-episode .bottom-action-dock {
 
 .modal-header h2 {
   font-size: 1.2rem;
+  font-weight: 450;
+  letter-spacing: -0.01em;
 }
 
 .btn-close {

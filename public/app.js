@@ -776,11 +776,16 @@
     renderContinueShelf();
   }
 
-  async function searchPodcastDirectory(query) {
+  async function searchPodcastDirectory(query, targetContainer = null) {
     const q = query.trim();
-    if (!q) return;
+    const container = targetContainer || elements.searchDirectoryResults;
+    if (!container) return;
+    if (!q) {
+      container.innerHTML = '';
+      return;
+    }
 
-    elements.searchDirectoryResults.innerHTML = `<p style="color: var(--text-muted); padding: 0.5rem;">Searching directory...</p>`;
+    container.innerHTML = `<p style="color: var(--text-muted); padding: 0.5rem;">Searching directory...</p>`;
 
     try {
       const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=podcast&limit=8`;
@@ -788,14 +793,15 @@
       if (!res.ok) throw new Error('Search failed');
 
       const data = await res.json();
-      renderDirectorySearchResults(data.results || []);
+      renderDirectorySearchResults(data.results || [], container);
     } catch (e) {
-      elements.searchDirectoryResults.innerHTML = `<p style="color: #fca5a5; padding: 0.5rem;">Error searching directory: ${escapeHtml(e.message)}</p>`;
+      container.innerHTML = `<p style="color: #fca5a5; padding: 0.5rem;">Error searching directory: ${escapeHtml(e.message)}</p>`;
     }
   }
 
-  function renderDirectorySearchResults(results) {
-    const container = elements.searchDirectoryResults;
+  function renderDirectorySearchResults(results, targetContainer = null) {
+    const container = targetContainer || elements.searchDirectoryResults;
+    if (!container) return;
     container.innerHTML = '';
 
     if (results.length === 0) {
@@ -809,17 +815,17 @@
       const isSubbed = state.feeds.includes(item.feedUrl);
 
       const card = document.createElement('div');
-      card.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 0.75rem;';
+      card.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 0.75rem; text-align: left;';
 
       card.innerHTML = `
         <div style="display: flex; align-items: center; gap: 0.75rem; min-width: 0;">
-          <img src="${item.artworkUrl100 || item.artworkUrl600}" alt="" style="width: 44px; height: 44px; border-radius: 6px; object-fit: cover;">
+          <img src="${item.artworkUrl100 || item.artworkUrl600}" alt="" style="width: 44px; height: 44px; border-radius: 6px; object-fit: cover; flex-shrink: 0;">
           <div style="min-width: 0;">
-            <div style="font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.collectionName || item.trackName)}</div>
+            <div style="font-weight: 500; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary);">${escapeHtml(item.collectionName || item.trackName)}</div>
             <div style="font-size: 0.775rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.artistName || '')}</div>
           </div>
         </div>
-        <button class="btn ${isSubbed ? 'btn-secondary' : 'btn-primary'} btn-sm btn-sub-dir" ${isSubbed ? 'disabled' : ''}>
+        <button class="btn ${isSubbed ? 'btn-secondary' : 'btn-primary'} btn-sm btn-sub-dir" style="flex-shrink: 0;" ${isSubbed ? 'disabled' : ''}>
           ${isSubbed ? 'Subscribed' : 'Add Feed'}
         </button>
       `;
@@ -899,6 +905,74 @@
     });
   }
 
+  let emptySearchDebounceTimer = null;
+
+  function wireEmptyStateEvents() {
+    const quickForm = document.getElementById('empty-quick-form');
+    const quickInput = document.getElementById('empty-quick-input');
+    const quickSubmit = document.getElementById('btn-empty-quick-submit');
+    const quickResults = document.getElementById('empty-quick-results');
+
+    if (quickInput && quickForm) {
+      quickInput.addEventListener('input', () => {
+        const val = quickInput.value.trim();
+        if (quickSubmit) {
+          if (val.startsWith('http://') || val.startsWith('https://')) {
+            quickSubmit.textContent = 'Add Feed';
+          } else {
+            quickSubmit.textContent = 'Search';
+          }
+        }
+        if (emptySearchDebounceTimer) clearTimeout(emptySearchDebounceTimer);
+        if (!val) {
+          if (quickResults) quickResults.innerHTML = '';
+          return;
+        }
+        if (val.startsWith('http://') || val.startsWith('https://')) {
+          if (quickResults) quickResults.innerHTML = '';
+          return;
+        }
+        emptySearchDebounceTimer = setTimeout(() => {
+          if (quickResults) {
+            searchPodcastDirectory(val, quickResults);
+          }
+        }, 350);
+      });
+
+      quickForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const val = quickInput.value.trim();
+        if (!val) return;
+        if (val.startsWith('http://') || val.startsWith('https://')) {
+          if (quickSubmit) quickSubmit.textContent = 'Adding...';
+          addFeed(val);
+          quickInput.value = '';
+          if (quickResults) quickResults.innerHTML = '';
+        } else {
+          if (emptySearchDebounceTimer) clearTimeout(emptySearchDebounceTimer);
+          if (quickResults) {
+            searchPodcastDirectory(val, quickResults);
+          }
+        }
+      });
+    }
+
+    document.getElementById('btn-empty-opml-trigger')?.addEventListener('click', () => {
+      elements.opmlFileInput?.click();
+    });
+    document.getElementById('btn-empty-defaults-trigger')?.addEventListener('click', () => {
+      elements.btnLoadDefaults?.click();
+    });
+    document.getElementById('btn-empty-goto-settings')?.addEventListener('click', () => {
+      const settingsTab = document.getElementById('tab-settings');
+      const settingsPanel = document.getElementById('panel-settings');
+      elements.tabs.forEach(t => t.classList.remove('active'));
+      elements.panels.forEach(p => p.classList.remove('active'));
+      if (settingsTab) settingsTab.classList.add('active');
+      if (settingsPanel) settingsPanel.classList.add('active');
+    });
+  }
+
   function renderTimeline() {
     const container = elements.timelineList;
     container.innerHTML = '';
@@ -907,12 +981,21 @@
       container.innerHTML = `
         <div class="empty-state onboarding-card">
           <div class="empty-icon-wrap">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
           </div>
           <h3>No podcasts added yet</h3>
-          <p>Search for any podcast by name, paste an RSS feed URL, or import your existing subscriptions.</p>
+          <p>Search by podcast name, paste any RSS feed URL, or import your existing library.</p>
+          <div class="empty-quick-add">
+            <form id="empty-quick-form" class="quick-add-form" action="javascript:void(0);">
+              <div class="quick-add-input-wrap">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="quick-add-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="empty-quick-input" placeholder="Search podcast or paste RSS URL..." autocomplete="off">
+                <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-empty-quick-submit">Add</button>
+              </div>
+            </form>
+            <div id="empty-quick-results" class="quick-results-container"></div>
+          </div>
           <div class="empty-actions">
-            <button class="btn btn-primary" id="btn-empty-add-trigger">+ Add Podcast</button>
             <button class="btn btn-secondary" id="btn-empty-opml-trigger">Import OPML File</button>
             <button class="btn btn-secondary" id="btn-empty-defaults-trigger">Load Starter Feeds</button>
           </div>
@@ -921,21 +1004,7 @@
           </div>
         </div>
       `;
-      document.getElementById('btn-empty-add-trigger')?.addEventListener('click', openAddModal);
-      document.getElementById('btn-empty-opml-trigger')?.addEventListener('click', () => {
-        elements.opmlFileInput?.click();
-      });
-      document.getElementById('btn-empty-defaults-trigger')?.addEventListener('click', () => {
-        elements.btnLoadDefaults?.click();
-      });
-      document.getElementById('btn-empty-goto-settings')?.addEventListener('click', () => {
-        const settingsTab = document.getElementById('tab-settings');
-        const settingsPanel = document.getElementById('panel-settings');
-        elements.tabs.forEach(t => t.classList.remove('active'));
-        elements.panels.forEach(p => p.classList.remove('active'));
-        if (settingsTab) settingsTab.classList.add('active');
-        if (settingsPanel) settingsPanel.classList.add('active');
-      });
+      wireEmptyStateEvents();
       return;
     }
 
@@ -2067,6 +2136,8 @@
         renderFeedsGrid();
       }
     });
+
+    wireEmptyStateEvents();
   }
 
   function openAddModal() {

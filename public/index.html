@@ -10,7 +10,7 @@
   <!-- Modern Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="style.css">
 </head>
@@ -88,12 +88,21 @@
         <div class="episode-list" id="timeline-list">
           <div class="empty-state onboarding-card">
             <div class="empty-icon-wrap">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
             </div>
             <h3>No podcasts added yet</h3>
-            <p>Search for any podcast by name, paste an RSS feed URL, or import your existing subscriptions.</p>
+            <p>Search by podcast name, paste any RSS feed URL, or import your existing library.</p>
+            <div class="empty-quick-add">
+              <form id="empty-quick-form" class="quick-add-form" action="javascript:void(0);">
+                <div class="quick-add-input-wrap">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="quick-add-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                  <input type="text" id="empty-quick-input" placeholder="Search podcast or paste RSS URL..." autocomplete="off">
+                  <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-empty-quick-submit">Add</button>
+                </div>
+              </form>
+              <div id="empty-quick-results" class="quick-results-container"></div>
+            </div>
             <div class="empty-actions">
-              <button class="btn btn-primary" id="btn-empty-add-trigger">+ Add Podcast</button>
               <button class="btn btn-secondary" id="btn-empty-opml-trigger">Import OPML File</button>
               <button class="btn btn-secondary" id="btn-empty-defaults-trigger">Load Starter Feeds</button>
             </div>
