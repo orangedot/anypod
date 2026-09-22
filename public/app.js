@@ -288,6 +288,57 @@
     }
   }
 
+  function getWebmailProvider(email) {
+    if (!email || !email.includes('@')) return null;
+    const domain = email.split('@')[1].toLowerCase().trim();
+    if (domain === 'gmail.com' || domain === 'googlemail.com') {
+      return { name: 'Gmail', url: 'https://mail.google.com/' };
+    }
+    if (['outlook.com', 'hotmail.com', 'live.com', 'msn.com', 'outlook.de'].includes(domain)) {
+      return { name: 'Outlook', url: 'https://outlook.live.com/mail/' };
+    }
+    if (domain === 'ue-germany.de') {
+      return { name: 'Outlook (UE Germany)', url: 'https://outlook.office.com/mail/' };
+    }
+    if (['yahoo.com', 'ymail.com', 'yahoo.de', 'yahoo.fr', 'yahoo.co.uk'].includes(domain)) {
+      return { name: 'Yahoo Mail', url: 'https://mail.yahoo.com/' };
+    }
+    if (['icloud.com', 'me.com', 'mac.com'].includes(domain)) {
+      return { name: 'iCloud Mail', url: 'https://www.icloud.com/mail/' };
+    }
+    if (domain === 'proton.me' || domain === 'protonmail.com') {
+      return { name: 'Proton Mail', url: 'https://mail.proton.me/' };
+    }
+    if (domain.startsWith('gmx.')) {
+      return { name: 'GMX', url: 'https://www.gmx.net/' };
+    }
+    if (domain === 'web.de') {
+      return { name: 'WEB.DE', url: 'https://web.de/' };
+    }
+    if (domain === 't-online.de') {
+      return { name: 'Telekom Mail', url: 'https://email.t-online.de/' };
+    }
+    if (domain === 'posteo.de' || domain === 'posteo.net' || domain === 'posteo.org') {
+      return { name: 'Posteo', url: 'https://posteo.de/' };
+    }
+    if (domain === 'mailbox.org') {
+      return { name: 'mailbox.org', url: 'https://mailbox.org/' };
+    }
+    if (domain === 'freenet.de') {
+      return { name: 'freenet Mail', url: 'https://email.freenet.de/' };
+    }
+    if (domain === 'zoho.com' || domain === 'zoho.eu') {
+      return { name: 'Zoho Mail', url: 'https://mail.zoho.com/' };
+    }
+    if (domain === 'fastmail.com' || domain === 'fastmail.fm') {
+      return { name: 'Fastmail', url: 'https://app.fastmail.com/' };
+    }
+    if (domain === 'ionos.de' || domain === 'ionos.com' || domain === 'online.de') {
+      return { name: 'IONOS Webmail', url: 'https://mail.ionos.de/' };
+    }
+    return { name: domain, url: `https://${domain}` };
+  }
+
   async function submitMagicAuth() {
     const email = elements.magicEmailInput.value.trim();
     if (!email || !email.includes('@')) return;
@@ -306,11 +357,24 @@
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || 'Failed to send link');
 
+      const provider = getWebmailProvider(email);
+      let content = '<div style="margin-top: 6px; line-height: 1.45;">';
+      content += '<div style="color: #cbd5e1;">Sign-in link sent! Check your email inbox (and spam folder) to complete sign in.</div>';
+
       if (data.verifyUrl) {
-        elements.magicStatusMsg.innerHTML = `<span style="color:#22c55e;">${data.sandboxNotice || data.devNotice || 'Direct Login:'}</span> <a href="${data.verifyUrl}" style="color:#60a5fa; text-decoration:underline;">Click here to sign in instantly</a>`;
-      } else {
-        elements.magicStatusMsg.textContent = 'Sign-in link sent! Check your email inbox (and spam folder) to complete sign in.';
+        content += `<div style="margin-top: 10px;"><span style="color:#22c55e; font-weight: 600;">${escapeHtml(data.sandboxNotice || data.devNotice || 'Direct Login:')}</span> <a href="${escapeHtml(data.verifyUrl)}" style="color:#60a5fa; text-decoration:underline; font-weight: 500;">Click here to sign in instantly</a></div>`;
       }
+
+      if (provider) {
+        content += `<div style="margin-top: 12px;">
+          <a href="${escapeHtml(provider.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; padding: 9px 16px; font-size: 0.9rem; border-radius: 8px; font-weight: 600;">
+            <span>Open ${escapeHtml(provider.name)}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+          </a>
+        </div>`;
+      }
+      content += '</div>';
+      elements.magicStatusMsg.innerHTML = content;
     } catch (e) {
       elements.magicStatusMsg.style.color = '#ef4444';
       elements.magicStatusMsg.textContent = `Error: ${e.message}`;
