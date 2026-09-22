@@ -15,6 +15,6 @@
   ],
   "vars": {
     "APP_URL": "https://podany.pages.dev",
-    "FROM_EMAIL": "onboarding@resend.dev"
+    "FROM_EMAIL": "Podany <login@podany.poizoom.com>"
   }
 }
