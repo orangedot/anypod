@@ -42,6 +42,7 @@
     timelinePage: 1,
     pageSize: 30,
     activeFeedDetailUrl: null,
+    continueCollapsed: true,
     sleepTimer: {
       active: false,
       minutes: 0,
@@ -77,6 +78,10 @@
 
     tabs: document.querySelectorAll('.nav-tab'),
     panels: document.querySelectorAll('.tab-panel'),
+    tabFeeds: document.getElementById('tab-feeds'),
+    tabTimeline: document.getElementById('tab-timeline'),
+    panelFeeds: document.getElementById('panel-feeds'),
+    panelTimeline: document.getElementById('panel-timeline'),
     panelFeedDetail: document.getElementById('panel-feed-detail'),
     feedDetailHeader: document.getElementById('feed-detail-header'),
     feedDetailEpisodes: document.getElementById('feed-detail-episodes'),
@@ -94,6 +99,8 @@
     continueShelf: document.getElementById('continue-shelf'),
     continueGrid: document.getElementById('continue-grid'),
     continueCount: document.getElementById('continue-count'),
+    btnToggleContinue: document.getElementById('btn-toggle-continue'),
+    continueToggleLabel: document.getElementById('continue-toggle-label'),
     playedCount: document.getElementById('played-count'),
     filterChips: document.querySelectorAll('.chip-filter'),
 
@@ -619,6 +626,19 @@
     }
   }
 
+  function parseDurationSeconds(durationStr) {
+    if (!durationStr || typeof durationStr !== 'string') return 0;
+    const parts = durationStr.trim().split(':').map(p => parseFloat(p) || 0);
+    if (parts.length === 3) {
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    } else if (parts.length === 2) {
+      return parts[0] * 60 + parts[1];
+    } else if (parts.length === 1) {
+      return parts[0];
+    }
+    return 0;
+  }
+
   function processAndSortEpisodes() {
     let list = [...state.allEpisodes];
 
@@ -677,8 +697,21 @@
       }
     } else if (state.sortOrder === 'newest') {
       list.sort((a, b) => b.timestamp - a.timestamp);
-    } else {
+    } else if (state.sortOrder === 'oldest') {
       list.sort((a, b) => a.timestamp - b.timestamp);
+    } else if (state.sortOrder === 'title-asc') {
+      list.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+    } else if (state.sortOrder === 'title-desc') {
+      list.sort((a, b) => (b.title || '').localeCompare(a.title || ''));
+    } else if (state.sortOrder === 'podcast-asc') {
+      list.sort((a, b) => {
+        const comp = (a.podcastTitle || '').localeCompare(b.podcastTitle || '');
+        return comp !== 0 ? comp : b.timestamp - a.timestamp;
+      });
+    } else if (state.sortOrder === 'duration-asc') {
+      list.sort((a, b) => parseDurationSeconds(a.duration) - parseDurationSeconds(b.duration));
+    } else if (state.sortOrder === 'duration-desc') {
+      list.sort((a, b) => parseDurationSeconds(b.duration) - parseDurationSeconds(a.duration));
     }
 
     state.filteredEpisodes = list;
@@ -789,45 +822,24 @@
     elements.continueShelf.classList.remove('hidden');
     elements.continueGrid.innerHTML = '';
 
-    inProgressEps.slice(0, 10).forEach(ep => {
-      const savedPos = state.playbackPositions[ep.guid];
-      const posSec = savedPos ? savedPos.position : 0;
-      const isCurrent = currentGuid && ep.guid === currentGuid;
-      const isPlaying = isCurrent && state.playbackStatus === 'playing';
-      const card = document.createElement('div');
-      card.className = `continue-card ${isCurrent ? 'playing' : ''}`;
-      card.dataset.guid = ep.guid;
-
-      card.innerHTML = `
-        <div class="continue-card-top">
-          <img class="continue-art" src="${ep.artwork || ''}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E';">
-          <div class="continue-info">
-            <div class="continue-title">${escapeHtml(ep.title)}</div>
-            <div class="continue-podcast">${escapeHtml(ep.podcastTitle)}</div>
-          </div>
-        </div>
-        <button class="btn-resume-ep" style="width: 100%;">
-          <span>${isPlaying ? 'Playing' : (posSec > 15 ? `Resume at ${formatTime(posSec)}` : 'Continue')}</span>
-        </button>
-      `;
-
-      const podEl = card.querySelector('.continue-podcast');
-      if (podEl && ep.feedUrl) {
-        podEl.addEventListener('click', (e) => {
-          e.stopPropagation();
-          openFeedDetail(ep.feedUrl);
-        });
-      }
-
-      card.querySelector('.btn-resume-ep').addEventListener('click', () => {
-        if (state.currentEpisode && state.currentEpisode.guid === ep.guid) {
-          toggleEpisodePlayback(ep);
+    if (elements.btnToggleContinue && elements.continueToggleLabel) {
+      if (inProgressEps.length <= 2) {
+        elements.btnToggleContinue.style.display = 'none';
+      } else {
+        elements.btnToggleContinue.style.display = 'inline-flex';
+        if (state.continueCollapsed) {
+          elements.continueToggleLabel.textContent = `Show all (${inProgressEps.length})`;
+          elements.continueShelf.classList.remove('is-expanded');
         } else {
-          playEpisode(ep);
+          elements.continueToggleLabel.textContent = 'Show less';
+          elements.continueShelf.classList.add('is-expanded');
         }
-      });
+      }
+    }
 
-      elements.continueGrid.appendChild(card);
+    const visibleEps = state.continueCollapsed ? inProgressEps.slice(0, 2) : inProgressEps;
+    visibleEps.forEach(ep => {
+      elements.continueGrid.appendChild(createEpisodeCard(ep));
     });
   }
 
@@ -921,11 +933,11 @@
     } else {
       savePlaybackPositionToD1(ep.guid, 0, true);
     }
+    renderContinueShelf();
     if (state.filterMode === 'unplayed' || state.filterMode === 'continue' || state.filterMode === 'played') {
       processAndSortEpisodes();
       renderTimeline();
     } else {
-      renderContinueShelf();
       const cards = document.querySelectorAll(`.episode-card[data-guid="${ep.guid}"]`);
       cards.forEach(card => {
         card.classList.toggle('is-played', !isCompleted);
@@ -946,7 +958,20 @@
 
     const savedPos = state.playbackPositions[ep.guid];
     const isCompleted = savedPos && (savedPos.completed === 1 || savedPos.completed === true);
-    const resumeTimeStr = savedPos && savedPos.position > 15 && !isCompleted ? ` • Resumes at ${formatTime(savedPos.position)}` : '';
+    const hasProgress = savedPos && savedPos.position > 15 && !isCompleted;
+    const resumeTimeStr = hasProgress ? `Resumes at ${formatTime(savedPos.position)}` : '';
+
+    let progressTrackHtml = '';
+    if (hasProgress) {
+      const durSec = ep.duration ? parseDurationSeconds(ep.duration) : 0;
+      let progressPct = 0;
+      if (durSec > 0) {
+        progressPct = Math.min(100, Math.max(1, Math.round((savedPos.position / durSec) * 100)));
+      } else {
+        progressPct = 5;
+      }
+      progressTrackHtml = `<div class="ep-progress-track"><div class="ep-progress-fill" style="width: ${progressPct}%"></div></div>`;
+    }
 
     const card = document.createElement('div');
     card.className = `episode-card ${isCurrentlyActive ? 'playing' : ''} ${isCompleted ? 'is-played' : ''}`;
@@ -975,11 +1000,12 @@
         </div>
       </div>
       ${ep.description ? `<div class="episode-desc">${escapeHtml(ep.description)}</div>` : ''}
+      ${progressTrackHtml}
       <div class="episode-footer">
         <div class="episode-meta">
           <span>${formattedDate}</span>
           ${ep.duration ? `<span>${escapeHtml(ep.duration)}</span>` : ''}
-          <span style="color: var(--accent-orange);">${resumeTimeStr}</span>
+          ${resumeTimeStr ? `<span class="ep-resume-time">• ${resumeTimeStr}</span>` : ''}
         </div>
         <div class="episode-card-actions">
           <button class="btn-mark-played ${isCompleted ? 'is-completed' : ''}" title="${isCompleted ? 'Mark as Unplayed' : 'Mark as Played'}">
@@ -1527,27 +1553,6 @@
         btn.title = 'Play';
       }
     });
-
-    const continueCards = document.querySelectorAll('.continue-card');
-    continueCards.forEach(card => {
-      const guid = card.dataset.guid;
-      const btnSpan = card.querySelector('.btn-resume-ep span');
-      if (!btnSpan) return;
-      const isCurrent = state.currentEpisode && state.currentEpisode.guid === guid;
-      if (isCurrent) {
-        card.classList.add('playing');
-        if (isPlaying) {
-          btnSpan.textContent = 'Playing';
-        } else {
-          const pos = state.playbackPositions[guid]?.position || 0;
-          btnSpan.textContent = pos > 15 ? `Resume at ${formatTime(pos)}` : 'Continue';
-        }
-      } else {
-        card.classList.remove('playing');
-        const pos = state.playbackPositions[guid]?.position || 0;
-        btnSpan.textContent = pos > 15 ? `Resume at ${formatTime(pos)}` : 'Continue';
-      }
-    });
   }
 
   function updatePlayerUI(isPlaying) {
@@ -1852,6 +1857,13 @@
 
     elements.btnOpenAddModal.addEventListener('click', openAddModal);
     elements.btnRefreshAll.addEventListener('click', refreshAllFeeds);
+
+    if (elements.btnToggleContinue) {
+      elements.btnToggleContinue.addEventListener('click', () => {
+        state.continueCollapsed = !state.continueCollapsed;
+        renderContinueShelf();
+      });
+    }
 
     elements.btnCloseAdd.addEventListener('click', closeAddModal);
     elements.btnCancelAdd.addEventListener('click', closeAddModal);

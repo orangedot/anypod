@@ -78,6 +78,10 @@
         <div class="continue-shelf hidden" id="continue-shelf">
           <div class="shelf-header">
             <h3>Continue Listening</h3>
+            <button class="btn-shelf-toggle" id="btn-toggle-continue" aria-label="Toggle Continue Shelf">
+              <span id="continue-toggle-label">Show 2</span>
+              <svg class="chevron-icon" id="continue-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
           </div>
           <div class="shelf-grid" id="continue-grid"></div>
         </div>
@@ -234,6 +238,11 @@
       <select id="sort-order" aria-label="Sort Order">
         <option value="newest">Latest to Oldest</option>
         <option value="oldest">Oldest to Latest</option>
+        <option value="title-asc">Title (A to Z)</option>
+        <option value="title-desc">Title (Z to A)</option>
+        <option value="podcast-asc">Podcast Name</option>
+        <option value="duration-asc">Shortest First</option>
+        <option value="duration-desc">Longest First</option>
       </select>
       <button class="btn btn-secondary btn-sm btn-dock-refresh" id="btn-refresh-all" title="Refresh all feeds">Refresh</button>
     </aside>
