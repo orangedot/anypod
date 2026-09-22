@@ -1746,20 +1746,21 @@
       }
     }
     renderContinueShelf();
+
+    const cards = document.querySelectorAll(`.episode-card[data-guid="${ep.guid}"]`);
+    cards.forEach(card => {
+      card.classList.toggle('is-played', !isCompleted);
+      const checkBtn = card.querySelector('.btn-mark-played');
+      if (checkBtn) {
+        checkBtn.classList.toggle('is-completed', !isCompleted);
+        checkBtn.innerHTML = !isCompleted ? CARD_ICONS.CHECK_FILLED : CARD_ICONS.CHECK;
+        checkBtn.title = !isCompleted ? 'Mark as Unplayed' : 'Mark as Played';
+      }
+    });
+
     if (state.filterMode === 'unplayed' || state.filterMode === 'continue' || state.filterMode === 'played') {
       processAndSortEpisodes();
       renderTimeline();
-    } else {
-      const cards = document.querySelectorAll(`.episode-card[data-guid="${ep.guid}"]`);
-      cards.forEach(card => {
-        card.classList.toggle('is-played', !isCompleted);
-        const checkBtn = card.querySelector('.btn-mark-played');
-        if (checkBtn) {
-          checkBtn.classList.toggle('is-completed', !isCompleted);
-          checkBtn.innerHTML = !isCompleted ? CARD_ICONS.CHECK_FILLED : CARD_ICONS.CHECK;
-          checkBtn.title = !isCompleted ? 'Mark as Unplayed' : 'Mark as Played';
-        }
-      });
     }
   }
 

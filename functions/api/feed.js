@@ -334,6 +334,6 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
     feedUrl: originalUrl,
     episodesCount: items.length,
     updatedAt: new Date().toISOString(),
-    episodes: items.slice(0, 50)
+    episodes: items.slice(0, 250)
   };
 }
