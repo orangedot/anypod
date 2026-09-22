@@ -1848,6 +1848,8 @@
           }
           state.currentEpisode = null;
           state.playbackStatus = 'idle';
+          if (elements.playerBar) elements.playerBar.classList.remove('active-episode');
+          document.body.classList.remove('has-active-episode');
           updatePlayerUI(false);
           updateFeedCountUI();
           renderContinueShelf();
@@ -2031,9 +2033,12 @@
         state.filteredEpisodes = [];
         state.currentEpisode = null;
         state.playbackStatus = 'idle';
+        if (elements.playerBar) elements.playerBar.classList.remove('active-episode');
+        document.body.classList.remove('has-active-episode');
         pauseCurrentEngine();
         syncPlaybackButtons();
         updateFeedCountUI();
+        renderContinueShelf();
         renderTimeline();
         renderFeedsGrid();
       }
