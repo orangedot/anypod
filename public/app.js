@@ -1633,31 +1633,35 @@
           </div>
           <div class="empty-actions">
             <button class="btn btn-secondary" id="btn-empty-opml-trigger">Import OPML File</button>
-            <button class="btn btn-secondary" id="btn-empty-defaults-trigger">Load Starter Feeds</button>
           </div>
           <div class="starter-suggestions-section">
-            <div class="starter-suggestions-title">Or follow popular shows to start:</div>
+            <div class="starter-suggestions-title">Discover Science, Planet & Climate shows:</div>
             <div class="starter-suggestions-grid">
-              <div class="starter-suggestion-chip" data-feed="https://feed.syntax.fm/rss">
-                <span class="starter-chip-name">Syntax (Web Dev)</span>
+              <div class="starter-suggestion-chip" data-feed="https://feeds.megaphone.fm/NATIONALAERONAUTICSANDSPACEADMINISTRATION8162188566">
+                <span class="starter-chip-name">NASA's Curious Universe</span>
                 <span class="starter-chip-add">+ Follow</span>
               </div>
-              <div class="starter-suggestion-chip" data-feed="https://feeds.simplecast.com/54nAGcIl">
-                <span class="starter-chip-name">The Daily (NYT)</span>
+              <div class="starter-suggestion-chip" data-feed="https://feeds.simplecast.com/EmVW7VGp">
+                <span class="starter-chip-name">Radiolab</span>
                 <span class="starter-chip-add">+ Follow</span>
               </div>
-              <div class="starter-suggestion-chip" data-feed="https://changelog.com/podcast/feed">
-                <span class="starter-chip-name">The Changelog</span>
+              <div class="starter-suggestion-chip" data-feed="https://www.deutschlandfunk.de/forschung-aktuell-102.xml">
+                <span class="starter-chip-name">Forschung aktuell (DLF)</span>
                 <span class="starter-chip-add">+ Follow</span>
               </div>
-              <div class="starter-suggestion-chip" data-feed="https://verbrechen.podigee.io/feed/mp3">
-                <span class="starter-chip-name">ZEIT Verbrechen</span>
+              <div class="starter-suggestion-chip" data-feed="https://www.ndr.de/nachrichten/info/podcast4696.xml">
+                <span class="starter-chip-name">ARD Klima-Update</span>
+                <span class="starter-chip-add">+ Follow</span>
+              </div>
+              <div class="starter-suggestion-chip" data-feed="https://feeds.simplecast.com/NM3_bR51">
+                <span class="starter-chip-name">ZEIT WISSEN</span>
+                <span class="starter-chip-add">+ Follow</span>
+              </div>
+              <div class="starter-suggestion-chip" data-feed="https://podcasts.files.bbci.co.uk/w13xtvb6.rss">
+                <span class="starter-chip-name">The Climate Question (BBC)</span>
                 <span class="starter-chip-add">+ Follow</span>
               </div>
             </div>
-          </div>
-          <div class="empty-footer-hint">
-            <span>Migrating from Apple Podcasts, Spotify, or Pocket Casts? Export your OPML file and import it here. Or visit <a href="javascript:void(0);" id="btn-empty-goto-settings" style="color: var(--text-primary); text-decoration: underline;">Settings</a> for sync and cloud storage options.</span>
           </div>
         </div>
       `;
@@ -2104,31 +2108,35 @@
           </div>
           <div class="empty-actions">
             <button class="btn btn-secondary" id="btn-feeds-empty-opml">Import OPML File</button>
-            <button class="btn btn-secondary" id="btn-feeds-empty-defaults">Load Starter Feeds</button>
           </div>
           <div class="starter-suggestions-section">
-            <div class="starter-suggestions-title">Or follow popular shows to start:</div>
+            <div class="starter-suggestions-title">Discover Science, Planet & Climate shows:</div>
             <div class="starter-suggestions-grid">
-              <div class="starter-suggestion-chip" data-feed="https://feed.syntax.fm/rss">
-                <span class="starter-chip-name">Syntax (Web Dev)</span>
+              <div class="starter-suggestion-chip" data-feed="https://feeds.megaphone.fm/NATIONALAERONAUTICSANDSPACEADMINISTRATION8162188566">
+                <span class="starter-chip-name">NASA's Curious Universe</span>
                 <span class="starter-chip-add">+ Follow</span>
               </div>
-              <div class="starter-suggestion-chip" data-feed="https://feeds.simplecast.com/54nAGcIl">
-                <span class="starter-chip-name">The Daily (NYT)</span>
+              <div class="starter-suggestion-chip" data-feed="https://feeds.simplecast.com/EmVW7VGp">
+                <span class="starter-chip-name">Radiolab</span>
                 <span class="starter-chip-add">+ Follow</span>
               </div>
-              <div class="starter-suggestion-chip" data-feed="https://changelog.com/podcast/feed">
-                <span class="starter-chip-name">The Changelog</span>
+              <div class="starter-suggestion-chip" data-feed="https://www.deutschlandfunk.de/forschung-aktuell-102.xml">
+                <span class="starter-chip-name">Forschung aktuell (DLF)</span>
                 <span class="starter-chip-add">+ Follow</span>
               </div>
-              <div class="starter-suggestion-chip" data-feed="https://verbrechen.podigee.io/feed/mp3">
-                <span class="starter-chip-name">ZEIT Verbrechen</span>
+              <div class="starter-suggestion-chip" data-feed="https://www.ndr.de/nachrichten/info/podcast4696.xml">
+                <span class="starter-chip-name">ARD Klima-Update</span>
+                <span class="starter-chip-add">+ Follow</span>
+              </div>
+              <div class="starter-suggestion-chip" data-feed="https://feeds.simplecast.com/NM3_bR51">
+                <span class="starter-chip-name">ZEIT WISSEN</span>
+                <span class="starter-chip-add">+ Follow</span>
+              </div>
+              <div class="starter-suggestion-chip" data-feed="https://podcasts.files.bbci.co.uk/w13xtvb6.rss">
+                <span class="starter-chip-name">The Climate Question (BBC)</span>
                 <span class="starter-chip-add">+ Follow</span>
               </div>
             </div>
-          </div>
-          <div class="empty-footer-hint">
-            <span>Have subscriptions from Apple Podcasts, Spotify, or Pocket Casts? Export your OPML file and import it here.</span>
           </div>
         </div>
       `;
@@ -3298,26 +3306,28 @@
     });
     elements.btnExportOpml.addEventListener('click', exportOpml);
 
-    elements.btnLoadDefaults.addEventListener('click', async () => {
-      showStatus('Adding recommended starter feeds...');
-      const searchTerms = ['ZEIT Geschichte', 'ZEIT WISSEN', 'Weltspiegel Podcast', 'Syntax Podcast'];
-      for (const term of searchTerms) {
-        try {
-          const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=podcast&limit=1`);
-          const data = await res.json();
-          if (data.results && data.results[0] && data.results[0].feedUrl) {
-            const feedUrl = data.results[0].feedUrl;
-            if (!state.feeds.includes(feedUrl)) {
-              state.feeds.push(feedUrl);
-              saveFeedToD1(feedUrl, data.results[0].collectionName, data.results[0].artworkUrl600);
+    if (elements.btnLoadDefaults) {
+      elements.btnLoadDefaults.addEventListener('click', async () => {
+        showStatus('Adding recommended starter feeds...');
+        const searchTerms = ['ZEIT Geschichte', 'ZEIT WISSEN', 'Weltspiegel Podcast', 'Syntax Podcast'];
+        for (const term of searchTerms) {
+          try {
+            const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=podcast&limit=1`);
+            const data = await res.json();
+            if (data.results && data.results[0] && data.results[0].feedUrl) {
+              const feedUrl = data.results[0].feedUrl;
+              if (!state.feeds.includes(feedUrl)) {
+                state.feeds.push(feedUrl);
+                saveFeedToD1(feedUrl, data.results[0].collectionName, data.results[0].artworkUrl600);
+              }
             }
-          }
-        } catch (e) {}
-      }
+          } catch (e) {}
+        }
 
-      saveFeedsToStorage();
-      refreshAllFeeds();
-    });
+        saveFeedsToStorage();
+        refreshAllFeeds();
+      });
+    }
 
     if (elements.btnClearDownloads) {
       elements.btnClearDownloads.addEventListener('click', () => {
