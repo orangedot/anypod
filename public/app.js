@@ -1329,7 +1329,7 @@
     header.innerHTML = `
       <div class="feed-detail-top-nav">
         <button class="btn btn-secondary btn-sm" id="btn-feed-back">Back</button>
-        <button class="btn btn-danger btn-sm" id="btn-feed-unsubscribe">Unsubscribe</button>
+        <button class="btn btn-secondary btn-sm" id="btn-feed-unsubscribe">Unsubscribe</button>
       </div>
       <div class="feed-detail-main">
         <img class="feed-detail-art" src="${meta.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E'}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E';">
@@ -1893,7 +1893,7 @@
     const meta = state.feedMetadata[url] || {};
     const title = meta.title || 'this podcast';
     if (elements.confirmModalMsg) {
-      elements.confirmModalMsg.textContent = `Are you sure you want to remove "${title}"? This will unsubscribe from the feed and clear saved playback progress.`;
+      elements.confirmModalMsg.textContent = `Do you want to unsubscribe from "${title}"?`;
     }
     if (elements.confirmModal) {
       elements.confirmModal.classList.remove('hidden');

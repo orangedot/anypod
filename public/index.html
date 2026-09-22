@@ -227,16 +227,16 @@
     </div>
 
     <div class="modal-overlay hidden" id="confirm-modal">
-      <div class="modal-card" style="max-width: 400px; text-align: center;">
-        <div class="modal-header" style="justify-content: center;">
-          <h2 style="color: #ef4444;">Confirm Delete Feed</h2>
+      <div class="modal-card" style="max-width: 380px; text-align: center;">
+        <div class="modal-header" style="justify-content: center; margin-bottom: 0.5rem;">
+          <h2 style="font-weight: 450; font-size: 1.15rem; color: var(--text-primary); letter-spacing: -0.01em;">Remove from Library</h2>
         </div>
         <div class="modal-body">
-          <p id="confirm-modal-msg" style="color: var(--text-muted); line-height: 1.5; margin-bottom: 1rem;">Are you sure you want to remove this podcast feed?</p>
+          <p id="confirm-modal-msg" style="color: var(--text-secondary); line-height: 1.5; font-size: 0.9rem; font-weight: 300; margin-bottom: 1.25rem;">Do you want to unsubscribe from this podcast?</p>
         </div>
-        <div class="modal-footer" style="gap: 0.75rem;">
+        <div class="modal-footer" style="display: flex; gap: 0.75rem;">
           <button class="btn btn-secondary" id="btn-confirm-cancel" style="flex: 1;">Cancel</button>
-          <button class="btn btn-primary" id="btn-confirm-delete" style="flex: 1; background: #ef4444;">Delete Feed</button>
+          <button class="btn btn-confirm-action" id="btn-confirm-delete" style="flex: 1;">Remove</button>
         </div>
       </div>
     </div>
