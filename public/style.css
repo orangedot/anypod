@@ -2488,11 +2488,44 @@ body.has-active-episode .bottom-action-dock {
   background: var(--bg-card);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+  user-select: none;
 }
 
 .queue-item-row:hover {
   background: var(--bg-card-hover);
+}
+
+.queue-item-row.is-dragging {
+  opacity: 0.45;
+  border: 1px dashed var(--accent);
+}
+
+.queue-item-row.drag-over-above {
+  border-top: 2px solid var(--accent);
+}
+
+.queue-item-row.drag-over-below {
+  border-bottom: 2px solid var(--accent);
+}
+
+.queue-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  cursor: grab;
+  padding: 0.15rem;
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+
+.queue-drag-handle:hover {
+  color: var(--text-primary);
+}
+
+.queue-drag-handle:active {
+  cursor: grabbing;
 }
 
 .queue-item-index {

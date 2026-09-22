@@ -729,11 +729,18 @@
     }
 
     const fallbackArt = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E';
+    let draggedIndex = null;
+
     state.queue.forEach((ep, idx) => {
       const row = document.createElement('div');
       row.className = 'queue-item-row';
       row.dataset.guid = ep.guid;
+      row.dataset.index = idx;
+      row.draggable = true;
       row.innerHTML = `
+        <span class="queue-drag-handle" title="Drag to reorder">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
+        </span>
         <span class="queue-item-index">${idx + 1}</span>
         <img class="queue-item-artwork" src="${ep.artwork || fallbackArt}" alt="" onerror="this.src='${fallbackArt}';">
         <div class="queue-item-info">
@@ -749,6 +756,88 @@
           </button>
         </div>
       `;
+
+      row.addEventListener('dragstart', (e) => {
+        draggedIndex = idx;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(idx));
+        setTimeout(() => row.classList.add('is-dragging'), 0);
+      });
+
+      row.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const rect = row.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        if (e.clientY < midY) {
+          row.classList.add('drag-over-above');
+          row.classList.remove('drag-over-below');
+        } else {
+          row.classList.add('drag-over-below');
+          row.classList.remove('drag-over-above');
+        }
+      });
+
+      row.addEventListener('dragleave', () => {
+        row.classList.remove('drag-over-above', 'drag-over-below');
+      });
+
+      row.addEventListener('drop', (e) => {
+        e.preventDefault();
+        row.classList.remove('drag-over-above', 'drag-over-below');
+        const fromIdx = draggedIndex !== null ? draggedIndex : parseInt(e.dataTransfer.getData('text/plain'), 10);
+        const toIdx = idx;
+
+        if (fromIdx !== null && !isNaN(fromIdx) && fromIdx !== toIdx) {
+          const item = state.queue.splice(fromIdx, 1)[0];
+          state.queue.splice(toIdx, 0, item);
+          saveQueueToStorage();
+          updateQueueUI();
+          renderQueueModalContent();
+        }
+      });
+
+      row.addEventListener('dragend', () => {
+        row.classList.remove('is-dragging', 'drag-over-above', 'drag-over-below');
+        draggedIndex = null;
+      });
+
+      const handle = row.querySelector('.queue-drag-handle');
+      if (handle) {
+        let touchCurrentRow = null;
+
+        handle.addEventListener('touchstart', () => {
+          draggedIndex = idx;
+          row.classList.add('is-dragging');
+        }, { passive: true });
+
+        handle.addEventListener('touchmove', (e) => {
+          const touchY = e.touches[0].clientY;
+          const target = document.elementFromPoint(e.touches[0].clientX, touchY);
+          const targetRow = target ? target.closest('.queue-item-row') : null;
+          document.querySelectorAll('.queue-item-row').forEach(r => r.classList.remove('drag-over-above', 'drag-over-below'));
+          if (targetRow && targetRow !== row) {
+            touchCurrentRow = targetRow;
+            targetRow.classList.add('drag-over-above');
+          }
+        }, { passive: true });
+
+        handle.addEventListener('touchend', () => {
+          row.classList.remove('is-dragging');
+          if (touchCurrentRow && draggedIndex !== null) {
+            const toIdx = parseInt(touchCurrentRow.dataset.index, 10);
+            if (!isNaN(toIdx) && toIdx !== draggedIndex) {
+              const item = state.queue.splice(draggedIndex, 1)[0];
+              state.queue.splice(toIdx, 0, item);
+              saveQueueToStorage();
+              updateQueueUI();
+              renderQueueModalContent();
+            }
+          }
+          document.querySelectorAll('.queue-item-row').forEach(r => r.classList.remove('drag-over-above', 'drag-over-below'));
+          draggedIndex = null;
+        });
+      }
 
       row.querySelector('.btn-queue-item-play').addEventListener('click', (e) => {
         e.stopPropagation();
