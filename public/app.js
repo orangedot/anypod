@@ -568,8 +568,11 @@
   async function refreshAllFeeds() {
     if (state.feeds.length === 0) {
       state.allEpisodes = [];
+      state.filteredEpisodes = [];
       state.feedMetadata = {};
       saveCacheToStorage();
+      updateFeedCountUI();
+      renderContinueShelf();
       renderTimeline();
       renderFeedsGrid();
       return;
