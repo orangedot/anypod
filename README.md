@@ -126,33 +126,30 @@ Unlike commercial podcast apps that enforce algorithmic feeds, dynamic ad insert
 ## 📁 Project Structure
 
 ```
-165_private_podcast/
-└── app/
-    ├── .github/                      # GitHub workflow configurations (if applicable)
-    ├── .gitignore                    # Git ignore rules (node_modules, .wrangler, etc.)
-    ├── package.json                  # Project manifest and scripts
-    ├── package-lock.json             # Dependency lockfile
-    ├── wrangler.json                 # Cloudflare Pages & D1 configuration
-    ├── schema.sql                    # Cloudflare D1 SQL schema definition
-    │
-    ├── functions/                    # Cloudflare Pages Functions (Serverless Backend)
-    │   └── api/
-    │       ├── auth/
-    │       │   ├── send-link.js      # Issues magic token & dispatches email via Resend
-    │       │   ├── verify.js         # Validates token & sets session cookie / token
-    │       │   └── logout.js         # Invalidates session in D1 & clears cookies
-    │       │
-    │       ├── sync/
-    │       │   ├── feeds.js          # GET / POST / DELETE user subscriptions
-    │       │   └── position.js       # GET / POST playback positions & progress
-    │       │
-    │       ├── feed.js               # RSS, Atom & YouTube XML fetcher and parser
-    │       └── utils.js              # Authentication helpers & SHA-256 hashing
-    │
-    └── public/                       # Static Web Assets (Frontend)
-        ├── index.html                # App shell, modals, dock, and player markup
-        ├── style.css                 # Complete responsive design system & themes
-        └── app.js                    # State management, audio playback, and UI controller
+podany/
+├── functions/                    # Cloudflare Pages Functions (Serverless Backend)
+│   └── api/
+│       ├── auth/
+│       │   ├── send-link.js      # Issues magic token & dispatches email via Resend
+│       │   ├── verify.js         # Validates token & sets session cookie / token
+│       │   └── logout.js         # Invalidates session in D1 & clears cookies
+│       │
+│       ├── sync/
+│       │   ├── feeds.js          # GET / POST / DELETE user subscriptions
+│       │   └── position.js       # GET / POST playback positions & progress
+│       │
+│       ├── feed.js               # RSS, Atom & YouTube XML fetcher and parser
+│       └── utils.js              # Authentication helpers & SHA-256 hashing
+│
+├── public/                       # Static Web Assets (Frontend)
+│   ├── index.html                # App shell, modals, dock, and player markup
+│   ├── style.css                 # Complete responsive design system & themes
+│   └── app.js                    # State management, audio playback, and UI controller
+│
+├── schema.sql                    # Cloudflare D1 SQL schema definition
+├── wrangler.json                 # Cloudflare Pages & D1 configuration
+├── package.json                  # Project manifest and scripts
+└── README.md                     # Documentation
 ```
 
 ---
@@ -341,7 +338,8 @@ Parses any RSS, Atom, or YouTube URL, normalizes enclosures and episode metadata
 
 1. Clone or navigate to the repository directory:
    ```bash
-   cd /path/to/165_private_podcast/app
+   git clone https://github.com/orangedot/podany.git
+   cd podany
    ```
 
 2. Install development dependencies:
@@ -422,9 +420,8 @@ Your app will be live at `https://podany.pages.dev` or your connected custom dom
 To create a new private Git repository (e.g. on GitHub, GitLab, or Gitea) and push your codebase:
 
 ### 1. Initialize & Verify Repository
-Ensure you are inside the `app` directory:
+Ensure you are inside the project repository directory:
 ```bash
-cd /Users/whatever/Projekte/165_private_podcast/app
 git status
 ```
 
