@@ -86,6 +86,7 @@
     btnPrev15: document.getElementById('btn-prev-15'),
     btnNext15: document.getElementById('btn-next-15'),
     btnSkipEpisode: document.getElementById('btn-skip-episode'),
+    btnPlayerMarkPlayed: document.getElementById('btn-player-mark-played'),
 
     tabs: document.querySelectorAll('.nav-tab'),
     panels: document.querySelectorAll('.tab-panel'),
@@ -152,8 +153,16 @@
     queueNowPlayingContainer: document.getElementById('queue-now-playing-container'),
     queueItemsContainer: document.getElementById('queue-items-container'),
 
+    showNotesModal: document.getElementById('show-notes-modal'),
+    btnCloseNotes: document.getElementById('btn-close-notes'),
+    showNotesPodcastTitle: document.getElementById('show-notes-podcast-title'),
+    showNotesEpisodeTitle: document.getElementById('show-notes-episode-title'),
+    showNotesMeta: document.getElementById('show-notes-meta'),
+    showNotesContent: document.getElementById('show-notes-content'),
+
     audio: document.getElementById('audio-engine'),
     playerBar: document.getElementById('player-bar'),
+    playerTrackInfo: document.querySelector('.player-track-info'),
     playerArtwork: document.getElementById('player-artwork'),
     playerTitle: document.getElementById('player-title'),
     playerPodcast: document.getElementById('player-podcast'),
@@ -164,7 +173,8 @@
     currentTimeLabel: document.getElementById('current-time'),
     totalDurationLabel: document.getElementById('total-duration'),
     seekBar: document.getElementById('seek-bar'),
-    btnSpeedToggle: document.getElementById('btn-speed-toggle')
+    btnSpeedToggle: document.getElementById('btn-speed-toggle'),
+    btnPlayerNotes: document.getElementById('btn-player-notes')
   };
 
   window.onYouTubeIframeAPIReady = function () {
@@ -904,6 +914,7 @@
 
   function renderOfflineStorageSettings() {
     if (!elements.offlineEpisodesList) return;
+    purgeOrphanedDownloads();
     const list = Object.values(state.downloadedEpisodes || {});
     if (list.length === 0) {
       elements.offlineEpisodesList.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; padding: 0.5rem 0;">No episodes downloaded for offline listening yet.</p>';
@@ -972,6 +983,7 @@
 
       state.downloadedEpisodes[ep.guid] = {
         guid: ep.guid,
+        feedUrl: ep.feedUrl,
         audioUrl: ep.audioUrl,
         title: ep.title,
         podcastTitle: ep.podcastTitle,
@@ -1751,6 +1763,101 @@
     }
   }
 
+  function formatShowNotesHtml(rawInput) {
+    if (!rawInput) return '<p>No show notes available for this episode.</p>';
+
+    let processed = rawInput;
+    const hasHtmlTags = /<\/?[a-z][\s\S]*>/i.test(processed);
+
+    if (!hasHtmlTags) {
+      processed = escapeHtml(processed);
+      processed = processed.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+      processed = processed.split(/\r?\n\r?\n/).map(p => `<p>${p.replace(/\r?\n/g, '<br>')}</p>`).join('');
+    } else {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(`<div>${processed}</div>`, 'text/html');
+      const container = doc.body.firstElementChild || doc.body;
+
+      const dangerous = container.querySelectorAll('script, style, iframe, object, embed, form, input, button');
+      dangerous.forEach(el => el.remove());
+
+      const links = container.querySelectorAll('a');
+      links.forEach(a => {
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener noreferrer');
+      });
+
+      processed = container.innerHTML;
+    }
+
+    processed = processed.replace(/\b(?:(\d{1,2}):)?([0-5]?\d):([0-5]\d)\b/g, (match, h, m, s) => {
+      const hours = h ? parseInt(h, 10) : 0;
+      const mins = parseInt(m, 10);
+      const secs = parseInt(s, 10);
+      const totalSec = (hours * 3600) + (mins * 60) + secs;
+      return `<button type="button" class="note-timestamp" data-seconds="${totalSec}">${match}</button>`;
+    });
+
+    return processed;
+  }
+
+  function seekToExactTime(seconds) {
+    if (state.activeEngine === 'audio' && elements.audio) {
+      elements.audio.currentTime = seconds;
+    } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.seekTo) {
+      state.ytPlayer.seekTo(seconds, true);
+    }
+    updateProgress();
+  }
+
+  function openShowNotes(targetEp) {
+    const ep = targetEp || state.currentEpisode;
+    if (!ep || !elements.showNotesModal) return;
+
+    if (elements.showNotesPodcastTitle) {
+      elements.showNotesPodcastTitle.textContent = ep.podcastTitle || 'Podcast';
+    }
+    if (elements.showNotesEpisodeTitle) {
+      elements.showNotesEpisodeTitle.textContent = ep.title || 'Untitled Episode';
+    }
+    if (elements.showNotesMeta) {
+      const dStr = ep.timestamp ? formatHumanRelativeDate(ep.timestamp) : (ep.pubDate || '');
+      const dur = ep.duration ? formatEpisodeDuration(ep.duration) : '';
+      elements.showNotesMeta.textContent = [dStr, dur].filter(Boolean).join(' • ');
+    }
+    if (elements.showNotesContent) {
+      const rawContent = ep.content || ep.description || '';
+      elements.showNotesContent.innerHTML = formatShowNotesHtml(rawContent);
+
+      elements.showNotesContent.querySelectorAll('.note-timestamp').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const sec = parseFloat(btn.dataset.seconds);
+          if (isNaN(sec)) return;
+          if (state.currentEpisode && state.currentEpisode.guid === ep.guid) {
+            seekToExactTime(sec);
+            if (state.playbackStatus !== 'playing') {
+              resumeCurrentEngine();
+            }
+          } else {
+            playEpisode(ep);
+            setTimeout(() => {
+              seekToExactTime(sec);
+            }, 300);
+          }
+        });
+      });
+    }
+
+    elements.showNotesModal.classList.remove('hidden');
+  }
+
+  function closeShowNotes() {
+    if (elements.showNotesModal) {
+      elements.showNotesModal.classList.add('hidden');
+    }
+  }
+
   function createEpisodeCard(ep) {
     const isCurrentlyActive = state.currentEpisode && state.currentEpisode.guid === ep.guid;
     const isPlaying = isCurrentlyActive && state.playbackStatus === 'playing';
@@ -1819,7 +1926,7 @@
           <div class="episode-title">${escapeHtml(ep.title)}</div>
         </div>
       </div>
-      ${ep.description ? `<div class="episode-desc">${escapeHtml(ep.description)}</div>` : ''}
+      ${ep.description ? `<div class="episode-desc">${escapeHtml(ep.description)} <span class="episode-desc-link">Notes & links →</span></div>` : ''}
       ${progressTrackHtml}
       <div class="episode-footer">
         <div class="episode-meta">
@@ -1841,6 +1948,22 @@
         </div>
       </div>
     `;
+
+    const descEl = card.querySelector('.episode-desc');
+    if (descEl) {
+      descEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openShowNotes(ep);
+      });
+    }
+
+    const titleEl = card.querySelector('.episode-title');
+    if (titleEl) {
+      titleEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openShowNotes(ep);
+      });
+    }
 
     const podNameEl = card.querySelector('.episode-podcast-name');
     if (podNameEl && ep.feedUrl) {
@@ -2594,6 +2717,29 @@
     playNextEpisode();
   }
 
+  function skipToNextEpisode(markCompleted = false) {
+    if (!state.currentEpisode) return;
+    const curEp = state.currentEpisode;
+    if (markCompleted) {
+      savePlaybackPositionToD1(curEp.guid, 0, true);
+      if (isEpisodeQueued(curEp.guid)) {
+        removeFromQueue(curEp.guid);
+      }
+    } else {
+      let curPos = 0;
+      if (state.activeEngine === 'audio' && elements.audio) {
+        curPos = elements.audio.currentTime || 0;
+      } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
+        curPos = state.ytPlayer.getCurrentTime() || 0;
+      }
+      if (curPos > 2) {
+        savePlaybackPositionToD1(curEp.guid, curPos, false);
+      }
+    }
+    renderContinueShelf();
+    playNextEpisode();
+  }
+
   function syncPlaybackButtons() {
     const isPlaying = state.playbackStatus === 'playing';
     const isLoading = state.playbackStatus === 'loading';
@@ -2755,6 +2901,30 @@
     }
   }
 
+  function purgeOrphanedDownloads() {
+    if (!state.feeds || !state.downloadedEpisodes) return;
+    const activeFeedSet = new Set(state.feeds);
+    const activeGuidSet = new Set(state.allEpisodes.map(e => e.guid));
+    let changed = false;
+    for (const [guid, dl] of Object.entries(state.downloadedEpisodes)) {
+      const isFeedMissing = dl.feedUrl && !activeFeedSet.has(dl.feedUrl);
+      const isGuidMissing = state.allEpisodes.length > 0 && !activeGuidSet.has(guid);
+      const isAllFeedsGone = state.feeds.length === 0;
+      if (isAllFeedsGone || isFeedMissing || (!dl.feedUrl && isGuidMissing)) {
+        if ('caches' in window) {
+          try {
+            caches.open('podany-audio-v1').then(cache => cache.delete(dl.audioUrl)).catch(() => {});
+          } catch (e) {}
+        }
+        delete state.downloadedEpisodes[guid];
+        changed = true;
+      }
+    }
+    if (changed) {
+      saveDownloadsToStorage();
+    }
+  }
+
   function removeFeed(url) {
     if (state.activeFeedDetailUrl === url) {
       state.activeFeedDetailUrl = null;
@@ -2766,6 +2936,25 @@
       if (feedsTab) feedsTab.classList.add('active');
       if (feedsPanel) feedsPanel.classList.add('active');
     }
+
+    const epsToRemove = state.allEpisodes.filter(ep => ep.feedUrl === url);
+    const guidsToRemove = new Set(epsToRemove.map(ep => ep.guid));
+    let downloadsChanged = false;
+    for (const [guid, dl] of Object.entries(state.downloadedEpisodes)) {
+      if (guidsToRemove.has(guid) || dl.feedUrl === url) {
+        if ('caches' in window) {
+          try {
+            caches.open('podany-audio-v1').then(cache => cache.delete(dl.audioUrl)).catch(() => {});
+          } catch (e) {}
+        }
+        delete state.downloadedEpisodes[guid];
+        downloadsChanged = true;
+      }
+    }
+    if (downloadsChanged) {
+      saveDownloadsToStorage();
+    }
+
     state.allEpisodes = state.allEpisodes.filter(ep => ep.feedUrl !== url);
     state.feeds = state.feeds.filter(f => f !== url);
     delete state.feedMetadata[url];
@@ -2959,7 +3148,13 @@
 
     if (elements.btnSkipEpisode) {
       elements.btnSkipEpisode.addEventListener('click', () => {
-        onEpisodeEnded();
+        skipToNextEpisode(false);
+      });
+    }
+
+    if (elements.btnPlayerMarkPlayed) {
+      elements.btnPlayerMarkPlayed.addEventListener('click', () => {
+        skipToNextEpisode(true);
       });
     }
 
@@ -3071,6 +3266,31 @@
         if (e.target === elements.queueModal) closeQueueModal();
       });
     }
+
+    if (elements.btnPlayerNotes) elements.btnPlayerNotes.addEventListener('click', () => openShowNotes());
+    if (elements.playerTrackInfo) elements.playerTrackInfo.addEventListener('click', () => openShowNotes());
+    if (elements.btnCloseNotes) elements.btnCloseNotes.addEventListener('click', closeShowNotes);
+    if (elements.showNotesModal) {
+      elements.showNotesModal.addEventListener('click', (e) => {
+        if (e.target === elements.showNotesModal) closeShowNotes();
+      });
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (elements.showNotesModal && !elements.showNotesModal.classList.contains('hidden')) {
+          closeShowNotes();
+        } else if (elements.queueModal && !elements.queueModal.classList.contains('hidden')) {
+          closeQueueModal();
+        } else if (elements.sleepModal && !elements.sleepModal.classList.contains('hidden')) {
+          closeSleepModal();
+        } else if (elements.addModal && !elements.addModal.classList.contains('hidden')) {
+          closeAddModal();
+        } else if (elements.confirmModal && !elements.confirmModal.classList.contains('hidden')) {
+          elements.confirmModal.classList.add('hidden');
+        }
+      }
+    });
 
     elements.opmlFileInput.addEventListener('change', (e) => {
       if (e.target.files.length > 0) importOpml(e.target.files[0]);

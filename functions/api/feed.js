@@ -181,6 +181,15 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
     return match ? match[2] : '';
   };
 
+  const getRawTagContent = (xmlSegment, tagName) => {
+    const regex = new RegExp(`<(${tagName}|content:${tagName}|itunes:${tagName}|yt:${tagName}|media:${tagName})[^>]*>([\\s\\S]*?)<\\/\\1\\b[^>]*>`, 'i');
+    const match = xmlSegment.match(regex);
+    if (!match || !match[2]) return '';
+    let val = match[2];
+    val = val.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, '$1').trim();
+    return val;
+  };
+
   const cleanText = (str) => {
     if (!str) return '';
     return str
@@ -237,7 +246,8 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
       const epVideoId = getTagContent(entryXml, 'videoId');
       const epGuid = getTagContent(entryXml, 'id') || epVideoId;
       const epPubDate = getTagContent(entryXml, 'published') || getTagContent(entryXml, 'updated');
-      const epDesc = getTagContent(entryXml, 'description');
+      const rawEntryContent = getRawTagContent(entryXml, 'content') || getRawTagContent(entryXml, 'summary') || getRawTagContent(entryXml, 'description');
+      const epDesc = getTagContent(entryXml, 'description') || getTagContent(entryXml, 'summary') || cleanText(rawEntryContent);
       const epThumb = getAttribute(entryXml, 'media:thumbnail', 'url');
 
       let audioUrl = getAttribute(entryXml, 'media:content', 'url');
@@ -259,7 +269,8 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
         items.push({
           guid: epGuid,
           title: epTitle,
-          description: epDesc ? epDesc.substring(0, 300) : '',
+          description: epDesc ? (epDesc.substring(0, 240) + (epDesc.length > 240 ? '...' : '')) : '',
+          content: rawEntryContent || epDesc,
           pubDate: epPubDate,
           timestamp: timestamp,
           audioUrl: audioUrl,
@@ -281,7 +292,8 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
       const epTitle = getTagContent(itemXml, 'title') || 'Untitled Episode';
       const epGuid = getTagContent(itemXml, 'guid') || getTagContent(itemXml, 'link') || epTitle;
       const epPubDate = getTagContent(itemXml, 'pubDate') || getTagContent(itemXml, 'published');
-      const epDescription = getTagContent(itemXml, 'description') || getTagContent(itemXml, 'summary');
+      const rawContent = getRawTagContent(itemXml, 'encoded') || getRawTagContent(itemXml, 'description') || getRawTagContent(itemXml, 'summary');
+      const epDescription = getTagContent(itemXml, 'description') || getTagContent(itemXml, 'summary') || cleanText(rawContent);
       const epDuration = getTagContent(itemXml, 'duration');
 
       let audioUrl = getAttribute(itemXml, 'enclosure', 'url') || getAttribute(itemXml, 'media:content', 'url');
@@ -297,7 +309,8 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
         items.push({
           guid: epGuid,
           title: epTitle,
-          description: epDescription.substring(0, 300) + (epDescription.length > 300 ? '...' : ''),
+          description: epDescription ? (epDescription.substring(0, 240) + (epDescription.length > 240 ? '...' : '')) : '',
+          content: rawContent || epDescription,
           pubDate: epPubDate,
           timestamp: timestamp,
           audioUrl: audioUrl,
