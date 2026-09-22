@@ -1259,6 +1259,19 @@ select {
   background: var(--primary-glow);
 }
 
+.recent-ep-row.is-played .recent-ep-title {
+  color: var(--text-muted);
+}
+
+.recent-ep-row.is-played .btn-recent-play {
+  opacity: 0.6;
+}
+
+.recent-ep-row.is-in-progress .recent-ep-duration {
+  color: var(--accent-orange);
+  font-weight: 500;
+}
+
 .btn-recent-play {
   width: 22px;
   height: 22px;

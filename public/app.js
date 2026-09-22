@@ -1996,23 +1996,53 @@
       const rawDesc = meta.description || '';
       const plainDesc = rawDesc.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
 
-      const feedEpisodes = state.allEpisodes
+      const allForFeed = state.allEpisodes
         .filter(e => e.feedUrl === url)
-        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-        .slice(0, 3);
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+      const inProgressEps = allForFeed.filter(ep => {
+        const pos = state.playbackPositions[ep.guid];
+        return pos && !pos.completed && pos.position > 2;
+      });
+
+      const unplayedEps = allForFeed.filter(ep => {
+        const pos = state.playbackPositions[ep.guid];
+        const isProg = inProgressEps.some(p => p.guid === ep.guid);
+        return !isProg && (!pos || (!pos.completed && (!pos.position || pos.position <= 2)));
+      });
+
+      let feedEpisodes = [...inProgressEps, ...unplayedEps].slice(0, 3);
+      const hasUnplayed = feedEpisodes.length > 0;
+      if (feedEpisodes.length < 3) {
+        const existingGuids = new Set(feedEpisodes.map(e => e.guid));
+        const remaining = allForFeed.filter(e => !existingGuids.has(e.guid)).slice(0, 3 - feedEpisodes.length);
+        feedEpisodes.push(...remaining);
+      }
+
+      const widgetHeader = hasUnplayed
+        ? (inProgressEps.length > 0 ? 'Continue & up next' : 'Up next (unplayed)')
+        : 'Caught up • Latest';
 
       let recentWidgetHtml = '';
       if (feedEpisodes.length > 0) {
         recentWidgetHtml = `
           <div class="feed-recent-widget">
-            <div class="feed-recent-header">Latest episodes</div>
+            <div class="feed-recent-header">${widgetHeader}</div>
             <div class="feed-recent-list">
               ${feedEpisodes.map(ep => {
                 const isCurrent = state.currentEpisode && state.currentEpisode.guid === ep.guid;
                 const isEpPlaying = isCurrent && state.playbackStatus === 'playing';
-                const durStr = ep.duration ? formatDurationCompact(ep.duration) : '';
+                const pos = state.playbackPositions[ep.guid];
+                const isCompleted = pos && (pos.completed === 1 || pos.completed === true);
+                const isInProgress = pos && !isCompleted && pos.position > 2;
+                let durStr = ep.duration ? formatDurationCompact(ep.duration) : '';
+                if (isInProgress) {
+                  durStr = `Resume ${formatTime(pos.position)}`;
+                } else if (isCompleted) {
+                  durStr = `✓ ${durStr}`;
+                }
                 return `
-                  <div class="recent-ep-row ${isCurrent ? 'active' : ''}" data-guid="${escapeHtml(ep.guid)}" title="${escapeHtml(ep.title)}">
+                  <div class="recent-ep-row ${isCurrent ? 'active' : ''} ${isCompleted ? 'is-played' : ''} ${isInProgress ? 'is-in-progress' : ''}" data-guid="${escapeHtml(ep.guid)}" title="${escapeHtml(ep.title)}">
                     <button class="btn-recent-play ${isEpPlaying ? 'is-playing' : ''}" data-guid="${escapeHtml(ep.guid)}" aria-label="Play ${escapeHtml(ep.title)}">
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">${isEpPlaying ? '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>' : '<polygon points="5 3 19 12 5 21 5 3"></polygon>'}</svg>
                     </button>
