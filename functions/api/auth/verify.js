@@ -42,18 +42,29 @@ export async function onRequest(context) {
 
     const tokenHash = await hashToken(token);
 
+    let userId = null;
     const updateResult = await db.prepare(
       'UPDATE auth_tokens SET used = 1 WHERE token_hash = ? AND used = 0 AND expires_at > unixepoch() RETURNING user_id'
     ).bind(tokenHash).all();
 
-    if (!updateResult.results || updateResult.results.length === 0) {
+    if (updateResult.results && updateResult.results.length > 0) {
+      userId = updateResult.results[0].user_id;
+    } else {
+      const existingToken = await db.prepare(
+        'SELECT user_id, used, expires_at FROM auth_tokens WHERE token_hash = ?'
+      ).bind(tokenHash).first();
+
+      if (existingToken && existingToken.used === 1 && (existingToken.expires_at - Math.floor(Date.now() / 1000) > 10 * 60)) {
+        userId = existingToken.user_id;
+      }
+    }
+
+    if (!userId) {
       return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
         headers: corsHeaders,
         status: 401
       });
     }
-
-    const userId = updateResult.results[0].user_id;
 
     const sessionBuffer = new Uint8Array(32);
     crypto.getRandomValues(sessionBuffer);

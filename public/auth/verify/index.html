@@ -96,9 +96,10 @@
         return;
       }
 
-      btn.addEventListener('click', async () => {
+      async function doVerify() {
         btn.disabled = true;
-        btn.textContent = 'Verifying...';
+        btn.textContent = 'Signing you in...';
+        infoText.textContent = 'Verifying your login link and redirecting...';
         errorBox.style.display = 'none';
 
         try {
@@ -122,10 +123,14 @@
         } catch (err) {
           btn.disabled = false;
           btn.textContent = 'Confirm Sign In';
+          infoText.textContent = 'Click the button below to complete your authentication and open Podany.';
           errorBox.style.display = 'block';
           errorBox.textContent = err.message;
         }
-      });
+      }
+
+      btn.addEventListener('click', doVerify);
+      doVerify();
     })();
   </script>
 </body>

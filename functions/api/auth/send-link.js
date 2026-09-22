@@ -60,7 +60,7 @@ export async function onRequest(context) {
 
     const appUrl = (env.APP_URL || new URL(request.url).origin).replace(/\/$/, '');
     const fromEmail = env.FROM_EMAIL || 'onboarding@resend.dev';
-    const verifyUrl = `${appUrl}/auth/verify?token=${rawToken}`;
+    const verifyUrl = `${appUrl}/auth/verify/?token=${rawToken}`;
 
     const resendKey = env.RESEND_API_KEY;
     if (!resendKey) {
