@@ -58,7 +58,39 @@ export async function onRequest(context) {
       'INSERT INTO auth_tokens (token_hash, user_id, expires_at, used) VALUES (?, ?, ?, 0)'
     ).bind(tokenHash, user.id, expiresAt).run();
 
-    const appUrl = (env.APP_URL || new URL(request.url).origin).replace(/\/$/, '');
+    let appUrl = '';
+    if (body && body.origin && typeof body.origin === 'string') {
+      try {
+        const parsed = new URL(body.origin);
+        if (parsed.protocol === 'https:' || parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
+          appUrl = parsed.origin;
+        }
+      } catch (e) {}
+    }
+    if (!appUrl) {
+      const originHeader = request.headers.get('Origin');
+      if (originHeader && originHeader !== 'null') {
+        appUrl = originHeader;
+      }
+    }
+    if (!appUrl) {
+      const referer = request.headers.get('Referer');
+      if (referer) {
+        try {
+          appUrl = new URL(referer).origin;
+        } catch (e) {}
+      }
+    }
+    if (!appUrl) {
+      try {
+        appUrl = new URL(request.url).origin;
+      } catch (e) {}
+    }
+    if (!appUrl || appUrl === 'null') {
+      appUrl = env.APP_URL || 'https://podany.poizoom.com';
+    }
+    appUrl = appUrl.replace(/\/$/, '');
+
     const fromEmail = env.FROM_EMAIL || 'onboarding@resend.dev';
     const verifyUrl = `${appUrl}/auth/verify/?token=${rawToken}`;
 
@@ -77,12 +109,12 @@ export async function onRequest(context) {
     const emailHtml = `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #090a0f; color: #f8fafc; padding: 40px 20px;">
-  <div style="max-width: 480px; margin: 0 auto; background: #141721; border: 1px solid #2e354f; border-radius: 16px; padding: 32px; text-align: center;">
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0c0a09; color: #f5f5f4; padding: 40px 20px;">
+  <div style="max-width: 480px; margin: 0 auto; background: #1c1917; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 32px; text-align: center;">
     <h1 style="color: #ffffff; font-size: 22px; margin-bottom: 12px; font-weight: 700;">Sign in to Podany</h1>
-    <p style="color: #94a3b8; font-size: 15px; line-height: 1.5; margin-bottom: 28px;">Click the button below to complete your sign in. This magic link is valid for 15 minutes.</p>
-    <a href="${verifyUrl}" style="display: inline-block; background: #f97316; color: #ffffff; font-weight: 600; font-size: 15px; padding: 14px 28px; border-radius: 9999px; text-decoration: none;">Sign In to Podany</a>
-    <p style="color: #64748b; font-size: 12px; margin-top: 32px; word-break: break-all;">Link not working? Paste this URL into your browser:<br><a href="${verifyUrl}" style="color: #f97316;">${verifyUrl}</a></p>
+    <p style="color: #a8a29e; font-size: 15px; line-height: 1.5; margin-bottom: 28px;">Click the button below to complete your sign in. This magic link is valid for 15 minutes.</p>
+    <a href="${verifyUrl}" style="display: inline-block; background: #d8cdbe; color: #141414; font-weight: 600; font-size: 15px; padding: 13px 28px; border-radius: 8px; text-decoration: none;">Sign In to Podany</a>
+    <p style="color: #78716c; font-size: 12px; margin-top: 32px; word-break: break-all;">Link not working? Paste this URL into your browser:<br><a href="${verifyUrl}" style="color: #d8cdbe;">${verifyUrl}</a></p>
   </div>
 </body>
 </html>`;
