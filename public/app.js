@@ -246,7 +246,7 @@
     }
 
     try {
-      const res = await fetch('/api/sync/feeds');
+      const res = await fetch('/api/sync/feeds', { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         elements.authModal.classList.add('hidden');
@@ -1743,14 +1743,28 @@
     }
 
     if (elements.btnAccountToggle) {
-      elements.btnAccountToggle.addEventListener('click', () => {
+      elements.btnAccountToggle.addEventListener('click', async () => {
         if (elements.statusIndicator && elements.statusIndicator.classList.contains('online')) {
+          const currentToken = state.sessionToken;
+          try {
+            await fetch('/api/auth/logout', {
+              method: 'POST',
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(currentToken ? { 'X-Session-Token': currentToken } : {})
+              },
+              body: JSON.stringify({ sessionToken: currentToken })
+            });
+          } catch (e) {}
           localStorage.removeItem(STORAGE_KEYS.SESSION);
+          localStorage.removeItem('podcast_pulse_session_token');
           localStorage.removeItem(STORAGE_KEYS.FEEDS);
           localStorage.removeItem(STORAGE_KEYS.POSITIONS);
           localStorage.removeItem(STORAGE_KEYS.CACHED_EPISODES);
           localStorage.removeItem(STORAGE_KEYS.CACHED_METADATA);
           document.cookie = 'podcast_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+          window.history.replaceState({}, document.title, window.location.pathname);
           state.sessionToken = '';
           state.userEmail = '';
           state.feeds = [];
