@@ -16,11 +16,12 @@
     PLAY: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>',
     PAUSE: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>',
     SPINNER: '<svg class="spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"></path></svg>',
-    CHECK: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+    CHECK: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="16 9 11 14 8 11"></polyline></svg>',
+    CHECK_FILLED: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>',
     QUEUE: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h7"></path><path d="M18 15v6M15 18h6"></path></svg>',
     QUEUE_ADDED: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h7"></path><polyline points="15 18 18 21 23 15"></polyline></svg>',
     DOWNLOAD: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>',
-    DOWNLOADED: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+    DOWNLOADED: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a1 1 0 0 1 1 1v10.586l3.293-3.293a1 1 0 1 1 1.414 1.414l-5 5a1 1 0 0 1-1.414 0l-5-5a1 1 0 1 1 1.414-1.414L11 13.586V3a1 1 0 0 1 1-1zM4 20a1 1 0 0 1 1-1h14a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"/></svg>',
     DOWNLOAD_SPINNER: '<svg class="spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"></path></svg>'
   };
 
@@ -1253,6 +1254,49 @@
     return `${mins}m`;
   }
 
+  function formatHumanRelativeDate(dateInput) {
+    if (!dateInput) return '';
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return '';
+    const now = new Date();
+    const diffSec = Math.floor((now - d) / 1000);
+    if (diffSec < 0 || diffSec < 60) return 'Just now';
+    if (diffSec < 3600) {
+      const m = Math.floor(diffSec / 60);
+      return `${m}m ago`;
+    }
+    const diffHours = Math.floor(diffSec / 3600);
+    if (diffHours < 24) {
+      return `${diffHours}h ago`;
+    }
+    const diffDays = Math.floor(diffSec / 86400);
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 14) return '1 week ago';
+    if (diffDays < 30) {
+      const weeks = Math.floor(diffDays / 7);
+      return `${weeks} weeks ago`;
+    }
+    if (diffDays < 60) return '1 month ago';
+    if (diffDays < 365) {
+      const months = Math.floor(diffDays / 30);
+      return `${months} months ago`;
+    }
+    const years = Math.floor(diffDays / 365);
+    return `${years} ${years === 1 ? 'year' : 'years'} ago`;
+  }
+
+  function formatEpisodeDuration(durStr) {
+    if (!durStr) return '';
+    const trimmed = String(durStr).trim();
+    if (trimmed.startsWith('00:')) {
+      return trimmed.slice(3);
+    }
+    const sec = parseDurationSeconds(trimmed);
+    if (!sec) return trimmed;
+    return formatTime(sec);
+  }
+
   function processAndSortEpisodes() {
     let list = [...state.allEpisodes];
 
@@ -1700,7 +1744,7 @@
         const checkBtn = card.querySelector('.btn-mark-played');
         if (checkBtn) {
           checkBtn.classList.toggle('is-completed', !isCompleted);
-          checkBtn.innerHTML = CARD_ICONS.CHECK;
+          checkBtn.innerHTML = !isCompleted ? CARD_ICONS.CHECK_FILLED : CARD_ICONS.CHECK;
           checkBtn.title = !isCompleted ? 'Mark as Unplayed' : 'Mark as Played';
         }
       });
@@ -1734,9 +1778,10 @@
     card.className = `episode-card ${isCurrentlyActive ? 'playing' : ''} ${isCompleted ? 'is-played' : ''}`;
     card.dataset.guid = ep.guid;
 
-    const formattedDate = ep.timestamp 
-      ? new Date(ep.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-      : 'Unknown date';
+    const dateInput = ep.timestamp || ep.pubDate;
+    const humanDate = dateInput ? formatHumanRelativeDate(dateInput) : 'Unknown date';
+    const fullDate = dateInput ? new Date(dateInput).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+    const formattedDuration = ep.duration ? formatEpisodeDuration(ep.duration) : '';
 
     let btnHtml = CARD_ICONS.PLAY;
     let btnTitle = 'Play';
@@ -1778,8 +1823,8 @@
       ${progressTrackHtml}
       <div class="episode-footer">
         <div class="episode-meta">
-          <span>${formattedDate}</span>
-          ${ep.duration ? `<span>${escapeHtml(ep.duration)}</span>` : ''}
+          <span title="${escapeHtml(fullDate)}">${escapeHtml(humanDate)}</span>
+          ${formattedDuration ? `<span>${escapeHtml(formattedDuration)}</span>` : ''}
           ${resumeTimeStr ? `<span class="ep-resume-time">• ${resumeTimeStr}</span>` : ''}
         </div>
         <div class="episode-card-actions">
@@ -1788,7 +1833,7 @@
             ${isQueued ? CARD_ICONS.QUEUE_ADDED : CARD_ICONS.QUEUE}
           </button>
           <button class="btn-mark-played ${isCompleted ? 'is-completed' : ''}" title="${isCompleted ? 'Mark as Unplayed' : 'Mark as Played'}">
-            ${CARD_ICONS.CHECK}
+            ${isCompleted ? CARD_ICONS.CHECK_FILLED : CARD_ICONS.CHECK}
           </button>
           <button class="btn-play-ep" title="${btnTitle}">
             ${btnHtml}
