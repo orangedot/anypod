@@ -54,7 +54,7 @@ export async function onRequest(context) {
         'SELECT user_id, used, expires_at FROM auth_tokens WHERE token_hash = ?'
       ).bind(tokenHash).first();
 
-      if (existingToken && existingToken.used === 1 && (existingToken.expires_at - Math.floor(Date.now() / 1000) > 10 * 60)) {
+      if (existingToken && existingToken.expires_at > Math.floor(Date.now() / 1000)) {
         userId = existingToken.user_id;
       }
     }
