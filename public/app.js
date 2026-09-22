@@ -107,6 +107,7 @@
     continueToggleLabel: document.getElementById('continue-toggle-label'),
     playedCount: document.getElementById('played-count'),
     filterChips: document.querySelectorAll('.chip-filter'),
+    bottomActionDock: document.getElementById('bottom-action-dock'),
 
     opmlFileInput: document.getElementById('opml-file-input'),
     btnExportOpml: document.getElementById('btn-export-opml'),
@@ -235,6 +236,7 @@
     setupEventListeners();
     setupAudioEngines();
     updateQueueUI();
+    updateDockVisibility();
     checkAuth();
   }
 
@@ -525,6 +527,20 @@
   function updateFeedCountUI() {
     if (elements.feedCount) {
       elements.feedCount.textContent = state.feeds.length;
+    }
+    updateDockVisibility();
+  }
+
+  function updateDockVisibility() {
+    if (!elements.bottomActionDock) return;
+    const isTimelineActive = elements.tabTimeline && elements.tabTimeline.classList.contains('active');
+    const isDetailActive = !!state.activeFeedDetailUrl;
+    const hasFeeds = state.feeds && state.feeds.length > 0;
+
+    if (isTimelineActive && !isDetailActive && hasFeeds) {
+      elements.bottomActionDock.classList.remove('dock-hidden');
+    } else {
+      elements.bottomActionDock.classList.add('dock-hidden');
     }
   }
 
@@ -1198,10 +1214,25 @@
       elements.panels.forEach(p => p.classList.remove('active'));
       if (settingsTab) settingsTab.classList.add('active');
       if (settingsPanel) settingsPanel.classList.add('active');
+      updateDockVisibility();
     });
+
+    const chips = elements.timelineList?.querySelectorAll('.starter-suggestion-chip');
+    if (chips) {
+      chips.forEach(chip => {
+        chip.addEventListener('click', () => {
+          const feedUrl = chip.dataset.feed;
+          if (!feedUrl) return;
+          const addSpan = chip.querySelector('.starter-chip-add');
+          if (addSpan) addSpan.textContent = 'Adding...';
+          addFeed(feedUrl);
+        });
+      });
+    }
   }
 
   function renderTimeline() {
+    updateDockVisibility();
     const container = elements.timelineList;
     container.innerHTML = '';
 
@@ -1226,6 +1257,27 @@
           <div class="empty-actions">
             <button class="btn btn-secondary" id="btn-empty-opml-trigger">Import OPML File</button>
             <button class="btn btn-secondary" id="btn-empty-defaults-trigger">Load Starter Feeds</button>
+          </div>
+          <div class="starter-suggestions-section">
+            <div class="starter-suggestions-title">Or follow popular shows to start:</div>
+            <div class="starter-suggestions-grid">
+              <div class="starter-suggestion-chip" data-feed="https://feed.syntax.fm/rss">
+                <span class="starter-chip-name">Syntax (Web Dev)</span>
+                <span class="starter-chip-add">+ Follow</span>
+              </div>
+              <div class="starter-suggestion-chip" data-feed="https://feeds.simplecast.com/54nAGcIl">
+                <span class="starter-chip-name">The Daily (NYT)</span>
+                <span class="starter-chip-add">+ Follow</span>
+              </div>
+              <div class="starter-suggestion-chip" data-feed="https://changelog.com/podcast/feed">
+                <span class="starter-chip-name">The Changelog</span>
+                <span class="starter-chip-add">+ Follow</span>
+              </div>
+              <div class="starter-suggestion-chip" data-feed="https://verbrechen.podigee.io/feed/mp3">
+                <span class="starter-chip-name">ZEIT Verbrechen</span>
+                <span class="starter-chip-add">+ Follow</span>
+              </div>
+            </div>
           </div>
           <div class="empty-footer-hint">
             <span>Migrating from Apple Podcasts, Spotify, or Pocket Casts? Export your OPML file and import it here. Or visit <a href="javascript:void(0);" id="btn-empty-goto-settings" style="color: var(--text-primary); text-decoration: underline;">Settings</a> for sync and cloud storage options.</span>
@@ -1428,16 +1480,160 @@
     return card;
   }
 
+  let feedsSearchDebounceTimer = null;
+
+  function wireFeedsEmptyStateEvents() {
+    const quickForm = document.getElementById('feeds-empty-quick-form');
+    const quickInput = document.getElementById('feeds-empty-quick-input');
+    const quickSubmit = document.getElementById('btn-feeds-empty-quick-submit');
+    const quickResults = document.getElementById('feeds-empty-quick-results');
+
+    if (quickInput && quickForm) {
+      quickInput.addEventListener('input', () => {
+        const val = quickInput.value.trim();
+        if (quickSubmit) {
+          if (val.startsWith('http://') || val.startsWith('https://')) {
+            quickSubmit.textContent = 'Add Feed';
+          } else {
+            quickSubmit.textContent = 'Search';
+          }
+        }
+        if (feedsSearchDebounceTimer) clearTimeout(feedsSearchDebounceTimer);
+        if (!val) {
+          if (quickResults) quickResults.innerHTML = '';
+          return;
+        }
+        if (val.startsWith('http://') || val.startsWith('https://')) {
+          if (quickResults) quickResults.innerHTML = '';
+          return;
+        }
+        feedsSearchDebounceTimer = setTimeout(() => {
+          if (quickResults) {
+            searchPodcastDirectory(val, quickResults);
+          }
+        }, 350);
+      });
+
+      quickForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const val = quickInput.value.trim();
+        if (!val) return;
+        if (val.startsWith('http://') || val.startsWith('https://')) {
+          if (quickSubmit) quickSubmit.textContent = 'Adding...';
+          addFeed(val);
+          quickInput.value = '';
+          if (quickResults) quickResults.innerHTML = '';
+        } else {
+          if (feedsSearchDebounceTimer) clearTimeout(feedsSearchDebounceTimer);
+          if (quickResults) {
+            searchPodcastDirectory(val, quickResults);
+          }
+        }
+      });
+    }
+
+    document.getElementById('btn-feeds-empty-opml')?.addEventListener('click', () => {
+      elements.opmlFileInput?.click();
+    });
+    document.getElementById('btn-feeds-empty-defaults')?.addEventListener('click', () => {
+      elements.btnLoadDefaults?.click();
+    });
+
+    const chips = elements.feedsGrid.querySelectorAll('.starter-suggestion-chip');
+    chips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        const feedUrl = chip.dataset.feed;
+        if (!feedUrl) return;
+        const addSpan = chip.querySelector('.starter-chip-add');
+        if (addSpan) addSpan.textContent = 'Adding...';
+        addFeed(feedUrl);
+      });
+    });
+  }
+
   function renderFeedsGrid() {
+    updateDockVisibility();
     const grid = elements.feedsGrid;
     grid.innerHTML = '';
 
     if (state.feeds.length === 0) {
-      grid.innerHTML = `<p style="color: var(--text-muted);">No subscriptions yet.</p>`;
+      grid.innerHTML = `
+        <div class="empty-state onboarding-card">
+          <div class="empty-icon-wrap">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 11a9 9 0 0 1 9 9"></path>
+              <path d="M4 4a16 16 0 0 1 16 16"></path>
+              <circle cx="5" cy="19" r="1"></circle>
+            </svg>
+          </div>
+          <h3>Your podcast library is empty</h3>
+          <p>Search any podcast by name, paste an RSS feed URL, or import an OPML backup to start listening.</p>
+          <div class="empty-quick-add">
+            <form id="feeds-empty-quick-form" class="quick-add-form" action="javascript:void(0);">
+              <div class="quick-add-input-wrap">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="quick-add-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="feeds-empty-quick-input" placeholder="Search podcast name or paste RSS URL..." autocomplete="off">
+                <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-feeds-empty-quick-submit">Add</button>
+              </div>
+            </form>
+            <div id="feeds-empty-quick-results" class="quick-results-container"></div>
+          </div>
+          <div class="empty-actions">
+            <button class="btn btn-secondary" id="btn-feeds-empty-opml">Import OPML File</button>
+            <button class="btn btn-secondary" id="btn-feeds-empty-defaults">Load Starter Feeds</button>
+          </div>
+          <div class="starter-suggestions-section">
+            <div class="starter-suggestions-title">Or follow popular shows to start:</div>
+            <div class="starter-suggestions-grid">
+              <div class="starter-suggestion-chip" data-feed="https://feed.syntax.fm/rss">
+                <span class="starter-chip-name">Syntax (Web Dev)</span>
+                <span class="starter-chip-add">+ Follow</span>
+              </div>
+              <div class="starter-suggestion-chip" data-feed="https://feeds.simplecast.com/54nAGcIl">
+                <span class="starter-chip-name">The Daily (NYT)</span>
+                <span class="starter-chip-add">+ Follow</span>
+              </div>
+              <div class="starter-suggestion-chip" data-feed="https://changelog.com/podcast/feed">
+                <span class="starter-chip-name">The Changelog</span>
+                <span class="starter-chip-add">+ Follow</span>
+              </div>
+              <div class="starter-suggestion-chip" data-feed="https://verbrechen.podigee.io/feed/mp3">
+                <span class="starter-chip-name">ZEIT Verbrechen</span>
+                <span class="starter-chip-add">+ Follow</span>
+              </div>
+            </div>
+          </div>
+          <div class="empty-footer-hint">
+            <span>Have subscriptions from Apple Podcasts, Spotify, or Pocket Casts? Export your OPML file and import it here.</span>
+          </div>
+        </div>
+      `;
+      wireFeedsEmptyStateEvents();
       return;
     }
 
-    state.feeds.forEach(url => {
+    let feedsToRender = state.feeds;
+    if (state.searchQuery && elements.tabFeeds && elements.tabFeeds.classList.contains('active')) {
+      const q = state.searchQuery.toLowerCase();
+      feedsToRender = state.feeds.filter(url => {
+        const meta = state.feedMetadata[url] || {};
+        return (meta.title && meta.title.toLowerCase().includes(q)) ||
+               (meta.author && meta.author.toLowerCase().includes(q)) ||
+               url.toLowerCase().includes(q);
+      });
+    }
+
+    if (feedsToRender.length === 0) {
+      grid.innerHTML = `
+        <div class="empty-state">
+          <h3>No matching podcasts</h3>
+          <p>No podcasts in your library match "${escapeHtml(state.searchQuery)}".</p>
+        </div>
+      `;
+      return;
+    }
+
+    feedsToRender.forEach(url => {
       const meta = state.feedMetadata[url] || {};
       const card = document.createElement('div');
       card.className = 'feed-card';
@@ -1525,6 +1721,7 @@
       elements.panelFeedDetail.classList.add('active');
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    updateDockVisibility();
     renderFeedDetail(feedUrl);
   }
 
@@ -1556,9 +1753,11 @@
 
     header.querySelector('#btn-feed-back').addEventListener('click', () => {
       if (elements.panelFeedDetail) elements.panelFeedDetail.classList.remove('active');
+      state.activeFeedDetailUrl = null;
       const activeTab = document.querySelector('.nav-tab.active')?.dataset.tab || 'timeline';
       const target = document.getElementById(`panel-${activeTab}`);
       if (target) target.classList.add('active');
+      updateDockVisibility();
     });
 
     header.querySelector('#btn-feed-unsubscribe').addEventListener('click', () => {
@@ -2348,11 +2547,20 @@
       tab.addEventListener('click', () => {
         const targetTab = tab.dataset.tab;
         state.activeFeedDetailUrl = null;
+        if (elements.panelFeedDetail) elements.panelFeedDetail.classList.remove('active');
         elements.tabs.forEach(t => t.classList.remove('active'));
         elements.panels.forEach(p => p.classList.remove('active'));
 
         tab.classList.add('active');
-        document.getElementById(`panel-${targetTab}`).classList.add('active');
+        const targetPanel = document.getElementById(`panel-${targetTab}`);
+        if (targetPanel) targetPanel.classList.add('active');
+        updateDockVisibility();
+        if (targetTab === 'feeds') {
+          if (elements.searchInput) elements.searchInput.placeholder = 'Search subscribed podcasts...';
+          renderFeedsGrid();
+        } else if (targetTab === 'timeline') {
+          if (elements.searchInput) elements.searchInput.placeholder = 'Search loaded episodes...';
+        }
       });
     });
 
@@ -2368,6 +2576,7 @@
       state.searchQuery = e.target.value;
       processAndSortEpisodes();
       renderTimeline();
+      renderFeedsGrid();
     });
 
     elements.sortOrderSelect.addEventListener('change', (e) => {

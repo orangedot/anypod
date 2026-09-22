@@ -394,6 +394,26 @@ body.has-active-episode .app-container {
   background: rgba(0, 0, 0, 0.08);
 }
 
+.tab-badge {
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--radius-full);
+  background: var(--bg-card-hover);
+  color: var(--text-secondary);
+  line-height: 1;
+}
+
+.nav-tab.active .tab-badge {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .nav-tab.active .tab-badge {
+  background: rgba(0, 0, 0, 0.12);
+  color: var(--text-primary);
+}
+
 .header-search {
   flex: 1;
   max-width: 420px;
@@ -963,6 +983,63 @@ select {
   padding-top: 1.25rem;
 }
 
+.starter-suggestions-section {
+  width: 100%;
+  margin: 1.25rem 0 1rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.starter-suggestions-title {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+}
+
+.starter-suggestions-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.starter-suggestion-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.85rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-full);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.starter-suggestion-chip:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+.starter-chip-name {
+  font-weight: 400;
+}
+
+.starter-chip-add {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
 .feeds-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -1440,6 +1517,10 @@ select {
 
 body.has-active-episode .bottom-action-dock {
   bottom: 95px;
+}
+
+.bottom-action-dock.dock-hidden {
+  display: none !important;
 }
 
 .dock-filters {
