@@ -5,7 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Podany - Private Podcast Player</title>
   <meta name="description" content="Personal private podcast RSS feed aggregator and continuous audio player hosted on Cloudflare.">
-  <meta name="theme-color" content="#0d0f17">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
+  <link rel="apple-touch-icon" href="/icon.svg">
 
   <!-- Modern Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -44,6 +48,7 @@
     <header class="app-header">
       <div class="logo-area">
         <h1>Podany</h1>
+        <div id="offline-badge" class="offline-badge hidden">Offline</div>
       </div>
 
       <div class="header-search">
@@ -165,6 +170,16 @@
           <button class="btn btn-secondary" id="btn-load-defaults">Load Recommended Starter Feeds</button>
         </div>
 
+        <div class="settings-card" id="offline-storage-card">
+          <h3>Offline Downloads</h3>
+          <p id="offline-storage-desc">Episodes downloaded to this device for offline playback without internet.</p>
+          <div class="offline-storage-actions">
+            <span class="offline-storage-count" id="offline-storage-count">0 episodes (0 MB)</span>
+            <button class="btn btn-secondary btn-sm" id="btn-clear-downloads">Clear Audio Cache</button>
+          </div>
+          <div class="offline-episodes-list" id="offline-episodes-list"></div>
+        </div>
+
         <div class="settings-card danger-zone">
           <h3>Clear Local Cache</h3>
           <p>Reset local storage, cached episode state, and saved feeds.</p>
@@ -270,6 +285,7 @@
       <div class="dock-filters">
         <button class="chip-filter active" data-filter="unplayed">Unplayed</button>
         <button class="chip-filter" data-filter="continue">Continue (<span id="continue-count">0</span>)</button>
+        <button class="chip-filter" data-filter="downloaded">Downloaded (<span id="downloaded-count">0</span>)</button>
         <button class="chip-filter" data-filter="played">Played (<span id="played-count">0</span>)</button>
         <button class="chip-filter" data-filter="all">All Episodes</button>
       </div>

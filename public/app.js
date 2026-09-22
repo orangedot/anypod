@@ -8,7 +8,8 @@
     CACHED_METADATA: 'podany_cached_metadata',
     POSITIONS: 'podany_playback_positions',
     THEME: 'podany_theme',
-    QUEUE: 'podany_playback_queue'
+    QUEUE: 'podany_playback_queue',
+    DOWNLOADS: 'podany_downloads'
   };
 
   const CARD_ICONS = {
@@ -17,7 +18,10 @@
     SPINNER: '<svg class="spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"></path></svg>',
     CHECK: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>',
     QUEUE: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h7"></path><path d="M18 15v6M15 18h6"></path></svg>',
-    QUEUE_ADDED: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h7"></path><polyline points="15 18 18 21 23 15"></polyline></svg>'
+    QUEUE_ADDED: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h7"></path><polyline points="15 18 18 21 23 15"></polyline></svg>',
+    DOWNLOAD: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>',
+    DOWNLOADED: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+    DOWNLOAD_SPINNER: '<svg class="spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"></path></svg>'
   };
 
   const DEFAULT_STARTER_FEEDS = [
@@ -47,6 +51,8 @@
     activeFeedDetailUrl: null,
     continueCollapsed: true,
     queue: [],
+    downloadedEpisodes: {},
+    downloadingGuids: new Set(),
     sleepTimer: {
       active: false,
       minutes: 0,
@@ -106,6 +112,12 @@
     btnToggleContinue: document.getElementById('btn-toggle-continue'),
     continueToggleLabel: document.getElementById('continue-toggle-label'),
     playedCount: document.getElementById('played-count'),
+    downloadedCount: document.getElementById('downloaded-count'),
+    offlineBadge: document.getElementById('offline-badge'),
+    offlineStorageCard: document.getElementById('offline-storage-card'),
+    offlineStorageCount: document.getElementById('offline-storage-count'),
+    btnClearDownloads: document.getElementById('btn-clear-downloads'),
+    offlineEpisodesList: document.getElementById('offline-episodes-list'),
     filterChips: document.querySelectorAll('.chip-filter'),
     bottomActionDock: document.getElementById('bottom-action-dock'),
 
@@ -233,10 +245,14 @@
     loadFeedsFromStorage();
     loadCacheFromStorage();
     loadQueueFromStorage();
+    loadDownloadsFromStorage();
     setupEventListeners();
     setupAudioEngines();
+    setupNetworkListeners();
     updateQueueUI();
+    updateDownloadedCountUI();
     updateDockVisibility();
+    initServiceWorker();
     checkAuth();
   }
 
@@ -758,6 +774,216 @@
     elements.queueModal.classList.add('hidden');
   }
 
+  function loadDownloadsFromStorage() {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.DOWNLOADS) || localStorage.getItem('podcast_pulse_downloads');
+      state.downloadedEpisodes = stored ? JSON.parse(stored) : {};
+    } catch (e) {
+      state.downloadedEpisodes = {};
+    }
+  }
+
+  function saveDownloadsToStorage() {
+    try {
+      localStorage.setItem(STORAGE_KEYS.DOWNLOADS, JSON.stringify(state.downloadedEpisodes));
+      updateDownloadedCountUI();
+    } catch (e) {}
+  }
+
+  function formatBytes(bytes) {
+    if (!bytes || isNaN(bytes) || bytes <= 0) return '0 MB';
+    const mb = bytes / (1024 * 1024);
+    if (mb < 1000) {
+      return `${mb.toFixed(1)} MB`;
+    }
+    return `${(mb / 1024).toFixed(2)} GB`;
+  }
+
+  function updateDownloadedCountUI() {
+    const list = Object.values(state.downloadedEpisodes || {});
+    const count = list.length;
+    if (elements.downloadedCount) {
+      elements.downloadedCount.textContent = count;
+    }
+    if (elements.offlineStorageCount) {
+      const totalBytes = list.reduce((sum, item) => sum + (item.size || 0), 0);
+      elements.offlineStorageCount.textContent = `${count} ${count === 1 ? 'episode' : 'episodes'} (${formatBytes(totalBytes)})`;
+    }
+    renderOfflineStorageSettings();
+  }
+
+  function renderOfflineStorageSettings() {
+    if (!elements.offlineEpisodesList) return;
+    const list = Object.values(state.downloadedEpisodes || {});
+    if (list.length === 0) {
+      elements.offlineEpisodesList.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; padding: 0.5rem 0;">No episodes downloaded for offline listening yet.</p>';
+      return;
+    }
+
+    elements.offlineEpisodesList.innerHTML = list.map(item => `
+      <div class="offline-ep-row" data-guid="${escapeHtml(item.guid)}">
+        <div class="offline-ep-info">
+          <div class="offline-ep-title">${escapeHtml(item.title || 'Untitled')}</div>
+          <div class="offline-ep-sub">${escapeHtml(item.podcastTitle || '')} • ${formatBytes(item.size || 0)}</div>
+        </div>
+        <button class="btn-remove-download" data-guid="${escapeHtml(item.guid)}" title="Remove offline download">Remove</button>
+      </div>
+    `).join('');
+
+    elements.offlineEpisodesList.querySelectorAll('.btn-remove-download').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const guid = btn.dataset.guid;
+        if (guid) removeDownloadedEpisode(guid);
+      });
+    });
+  }
+
+  async function downloadEpisode(ep) {
+    if (!ep || !ep.audioUrl) return;
+    if (state.downloadingGuids.has(ep.guid)) return;
+
+    state.downloadingGuids.add(ep.guid);
+    updateEpisodeCardDownloadState(ep.guid);
+
+    try {
+      let response = null;
+      try {
+        response = await fetch(ep.audioUrl, { mode: 'cors' });
+        if (!response.ok) response = null;
+      } catch (e) {
+        response = null;
+      }
+
+      if (!response) {
+        const proxyUrl = `/api/audio-proxy?url=${encodeURIComponent(ep.audioUrl)}`;
+        response = await fetch(proxyUrl);
+      }
+
+      if (!response || !response.ok) {
+        throw new Error('Unable to download audio stream');
+      }
+
+      const blob = await response.blob();
+      const approxSize = blob.size || 0;
+
+      if ('caches' in window) {
+        const audioCache = await caches.open('podany-audio-v1');
+        const headers = new Headers();
+        headers.set('Content-Type', blob.type || 'audio/mpeg');
+        headers.set('Content-Length', String(blob.size));
+        headers.set('Accept-Ranges', 'bytes');
+        const cacheResponse = new Response(blob, {
+          status: 200,
+          statusText: 'OK',
+          headers: headers
+        });
+        await audioCache.put(ep.audioUrl, cacheResponse);
+      }
+
+      state.downloadedEpisodes[ep.guid] = {
+        guid: ep.guid,
+        audioUrl: ep.audioUrl,
+        title: ep.title,
+        podcastTitle: ep.podcastTitle,
+        artwork: ep.artwork,
+        duration: ep.duration,
+        timestamp: ep.timestamp,
+        size: approxSize,
+        downloadedAt: Date.now()
+      };
+
+      saveDownloadsToStorage();
+    } catch (err) {
+      alert(`Download failed: ${err.message || 'Network error'}`);
+    } finally {
+      state.downloadingGuids.delete(ep.guid);
+      updateEpisodeCardDownloadState(ep.guid);
+      if (state.filterMode === 'downloaded') {
+        processAndSortEpisodes();
+        renderTimeline();
+      }
+    }
+  }
+
+  async function removeDownloadedEpisode(guid) {
+    const ep = state.downloadedEpisodes[guid];
+    if (ep && 'caches' in window) {
+      try {
+        const audioCache = await caches.open('podany-audio-v1');
+        await audioCache.delete(ep.audioUrl);
+      } catch (e) {}
+    }
+    delete state.downloadedEpisodes[guid];
+    saveDownloadsToStorage();
+    updateEpisodeCardDownloadState(guid);
+    if (state.filterMode === 'downloaded') {
+      processAndSortEpisodes();
+      renderTimeline();
+    }
+  }
+
+  async function clearAllDownloads() {
+    if ('caches' in window) {
+      try {
+        await caches.delete('podany-audio-v1');
+      } catch (e) {}
+    }
+    state.downloadedEpisodes = {};
+    saveDownloadsToStorage();
+    document.querySelectorAll('.btn-download-ep').forEach(btn => {
+      btn.classList.remove('is-downloaded', 'is-downloading');
+      btn.innerHTML = CARD_ICONS.DOWNLOAD;
+      btn.title = 'Download for offline';
+    });
+    if (state.filterMode === 'downloaded') {
+      processAndSortEpisodes();
+      renderTimeline();
+    }
+  }
+
+  function updateEpisodeCardDownloadState(guid) {
+    const isDownloaded = !!state.downloadedEpisodes[guid];
+    const isDownloading = state.downloadingGuids.has(guid);
+    const cards = document.querySelectorAll(`.episode-card[data-guid="${guid}"]`);
+
+    cards.forEach(card => {
+      const btn = card.querySelector('.btn-download-ep');
+      if (!btn) return;
+      btn.classList.toggle('is-downloaded', isDownloaded);
+      btn.classList.toggle('is-downloading', isDownloading);
+      if (isDownloading) {
+        btn.innerHTML = CARD_ICONS.DOWNLOAD_SPINNER;
+        btn.title = 'Downloading...';
+      } else if (isDownloaded) {
+        btn.innerHTML = CARD_ICONS.DOWNLOADED;
+        btn.title = 'Downloaded (Click to remove)';
+      } else {
+        btn.innerHTML = CARD_ICONS.DOWNLOAD;
+        btn.title = 'Download for offline';
+      }
+    });
+  }
+
+  function initServiceWorker() {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  }
+
+  function setupNetworkListeners() {
+    const updateStatus = () => {
+      if (!elements.offlineBadge) return;
+      if (navigator.onLine) {
+        elements.offlineBadge.classList.add('hidden');
+      } else {
+        elements.offlineBadge.classList.remove('hidden');
+      }
+    };
+    window.addEventListener('online', updateStatus);
+    window.addEventListener('offline', updateStatus);
+    updateStatus();
+  }
+
   function renderSkeletonTimeline() {
     const container = elements.timelineList;
     if (!container) return;
@@ -892,6 +1118,10 @@
       }).length;
       elements.playedCount.textContent = playedCount;
     }
+    if (elements.downloadedCount) {
+      const dlCount = Object.keys(state.downloadedEpisodes || {}).length;
+      elements.downloadedCount.textContent = dlCount;
+    }
   }
 
   function parseDurationSeconds(durationStr) {
@@ -973,6 +1203,8 @@
         const pos = state.playbackPositions[ep.guid];
         return pos && (pos.completed === 1 || pos.completed === true);
       });
+    } else if (state.filterMode === 'downloaded') {
+      list = list.filter(ep => !!state.downloadedEpisodes[ep.guid]);
     }
 
     if (state.filterMode === 'continue') {
@@ -1300,6 +1532,9 @@
       } else if (state.filterMode === 'unplayed') {
         emptyTitle = 'All caught up';
         emptyMsg = 'You have listened to all episodes.';
+      } else if (state.filterMode === 'downloaded') {
+        emptyTitle = 'No downloaded episodes';
+        emptyMsg = 'Episodes you download for offline listening will appear here.';
       }
       container.innerHTML = `
         <div class="empty-state">
@@ -1424,6 +1659,24 @@
       btnTitle = 'Pause';
     }
 
+    const isDownloaded = !!state.downloadedEpisodes[ep.guid];
+    const isDownloading = state.downloadingGuids.has(ep.guid);
+    let dlIcon = CARD_ICONS.DOWNLOAD;
+    let dlTitle = 'Download for offline';
+    if (isDownloading) {
+      dlIcon = CARD_ICONS.DOWNLOAD_SPINNER;
+      dlTitle = 'Downloading...';
+    } else if (isDownloaded) {
+      dlIcon = CARD_ICONS.DOWNLOADED;
+      dlTitle = 'Downloaded (Click to remove)';
+    }
+
+    const downloadBtnHtml = ep.isYouTube ? '' : `
+      <button class="btn-download-ep ${isDownloaded ? 'is-downloaded' : ''} ${isDownloading ? 'is-downloading' : ''}" title="${dlTitle}">
+        ${dlIcon}
+      </button>
+    `;
+
     card.innerHTML = `
       <div class="episode-card-top">
         <img class="episode-artwork" src="${ep.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E'}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E';">
@@ -1441,6 +1694,7 @@
           ${resumeTimeStr ? `<span class="ep-resume-time">• ${resumeTimeStr}</span>` : ''}
         </div>
         <div class="episode-card-actions">
+          ${downloadBtnHtml}
           <button class="btn-queue-ep ${isQueued ? 'is-queued' : ''}" title="${isQueued ? 'Remove from Up Next' : 'Add to Up Next'}">
             ${isQueued ? CARD_ICONS.QUEUE_ADDED : CARD_ICONS.QUEUE}
           </button>
@@ -1459,6 +1713,18 @@
       podNameEl.addEventListener('click', (e) => {
         e.stopPropagation();
         openFeedDetail(ep.feedUrl);
+      });
+    }
+
+    const dlBtn = card.querySelector('.btn-download-ep');
+    if (dlBtn) {
+      dlBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (state.downloadedEpisodes[ep.guid]) {
+          removeDownloadedEpisode(ep.guid);
+        } else {
+          downloadEpisode(ep);
+        }
       });
     }
 
@@ -2668,9 +2934,23 @@
       refreshAllFeeds();
     });
 
+    if (elements.btnClearDownloads) {
+      elements.btnClearDownloads.addEventListener('click', () => {
+        const count = Object.keys(state.downloadedEpisodes || {}).length;
+        if (count === 0) return;
+        if (confirm(`Remove all ${count} downloaded podcast episodes from this device?`)) {
+          clearAllDownloads();
+        }
+      });
+    }
+
     elements.btnClearStorage.addEventListener('click', () => {
       if (confirm('Are you sure you want to clear all feeds and state?')) {
         localStorage.clear();
+        if ('caches' in window) {
+          caches.delete('podany-audio-v1').catch(() => {});
+        }
+        state.downloadedEpisodes = {};
         state.feeds = [];
         state.feedMetadata = {};
         state.allEpisodes = [];
@@ -2684,6 +2964,7 @@
         syncPlaybackButtons();
         updateFeedCountUI();
         updateQueueUI();
+        updateDownloadedCountUI();
         renderContinueShelf();
         renderTimeline();
         renderFeedsGrid();

@@ -145,6 +145,7 @@ body.has-active-episode .app-container {
 .logo-area {
   display: flex;
   align-items: center;
+  gap: 0.65rem;
 }
 
 .logo-area h1 {
@@ -152,6 +153,22 @@ body.has-active-episode .app-container {
   font-weight: 450;
   letter-spacing: -0.02em;
   color: var(--text-primary);
+}
+
+.offline-badge {
+  font-size: 0.68rem;
+  font-weight: 500;
+  padding: 0.12rem 0.5rem;
+  border-radius: var(--radius-full);
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.offline-badge.hidden {
+  display: none !important;
 }
 
 .user-status-pill {
@@ -845,6 +862,49 @@ select {
   border-color: var(--accent-orange);
 }
 
+.btn-download-ep {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: transparent;
+  border: 1px solid var(--border-light);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.btn-download-ep svg {
+  width: 14px;
+  height: 14px;
+}
+
+.btn-download-ep:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+.btn-download-ep.is-downloaded {
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+.btn-download-ep.is-downloading {
+  color: var(--accent);
+  border-color: var(--accent);
+  pointer-events: none;
+}
+
+.btn-download-ep.is-downloading svg {
+  animation: spin 1s linear infinite;
+}
+
 .empty-state {
   grid-column: 1 / -1;
   text-align: center;
@@ -1497,6 +1557,80 @@ select {
   flex-wrap: wrap;
 }
 
+.offline-storage-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.offline-storage-count {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.offline-episodes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.offline-ep-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.85rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  gap: 0.75rem;
+}
+
+.offline-ep-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.offline-ep-title {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.offline-ep-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.btn-remove-download {
+  background: transparent;
+  border: 1px solid var(--border-light);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.75rem;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.btn-remove-download:hover {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.08);
+}
+
 .bottom-action-dock {
   position: fixed;
   bottom: 5px;
@@ -2055,14 +2189,16 @@ body.has-active-episode .bottom-action-dock {
 
   .btn-play-ep,
   .btn-mark-played,
-  .btn-queue-ep {
+  .btn-queue-ep,
+  .btn-download-ep {
     width: 28px;
     height: 28px;
   }
 
   .btn-play-ep svg,
   .btn-mark-played svg,
-  .btn-queue-ep svg {
+  .btn-queue-ep svg,
+  .btn-download-ep svg {
     width: 12px;
     height: 12px;
   }
