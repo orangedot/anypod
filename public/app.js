@@ -695,6 +695,33 @@
     return 0;
   }
 
+  function formatCompactDate(dateInput) {
+    if (!dateInput) return '';
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return '';
+    const now = new Date();
+    const diffSec = Math.floor((now - d) / 1000);
+    const diffDays = Math.floor(diffSec / 86400);
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  function formatDurationCompact(durStr) {
+    if (!durStr) return '';
+    const sec = parseDurationSeconds(durStr);
+    if (!sec) return '';
+    const mins = Math.round(sec / 60);
+    if (mins >= 60) {
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      return m > 0 ? `${h}h ${m}m` : `${h}h`;
+    }
+    return `${mins}m`;
+  }
+
   function processAndSortEpisodes() {
     let list = [...state.allEpisodes];
 
@@ -813,26 +840,31 @@
       if (!item.feedUrl) return;
 
       const isSubbed = state.feeds.includes(item.feedUrl);
+      const relDate = item.releaseDate ? formatCompactDate(item.releaseDate) : '';
 
       const card = document.createElement('div');
-      card.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 0.75rem; text-align: left;';
+      card.className = 'dir-search-card';
 
       card.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 0.75rem; min-width: 0;">
-          <img src="${item.artworkUrl100 || item.artworkUrl600}" alt="" style="width: 44px; height: 44px; border-radius: 6px; object-fit: cover; flex-shrink: 0;">
-          <div style="min-width: 0;">
-            <div style="font-weight: 500; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary);">${escapeHtml(item.collectionName || item.trackName)}</div>
-            <div style="font-size: 0.775rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.artistName || '')}</div>
+        <img src="${item.artworkUrl100 || item.artworkUrl600}" alt="" class="dir-search-art" loading="lazy">
+        <div class="dir-search-info">
+          <div class="dir-search-title">${escapeHtml(item.collectionName || item.trackName)}</div>
+          <div class="dir-search-artist">${escapeHtml(item.artistName || '')}</div>
+          <div class="dir-search-tags">
+            ${item.primaryGenreName ? `<span class="dir-tag-genre">${escapeHtml(item.primaryGenreName)}</span>` : ''}
+            ${item.trackCount ? `<span class="dir-tag-meta">${item.trackCount} eps</span>` : ''}
+            ${relDate ? `<span class="dir-tag-meta">• ${relDate}</span>` : ''}
           </div>
         </div>
         <button class="btn ${isSubbed ? 'btn-secondary' : 'btn-primary'} btn-sm btn-sub-dir" style="flex-shrink: 0;" ${isSubbed ? 'disabled' : ''}>
-          ${isSubbed ? 'Subscribed' : 'Add Feed'}
+          ${isSubbed ? 'Subscribed' : '+ Add'}
         </button>
       `;
 
       if (!isSubbed) {
         const subBtn = card.querySelector('.btn-sub-dir');
-        subBtn.addEventListener('click', () => {
+        subBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
           addFeed(item.feedUrl, item.collectionName || item.trackName, item.artworkUrl600 || item.artworkUrl100);
           subBtn.textContent = 'Subscribed';
           subBtn.classList.remove('btn-primary');
@@ -1202,27 +1234,75 @@
       const card = document.createElement('div');
       card.className = 'feed-card';
 
+      const rawDesc = meta.description || '';
+      const plainDesc = rawDesc.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
+
+      const feedEpisodes = state.allEpisodes
+        .filter(e => e.feedUrl === url)
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+        .slice(0, 3);
+
+      let recentWidgetHtml = '';
+      if (feedEpisodes.length > 0) {
+        recentWidgetHtml = `
+          <div class="feed-recent-widget">
+            <div class="feed-recent-header">Latest episodes</div>
+            <div class="feed-recent-list">
+              ${feedEpisodes.map(ep => {
+                const isCurrent = state.currentEpisode && state.currentEpisode.guid === ep.guid;
+                const isEpPlaying = isCurrent && state.playbackStatus === 'playing';
+                const durStr = ep.duration ? formatDurationCompact(ep.duration) : '';
+                return `
+                  <div class="recent-ep-row ${isCurrent ? 'active' : ''}" data-guid="${escapeHtml(ep.guid)}" title="${escapeHtml(ep.title)}">
+                    <button class="btn-recent-play ${isEpPlaying ? 'is-playing' : ''}" data-guid="${escapeHtml(ep.guid)}" aria-label="Play ${escapeHtml(ep.title)}">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">${isEpPlaying ? '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>' : '<polygon points="5 3 19 12 5 21 5 3"></polygon>'}</svg>
+                    </button>
+                    <span class="recent-ep-title">${escapeHtml(ep.title)}</span>
+                    ${durStr ? `<span class="recent-ep-duration">${durStr}</span>` : ''}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      }
+
       card.innerHTML = `
         <div class="feed-header">
           <img class="feed-art" src="${meta.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E'}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E';">
           <div class="feed-info">
             <h4>${escapeHtml(meta.title || url)}</h4>
-            <p>${meta.error ? `<span style="color: #ef4444;">${escapeHtml(meta.error)}</span>` : `${meta.episodesCount} episodes`}</p>
+            <p>${meta.error ? `<span style="color: #ef4444;">${escapeHtml(meta.error)}</span>` : `${meta.episodesCount || feedEpisodes.length} episodes`}</p>
           </div>
+          <button class="btn-feed-unsubscribe" title="Remove podcast" aria-label="Remove podcast">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
         </div>
-        <div class="feed-actions">
-          <button class="btn btn-danger btn-sm btn-remove-feed">Remove</button>
-        </div>
+        ${plainDesc ? `<p class="feed-card-desc">${escapeHtml(plainDesc)}</p>` : ''}
+        ${recentWidgetHtml}
       `;
 
       card.addEventListener('click', (e) => {
-        if (e.target.closest('.btn-remove-feed')) return;
+        if (e.target.closest('.btn-feed-unsubscribe') || e.target.closest('.recent-ep-row')) return;
         openFeedDetail(url);
       });
 
-      card.querySelector('.btn-remove-feed').addEventListener('click', (e) => {
+      card.querySelector('.btn-feed-unsubscribe')?.addEventListener('click', (e) => {
         e.stopPropagation();
         promptRemoveFeed(url);
+      });
+
+      card.querySelectorAll('.recent-ep-row').forEach(row => {
+        const guid = row.dataset.guid;
+        const ep = feedEpisodes.find(item => item.guid === guid);
+        if (!ep) return;
+        row.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleEpisodePlayback(ep);
+        });
       });
 
       grid.appendChild(card);
@@ -1700,6 +1780,30 @@
         card.classList.remove('playing');
         btn.innerHTML = CARD_ICONS.PLAY;
         btn.title = 'Play';
+      }
+    });
+
+    const recentRows = document.querySelectorAll('.recent-ep-row');
+    recentRows.forEach(row => {
+      const guid = row.dataset.guid;
+      const btn = row.querySelector('.btn-recent-play');
+      if (!btn) return;
+      if (state.currentEpisode && state.currentEpisode.guid === guid) {
+        row.classList.add('active');
+        if (isLoading) {
+          btn.innerHTML = `<span class="spinner" style="width: 10px; height: 10px;"></span>`;
+          btn.classList.remove('is-playing');
+        } else if (isPlaying) {
+          btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`;
+          btn.classList.add('is-playing');
+        } else {
+          btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+          btn.classList.remove('is-playing');
+        }
+      } else {
+        row.classList.remove('active');
+        btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+        btn.classList.remove('is-playing');
       }
     });
   }
