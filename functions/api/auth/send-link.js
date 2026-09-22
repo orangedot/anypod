@@ -42,10 +42,9 @@ export async function onRequest(context) {
 
     let user = await db.prepare('SELECT id, email FROM users WHERE email = ?').bind(email).first();
     if (!user) {
-      return new Response(JSON.stringify({ success: true }), {
-        headers: corsHeaders,
-        status: 200
-      });
+      const newUserId = `usr_${crypto.randomUUID()}`;
+      await db.prepare('INSERT INTO users (id, email) VALUES (?, ?)').bind(newUserId, email).run();
+      user = { id: newUserId, email };
     }
 
     const tokenBuffer = new Uint8Array(32);
@@ -75,6 +74,19 @@ export async function onRequest(context) {
       });
     }
 
+    const emailHtml = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #090a0f; color: #f8fafc; padding: 40px 20px;">
+  <div style="max-width: 480px; margin: 0 auto; background: #141721; border: 1px solid #2e354f; border-radius: 16px; padding: 32px; text-align: center;">
+    <h1 style="color: #ffffff; font-size: 22px; margin-bottom: 12px; font-weight: 700;">Sign in to Podany</h1>
+    <p style="color: #94a3b8; font-size: 15px; line-height: 1.5; margin-bottom: 28px;">Click the button below to complete your sign in. This magic link is valid for 15 minutes.</p>
+    <a href="${verifyUrl}" style="display: inline-block; background: #f97316; color: #ffffff; font-weight: 600; font-size: 15px; padding: 14px 28px; border-radius: 9999px; text-decoration: none;">Sign In to Podany</a>
+    <p style="color: #64748b; font-size: 12px; margin-top: 32px; word-break: break-all;">Link not working? Paste this URL into your browser:<br><a href="${verifyUrl}" style="color: #f97316;">${verifyUrl}</a></p>
+  </div>
+</body>
+</html>`;
+
     const resendRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -85,12 +97,31 @@ export async function onRequest(context) {
         from: fromEmail,
         to: [email],
         subject: 'Podany Magic Login Link',
-        html: `<p>Click the link below to sign in:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`
+        html: emailHtml
       })
     });
 
     if (!resendRes.ok) {
       const errText = await resendRes.text();
+      let isSandboxRestriction = false;
+      try {
+        const parsed = JSON.parse(errText);
+        if (parsed.message && parsed.message.includes('You can only send testing emails to your own email address')) {
+          isSandboxRestriction = true;
+        }
+      } catch (e) {}
+
+      if (isSandboxRestriction) {
+        return new Response(JSON.stringify({ 
+          success: true, 
+          sandboxNotice: 'Resend Sandbox Mode (Only delivered to account owner):',
+          verifyUrl 
+        }), {
+          headers: corsHeaders,
+          status: 200
+        });
+      }
+
       throw new Error(`Resend email delivery failed (${resendRes.status}): ${errText}`);
     }
 

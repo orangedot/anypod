@@ -308,9 +308,9 @@
       if (!res.ok || data.error) throw new Error(data.error || 'Failed to send link');
 
       if (data.verifyUrl) {
-        elements.magicStatusMsg.innerHTML = `<span style="color:#22c55e;">Development Mode:</span> <a href="${data.verifyUrl}" style="color:#60a5fa; text-decoration:underline;">Click here to sign in instantly</a>`;
+        elements.magicStatusMsg.innerHTML = `<span style="color:#22c55e;">${data.sandboxNotice || data.devNotice || 'Direct Login:'}</span> <a href="${data.verifyUrl}" style="color:#60a5fa; text-decoration:underline;">Click here to sign in instantly</a>`;
       } else {
-        elements.magicStatusMsg.textContent = 'Sign-in link sent! Check your email inbox to complete sign in.';
+        elements.magicStatusMsg.textContent = 'Sign-in link sent! Check your email inbox (and spam folder) to complete sign in.';
       }
     } catch (e) {
       elements.magicStatusMsg.style.color = '#ef4444';
