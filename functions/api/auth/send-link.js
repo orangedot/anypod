@@ -106,10 +106,22 @@ export async function onRequest(context) {
       let isSandboxRestriction = false;
       try {
         const parsed = JSON.parse(errText);
-        if (parsed.message && parsed.message.includes('You can only send testing emails to your own email address')) {
+        if (
+          parsed.statusCode === 403 ||
+          parsed.statusCode === 422 ||
+          (parsed.message && (
+            parsed.message.includes('You can only send testing emails') ||
+            parsed.message.includes('testing email address')
+          )) ||
+          fromEmail.includes('resend.dev')
+        ) {
           isSandboxRestriction = true;
         }
-      } catch (e) {}
+      } catch (e) {
+        if (fromEmail.includes('resend.dev')) {
+          isSandboxRestriction = true;
+        }
+      }
 
       if (isSandboxRestriction) {
         return new Response(JSON.stringify({ 
