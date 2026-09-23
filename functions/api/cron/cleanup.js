@@ -121,19 +121,10 @@ export async function onRequest(context) {
 
   // TEST EMAIL PIPELINE: Send a sample email to a specific address immediately
   if (testEmail) {
-    if (!resendKey) {
-      return new Response(JSON.stringify({ 
-        error: 'RESEND_API_KEY is not configured on this environment.',
-        testEmail 
-      }), {
-        headers: corsHeaders,
-        status: 400
-      });
-    }
-
     const isFinal = url.searchParams.get('type') === 'final' || url.searchParams.get('type') === '50d';
     const sampleToken = 'test_' + Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join('');
     const verifyUrl = `${appUrl}/auth/verify/?token=${sampleToken}`;
+    const subject = isFinal ? '[Test] Final Notice: Podany Account Deletion in 10 Days' : '[Test] Podany Cleaner Monday: Inactive Account Check';
 
     const emailHtml = buildCleanerEmailHtml({
       email: testEmail,
@@ -141,6 +132,20 @@ export async function onRequest(context) {
       verifyUrl,
       isFinalNotice: isFinal
     });
+
+    if (!resendKey) {
+      return new Response(JSON.stringify({ 
+        success: true, 
+        devNotice: 'RESEND_API_KEY is not configured on this environment (offline dev mode). Email preview and test link generated.',
+        testEmail,
+        subject,
+        verifyUrl,
+        htmlPreview: emailHtml
+      }, null, 2), {
+        headers: corsHeaders,
+        status: 200
+      });
+    }
 
     const resendRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -151,7 +156,7 @@ export async function onRequest(context) {
       body: JSON.stringify({
         from: fromEmail,
         to: [testEmail],
-        subject: isFinal ? '[Test] Final Notice: Podany Account Deletion in 10 Days' : '[Test] Podany Cleaner Monday: Inactive Account Check',
+        subject,
         html: emailHtml
       })
     });
@@ -170,8 +175,9 @@ export async function onRequest(context) {
     return new Response(JSON.stringify({ 
       success: true, 
       message: `Test Cleaner email (${isFinal ? '50-day final notice' : '30-day notice'}) sent successfully to ${testEmail}`,
-      resendResponse: resText
-    }), {
+      resendResponse: resText,
+      verifyUrl
+    }, null, 2), {
       headers: corsHeaders,
       status: 200
     });
@@ -322,9 +328,10 @@ export async function onRequest(context) {
   // 3. Send 30-day "Cleaner Monday" emails
   for (const target of toWarn30d) {
     try {
+      const rawToken = await createMagicActionToken(db, target.id, 'keep_active_30d');
+      const verifyUrl = `${appUrl}/auth/verify/?token=${rawToken}`;
+
       if (resendKey) {
-        const rawToken = await createMagicActionToken(db, target.id, 'keep_active_30d');
-        const verifyUrl = `${appUrl}/auth/verify/?token=${rawToken}`;
         const html = buildCleanerEmailHtml({
           email: target.email,
           appUrl,
@@ -348,7 +355,11 @@ export async function onRequest(context) {
       }
 
       await db.prepare('UPDATE users SET warned_30d_at = unixepoch() WHERE id = ?').bind(target.id).run();
-      results.warned30d.push(target.email);
+      results.warned30d.push({
+        email: target.email,
+        verifyUrl,
+        deliveredEmail: !!resendKey
+      });
     } catch (e) {
       results.errors.push({ action: 'warn30d', email: target.email, error: e.message });
     }
