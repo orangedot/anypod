@@ -2338,9 +2338,9 @@ body.has-active-episode.has-mini-player .player-mini {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.72);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2348,12 +2348,21 @@ body.has-active-episode.has-mini-player .player-mini {
   animation: modalOverlayFade 0.18s ease-out;
 }
 
+[data-theme="light"] .modal-overlay {
+  background: rgba(15, 23, 42, 0.38);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .modal-overlay {
+    background: rgba(15, 23, 42, 0.38);
+  }
+}
+
 .modal-overlay.hidden {
   display: none;
 }
 
 .modal-card {
-  background: var(--bg-dark);
+  background: var(--bg-card);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
   padding: 1.75rem;
@@ -2362,6 +2371,267 @@ body.has-active-episode.has-mini-player .player-mini {
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
   animation: modalPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   will-change: transform, opacity;
+}
+
+/* Dedicated Auth / Sync Modal Styling */
+.auth-modal-card {
+  max-width: 440px;
+  padding: 2rem 2.25rem;
+  border-radius: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  text-align: left;
+}
+
+[data-theme="light"] .auth-modal-card {
+  background: #ffffff;
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .auth-modal-card {
+    background: #ffffff;
+    box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  }
+}
+
+.auth-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.1rem;
+}
+
+.auth-icon-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-glow);
+  color: var(--accent-orange, #ea580c);
+  border: 1px solid var(--border-light);
+}
+
+.auth-btn-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.auth-btn-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .auth-btn-close:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .auth-btn-close:hover {
+    background: rgba(0, 0, 0, 0.06);
+  }
+}
+
+.auth-modal-intro {
+  margin-bottom: 1.15rem;
+}
+
+.auth-modal-title {
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+  margin: 0 0 0.35rem 0;
+}
+
+.auth-modal-subtitle {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.auth-feature-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1.35rem;
+}
+
+.auth-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-light);
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .auth-pill {
+  background: rgba(0, 0, 0, 0.03);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .auth-pill {
+    background: rgba(0, 0, 0, 0.03);
+  }
+}
+
+.auth-pill svg {
+  color: var(--accent-orange);
+}
+
+.auth-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-bottom: 1.25rem;
+}
+
+.auth-input-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+}
+
+.auth-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.auth-input-icon {
+  position: absolute;
+  left: 14px;
+  color: var(--text-muted);
+  pointer-events: none;
+  transition: color 0.15s ease;
+}
+
+.auth-input-wrapper input {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2.6rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-light);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+[data-theme="light"] .auth-input-wrapper input {
+  background: rgba(0, 0, 0, 0.025);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .auth-input-wrapper input {
+    background: rgba(0, 0, 0, 0.025);
+    border-color: rgba(0, 0, 0, 0.12);
+  }
+}
+
+.auth-input-wrapper input:focus {
+  border-color: var(--border-focus);
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+[data-theme="light"] .auth-input-wrapper input:focus {
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(46, 42, 37, 0.1);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .auth-input-wrapper input:focus {
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(46, 42, 37, 0.1);
+  }
+}
+
+.auth-input-wrapper:focus-within .auth-input-icon {
+  color: var(--text-primary);
+}
+
+.auth-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  align-items: stretch;
+}
+
+.btn-auth-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 46px;
+  border-radius: 12px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+
+.btn-auth-submit:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+.btn-auth-submit:hover svg {
+  transform: translateX(2px);
+}
+
+.btn-auth-submit svg {
+  transition: transform 0.18s ease;
+}
+
+.btn-auth-cancel {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 0.4rem;
+  cursor: pointer;
+  transition: color 0.15s ease;
+  font-family: inherit;
+  text-align: center;
+}
+
+.btn-auth-cancel:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
+.auth-privacy-footnote {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-light);
+  font-size: 0.74rem;
+  color: var(--text-muted);
 }
 
 /* Category Discovery Chips in Add Modal */
@@ -2896,6 +3166,13 @@ body.has-active-episode.has-mini-player .player-mini {
     max-width: 95%;
     margin: 0 auto;
     box-sizing: border-box;
+  }
+
+  .auth-modal-card {
+    padding: 1.5rem 1.25rem;
+    width: 92%;
+    max-width: 400px;
+    border-radius: 18px;
   }
 }
 

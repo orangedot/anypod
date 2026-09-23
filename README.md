@@ -37,12 +37,19 @@ Private podcast RSS feed aggregator and web player hosted on Cloudflare Pages wi
 
 ## Self-Hosting with Docker 🐳
 
-Run Podany completely locally on your home server, NAS (Synology, Unraid, TrueNAS), or Raspberry Pi with local SQLite storage and zero cloud lock-in.
+Run Podany completely locally on your home server, NAS (Synology, Unraid, TrueNAS), or Raspberry Pi with local SQLite storage, zero cloud lock-in, and instant offline magic links.
 
 ```bash
 docker compose up -d
 ```
-See [SELF_HOSTING.md](SELF_HOSTING.md) for detailed configuration, local volumes, offline login, and backup guides.
+Open **`http://localhost:8788`** in your browser.
+
+- 🗄️ **Zero-Maintenance Storage**: In-process SQLite database stored in `./data/` (no heavy database containers, 0 MB idle RAM).
+- 🔒 **Reverse Proxy Ready**: Built-in support for `jwilder/nginx-proxy` + Let's Encrypt SSL via `docker compose -f docker-compose.yml -f docker-compose.jwilder.yml up -d`, plus Caddy and Nginx.
+- 📦 **Built-in Bundler**: `esbuild` minifies modern JS (190KB → 102KB) and CSS (64KB → 56KB).
+- 📲 **Offline PWA Audio Caching**: Download episodes directly to your phone/laptop with HTTP 206 Range support.
+
+See [SELF_HOSTING.md](SELF_HOSTING.md) for full configuration guides, environment variables, offline login, and backup instructions.
 
 ## Technology Stack
 

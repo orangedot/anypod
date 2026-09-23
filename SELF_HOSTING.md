@@ -171,7 +171,43 @@ server {
 }
 ```
 
-*(Wichtig: Setze in der `.env` oder `config.yaml` dann `APP_URL=https://podany.deinedomain.de`)*
+### jwilder/nginx-proxy & acme-companion (Automatisches Let's Encrypt SSL)
+Für Setups mit `jwilder/nginx-proxy` liegt direkt eine fertige Compose-Erweiterung (`docker-compose.jwilder.yml`) bei:
+
+```bash
+# Start mit automatischem SSL-Zertifikat via jwilder:
+VIRTUAL_HOST=podcasts.deinedomain.de \
+LETSENCRYPT_HOST=podcasts.deinedomain.de \
+LETSENCRYPT_EMAIL=deine@email.de \
+docker compose -f docker-compose.yml -f docker-compose.jwilder.yml up -d
+```
+*(Das setzt voraus, dass dein `jwilder/nginx-proxy` im Netzwerk `nginx-proxy` läuft).*
+
+---
+
+## 🏛️ Architektur: Warum SQLite statt MariaDB?
+
+Eine häufige Frage von Sysadmins: *„Warum kein MariaDB / MySQL im separaten Container?“*
+
+1. **Cloudflare D1 Kompatibilität**: Podany nutzt die Cloudflare D1 API (`db.prepare(...)`). D1 *ist* SQLite am Edge. Durch SQLite im Container läuft exakt dieselbe Codebasis lokal wie in der Cloud – ohne Abstraktions-Overhead.
+2. **0 MB Leerlauf-RAM**: MariaDB benötigt im Leerlauf 150–300 MB RAM und eigene Netzwerk-Sockets. SQLite läuft in-process, verbraucht 0 MB zusätzlichen RAM und hat keine Latenz.
+3. **Ausfallsicherheit**: Kein separater Datenbank-Container, der crashen oder Verbindungs-Timeouts werfen kann.
+4. **1-Klick Backup**: Die gesamte Datenbank ist eine einzige Datei in `./data/`. Kein `mysqldump` oder Stop-Container nötig.
+
+---
+
+## 💾 Storage Management & Caching
+
+### 1. Offline-Audio & Cover-Cache (Client PWA)
+Podany verfügt über einen integrierten Service Worker mit **HTTP 206 Range-Request Support**:
+- Klicke bei einer Episode auf **„Download“**, um Audio und Cover auf dein Handy oder den Laptop herunterzuladen.
+- Im Tab **„Downloads“** kannst du Folgen ohne Internetverbindung offline hören.
+- Über den Button **„Clear Download“** oder in den Einstellungen lässt sich belegter Speicher jederzeit mit einem Klick freigeben.
+
+### 2. Geplantes Server-seitiges Episoden-Archivieren & Auto-Pruning
+Für Self-Hosters, die Feeds serverseitig spiegeln möchten:
+- Viele Podcast-Feeds haben über 500 Folgen (50+ GB pro Podcast!). Ein ungefilterter Download aller Dateien würde jeden Server sprengen.
+- **Geplantes Storage-Management**: Automatisches tägliches Abrufen neuer Episoden per Cron, Caching der neuesten *N* Folgen (z. B. letzte 3 Episoden oder Folgen der letzten 14 Tage) und automatisches Löschen alter MP3s nach Ablauf der Frist, während Hörstände in der SQLite-Datenbank erhalten bleiben.
 
 ---
 

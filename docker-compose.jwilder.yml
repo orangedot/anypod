@@ -1,0 +1,26 @@
+# ==============================================================================
+# Docker Compose Override for jwilder/nginx-proxy & acme-companion (SSL)
+# ==============================================================================
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.jwilder.yml up -d
+#
+# Requirements:
+#   A running jwilder/nginx-proxy container on the external network (default: nginx-proxy)
+# ==============================================================================
+
+services:
+  podany:
+    environment:
+      - VIRTUAL_HOST=${VIRTUAL_HOST:-podcast.local}
+      - VIRTUAL_PORT=8788
+      - LETSENCRYPT_HOST=${LETSENCRYPT_HOST:-${VIRTUAL_HOST:-}}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-}
+      - APP_URL=https://${VIRTUAL_HOST:-podcast.local}
+    networks:
+      - default
+      - proxy-net
+
+networks:
+  proxy-net:
+    external: true
+    name: ${PROXY_NETWORK:-nginx-proxy}
