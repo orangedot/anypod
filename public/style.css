@@ -506,6 +506,17 @@ body.has-active-episode .app-container {
   padding: 0.45rem 1rem;
 }
 
+/* Settings gear icon in header */
+.btn-header-settings {
+  opacity: 0.7;
+  transition: opacity 0.2s, color 0.2s;
+}
+.btn-header-settings:hover,
+.btn-header-settings.is-active {
+  opacity: 1;
+  color: var(--text-primary);
+}
+
 .btn-sm {
   padding: 0.45rem 0.85rem;
   font-size: 0.8rem;
@@ -1542,6 +1553,29 @@ select {
   justify-content: space-between;
 }
 
+.btn-back-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.4rem 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.btn-back-nav:hover {
+  background: var(--bg-hover, var(--border-light));
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
+  transform: translateX(-2px);
+}
+
 .feed-detail-main {
   display: flex;
   gap: 1.75rem;
@@ -1764,6 +1798,10 @@ body.has-active-episode .bottom-action-dock {
   bottom: 95px;
 }
 
+body.has-active-episode.has-mini-player .bottom-action-dock {
+  bottom: 60px;
+}
+
 .bottom-action-dock.dock-hidden {
   display: none !important;
 }
@@ -1861,6 +1899,142 @@ body.has-active-episode .bottom-action-dock {
   transform: translateY(0);
   opacity: 1;
   pointer-events: auto;
+}
+
+body.has-active-episode.has-mini-player .player-bar {
+  transform: translateY(105%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Compact Mini Player */
+.player-mini {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 52px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  gap: 1rem;
+  z-index: 100;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+  transform: translateY(105%);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+}
+
+body.has-active-episode.has-mini-player .player-mini {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.mini-progress-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2.5px;
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+.mini-progress-fill {
+  width: 0%;
+  height: 100%;
+  background: var(--primary);
+  transition: width 0.2s linear;
+}
+
+.mini-track-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  user-select: none;
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease;
+}
+
+.mini-track-info:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.mini-artwork {
+  width: 38px;
+  height: 38px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #1f2937;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.mini-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+}
+
+.mini-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.25;
+}
+
+.mini-podcast {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.mini-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.mini-play-btn,
+.mini-toggle-btn {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mini-play-btn:hover,
+.mini-toggle-btn:hover,
+#btn-collapse-player:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--primary);
 }
 
 .player-track-info {
@@ -2332,8 +2506,10 @@ body.has-active-episode .bottom-action-dock {
     right: 0.5rem;
     left: 0.5rem;
     border-radius: var(--radius-sm);
-    justify-content: space-between;
+    justify-content: flex-start;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
     padding: 0.35rem 0.5rem;
     gap: 0.35rem;
     max-width: calc(100vw - 1rem);
@@ -2341,23 +2517,60 @@ body.has-active-episode .bottom-action-dock {
     transition: bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
+  .bottom-action-dock::-webkit-scrollbar {
+    display: none;
+  }
+
+  .dock-filters {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+  }
+
   body.has-active-episode .bottom-action-dock {
     bottom: 115px;
+  }
+
+  body.has-active-episode.has-mini-player .bottom-action-dock {
+    bottom: 56px;
   }
 
   .bottom-action-dock .chip-filter {
     padding: 0.35rem 0.65rem;
     font-size: 0.75rem;
+    flex-shrink: 0;
   }
 
   .bottom-action-dock select {
     font-size: 0.75rem;
     padding: 0.35rem 0.6rem;
+    flex-shrink: 0;
   }
 
   .btn-dock-refresh {
     font-size: 0.75rem;
     padding: 0.35rem 0.65rem;
+    flex-shrink: 0;
+  }
+
+  .player-mini {
+    height: 50px;
+    padding: 0 0.75rem;
+    gap: 0.5rem;
+  }
+
+  .mini-artwork {
+    width: 34px;
+    height: 34px;
+  }
+
+  .mini-title {
+    font-size: 0.8rem;
+  }
+
+  .mini-podcast {
+    font-size: 0.7rem;
   }
 
   .player-bar {
@@ -2793,15 +3006,18 @@ body.has-active-episode .bottom-action-dock {
 }
 
 .show-notes-content a {
-  color: var(--accent-orange);
+  color: var(--text-secondary);
   text-decoration: underline;
   text-underline-offset: 3px;
   text-decoration-thickness: 1px;
-  transition: color 0.15s;
+  text-decoration-color: var(--border-light);
+  transition: color 0.15s, text-decoration-color 0.15s;
+  word-break: break-all;
 }
 
 .show-notes-content a:hover {
   color: var(--text-primary);
+  text-decoration-color: var(--text-secondary);
 }
 
 .show-notes-content ul,
@@ -2822,22 +3038,25 @@ body.has-active-episode .bottom-action-dock {
   font-style: italic;
 }
 
+/* Timecode chips — subtle pill, no orange */
 .note-timestamp {
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
   padding: 0.1rem 0.45rem;
   border-radius: 4px;
-  background: var(--bg-card);
+  background: transparent;
   border: 1px solid var(--border-light);
-  color: var(--accent-orange);
-  font-size: 0.82rem;
-  font-weight: 550;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
   font-family: inherit;
   cursor: pointer;
   vertical-align: baseline;
   transition: all 0.15s ease;
   line-height: 1.3;
+  letter-spacing: 0.02em;
 }
 
 .note-timestamp:hover {

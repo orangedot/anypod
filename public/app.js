@@ -1,6 +1,128 @@
 (function () {
   'use strict';
 
+  /**
+   * app.js — Podany Podcast App
+   *
+   * Single-file vanilla JS frontend for a private podcast player.
+   * Runs on Cloudflare Pages + D1. No build step, no bundler.
+   *
+   * TABLE OF CONTENTS
+   * -----------------
+   *  1. Constants & Configuration  (~L14)
+   *     STORAGE_KEYS, CARD_ICONS, FALLBACK_ARTWORK, DEFAULT_STARTER_FEEDS
+   *
+   *  2. State                      (~L35)
+   *     Single shared `state` object. All mutable app state lives here.
+   *
+   *  3. DOM Element Cache          (~L69)
+   *     `elements` object — cached getElementById/querySelector refs.
+   *
+   *  4. YouTube Player             (~L194)
+   *     YouTube IFrame API init + state change handler.
+   *
+   *  5. Theme                      (~L258)
+   *     initTheme / applyTheme / setTheme.
+   *
+   *  6. Init & Boot                (~L293)
+   *     init() — called on DOMContentLoaded. Wires everything up.
+   *
+   *  7. Auth & Session             (~L311)
+   *     checkUrlSessionParam, checkAuth, updateSyncStatusUI,
+   *     getWebmailProvider, submitMagicAuth.
+   *
+   *  8. Cloud Sync (D1)            (~L467)
+   *     syncFeedsWithD1, saveFeedToD1, removeFeedFromD1.
+   *
+   *  9. Playback Position Sync     (~L527)
+   *     savePositionsToStorage, loadPositionsFromStorage,
+   *     loadPlaybackPositionsFromD1, savePlaybackPositionToD1.
+   *
+   * 10. Feed Storage               (~L578)
+   *     loadFeedsFromStorage, saveFeedsToStorage, updateFeedCountUI,
+   *     updateDockVisibility, loadCacheFromStorage, saveCacheToStorage.
+   *
+   * 11. Queue                      (~L646)
+   *     loadQueueFromStorage, saveQueueToStorage, isEpisodeQueued,
+   *     toggleEpisodeQueue, removeFromQueue, clearQueue,
+   *     updateQueueUI, renderQueueModalContent, openQueueModal, closeQueueModal.
+   *
+   * 12. Downloads (Offline)        (~L916)
+   *     loadDownloadsFromStorage, saveDownloadsToStorage, formatBytes,
+   *     updateDownloadedCountUI, renderOfflineStorageSettings,
+   *     downloadEpisode, removeDownloadedEpisode, clearAllDownloads,
+   *     updateEpisodeCardDownloadState.
+   *
+   * 13. Service Worker & Network   (~L1108)
+   *     initServiceWorker, setupNetworkListeners.
+   *
+   * 14. Feed Fetching              (~L1133)
+   *     renderSkeletonTimeline, refreshAllFeeds, fetchSingleFeed.
+   *
+   * 15. Filtering & Sorting        (~L1250)
+   *     updateFilterBadges, processAndSortEpisodes.
+   *     Utility: parseDurationSeconds, formatCompactDate,
+   *     formatDurationCompact, formatHumanRelativeDate, formatEpisodeDuration.
+   *
+   * 16. Podcast Directory Search   (~L1444)
+   *     searchPodcastDirectory, renderNextDirectoryBatch.
+   *
+   * 17. Continue Shelf             (~L1545)
+   *     getContinueRowCapacity, renderContinueShelf.
+   *
+   * 18. Timeline Rendering         (~L1697)
+   *     renderTimeline, appendTimelineBatch, setupSentinelObserver.
+   *     wireEmptyStateEvents (empty / onboarding state).
+   *
+   * 19. Episode Cards              (~L1827)
+   *     toggleMarkPlayed, formatShowNotesHtml, seekToExactTime,
+   *     openShowNotes, closeShowNotes, setupProgressTrackInteractivity,
+   *     createEpisodeCard.
+   *
+   * 20. Feeds Grid & Feed Detail   (~L2223)
+   *     wireFeedsEmptyStateEvents, renderFeedsGrid,
+   *     openFeedDetail, renderFeedDetail.
+   *
+   * 21. Audio Engine               (~L2566)
+   *     setupAudioEngines — <audio> event wiring, seek bar, position save
+   *     interval, MediaSession API, keyboard controls.
+   *
+   * 22. Playback Control           (~L2731)
+   *     isEnginePlaying, playCurrentEngine, pauseCurrentEngine,
+   *     resumeCurrentEngine, toggleEpisodePlayback, playEpisode,
+   *     updateProgress, updateDuration, playNextEpisode, onEpisodeEnded,
+   *     skipToNextEpisode.
+   *
+   * 23. Player UI Sync             (~L3127)
+   *     syncPlaybackButtons, updatePlayerUI, setPlayerCollapsed,
+   *     cyclePlaybackSpeed.
+   *
+   * 24. Sleep Timer                (~L3252)
+   *     startSleepTimer, stopSleepTimer.
+   *
+   * 25. Feed Management            (~L3294)
+   *     addFeed, promptRemoveFeed, purgeOrphanedDownloads, removeFeed.
+   *
+   * 26. OPML Import / Export       (~L3387)
+   *     importOpml, exportOpml.
+   *
+   * 27. Event Listeners            (~L3434)
+   *     setupEventListeners — all UI click/input/keyboard wiring.
+   *     Modal helpers: openAddModal, closeAddModal, openSleepModal,
+   *     closeSleepModal, showStatus, hideStatus.
+   *
+   * 28. Utilities                  (~L3871)
+   *     formatTime, decodeHtmlEntities, escapeHtml.
+   *
+   * 29. Bootstrap                  (~L3916)
+   *     document.addEventListener('DOMContentLoaded', init)
+   */
+
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 1 · Constants & Configuration
+  // ─────────────────────────────────────────────────────────────────────────
+
   const STORAGE_KEYS = {
     FEEDS: 'podany_feeds',
     SESSION: 'podany_session_token',
@@ -32,6 +154,13 @@
     'https://feeds.feedburner.com/syntaxfm'
   ];
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 2 · State
+  // Single shared mutable state object. No framework — direct mutation +
+  // manual render calls. activeEngine switches between 'audio' and 'youtube'.
+  // playbackStatus: 'idle' | 'loading' | 'playing' | 'paused'
+  // ─────────────────────────────────────────────────────────────────────────
+
   let state = {
     sessionToken: '',
     userEmail: '',
@@ -52,6 +181,7 @@
     timelinePage: 1,
     pageSize: 30,
     activeFeedDetailUrl: null,
+    navHistory: [],          // stack of { tab, feedUrl } entries for back navigation
     continueCollapsed: true,
     queue: [],
     downloadedEpisodes: {},
@@ -65,6 +195,12 @@
       initialVolume: 1.0
     }
   };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 3 · DOM Element Cache
+  // All getElementById / querySelector calls happen once at startup.
+  // Grouped by feature area (auth, tabs, player, modals…).
+  // ─────────────────────────────────────────────────────────────────────────
 
   const elements = {
     authModal: document.getElementById('auth-modal'),
@@ -94,13 +230,18 @@
     panels: document.querySelectorAll('.tab-panel'),
     tabFeeds: document.getElementById('tab-feeds'),
     tabTimeline: document.getElementById('tab-timeline'),
+    tabDownloads: document.getElementById('tab-downloads'),
+    tabSettings: document.getElementById('tab-settings'),
     panelFeeds: document.getElementById('panel-feeds'),
     panelTimeline: document.getElementById('panel-timeline'),
+    panelDownloads: document.getElementById('panel-downloads'),
     panelFeedDetail: document.getElementById('panel-feed-detail'),
     feedDetailHeader: document.getElementById('feed-detail-header'),
     feedDetailEpisodes: document.getElementById('feed-detail-episodes'),
     themeBtns: document.querySelectorAll('.btn-theme'),
     feedCount: document.getElementById('feed-count'),
+    downloadsTabCount: document.getElementById('downloads-tab-count'),
+    btnOpenSettings: document.getElementById('btn-open-settings'),
 
     searchInput: document.getElementById('search-input'),
     sortOrderSelect: document.getElementById('sort-order'),
@@ -176,8 +317,27 @@
     totalDurationLabel: document.getElementById('total-duration'),
     seekBar: document.getElementById('seek-bar'),
     btnSpeedToggle: document.getElementById('btn-speed-toggle'),
-    btnPlayerNotes: document.getElementById('btn-player-notes')
+    btnPlayerNotes: document.getElementById('btn-player-notes'),
+    btnCollapsePlayer: document.getElementById('btn-collapse-player'),
+    playerMini: document.getElementById('player-mini'),
+    miniExpandZone: document.getElementById('mini-expand-zone'),
+    miniArtwork: document.getElementById('mini-artwork'),
+    miniTitle: document.getElementById('mini-title'),
+    miniPodcast: document.getElementById('mini-podcast'),
+    miniPlayToggle: document.getElementById('mini-play-toggle'),
+    miniIconPlay: document.querySelector('.mini-icon-play'),
+    miniIconPause: document.querySelector('.mini-icon-pause'),
+    miniIconSpinner: document.querySelector('.mini-icon-spinner'),
+    miniToggle: document.getElementById('mini-toggle'),
+    miniProgressFill: document.getElementById('mini-progress-fill')
   };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 4 · YouTube Player
+  // Initialises the YouTube IFrame API player inside #yt-player.
+  // handleYouTubeStateChange — maps YT.PlayerState to state.playbackStatus.
+  // window.onYouTubeIframeAPIReady — global callback required by the API.
+  // ─────────────────────────────────────────────────────────────────────────
 
   function handleYouTubeStateChange(event) {
     if (state.activeEngine === 'youtube') {
@@ -243,6 +403,145 @@
     initYouTubePlayer();
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 4b · Navigation History
+  // Full modern navigation stack:
+  // - Keeps an in-memory stack (state.navHistory) and browser URL hash
+  // - Handles tab navigation, feed detail drill-down, and modals
+  // - Listens to 'popstate' so browser Back/Forward & mobile gestures work
+  // - Back button dynamically labels previous target ('← Timeline', '← Feeds', etc.)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  function _applyView({ tab, feedUrl }) {
+    elements.tabs.forEach(t => t.classList.remove('active'));
+    elements.panels.forEach(p => p.classList.remove('active'));
+    if (elements.btnOpenSettings) elements.btnOpenSettings.classList.remove('is-active');
+
+    if (feedUrl) {
+      state.activeFeedDetailUrl = feedUrl;
+      if (elements.panelFeedDetail) elements.panelFeedDetail.classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      const meta = state.feedMetadata[feedUrl] || {};
+      if (elements.searchInput) {
+        elements.searchInput.placeholder = `Search in ${meta.title || 'podcast'}...`;
+      }
+      renderFeedDetail(feedUrl);
+    } else {
+      state.activeFeedDetailUrl = null;
+      if (elements.panelFeedDetail) elements.panelFeedDetail.classList.remove('active');
+      const targetTab = tab || 'timeline';
+      const tabEl = document.getElementById(`tab-${targetTab}`);
+      if (tabEl) tabEl.classList.add('active');
+      const panelEl = document.getElementById(`panel-${targetTab}`);
+      if (panelEl) panelEl.classList.add('active');
+      if (targetTab === 'settings' && elements.btnOpenSettings) {
+        elements.btnOpenSettings.classList.add('is-active');
+      }
+      if (targetTab === 'feeds') {
+        if (elements.searchInput) elements.searchInput.placeholder = 'Search subscribed podcasts...';
+        renderFeedsGrid();
+      } else if (targetTab === 'timeline') {
+        if (elements.searchInput) elements.searchInput.placeholder = 'Search loaded episodes...';
+        renderTimeline();
+      } else if (targetTab === 'downloads') {
+        if (elements.searchInput) elements.searchInput.placeholder = 'Search downloaded episodes...';
+        updateDownloadedCountUI();
+      } else if (targetTab === 'settings') {
+        if (elements.searchInput) elements.searchInput.placeholder = 'Search episodes...';
+      }
+    }
+    updateDockVisibility();
+  }
+
+  function _currentView() {
+    if (state.activeFeedDetailUrl) return { tab: null, feedUrl: state.activeFeedDetailUrl };
+    const activeTab = document.querySelector('.nav-tab.active')?.dataset.tab || 'timeline';
+    return { tab: activeTab, feedUrl: null };
+  }
+
+  function navigateTo(tab, feedUrl, pushBrowser = true) {
+    const cur = _currentView();
+    if (cur.tab === tab && cur.feedUrl === feedUrl) return;
+    state.navHistory.push(cur);
+
+    if (pushBrowser) {
+      const hash = feedUrl ? `feed=${encodeURIComponent(feedUrl)}` : (tab || 'timeline');
+      window.history.pushState({ tab, feedUrl }, '', '#' + hash);
+    }
+    _applyView({ tab, feedUrl });
+  }
+
+  function navigateBack() {
+    // If a modal is open, let back close it
+    const openModal = [elements.showNotesModal, elements.queueModal, elements.addModal, elements.sleepModal, elements.confirmModal]
+      .find(m => m && !m.classList.contains('hidden'));
+    if (openModal) {
+      openModal.classList.add('hidden');
+      return true;
+    }
+
+    if (window.history.length > 1) {
+      window.history.back();
+      return true;
+    }
+    if (state.navHistory.length > 0) {
+      const prev = state.navHistory.pop();
+      _applyView(prev);
+      return true;
+    }
+    _applyView({ tab: 'timeline', feedUrl: null });
+    return false;
+  }
+
+  function initNavigationRoute() {
+    window.addEventListener('popstate', (e) => {
+      // 1. Close any modal if open
+      let modalClosed = false;
+      const modals = [elements.showNotesModal, elements.queueModal, elements.addModal, elements.sleepModal, elements.confirmModal];
+      for (const m of modals) {
+        if (m && !m.classList.contains('hidden')) {
+          m.classList.add('hidden');
+          modalClosed = true;
+        }
+      }
+      if (modalClosed) return;
+
+      // 2. Apply view from state or URL hash
+      if (e.state && (e.state.tab !== undefined || e.state.feedUrl !== undefined)) {
+        _applyView(e.state);
+      } else if (window.location.hash) {
+        const raw = window.location.hash.slice(1);
+        if (raw.startsWith('feed=')) {
+          _applyView({ tab: null, feedUrl: decodeURIComponent(raw.slice(5)) });
+        } else if (['timeline', 'feeds', 'downloads', 'settings'].includes(raw)) {
+          _applyView({ tab: raw, feedUrl: null });
+        } else {
+          _applyView({ tab: 'timeline', feedUrl: null });
+        }
+      } else {
+        _applyView({ tab: 'timeline', feedUrl: null });
+      }
+    });
+
+    const hash = window.location.hash ? window.location.hash.slice(1) : '';
+    if (hash.startsWith('feed=')) {
+      const feedUrl = decodeURIComponent(hash.slice(5));
+      _applyView({ tab: null, feedUrl });
+      window.history.replaceState({ tab: null, feedUrl }, '', '#' + hash);
+    } else if (['timeline', 'feeds', 'downloads', 'settings'].includes(hash)) {
+      _applyView({ tab: hash, feedUrl: null });
+      window.history.replaceState({ tab: hash, feedUrl: null }, '', '#' + hash);
+    } else {
+      window.history.replaceState({ tab: 'timeline', feedUrl: null }, '', '#timeline');
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 5 · Theme
+  // Supports 'light' | 'dark' | 'system'. Applied via data-theme attribute
+  // on <html>. Listens for prefers-color-scheme changes when set to 'system'.
+  // ─────────────────────────────────────────────────────────────────────────
+
   function initTheme() {
     const saved = localStorage.getItem(STORAGE_KEYS.THEME) || 'system';
     applyTheme(saved);
@@ -278,6 +577,12 @@
     applyTheme(theme);
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 6 · Init & Boot
+  // init() is the single entry point, called from DOMContentLoaded (end of
+  // file). Runs all setup functions in dependency order.
+  // ─────────────────────────────────────────────────────────────────────────
+
   function init() {
     initTheme();
     checkUrlSessionParam();
@@ -293,8 +598,18 @@
     updateDownloadedCountUI();
     updateDockVisibility();
     initServiceWorker();
+    initNavigationRoute();
     checkAuth();
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 7 · Auth & Session
+  // Two auth paths:
+  //   a) Magic link → ?session=TOKEN in URL → stored in localStorage.
+  //   b) Session cookie (set by /api/auth/send-link verify flow).
+  // getWebmailProvider — returns a deeplink to the user's inbox provider
+  //   so we can render an "Open Gmail / Outlook" button after sending a link.
+  // ─────────────────────────────────────────────────────────────────────────
 
   function checkUrlSessionParam() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -452,6 +767,13 @@
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 8 · Cloud Sync (Cloudflare D1)
+  // API endpoints: /api/sync/feeds (GET/POST/DELETE), /api/sync/position
+  // Auth header: X-Session-Token (magic link) or session cookie.
+  // syncFeedsWithD1 — pulls remote feeds + positions on login/startup.
+  // ─────────────────────────────────────────────────────────────────────────
+
   async function syncFeedsWithD1() {
     showStatus('Syncing feeds & playback state with Cloud D1...');
     try {
@@ -512,6 +834,13 @@
     } catch (e) {}
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 9 · Playback Position Sync
+  // state.playbackPositions: { [guid]: { position, completed, lastListenedAt } }
+  // Saved locally every 8 s and immediately on pause/skip/completion.
+  // Also synced to/from Cloudflare D1 via /api/sync/position.
+  // ─────────────────────────────────────────────────────────────────────────
+
   function savePositionsToStorage() {
     try {
       localStorage.setItem(STORAGE_KEYS.POSITIONS, JSON.stringify(state.playbackPositions));
@@ -562,6 +891,14 @@
       });
     } catch (e) {}
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 10 · Feed Storage & Cache
+  // state.feeds — ordered array of RSS feed URLs (strings).
+  // state.feedMetadata — { [feedUrl]: { title, artwork, episodesCount, … } }
+  // state.allEpisodes — flat array of all episodes across all feeds.
+  // Cache is capped at 2000 episodes to avoid localStorage quota issues.
+  // ─────────────────────────────────────────────────────────────────────────
 
   function loadFeedsFromStorage() {
     try {
@@ -630,6 +967,14 @@
       }
     } catch (e) {}
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 11 · Queue ("Up Next")
+  // state.queue is an ordered array of episode objects.
+  // Persisted minimally (guid + playback fields only) to localStorage.
+  // Queue items are consumed by playNextEpisode (section 22).
+  // The queue modal supports drag-and-drop + touch reordering.
+  // ─────────────────────────────────────────────────────────────────────────
 
   function loadQueueFromStorage() {
     try {
@@ -895,11 +1240,24 @@
   function openQueueModal() {
     elements.queueModal.classList.remove('hidden');
     renderQueueModalContent();
+    window.history.pushState({ modal: 'queue' }, '', window.location.hash);
   }
 
   function closeQueueModal() {
-    elements.queueModal.classList.add('hidden');
+    if (window.history.state && window.history.state.modal) {
+      window.history.back();
+    } else if (elements.queueModal) {
+      elements.queueModal.classList.add('hidden');
+    }
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 12 · Downloads (Offline Listening)
+  // Episodes are cached in the Cache API under 'podany-audio-v1'.
+  // Metadata (guid, size, title…) is tracked in state.downloadedEpisodes
+  // and persisted to localStorage under STORAGE_KEYS.DOWNLOADS.
+  // downloadEpisode — fetches audio, falls back to /api/audio-proxy on CORS.
+  // ─────────────────────────────────────────────────────────────────────────
 
   function loadDownloadsFromStorage() {
     try {
@@ -932,6 +1290,9 @@
     if (elements.downloadedCount) {
       elements.downloadedCount.textContent = count;
     }
+    if (elements.downloadsTabCount) {
+      elements.downloadsTabCount.textContent = count > 0 ? count : '';
+    }
     if (elements.offlineStorageCount) {
       const totalBytes = list.reduce((sum, item) => sum + (item.size || 0), 0);
       elements.offlineStorageCount.textContent = `${count} ${count === 1 ? 'episode' : 'episodes'} (${formatBytes(totalBytes)})`;
@@ -942,9 +1303,19 @@
   function renderOfflineStorageSettings() {
     if (!elements.offlineEpisodesList) return;
     purgeOrphanedDownloads();
-    const list = Object.values(state.downloadedEpisodes || {});
+    let list = Object.values(state.downloadedEpisodes || {});
+    const q = (state.searchQuery || '').trim().toLowerCase();
+    if (q) {
+      list = list.filter(item => {
+        return (item.title || '').toLowerCase().includes(q) ||
+               (item.podcastTitle || '').toLowerCase().includes(q);
+      });
+    }
+
     if (list.length === 0) {
-      elements.offlineEpisodesList.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; padding: 0.5rem 0;">No episodes downloaded for offline listening yet.</p>';
+      elements.offlineEpisodesList.innerHTML = q
+        ? `<p style="color: var(--text-muted); font-size: 0.85rem; padding: 0.5rem 0;">No downloaded episodes match "${escapeHtml(state.searchQuery)}".</p>`
+        : '<p style="color: var(--text-muted); font-size: 0.85rem; padding: 0.5rem 0;">No episodes downloaded for offline listening yet.</p>';
       return;
     }
 
@@ -1093,6 +1464,12 @@
     });
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 13 · Service Worker & Network
+  // initServiceWorker — registers sw.js for offline caching.
+  // setupNetworkListeners — online/offline badge + resize → shelf rerender.
+  // ─────────────────────────────────────────────────────────────────────────
+
   function initServiceWorker() {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(() => {});
@@ -1117,6 +1494,14 @@
     });
     updateStatus();
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 14 · Feed Fetching
+  // refreshAllFeeds — fetches all subscribed feeds in parallel via
+  //   Promise.allSettled, merges results into state.allEpisodes.
+  // fetchSingleFeed — fetches /api/feed?url=… and updates metadata map.
+  // renderSkeletonTimeline — placeholder cards shown during first load.
+  // ─────────────────────────────────────────────────────────────────────────
 
   function renderSkeletonTimeline() {
     const container = elements.timelineList;
@@ -1234,6 +1619,15 @@
       return null;
     }
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 15 · Filtering, Sorting & Time Utilities
+  // processAndSortEpisodes — applies search query + filterMode + sortOrder
+  //   to produce state.filteredEpisodes.
+  // filterMode values: 'unplayed' | 'continue' | 'played' | 'downloaded' | 'all'
+  // Utility formatters: parseDurationSeconds, formatCompactDate,
+  //   formatDurationCompact, formatHumanRelativeDate, formatEpisodeDuration.
+  // ─────────────────────────────────────────────────────────────────────────
 
   function updateFilterBadges() {
     const currentGuid = state.currentEpisode ? state.currentEpisode.guid : null;
@@ -1429,6 +1823,13 @@
 
   const DIR_PAGE_SIZE = 12;
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 16 · Podcast Directory Search
+  // Queries iTunes Search API, renders results with lazy infinite scroll.
+  // searchPodcastDirectory — initiates search, sets up scroll listener.
+  // renderNextDirectoryBatch — appends next page of DIR_PAGE_SIZE results.
+  // ─────────────────────────────────────────────────────────────────────────
+
   async function searchPodcastDirectory(query, targetContainer = null) {
     const q = query.trim();
     const container = targetContainer || elements.searchDirectoryResults;
@@ -1529,6 +1930,13 @@
       s.listEl.appendChild(card);
     });
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 17 · Continue Shelf
+  // Horizontal shelf showing in-progress episodes above the timeline.
+  // getContinueRowCapacity — responsive slot count based on viewport width.
+  // renderContinueShelf — sorts by lastListenedAt, pins current episode first.
+  // ─────────────────────────────────────────────────────────────────────────
 
   function getContinueRowCapacity() {
     const w = window.innerWidth;
@@ -1682,6 +2090,14 @@
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 18 · Timeline Rendering
+  // renderTimeline — main episode list (handles empty/onboarding state).
+  // appendTimelineBatch / setupSentinelObserver — infinite scroll via
+  // IntersectionObserver; loads 30 cards at a time.
+  // wireEmptyStateEvents — wires up the onboarding empty state UI.
+  // ─────────────────────────────────────────────────────────────────────────
+
   function renderTimeline() {
     updateDockVisibility();
     const container = elements.timelineList;
@@ -1812,6 +2228,13 @@
     sentinelObserver.observe(sentinel);
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 19 · Episode Cards
+  // createEpisodeCard — builds the full interactive episode card element.
+  // Show notes: formatShowNotesHtml, openShowNotes, closeShowNotes.
+  // Progress scrubbing: setupProgressTrackInteractivity.
+  // ─────────────────────────────────────────────────────────────────────────
+
   function toggleMarkPlayed(ep) {
     const current = state.playbackPositions[ep.guid];
     const isCompleted = current && (current.completed === 1 || current.completed === true);
@@ -1929,10 +2352,13 @@
     }
 
     elements.showNotesModal.classList.remove('hidden');
+    window.history.pushState({ modal: 'showNotes' }, '', window.location.hash);
   }
 
   function closeShowNotes() {
-    if (elements.showNotesModal) {
+    if (window.history.state && window.history.state.modal) {
+      window.history.back();
+    } else if (elements.showNotesModal) {
       elements.showNotesModal.classList.add('hidden');
     }
   }
@@ -2080,7 +2506,8 @@
     const dateInput = ep.timestamp || ep.pubDate;
     const humanDate = dateInput ? formatHumanRelativeDate(dateInput) : 'Unknown date';
     const fullDate = dateInput ? new Date(dateInput).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-    const formattedDuration = ep.duration ? formatEpisodeDuration(ep.duration) : '';
+    const humanTime = dateInput ? new Date(dateInput).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' }) : '';
+const formattedDuration = ep.duration ? formatEpisodeDuration(ep.duration) : '';
 
     let btnHtml = CARD_ICONS.PLAY;
     let btnTitle = 'Play';
@@ -2122,11 +2549,12 @@
       ${progressTrackHtml}
       <div class="episode-footer">
         <div class="episode-meta">
-          <span title="${escapeHtml(fullDate)}">${escapeHtml(humanDate)}</span>
+          <span title="${escapeHtml(fullDate)}" class="date-line" style="display:block;">${escapeHtml(humanDate)}</span>
+<span class="time-line" style="display:block;">${escapeHtml(humanTime)}</span>
           ${formattedDuration ? `<span>${escapeHtml(formattedDuration)}</span>` : ''}
           ${resumeTimeStr ? `<span class="ep-resume-time" title="Click to resume playback">• ${resumeTimeStr}</span>` : ''}
         </div>
-        <div class="episode-card-actions">
+        <div class="episode-card-actions" style="display:flex; gap:4px; flex-wrap:nowrap;">
           ${downloadBtnHtml}
           <button class="btn-queue-ep ${isQueued ? 'is-queued' : ''}" title="${isQueued ? 'Remove from Up Next' : 'Add to Up Next'}">
             ${isQueued ? CARD_ICONS.QUEUE_ADDED : CARD_ICONS.QUEUE}
@@ -2209,6 +2637,12 @@
   }
 
   let feedsSearchDebounceTimer = null;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 20 · Feeds Grid & Feed Detail
+  // renderFeedsGrid — podcast library grid with per-feed episode widgets.
+  // openFeedDetail / renderFeedDetail — drills into a single podcast.
+  // ─────────────────────────────────────────────────────────────────────────
 
   function wireFeedsEmptyStateEvents() {
     const quickForm = document.getElementById('feeds-empty-quick-form');
@@ -2476,71 +2910,85 @@
   }
 
   function openFeedDetail(feedUrl) {
-    state.activeFeedDetailUrl = feedUrl;
-    elements.tabs.forEach(t => t.classList.remove('active'));
-    elements.panels.forEach(p => p.classList.remove('active'));
-    if (elements.panelFeedDetail) {
-      elements.panelFeedDetail.classList.add('active');
-    }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    updateDockVisibility();
-    renderFeedDetail(feedUrl);
+    navigateTo(null, feedUrl);
   }
 
   function renderFeedDetail(feedUrl) {
     const meta = state.feedMetadata[feedUrl] || {};
-    const episodes = state.allEpisodes.filter(e => e.feedUrl === feedUrl);
+    let episodes = state.allEpisodes.filter(e => e.feedUrl === feedUrl);
     const header = elements.feedDetailHeader;
     if (!header) return;
 
-    header.innerHTML = `
-      <div class="feed-detail-top-nav">
-        <button class="btn btn-secondary btn-sm" id="btn-feed-back">Back</button>
-        <button class="btn btn-secondary btn-sm" id="btn-feed-unsubscribe">Unsubscribe</button>
-      </div>
-      <div class="feed-detail-main">
-        <img class="feed-detail-art" src="${meta.artwork || FALLBACK_ARTWORK}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
-        <div class="feed-detail-info">
-          <div class="feed-detail-title">${escapeHtml(meta.title || 'Untitled Podcast')}</div>
-          <div class="feed-detail-author">${escapeHtml(meta.author || '')}</div>
-          ${meta.description ? `<div class="feed-detail-desc">${escapeHtml(meta.description)}</div>` : ''}
-          <div class="feed-detail-links">
-            ${meta.link ? `<a href="${escapeHtml(meta.link)}" target="_blank" rel="noopener noreferrer" class="feed-link-badge">Website</a>` : ''}
-            <button class="feed-link-badge" id="btn-copy-rss" title="Copy RSS Feed URL">Copy RSS</button>
-            <span class="feed-link-badge" style="cursor: default;">${episodes.length} episodes</span>
+    const totalCount = episodes.length;
+    const q = (state.searchQuery || '').trim().toLowerCase();
+    if (q) {
+      episodes = episodes.filter(ep => {
+        const title = (ep.title || '').toLowerCase();
+        const desc = (ep.description || '').toLowerCase();
+        return title.includes(q) || desc.includes(q);
+      });
+    }
+
+    if (header.dataset.feedUrl !== feedUrl) {
+      header.dataset.feedUrl = feedUrl;
+      const prevView = state.navHistory[state.navHistory.length - 1];
+      const backLabel = prevView?.feedUrl
+        ? '← Back'
+        : prevView?.tab
+          ? `← ${prevView.tab.charAt(0).toUpperCase() + prevView.tab.slice(1)}`
+          : '← Back';
+
+      header.innerHTML = `
+        <div class="feed-detail-top-nav">
+          <button class="btn-back-nav" id="btn-feed-back">${escapeHtml(backLabel)}</button>
+          <button class="btn btn-secondary btn-sm" id="btn-feed-unsubscribe">Unsubscribe</button>
+        </div>
+        <div class="feed-detail-main">
+          <img class="feed-detail-art" src="${meta.artwork || FALLBACK_ARTWORK}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+          <div class="feed-detail-info">
+            <div class="feed-detail-title">${escapeHtml(meta.title || 'Untitled Podcast')}</div>
+            <div class="feed-detail-author">${escapeHtml(meta.author || '')}</div>
+            ${meta.description ? `<div class="feed-detail-desc">${escapeHtml(meta.description)}</div>` : ''}
+            <div class="feed-detail-links">
+              ${meta.link ? `<a href="${escapeHtml(meta.link)}" target="_blank" rel="noopener noreferrer" class="feed-link-badge">Website</a>` : ''}
+              <button class="feed-link-badge" id="btn-copy-rss" title="Copy RSS Feed URL">Copy RSS</button>
+              <span class="feed-link-badge" id="feed-episodes-badge" style="cursor: default;">${q ? `${episodes.length} / ${totalCount} episodes` : `${totalCount} episodes`}</span>
+            </div>
           </div>
         </div>
-      </div>
-    `;
+      `;
 
-    header.querySelector('#btn-feed-back').addEventListener('click', () => {
-      if (elements.panelFeedDetail) elements.panelFeedDetail.classList.remove('active');
-      state.activeFeedDetailUrl = null;
-      const activeTab = document.querySelector('.nav-tab.active')?.dataset.tab || 'timeline';
-      const target = document.getElementById(`panel-${activeTab}`);
-      if (target) target.classList.add('active');
-      updateDockVisibility();
-    });
-
-    header.querySelector('#btn-feed-unsubscribe').addEventListener('click', () => {
-      promptRemoveFeed(feedUrl);
-    });
-
-    header.querySelector('#btn-copy-rss').addEventListener('click', () => {
-      navigator.clipboard.writeText(feedUrl).then(() => {
-        const btn = header.querySelector('#btn-copy-rss');
-        if (btn) btn.textContent = 'Copied!';
-        setTimeout(() => {
-          if (btn) btn.textContent = 'Copy RSS';
-        }, 2000);
+      header.querySelector('#btn-feed-back').addEventListener('click', () => {
+        navigateBack();
       });
-    });
+
+      header.querySelector('#btn-feed-unsubscribe').addEventListener('click', () => {
+        promptRemoveFeed(feedUrl);
+      });
+
+      header.querySelector('#btn-copy-rss').addEventListener('click', () => {
+        navigator.clipboard.writeText(feedUrl).then(() => {
+          const btn = header.querySelector('#btn-copy-rss');
+          if (btn) btn.textContent = 'Copied!';
+          setTimeout(() => {
+            if (btn) btn.textContent = 'Copy RSS';
+          }, 2000);
+        });
+      });
+    } else {
+      const badge = header.querySelector('#feed-episodes-badge');
+      if (badge) {
+        badge.textContent = q ? `${episodes.length} / ${totalCount} episodes` : `${totalCount} episodes`;
+      }
+    }
 
     const list = elements.feedDetailEpisodes;
     if (!list) return;
     list.innerHTML = '';
     if (episodes.length === 0) {
-      list.innerHTML = `<div class="empty-state"><h3>No episodes found for this podcast</h3></div>`;
+      list.innerHTML = q
+        ? `<div class="empty-state"><h3>No matching episodes</h3><p>No episodes in this podcast match "${escapeHtml(state.searchQuery)}".</p></div>`
+        : `<div class="empty-state"><h3>No episodes found for this podcast</h3></div>`;
       return;
     }
 
@@ -2550,6 +2998,13 @@
     });
     list.appendChild(frag);
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 21 · Audio Engine
+  // Sets up all <audio> element event listeners, the seek bar, the
+  // position-save interval (every 8 s), MediaSession API integration,
+  // and YouTube poll interval (every 500 ms for progress updates).
+  // ─────────────────────────────────────────────────────────────────────────
 
   function setupAudioEngines() {
     const audio = elements.audio;
@@ -2715,6 +3170,14 @@
       navigator.mediaSession.setActionHandler('nexttrack', () => onEpisodeEnded());
     }
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 22 · Playback Control
+  // Core playback logic: start/pause/resume/skip episodes, track progress,
+  // auto-advance queue. Handles both <audio> and YouTube engines.
+  // Key functions: toggleEpisodePlayback, playEpisode, playNextEpisode,
+  // onEpisodeEnded, skipToNextEpisode, updateProgress, updateDuration.
+  // ─────────────────────────────────────────────────────────────────────────
 
   function isEnginePlaying() {
     if (state.activeEngine === 'audio') {
@@ -2889,6 +3352,16 @@
       elements.playerArtwork.src = FALLBACK_ARTWORK;
     };
 
+    if (elements.miniTitle) elements.miniTitle.textContent = episode.title;
+    if (elements.miniPodcast) elements.miniPodcast.textContent = episode.podcastTitle;
+    if (elements.miniArtwork) {
+      elements.miniArtwork.src = episode.artwork || FALLBACK_ARTWORK;
+      elements.miniArtwork.onerror = () => {
+        elements.miniArtwork.onerror = null;
+        elements.miniArtwork.src = FALLBACK_ARTWORK;
+      };
+    }
+
     if ('mediaSession' in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: episode.title,
@@ -2901,6 +3374,9 @@
       elements.playerBar.classList.add('active-episode');
     }
     document.body.classList.add('has-active-episode');
+
+    const shouldCollapse = localStorage.getItem('podany_player_collapsed') === 'true';
+    setPlayerCollapsed(shouldCollapse, false);
 
     syncPlaybackButtons();
   }
@@ -2922,6 +3398,9 @@
       const pct = (current / total) * 100;
       elements.seekBar.value = pct;
       elements.seekBar.style.setProperty('--seek-pct', `${pct}%`);
+      if (elements.miniProgressFill) {
+        elements.miniProgressFill.style.width = `${pct}%`;
+      }
 
       if (state.currentEpisode) {
         const activeCards = document.querySelectorAll(`.episode-card[data-guid="${CSS.escape(state.currentEpisode.guid)}"]`);
@@ -3096,6 +3575,12 @@
     playNextEpisode();
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 23 · Player UI Sync
+  // syncPlaybackButtons keeps play/pause icons, episode cards, and mini
+  // player in sync with state.playbackStatus.
+  // ─────────────────────────────────────────────────────────────────────────
+
   function syncPlaybackButtons() {
     const isPlaying = state.playbackStatus === 'playing';
     const isLoading = state.playbackStatus === 'loading';
@@ -3113,6 +3598,22 @@
         elements.iconPlay.classList.remove('hidden');
         elements.iconPause.classList.add('hidden');
         elements.iconSpinner.classList.add('hidden');
+      }
+    }
+
+    if (elements.miniIconPlay && elements.miniIconPause && elements.miniIconSpinner) {
+      if (isLoading) {
+        elements.miniIconPlay.classList.add('hidden');
+        elements.miniIconPause.classList.add('hidden');
+        elements.miniIconSpinner.classList.remove('hidden');
+      } else if (isPlaying) {
+        elements.miniIconPlay.classList.add('hidden');
+        elements.miniIconPause.classList.remove('hidden');
+        elements.miniIconSpinner.classList.add('hidden');
+      } else {
+        elements.miniIconPlay.classList.remove('hidden');
+        elements.miniIconPause.classList.add('hidden');
+        elements.miniIconSpinner.classList.add('hidden');
       }
     }
 
@@ -3170,6 +3671,25 @@
     syncPlaybackButtons();
   }
 
+  function setPlayerCollapsed(collapsed, save = true) {
+    if (collapsed) {
+      document.body.classList.add('has-mini-player');
+      document.body.classList.remove('has-full-player');
+      if (elements.btnCollapsePlayer) elements.btnCollapsePlayer.setAttribute('aria-expanded', 'false');
+      if (elements.miniToggle) elements.miniToggle.setAttribute('aria-expanded', 'false');
+    } else {
+      document.body.classList.remove('has-mini-player');
+      document.body.classList.add('has-full-player');
+      if (elements.btnCollapsePlayer) elements.btnCollapsePlayer.setAttribute('aria-expanded', 'true');
+      if (elements.miniToggle) elements.miniToggle.setAttribute('aria-expanded', 'true');
+    }
+    if (save) {
+      try {
+        localStorage.setItem('podany_player_collapsed', collapsed ? 'true' : 'false');
+      } catch (e) {}
+    }
+  }
+
   function cyclePlaybackSpeed() {
     const speeds = [1.0, 1.25, 1.5, 2.0, 0.8];
     let nextIdx = speeds.indexOf(state.playbackSpeed) + 1;
@@ -3185,6 +3705,11 @@
 
     elements.btnSpeedToggle.textContent = `${state.playbackSpeed}x`;
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 24 · Sleep Timer
+  // Pauses playback after a set duration, with optional volume fadeout.
+  // ─────────────────────────────────────────────────────────────────────────
 
   function startSleepTimer(minutes) {
     stopSleepTimer();
@@ -3227,6 +3752,11 @@
     elements.sleepBadge.classList.add('hidden');
     closeSleepModal();
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 25 · Feed Management
+  // addFeed, promptRemoveFeed, purgeOrphanedDownloads, removeFeed
+  // ─────────────────────────────────────────────────────────────────────────
 
   function addFeed(url, title = '', artwork = '') {
     const cleanUrl = url.trim();
@@ -3321,6 +3851,10 @@
     renderFeedsGrid();
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 26 · OPML Import / Export
+  // ─────────────────────────────────────────────────────────────────────────
+
   function importOpml(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -3367,6 +3901,13 @@
     a.download = 'podany_subscriptions.opml';
     a.click();
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 27 · Event Listeners & Modal Helpers
+  // All UI click/input/keyboard wiring lives here.
+  // Modal helpers: openAddModal, closeAddModal, openSleepModal,
+  // closeSleepModal, showStatus, hideStatus.
+  // ─────────────────────────────────────────────────────────────────────────
 
   function setupEventListeners() {
     if (elements.magicAuthForm) {
@@ -3448,7 +3989,7 @@
           state.currentEpisode = null;
           state.playbackStatus = 'idle';
           if (elements.playerBar) elements.playerBar.classList.remove('active-episode');
-          document.body.classList.remove('has-active-episode');
+          document.body.classList.remove('has-active-episode', 'has-mini-player', 'has-full-player');
           updatePlayerUI(false);
           updateFeedCountUI();
           updateQueueUI();
@@ -3540,23 +4081,16 @@
     elements.tabs.forEach(tab => {
       tab.addEventListener('click', () => {
         const targetTab = tab.dataset.tab;
-        state.activeFeedDetailUrl = null;
-        if (elements.panelFeedDetail) elements.panelFeedDetail.classList.remove('active');
-        elements.tabs.forEach(t => t.classList.remove('active'));
-        elements.panels.forEach(p => p.classList.remove('active'));
-
-        tab.classList.add('active');
-        const targetPanel = document.getElementById(`panel-${targetTab}`);
-        if (targetPanel) targetPanel.classList.add('active');
-        updateDockVisibility();
-        if (targetTab === 'feeds') {
-          if (elements.searchInput) elements.searchInput.placeholder = 'Search subscribed podcasts...';
-          renderFeedsGrid();
-        } else if (targetTab === 'timeline') {
-          if (elements.searchInput) elements.searchInput.placeholder = 'Search loaded episodes...';
-        }
+        navigateTo(targetTab);
       });
     });
+
+    // Gear icon → Settings (history-aware)
+    if (elements.btnOpenSettings) {
+      elements.btnOpenSettings.addEventListener('click', () => {
+        navigateTo('settings');
+      });
+    }
 
     if (elements.themeBtns) {
       elements.themeBtns.forEach(btn => {
@@ -3571,12 +4105,19 @@
       processAndSortEpisodes();
       renderTimeline();
       renderFeedsGrid();
+      if (state.activeFeedDetailUrl) {
+        renderFeedDetail(state.activeFeedDetailUrl);
+      }
+      renderOfflineStorageSettings();
     });
 
     elements.sortOrderSelect.addEventListener('change', (e) => {
       state.sortOrder = e.target.value;
       processAndSortEpisodes();
       renderTimeline();
+      if (state.activeFeedDetailUrl) {
+        renderFeedDetail(state.activeFeedDetailUrl);
+      }
     });
 
     elements.btnOpenAddModal.addEventListener('click', openAddModal);
@@ -3714,7 +4255,7 @@
         state.currentEpisode = null;
         state.playbackStatus = 'idle';
         if (elements.playerBar) elements.playerBar.classList.remove('active-episode');
-        document.body.classList.remove('has-active-episode');
+        document.body.classList.remove('has-active-episode', 'has-mini-player', 'has-full-player');
         pauseCurrentEngine();
         syncPlaybackButtons();
         updateFeedCountUI();
@@ -3726,27 +4267,84 @@
       }
     });
 
+    if (elements.btnCollapsePlayer) {
+      elements.btnCollapsePlayer.addEventListener('click', () => {
+        setPlayerCollapsed(true);
+      });
+    }
+
+    if (elements.miniToggle) {
+      elements.miniToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setPlayerCollapsed(false);
+      });
+    }
+
+    if (elements.miniExpandZone) {
+      elements.miniExpandZone.addEventListener('click', () => {
+        setPlayerCollapsed(false);
+      });
+      elements.miniExpandZone.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          setPlayerCollapsed(false);
+        }
+      });
+    }
+
+    if (elements.miniPlayToggle) {
+      elements.miniPlayToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (elements.btnPlayToggle) {
+          elements.btnPlayToggle.click();
+        }
+      });
+    }
+
+    let scrollCollapseTimer = null;
+    window.addEventListener('scroll', () => {
+      if (scrollCollapseTimer) return;
+      scrollCollapseTimer = setTimeout(() => {
+        scrollCollapseTimer = null;
+        if (document.body.classList.contains('has-active-episode')) {
+          if (window.scrollY > 200 && !document.body.classList.contains('has-mini-player')) {
+            setPlayerCollapsed(true);
+          }
+        }
+      }, 100);
+    }, { passive: true });
+
     wireEmptyStateEvents();
   }
 
   function openAddModal() {
     elements.addModal.classList.remove('hidden');
     elements.podcastSearchQuery.focus();
+    window.history.pushState({ modal: 'add' }, '', window.location.hash);
   }
 
   function closeAddModal() {
-    elements.addModal.classList.add('hidden');
     elements.podcastSearchQuery.value = '';
     elements.searchDirectoryResults.innerHTML = '';
     elements.feedUrlInput.value = '';
+    if (window.history.state && window.history.state.modal) {
+      window.history.back();
+    } else if (elements.addModal) {
+      elements.addModal.classList.add('hidden');
+    }
   }
 
   function openSleepModal() {
     elements.sleepModal.classList.remove('hidden');
+    window.history.pushState({ modal: 'sleep' }, '', window.location.hash);
   }
 
   function closeSleepModal() {
-    elements.sleepModal.classList.add('hidden');
+    if (window.history.state && window.history.state.modal) {
+      window.history.back();
+    } else if (elements.sleepModal) {
+      elements.sleepModal.classList.add('hidden');
+    }
   }
 
   function showStatus(msg) {
@@ -3757,6 +4355,10 @@
   function hideStatus() {
     elements.statusBanner.classList.add('hidden');
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 28 · Utilities
+  // ─────────────────────────────────────────────────────────────────────────
 
   function formatTime(seconds) {
     if (!seconds || isNaN(seconds)) return '0:00';

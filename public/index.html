@@ -37,7 +37,6 @@
         </div>
         <div class="modal-footer" style="flex-direction: column; gap: 0.5rem; align-items: stretch;">
           <button type="submit" class="btn btn-primary" id="btn-submit-magic">Send Magic Login Link</button>
-          <button type="button" class="btn btn-secondary" id="btn-cancel-auth">Continue in Guest Mode</button>
         </div>
       </form>
     </div>
@@ -61,12 +60,22 @@
       <nav class="nav-tabs" aria-label="Main Navigation">
         <button class="nav-tab active" data-tab="timeline" id="tab-timeline">Timeline</button>
         <button class="nav-tab" data-tab="feeds" id="tab-feeds"><span>Feeds</span><span class="tab-badge" id="feed-count">0</span></button>
-        <button class="nav-tab" data-tab="settings" id="tab-settings">Settings</button>
+        <button class="nav-tab" data-tab="downloads" id="tab-downloads"><span>Downloads</span><span class="tab-badge" id="downloads-tab-count"></span></button>
+        <!-- Settings tab hidden from nav, triggered by gear icon in header -->
+        <button class="nav-tab" data-tab="settings" id="tab-settings" style="display:none;" aria-hidden="true">Settings</button>
       </nav>
 
       <div class="header-actions">
         <button class="btn btn-primary btn-header-add" id="btn-open-add-modal" title="Add Podcast Feed">
           <span>+ Add Podcast</span>
+        </button>
+
+        <!-- Settings gear icon -->
+        <button class="btn-icon btn-header-settings" id="btn-open-settings" title="Settings" aria-label="Open Settings">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
         </button>
 
         <div class="user-status-pill" id="user-status-pill" tabindex="0" role="button" aria-label="User Account">
@@ -124,6 +133,19 @@
         </div>
       </section>
 
+      <!-- TAB: Downloads (offline episodes) -->
+      <section class="tab-panel" id="panel-downloads">
+        <div class="settings-card" id="offline-storage-card">
+          <h3>Offline Downloads</h3>
+          <p id="offline-storage-desc">Episodes downloaded to this device for offline playback without internet.</p>
+          <div class="offline-storage-actions">
+            <span class="offline-storage-count" id="offline-storage-count">0 episodes (0 MB)</span>
+            <button class="btn btn-secondary btn-sm" id="btn-clear-downloads">Clear Audio Cache</button>
+          </div>
+          <div class="offline-episodes-list" id="offline-episodes-list"></div>
+        </div>
+      </section>
+
       <!-- TAB 4: Feed Detail View -->
       <section class="tab-panel" id="panel-feed-detail">
         <div class="feed-detail-header" id="feed-detail-header"></div>
@@ -163,15 +185,6 @@
           </div>
         </div>
 
-        <div class="settings-card" id="offline-storage-card">
-          <h3>Offline Downloads</h3>
-          <p id="offline-storage-desc">Episodes downloaded to this device for offline playback without internet.</p>
-          <div class="offline-storage-actions">
-            <span class="offline-storage-count" id="offline-storage-count">0 episodes (0 MB)</span>
-            <button class="btn btn-secondary btn-sm" id="btn-clear-downloads">Clear Audio Cache</button>
-          </div>
-          <div class="offline-episodes-list" id="offline-episodes-list"></div>
-        </div>
 
         <div class="settings-card danger-zone">
           <h3>Clear Local Cache</h3>
@@ -367,6 +380,31 @@
         <button class="btn-icon" id="btn-open-sleep" title="Sleep Timer">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 15 15"></polyline></svg>
           <span class="badge hidden" id="sleep-badge"></span>
+        </button>
+        <button class="btn-icon" id="btn-collapse-player" title="Minimize Player" aria-label="Minimize Player">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+      </div>
+    </footer>
+
+    <!-- Compact Mini Audio Player Footer -->
+    <footer class="player-mini" id="player-mini" aria-label="Mini Player">
+      <div class="mini-progress-bar"><div class="mini-progress-fill" id="mini-progress-fill"></div></div>
+      <div class="mini-track-info" id="mini-expand-zone" role="button" tabindex="0" title="Tap to expand player" aria-label="Tap to expand player">
+        <img id="mini-artwork" src="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%2318181b%22/%3E%3C/svg%3E" alt="Episode Artwork" class="mini-artwork" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%2318181b%22/%3E%3C/svg%3E';">
+        <div class="mini-text">
+          <div class="mini-title" id="mini-title">Select an episode to play</div>
+          <div class="mini-podcast" id="mini-podcast">Podany</div>
+        </div>
+      </div>
+      <div class="mini-controls">
+        <button class="btn-icon mini-play-btn" id="mini-play-toggle" aria-label="Play or Pause">
+          <svg class="mini-icon-play" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          <svg class="mini-icon-pause hidden" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+          <svg class="mini-icon-spinner hidden spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"></path></svg>
+        </button>
+        <button class="btn-icon mini-toggle-btn" id="mini-toggle" title="Expand Player" aria-label="Expand Player">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
         </button>
       </div>
     </footer>
