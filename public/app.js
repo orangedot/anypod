@@ -1083,6 +1083,11 @@
     };
     window.addEventListener('online', updateStatus);
     window.addEventListener('offline', updateStatus);
+    window.addEventListener('resize', () => {
+      if (state.continueCollapsed && state.allEpisodes.length > 0) {
+        renderContinueShelf();
+      }
+    });
     updateStatus();
   }
 
@@ -1466,6 +1471,14 @@
     });
   }
 
+  function getContinueRowCapacity() {
+    const w = window.innerWidth;
+    if (w >= 1400) return 5;
+    if (w >= 1150) return 4;
+    if (w >= 880) return 3;
+    return 2;
+  }
+
   function renderContinueShelf() {
     if (!elements.continueShelf || !elements.continueGrid) return;
 
@@ -1505,8 +1518,10 @@
     elements.continueShelf.classList.remove('hidden');
     elements.continueGrid.innerHTML = '';
 
+    const capacity = getContinueRowCapacity();
+
     if (elements.btnToggleContinue && elements.continueToggleLabel) {
-      if (inProgressEps.length <= 2) {
+      if (inProgressEps.length <= capacity) {
         elements.btnToggleContinue.style.display = 'none';
       } else {
         elements.btnToggleContinue.style.display = 'inline-flex';
@@ -1520,7 +1535,7 @@
       }
     }
 
-    const visibleEps = state.continueCollapsed ? inProgressEps.slice(0, 2) : inProgressEps;
+    const visibleEps = state.continueCollapsed ? inProgressEps.slice(0, capacity) : inProgressEps;
     visibleEps.forEach(ep => {
       elements.continueGrid.appendChild(createEpisodeCard(ep));
     });

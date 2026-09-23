@@ -123,10 +123,6 @@ body {
   transition: padding-bottom 0.3s ease;
 }
 
-body.has-active-episode .app-container {
-  padding-bottom: 130px;
-}
-
 .app-header {
   display: flex;
   align-items: center;
@@ -258,23 +254,24 @@ body.has-active-episode .app-container {
 }
 
 .continue-shelf {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-md);
-  padding: 1rem;
-  margin-bottom: 1.5rem;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin-bottom: 2rem;
 }
 
 [data-theme="light"] .continue-shelf,
 :root:not([data-theme="dark"]) .continue-shelf {
-  background: rgba(0, 0, 0, 0.02);
+  background: transparent;
 }
 
 .shelf-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1rem;
+  margin-bottom: 0.85rem;
+  padding: 0;
 }
 
 .shelf-header h3 {
@@ -1689,11 +1686,6 @@ select {
   border-radius: var(--radius-sm);
   padding: 0.35rem 0.5rem;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-  transition: bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-body.has-active-episode .bottom-action-dock {
-  bottom: 95px;
 }
 
 .bottom-action-dock.dock-hidden {
@@ -1768,31 +1760,7 @@ body.has-active-episode .bottom-action-dock {
 }
 
 .player-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: var(--bg-glass);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid var(--border-light);
-  padding: 0.85rem 2rem;
-  display: grid;
-  grid-template-columns: 280px 1fr 180px;
-  align-items: center;
-  gap: 1.5rem;
-  z-index: 100;
-  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.6);
-  transform: translateY(105%);
-  opacity: 0;
-  pointer-events: none;
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
-}
-
-.player-bar.active-episode {
-  transform: translateY(0);
-  opacity: 1;
-  pointer-events: auto;
+  display: none !important;
 }
 
 .player-track-info {
@@ -2251,8 +2219,8 @@ body.has-active-episode .bottom-action-dock {
   }
 
   .continue-shelf {
-    padding: 0.75rem;
-    margin-bottom: 1rem;
+    padding: 0;
+    margin-bottom: 1.5rem;
   }
 
   .bottom-action-dock {
@@ -2266,11 +2234,6 @@ body.has-active-episode .bottom-action-dock {
     gap: 0.35rem;
     max-width: calc(100vw - 1rem);
     box-sizing: border-box;
-    transition: bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  body.has-active-episode .bottom-action-dock {
-    bottom: 115px;
   }
 
   .bottom-action-dock .chip-filter {
