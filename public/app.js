@@ -647,7 +647,10 @@
       }
     } catch (e) {}
 
-    elements.authModal.classList.remove('hidden');
+    const isGuestDismissed = sessionStorage.getItem('podany_guest_mode');
+    if (!isGuestDismissed) {
+      elements.authModal.classList.remove('hidden');
+    }
     updateSyncStatusUI('Logged in as guest / local device storage');
     if (state.feeds.length > 0) {
       refreshAllFeeds();
@@ -4150,12 +4153,14 @@
     if (elements.btnCloseAuth) {
       elements.btnCloseAuth.addEventListener('click', () => {
         elements.authModal.classList.add('hidden');
+        sessionStorage.setItem('podany_guest_mode', '1');
       });
     }
 
     if (elements.btnCancelAuth) {
       elements.btnCancelAuth.addEventListener('click', () => {
         elements.authModal.classList.add('hidden');
+        sessionStorage.setItem('podany_guest_mode', '1');
       });
     }
 
