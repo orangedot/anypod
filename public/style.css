@@ -818,6 +818,41 @@ select {
   overflow: hidden;
 }
 
+/* Search match highlight in episode cards & feed lists */
+mark.search-highlight {
+  background: rgba(249, 115, 22, 0.22);
+  color: var(--accent-orange, #ea580c);
+  font-weight: 600;
+  border-radius: 4px;
+  padding: 0.05em 0.25em;
+  margin: 0 -0.05em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+[data-theme="dark"] mark.search-highlight {
+  background: rgba(249, 115, 22, 0.3);
+  color: #fdba74;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) mark.search-highlight {
+    background: rgba(249, 115, 22, 0.3);
+    color: #fdba74;
+  }
+}
+
+[data-theme="light"] mark.search-highlight {
+  background: rgba(234, 88, 12, 0.16);
+  color: #c2410c;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) mark.search-highlight {
+    background: rgba(234, 88, 12, 0.16);
+    color: #c2410c;
+  }
+}
+
 .episode-footer {
   display: flex;
   align-items: center;

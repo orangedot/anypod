@@ -2603,11 +2603,11 @@
       <div class="episode-card-top">
         <img class="episode-artwork" src="${ep.artwork || FALLBACK_ARTWORK}" alt="" loading="lazy" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
         <div class="episode-header-info">
-          <div class="episode-podcast-name">${ep.isYouTube ? 'YOUTUBE' : escapeHtml(ep.podcastTitle)}</div>
-          <div class="episode-title">${escapeHtml(ep.title)}</div>
+          <div class="episode-podcast-name">${ep.isYouTube ? 'YOUTUBE' : highlightText(ep.podcastTitle, state.searchQuery)}</div>
+          <div class="episode-title">${highlightText(ep.title, state.searchQuery)}</div>
         </div>
       </div>
-      ${ep.description ? `<div class="episode-desc">${escapeHtml(ep.description)} <span class="episode-desc-link">Notes & links →</span></div>` : ''}
+      ${ep.description ? `<div class="episode-desc">${formatHighlightedDesc(ep.description, state.searchQuery)} <span class="episode-desc-link">Notes & links →</span></div>` : ''}
       ${progressTrackHtml}
       <div class="episode-footer">
         <div class="episode-meta">
@@ -2957,7 +2957,7 @@
                     <button class="btn-recent-play ${isEpPlaying ? 'is-playing' : ''}" data-guid="${escapeHtml(ep.guid)}" aria-label="Play ${escapeHtml(ep.title)}">
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">${isEpPlaying ? '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>' : '<polygon points="5 3 19 12 5 21 5 3"></polygon>'}</svg>
                     </button>
-                    <span class="recent-ep-title">${escapeHtml(ep.title)}</span>
+                    <span class="recent-ep-title">${highlightText(ep.title, state.searchQuery)}</span>
                     ${durStr ? `<span class="recent-ep-duration">${durStr}</span>` : ''}
                   </div>
                 `;
@@ -2971,7 +2971,7 @@
         <div class="feed-header">
           <img class="feed-art" src="${meta.artwork || FALLBACK_ARTWORK}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
           <div class="feed-info">
-            <h4>${escapeHtml(meta.title || url)}</h4>
+            <h4>${highlightText(meta.title || url, state.searchQuery)}</h4>
             <p>${meta.error ? `<span style="color: #ef4444;">${escapeHtml(meta.error)}</span>` : `${meta.episodesCount || feedEpisodes.length} episodes`}</p>
           </div>
           <button class="btn-feed-unsubscribe" title="Remove podcast" aria-label="Remove podcast">
@@ -4700,6 +4700,48 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  function highlightText(str, query) {
+    if (!str) return '';
+    const safe = escapeHtml(str);
+    if (!query) return safe;
+    const q = query.trim();
+    if (q.length < 2) return safe;
+
+    const escapedQuery = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedQuery})`, 'gi');
+    return safe.replace(regex, '<mark class="search-highlight">$1</mark>');
+  }
+
+  function formatHighlightedDesc(fullText, query) {
+    if (!fullText) return '';
+    const cleanText = fullText.replace(/\s+/g, ' ').trim();
+    if (!query || query.trim().length < 2) {
+      return escapeHtml(cleanText);
+    }
+    const q = query.trim();
+    const lowerText = cleanText.toLowerCase();
+    const lowerQ = q.toLowerCase();
+    const matchIdx = lowerText.indexOf(lowerQ);
+
+    if (matchIdx === -1) {
+      return escapeHtml(cleanText);
+    }
+
+    if (matchIdx <= 100) {
+      return highlightText(cleanText, q);
+    }
+
+    const startIdx = Math.max(0, cleanText.lastIndexOf(' ', matchIdx - 20));
+    const endIdx = Math.min(cleanText.length, cleanText.indexOf(' ', matchIdx + q.length + 100));
+    const actualEnd = endIdx === -1 ? cleanText.length : endIdx;
+
+    const prefix = startIdx > 0 ? '… ' : '';
+    const suffix = actualEnd < cleanText.length ? ' …' : '';
+    const excerpt = prefix + cleanText.slice(startIdx, actualEnd).trim() + suffix;
+
+    return highlightText(excerpt, q);
   }
 
   document.addEventListener('DOMContentLoaded', init);
