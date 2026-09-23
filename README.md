@@ -4,21 +4,24 @@ Private podcast RSS feed aggregator and web player hosted on Cloudflare Pages wi
 
 ## Screenshots
 
-### Desktop Views
-
-#### Dark Mode
-![Podany Dark Mode](docs/screenshots/preview-dark.png)
-
-#### Light Mode
-![Podany Light Mode](docs/screenshots/preview-light.png)
-
-### Mobile Views
-
-#### Subscribed Feeds
-![Podany Mobile Feeds](docs/screenshots/mobile-feeds.png)
-
-#### Active Playback
-![Podany Mobile Playback](docs/screenshots/mobile-player.png)
+<table>
+  <tr>
+    <td align="center" width="50%"><b>Desktop Dark Mode</b></td>
+    <td align="center" width="50%"><b>Desktop Light Mode</b></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/preview-dark.png" alt="Desktop Dark Mode" /></td>
+    <td><img src="docs/screenshots/preview-light.png" alt="Desktop Light Mode" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Mobile Feeds</b></td>
+    <td align="center"><b>Mobile Active Playback</b></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/mobile-feeds.png" width="320" alt="Mobile Feeds" /></td>
+    <td align="center"><img src="docs/screenshots/mobile-player.png" width="320" alt="Mobile Active Playback" /></td>
+  </tr>
+</table>
 
 ## Features
 
