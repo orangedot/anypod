@@ -94,11 +94,13 @@
         <div class="status-banner hidden" id="status-banner"></div>
         <div class="continue-shelf hidden" id="continue-shelf">
           <div class="shelf-header">
-            <h3>Continue Listening</h3>
-            <button class="btn-shelf-toggle" id="btn-toggle-continue" aria-label="Toggle Continue Shelf">
-              <span id="continue-toggle-label">Show 2</span>
-              <svg class="chevron-icon" id="continue-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-            </button>
+            <div class="shelf-header-group">
+              <span class="shelf-title">Continue Listening</span>
+              <button class="btn-shelf-toggle" id="btn-toggle-continue" aria-label="Toggle Continue Shelf">
+                <span id="continue-toggle-label">Show all</span>
+                <svg class="chevron-icon" id="continue-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
+            </div>
           </div>
           <div class="shelf-grid" id="continue-grid"></div>
         </div>

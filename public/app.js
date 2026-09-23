@@ -1898,6 +1898,7 @@
 
       const card = document.createElement('div');
       card.className = 'dir-search-card';
+      card.style.cursor = 'pointer';
 
       card.innerHTML = `
         <img src="${item.artworkUrl100 || item.artworkUrl600}" alt="" class="dir-search-art" loading="lazy">
@@ -1914,6 +1915,20 @@
           ${isSubbed ? 'Subscribed' : '+ Add'}
         </button>
       `;
+
+      card.addEventListener('click', () => {
+        if (elements.addModal && !elements.addModal.classList.contains('hidden')) {
+          closeAddModal();
+        }
+        if (!state.feedMetadata[item.feedUrl]) {
+          state.feedMetadata[item.feedUrl] = {
+            title: item.collectionName || item.trackName,
+            author: item.artistName || '',
+            artwork: item.artworkUrl600 || item.artworkUrl100
+          };
+        }
+        openFeedDetail(item.feedUrl);
+      });
 
       if (!isSubbed) {
         const subBtn = card.querySelector('.btn-sub-dir');
@@ -2932,7 +2947,10 @@ const formattedDuration = ep.duration ? formatEpisodeDuration(ep.duration) : '';
     navigateTo(null, feedUrl);
   }
 
+  const previewLoadingSet = new Set();
+
   function renderFeedDetail(feedUrl) {
+    const isSubbed = state.feeds.includes(feedUrl);
     const meta = state.feedMetadata[feedUrl] || {};
     let episodes = state.allEpisodes.filter(e => e.feedUrl === feedUrl);
     const header = elements.feedDetailHeader;
@@ -2960,7 +2978,9 @@ const formattedDuration = ep.duration ? formatEpisodeDuration(ep.duration) : '';
       header.innerHTML = `
         <div class="feed-detail-top-nav">
           <button class="btn-back-nav" id="btn-feed-back">${escapeHtml(backLabel)}</button>
-          <button class="btn btn-secondary btn-sm" id="btn-feed-unsubscribe">Unsubscribe</button>
+          <button class="btn ${isSubbed ? 'btn-secondary' : 'btn-primary'} btn-sm" id="btn-feed-action">
+            ${isSubbed ? 'Unsubscribe' : '+ Follow Podcast'}
+          </button>
         </div>
         <div class="feed-detail-main">
           <img class="feed-detail-art" src="${meta.artwork || FALLBACK_ARTWORK}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
@@ -2981,9 +3001,19 @@ const formattedDuration = ep.duration ? formatEpisodeDuration(ep.duration) : '';
         navigateBack();
       });
 
-      header.querySelector('#btn-feed-unsubscribe').addEventListener('click', () => {
-        promptRemoveFeed(feedUrl);
-      });
+      const actionBtn = header.querySelector('#btn-feed-action');
+      if (actionBtn) {
+        actionBtn.addEventListener('click', () => {
+          if (state.feeds.includes(feedUrl)) {
+            promptRemoveFeed(feedUrl);
+          } else {
+            addFeed(feedUrl, meta.title, meta.artwork);
+            actionBtn.textContent = 'Unsubscribe';
+            actionBtn.classList.remove('btn-primary');
+            actionBtn.classList.add('btn-secondary');
+          }
+        });
+      }
 
       header.querySelector('#btn-copy-rss').addEventListener('click', () => {
         navigator.clipboard.writeText(feedUrl).then(() => {
@@ -2999,15 +3029,47 @@ const formattedDuration = ep.duration ? formatEpisodeDuration(ep.duration) : '';
       if (badge) {
         badge.textContent = q ? `${episodes.length} / ${totalCount} episodes` : `${totalCount} episodes`;
       }
+      const actionBtn = header.querySelector('#btn-feed-action');
+      if (actionBtn) {
+        actionBtn.textContent = isSubbed ? 'Unsubscribe' : '+ Follow Podcast';
+        actionBtn.className = `btn ${isSubbed ? 'btn-secondary' : 'btn-primary'} btn-sm`;
+      }
     }
 
     const list = elements.feedDetailEpisodes;
     if (!list) return;
     list.innerHTML = '';
+
+    if (totalCount === 0) {
+      if (!isSubbed && !previewLoadingSet.has(feedUrl)) {
+        previewLoadingSet.add(feedUrl);
+        list.innerHTML = `
+          <div class="empty-state">
+            <div class="spinner" style="margin: 0 auto 1.25rem auto; width: 32px; height: 32px; border: 3px solid var(--border-light); border-top-color: var(--text-primary); border-radius: 50%;"></div>
+            <h3>Loading episodes preview...</h3>
+            <p>Fetching episodes so you can listen before adding.</p>
+          </div>
+        `;
+        fetchSingleFeed(feedUrl, state.allEpisodes, state.feedMetadata).then(res => {
+          previewLoadingSet.delete(feedUrl);
+          if (res) {
+            header.dataset.feedUrl = '';
+            renderFeedDetail(feedUrl);
+          } else {
+            list.innerHTML = `<div class="empty-state"><h3>Unable to load preview</h3><p>Could not fetch RSS feed for this podcast.</p></div>`;
+          }
+        }).catch(() => {
+          previewLoadingSet.delete(feedUrl);
+          list.innerHTML = `<div class="empty-state"><h3>Unable to load preview</h3><p>Could not fetch RSS feed for this podcast.</p></div>`;
+        });
+        return;
+      }
+      list.innerHTML = `<div class="empty-state"><h3>No episodes found for this podcast</h3></div>`;
+      return;
+    }
+
     if (episodes.length === 0) {
-      list.innerHTML = q
-        ? `<div class="empty-state"><h3>No matching episodes</h3><p>No episodes in this podcast match "${escapeHtml(state.searchQuery)}".</p></div>`
-        : `<div class="empty-state"><h3>No episodes found for this podcast</h3></div>`;
+      list.innerHTML = `<div class="empty-state"><h3>No matching episodes</h3><p>No episodes in this podcast match "${escapeHtml(state.searchQuery)}".</p></div>`;
       return;
     }
 

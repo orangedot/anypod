@@ -306,32 +306,49 @@ body.has-active-episode .app-container {
 .shelf-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   margin-bottom: 0.85rem;
   padding: 0;
 }
 
-.shelf-header h3 {
-  font-size: 1.1rem;
+.shelf-header-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-full);
+  padding: 0.2rem 0.35rem 0.2rem 0.85rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.shelf-title {
+  font-size: 0.82rem;
   font-weight: 450;
+  color: var(--text-secondary);
   letter-spacing: -0.01em;
-  margin: 0;
-  color: var(--text-primary);
+  white-space: nowrap;
 }
 
 .btn-shelf-toggle {
-  background: var(--bg-card-hover);
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--border-light);
-  color: var(--text-secondary);
-  padding: 0.35rem 0.75rem;
+  color: var(--text-primary);
+  padding: 0.25rem 0.65rem;
   border-radius: var(--radius-full);
-  font-size: 0.8rem;
+  font-size: 0.775rem;
   font-weight: 500;
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+[data-theme="light"] .btn-shelf-toggle,
+:root:not([data-theme="dark"]) .btn-shelf-toggle {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .btn-shelf-toggle:hover {
