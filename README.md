@@ -164,7 +164,7 @@ Verify or update the variables in `wrangler.json`:
 ```json
 {
   "vars": {
-    "APP_URL": "https://podany.pages.dev",
+    "APP_URL": "https://podany.poizoom.com",
     "FROM_EMAIL": "Podany <login@podany.poizoom.com>"
   }
 }
