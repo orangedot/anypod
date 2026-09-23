@@ -186,6 +186,7 @@
     queue: [],
     downloadedEpisodes: {},
     downloadingGuids: new Set(),
+    directoryCountry: (typeof navigator !== 'undefined' && navigator.language && navigator.language.startsWith('de')) ? 'de' : 'all',
     sleepTimer: {
       active: false,
       minutes: 0,
@@ -1844,7 +1845,8 @@
     container.innerHTML = `<p style="color: var(--text-muted); padding: 0.5rem;">Searching directory...</p>`;
 
     try {
-      const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=podcast&limit=200`;
+      const countryParam = (state.directoryCountry && state.directoryCountry !== 'all') ? `&country=${state.directoryCountry}` : '';
+      const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=podcast${countryParam}&limit=200`;
       const res = await fetch(searchUrl);
       if (!res.ok) throw new Error('Search failed');
 
@@ -2023,6 +2025,13 @@
     });
   }
 
+  function setDirectoryCountry(code) {
+    state.directoryCountry = code || 'all';
+    document.querySelectorAll('.region-chip').forEach(c => {
+      c.classList.toggle('active', c.dataset.region === state.directoryCountry);
+    });
+  }
+
   let emptySearchDebounceTimer = null;
 
   function wireEmptyStateEvents() {
@@ -2030,6 +2039,19 @@
     const quickInput = document.getElementById('empty-quick-input');
     const quickSubmit = document.getElementById('btn-empty-quick-submit');
     const quickResults = document.getElementById('empty-quick-results');
+
+    const regionChips = elements.timelineList?.querySelectorAll('.region-chip');
+    if (regionChips) {
+      regionChips.forEach(chip => {
+        chip.classList.toggle('active', chip.dataset.region === state.directoryCountry);
+        chip.addEventListener('click', () => {
+          setDirectoryCountry(chip.dataset.region);
+          if (quickInput && quickInput.value.trim()) {
+            searchPodcastDirectory(quickInput.value.trim(), quickResults);
+          }
+        });
+      });
+    }
 
     if (quickInput && quickForm) {
       quickInput.addEventListener('input', () => {
@@ -2146,12 +2168,20 @@
                 <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-empty-quick-submit">Add</button>
               </div>
             </form>
-            <div class="empty-category-chips" id="empty-category-chips">
-              <button type="button" class="category-chip" data-category="News">News</button>
-              <button type="button" class="category-chip" data-category="Tech">Tech</button>
-              <button type="button" class="category-chip" data-category="Wissen">Science</button>
-              <button type="button" class="category-chip" data-category="Culture">Culture</button>
-              <button type="button" class="category-chip" data-category="Music">Music</button>
+            <div class="dir-filters-row">
+              <div class="empty-category-chips" id="empty-category-chips">
+                <button type="button" class="category-chip" data-category="News">News</button>
+                <button type="button" class="category-chip" data-category="Tech">Tech</button>
+                <button type="button" class="category-chip" data-category="Wissen">Science & Wissen</button>
+                <button type="button" class="category-chip" data-category="Culture">Culture</button>
+                <button type="button" class="category-chip" data-category="True Crime">True Crime</button>
+                <button type="button" class="category-chip" data-category="Comedy">Comedy</button>
+                <button type="button" class="category-chip" data-category="Music">Music</button>
+              </div>
+              <div class="dir-region-toggle">
+                <button type="button" class="region-chip active" data-region="de" title="German directory shows">🇩🇪 DE</button>
+                <button type="button" class="region-chip" data-region="all" title="Global directory shows">🌐 Global</button>
+              </div>
             </div>
             <div id="empty-quick-results" class="quick-results-container"></div>
           </div>
@@ -2540,8 +2570,7 @@
     const dateInput = ep.timestamp || ep.pubDate;
     const humanDate = dateInput ? formatHumanRelativeDate(dateInput) : 'Unknown date';
     const fullDate = dateInput ? new Date(dateInput).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-    const humanTime = dateInput ? new Date(dateInput).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' }) : '';
-const formattedDuration = ep.duration ? formatEpisodeDuration(ep.duration) : '';
+    const formattedDuration = ep.duration ? formatEpisodeDuration(ep.duration) : '';
 
     let btnHtml = CARD_ICONS.PLAY;
     let btnTitle = 'Play';
@@ -2584,9 +2613,10 @@ const formattedDuration = ep.duration ? formatEpisodeDuration(ep.duration) : '';
       <div class="episode-footer">
         <div class="episode-meta">
           <span title="${escapeHtml(fullDate)}" class="date-line" style="display:block;">${escapeHtml(humanDate)}</span>
-<span class="time-line" style="display:block;">${escapeHtml(humanTime)}</span>
-          ${formattedDuration ? `<span>${escapeHtml(formattedDuration)}</span>` : ''}
-          ${resumeTimeStr ? `<span class="ep-resume-time" title="Click to resume playback">• ${resumeTimeStr}</span>` : ''}
+          <span class="time-line" style="display:block;">
+            ${formattedDuration ? `<span>${escapeHtml(formattedDuration)}</span>` : ''}
+            ${resumeTimeStr ? `<span class="ep-resume-time" title="Click to resume playback">• ${resumeTimeStr}</span>` : ''}
+          </span>
         </div>
         <div class="episode-card-actions" style="display:flex; gap:4px; flex-wrap:nowrap;">
           ${downloadBtnHtml}
@@ -2728,6 +2758,28 @@ const formattedDuration = ep.duration ? formatEpisodeDuration(ep.duration) : '';
       });
     }
 
+    const regionChips = elements.feedsList?.querySelectorAll('.region-chip');
+    if (regionChips) {
+      regionChips.forEach(chip => {
+        chip.classList.toggle('active', chip.dataset.region === state.directoryCountry);
+        chip.addEventListener('click', () => {
+          setDirectoryCountry(chip.dataset.region);
+          if (quickInput && quickInput.value.trim()) {
+            searchPodcastDirectory(quickInput.value.trim(), quickResults);
+          }
+        });
+      });
+    }
+
+    const catChips = document.querySelectorAll('#feeds-empty-category-chips .category-chip');
+    catChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        const cat = chip.dataset.category;
+        if (quickInput) quickInput.value = cat;
+        if (quickResults) searchPodcastDirectory(cat, quickResults);
+      });
+    });
+
     document.getElementById('btn-feeds-empty-opml')?.addEventListener('click', () => {
       elements.opmlFileInput?.click();
     });
@@ -2772,6 +2824,21 @@ const formattedDuration = ep.duration ? formatEpisodeDuration(ep.duration) : '';
                 <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-feeds-empty-quick-submit">Add</button>
               </div>
             </form>
+            <div class="dir-filters-row">
+              <div class="empty-category-chips" id="feeds-empty-category-chips">
+                <button type="button" class="category-chip" data-category="News">News</button>
+                <button type="button" class="category-chip" data-category="Tech">Tech</button>
+                <button type="button" class="category-chip" data-category="Wissen">Science & Wissen</button>
+                <button type="button" class="category-chip" data-category="Culture">Culture</button>
+                <button type="button" class="category-chip" data-category="True Crime">True Crime</button>
+                <button type="button" class="category-chip" data-category="Comedy">Comedy</button>
+                <button type="button" class="category-chip" data-category="Music">Music</button>
+              </div>
+              <div class="dir-region-toggle">
+                <button type="button" class="region-chip active" data-region="de" title="German directory shows">🇩🇪 DE</button>
+                <button type="button" class="region-chip" data-region="all" title="Global directory shows">🌐 Global</button>
+              </div>
+            </div>
             <div id="feeds-empty-quick-results" class="quick-results-container"></div>
           </div>
           <div class="empty-actions">
@@ -4265,6 +4332,17 @@ const formattedDuration = ep.duration ? formatEpisodeDuration(ep.duration) : '';
         if (elements.podcastSearchQuery) {
           elements.podcastSearchQuery.value = cat;
           searchPodcastDirectory(cat);
+        }
+      });
+    });
+
+    const modalRegionChips = document.querySelectorAll('#add-modal .region-chip');
+    modalRegionChips.forEach(chip => {
+      chip.classList.toggle('active', chip.dataset.region === state.directoryCountry);
+      chip.addEventListener('click', () => {
+        setDirectoryCountry(chip.dataset.region);
+        if (elements.podcastSearchQuery && elements.podcastSearchQuery.value.trim()) {
+          searchPodcastDirectory(elements.podcastSearchQuery.value.trim());
         }
       });
     });

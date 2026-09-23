@@ -119,12 +119,20 @@
                   <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-empty-quick-submit">Add</button>
                 </div>
               </form>
-              <div class="empty-category-chips" id="empty-category-chips">
-                <button type="button" class="category-chip" data-category="News">News</button>
-                <button type="button" class="category-chip" data-category="Tech">Tech</button>
-                <button type="button" class="category-chip" data-category="Wissen">Science</button>
-                <button type="button" class="category-chip" data-category="Culture">Culture</button>
-                <button type="button" class="category-chip" data-category="Music">Music</button>
+              <div class="dir-filters-row">
+                <div class="empty-category-chips" id="empty-category-chips">
+                  <button type="button" class="category-chip" data-category="News">News</button>
+                  <button type="button" class="category-chip" data-category="Tech">Tech</button>
+                  <button type="button" class="category-chip" data-category="Wissen">Science & Wissen</button>
+                  <button type="button" class="category-chip" data-category="Culture">Culture</button>
+                  <button type="button" class="category-chip" data-category="True Crime">True Crime</button>
+                  <button type="button" class="category-chip" data-category="Comedy">Comedy</button>
+                  <button type="button" class="category-chip" data-category="Music">Music</button>
+                </div>
+                <div class="dir-region-toggle">
+                  <button type="button" class="region-chip active" data-region="de" title="German directory shows">🇩🇪 DE</button>
+                  <button type="button" class="region-chip" data-region="all" title="Global directory shows">🌐 Global</button>
+                </div>
               </div>
               <div id="empty-quick-results" class="quick-results-container"></div>
             </div>
@@ -216,16 +224,23 @@
             <button class="btn btn-primary" id="btn-search-directory">Search</button>
           </div>
 
-          <div class="modal-category-chips" id="modal-category-chips">
-            <button type="button" class="category-chip" data-category="News">News</button>
-            <button type="button" class="category-chip" data-category="Tech">Tech</button>
-            <button type="button" class="category-chip" data-category="Wissen">Science & Wissen</button>
-            <button type="button" class="category-chip" data-category="Culture">Culture</button>
-            <button type="button" class="category-chip" data-category="True Crime">True Crime</button>
-            <button type="button" class="category-chip" data-category="Music">Music</button>
+          <div class="dir-filters-row">
+            <div class="modal-category-chips" id="modal-category-chips">
+              <button type="button" class="category-chip" data-category="News">News</button>
+              <button type="button" class="category-chip" data-category="Tech">Tech</button>
+              <button type="button" class="category-chip" data-category="Wissen">Science & Wissen</button>
+              <button type="button" class="category-chip" data-category="Culture">Culture</button>
+              <button type="button" class="category-chip" data-category="True Crime">True Crime</button>
+              <button type="button" class="category-chip" data-category="Comedy">Comedy</button>
+              <button type="button" class="category-chip" data-category="Music">Music</button>
+            </div>
+            <div class="dir-region-toggle">
+              <button type="button" class="region-chip active" data-region="de" title="German directory shows">🇩🇪 DE</button>
+              <button type="button" class="region-chip" data-region="all" title="Global directory shows">🌐 Global</button>
+            </div>
           </div>
 
-          <div id="search-directory-results" style="max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.25rem;">
+          <div id="search-directory-results" style="max-height: min(440px, 60vh); overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.25rem;">
           </div>
 
           <hr style="border: none; border-top: 1px solid var(--border-light); margin-bottom: 1rem;">
