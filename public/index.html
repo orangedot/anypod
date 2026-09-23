@@ -68,10 +68,12 @@
           <span>+ Add Podcast</span>
         </button>
 
-        <div class="user-status-pill" id="user-status-pill">
+        <div class="user-status-pill" id="user-status-pill" tabindex="0" role="button" aria-label="User Account">
           <span class="status-indicator" id="status-indicator"></span>
-          <span id="user-email-label">Guest Mode</span>
-          <button class="btn-pill-action" id="btn-account-toggle">Log In</button>
+          <span class="user-pill-details">
+            <span id="user-email-label">Guest Mode</span>
+            <button class="btn-pill-action" id="btn-account-toggle">Log In</button>
+          </span>
         </div>
       </div>
     </header>
@@ -280,7 +282,7 @@
     </div>
 
     <!-- Hidden YouTube Player Container (Fallback) -->
-    <div id="yt-player-container" style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden;">
+    <div id="yt-player-container" style="position: fixed; width: 320px; height: 180px; left: -9999px; top: -9999px; pointer-events: none; overflow: hidden;">
       <div id="yt-player"></div>
     </div>
 

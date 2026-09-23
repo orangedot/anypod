@@ -168,16 +168,49 @@ body {
 }
 
 .user-status-pill {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0;
   background: var(--bg-card);
   border: 1px solid var(--border-light);
-  padding: 0.4rem 0.85rem;
+  padding: 0.42rem 0.6rem;
   border-radius: var(--radius-sm);
   font-size: 0.85rem;
   font-weight: 500;
   color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.user-status-pill:hover,
+.user-status-pill:focus-within,
+.user-status-pill.is-expanded {
+  padding: 0.42rem 0.85rem;
+  border-color: var(--border-medium);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.user-pill-details {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+  transition: max-width 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, margin-left 0.2s ease;
+  margin-left: 0;
+}
+
+.user-status-pill:hover .user-pill-details,
+.user-status-pill:focus-within .user-pill-details,
+.user-status-pill.is-expanded .user-pill-details {
+  max-width: 320px;
+  opacity: 1;
+  pointer-events: auto;
+  margin-left: 0.5rem;
 }
 
 .status-indicator {
@@ -779,6 +812,40 @@ select {
   align-items: center;
   gap: 0.4rem;
   flex-shrink: 0;
+}
+
+@media (hover: hover) and (min-width: 769px) {
+  .episode-card-actions .btn-download-ep,
+  .episode-card-actions .btn-queue-ep,
+  .episode-card-actions .btn-mark-played {
+    opacity: 0;
+    max-width: 0;
+    width: 0;
+    padding: 0;
+    margin: 0;
+    border: none;
+    pointer-events: none;
+    overflow: hidden;
+    transform: scale(0.85);
+    transition: opacity 0.18s ease,
+                max-width 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+                width 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.18s ease;
+  }
+
+  .episode-card:hover .episode-card-actions .btn-download-ep,
+  .episode-card:hover .episode-card-actions .btn-queue-ep,
+  .episode-card:hover .episode-card-actions .btn-mark-played,
+  .episode-card:focus-within .episode-card-actions .btn-download-ep,
+  .episode-card:focus-within .episode-card-actions .btn-queue-ep,
+  .episode-card:focus-within .episode-card-actions .btn-mark-played {
+    opacity: 1;
+    max-width: 32px;
+    width: 32px;
+    pointer-events: auto;
+    border: 1px solid var(--border-light);
+    transform: scale(1);
+  }
 }
 
 .btn-play-ep {
@@ -2088,14 +2155,18 @@ select {
   }
 
   .user-status-pill {
-    max-width: 150px;
-    padding: 0.25rem 0.5rem;
+    max-width: none;
+    padding: 0.35rem 0.55rem;
     font-size: 0.75rem;
-    gap: 0.35rem;
+  }
+
+  .user-status-pill.is-expanded {
+    max-width: 220px;
+    padding: 0.35rem 0.65rem;
   }
 
   #user-email-label {
-    max-width: 75px;
+    max-width: 110px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

@@ -177,10 +177,37 @@
     btnPlayerNotes: document.getElementById('btn-player-notes')
   };
 
-  window.onYouTubeIframeAPIReady = function () {
+  function handleYouTubeStateChange(event) {
+    if (state.activeEngine === 'youtube') {
+      const ytBuffering = window.YT ? YT.PlayerState.BUFFERING : 3;
+      const ytPlaying = window.YT ? YT.PlayerState.PLAYING : 1;
+      const ytPaused = window.YT ? YT.PlayerState.PAUSED : 2;
+      const ytEnded = window.YT ? YT.PlayerState.ENDED : 0;
+      if (event.data === ytBuffering) {
+        state.playbackStatus = 'loading';
+        syncPlaybackButtons();
+      } else if (event.data === ytPlaying) {
+        state.playbackStatus = 'playing';
+        syncPlaybackButtons();
+      } else if (event.data === ytPaused) {
+        state.playbackStatus = 'paused';
+        syncPlaybackButtons();
+      } else if (event.data === ytEnded) {
+        state.playbackStatus = 'idle';
+        syncPlaybackButtons();
+        onEpisodeEnded();
+      }
+    }
+  }
+
+  function initYouTubePlayer() {
+    if (state.ytPlayer || !window.YT || !window.YT.Player) return;
+    const playerTarget = document.getElementById('yt-player');
+    if (!playerTarget) return;
+
     state.ytPlayer = new YT.Player('yt-player', {
-      height: '1',
-      width: '1',
+      height: '180',
+      width: '320',
       playerVars: {
         autoplay: 0,
         controls: 0,
@@ -189,30 +216,30 @@
         origin: window.location.origin
       },
       events: {
-        onReady: () => {
+        onReady: (event) => {
           state.ytReady = true;
-        },
-        onStateChange: (event) => {
-          if (state.activeEngine === 'youtube') {
-            if (event.data === YT.PlayerState.BUFFERING) {
-              state.playbackStatus = 'loading';
-              syncPlaybackButtons();
-            } else if (event.data === YT.PlayerState.PLAYING) {
-              state.playbackStatus = 'playing';
-              syncPlaybackButtons();
-            } else if (event.data === YT.PlayerState.PAUSED) {
-              state.playbackStatus = 'paused';
-              syncPlaybackButtons();
-            } else if (event.data === YT.PlayerState.ENDED) {
-              state.playbackStatus = 'idle';
-              syncPlaybackButtons();
-              onEpisodeEnded();
-            }
+          if (state.pendingYouTubePlay) {
+            const pending = state.pendingYouTubePlay;
+            state.pendingYouTubePlay = null;
+            playEpisode(pending.episode, pending.startTime);
           }
+        },
+        onStateChange: handleYouTubeStateChange,
+        onError: () => {
+          state.playbackStatus = 'paused';
+          syncPlaybackButtons();
         }
       }
     });
+  }
+
+  window.onYouTubeIframeAPIReady = function () {
+    initYouTubePlayer();
   };
+
+  if (window.YT && window.YT.Player) {
+    initYouTubePlayer();
+  }
 
   function initTheme() {
     const saved = localStorage.getItem(STORAGE_KEYS.THEME) || 'system';
@@ -593,7 +620,7 @@
   function saveCacheToStorage() {
     try {
       if (state.allEpisodes && state.allEpisodes.length > 0) {
-        const trimmed = state.allEpisodes.slice(0, 500);
+        const trimmed = state.allEpisodes.slice(0, 2000);
         localStorage.setItem(STORAGE_KEYS.CACHED_EPISODES, JSON.stringify(trimmed));
       }
       if (state.feedMetadata) {
@@ -1397,42 +1424,71 @@
     renderContinueShelf();
   }
 
+  const DIR_PAGE_SIZE = 12;
+
   async function searchPodcastDirectory(query, targetContainer = null) {
     const q = query.trim();
     const container = targetContainer || elements.searchDirectoryResults;
     if (!container) return;
     if (!q) {
+      container._dirSearch = null;
       container.innerHTML = '';
       return;
     }
 
+    container._dirSearch = null;
     container.innerHTML = `<p style="color: var(--text-muted); padding: 0.5rem;">Searching directory...</p>`;
 
     try {
-      const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=podcast&limit=8`;
+      const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=podcast&limit=200`;
       const res = await fetch(searchUrl);
       if (!res.ok) throw new Error('Search failed');
 
       const data = await res.json();
-      renderDirectorySearchResults(data.results || [], container);
+      const results = (data.results || []).filter(item => Boolean(item.feedUrl));
+      container.innerHTML = '';
+
+      if (results.length === 0) {
+        container.innerHTML = `<p style="color: var(--text-muted); padding: 0.5rem;">No podcasts found matching your query.</p>`;
+        return;
+      }
+
+      const listEl = document.createElement('div');
+      listEl.className = 'dir-search-list';
+      listEl.style.display = 'flex';
+      listEl.style.flexDirection = 'column';
+      listEl.style.gap = '0.5rem';
+      container.appendChild(listEl);
+
+      container._dirSearch = {
+        results,
+        renderedCount: 0,
+        listEl
+      };
+
+      renderNextDirectoryBatch(container);
+
+      if (!container._hasDirScroll) {
+        container._hasDirScroll = true;
+        container.addEventListener('scroll', () => {
+          if (container.scrollTop + container.clientHeight >= container.scrollHeight - 70) {
+            renderNextDirectoryBatch(container);
+          }
+        }, { passive: true });
+      }
     } catch (e) {
       container.innerHTML = `<p style="color: #fca5a5; padding: 0.5rem;">Error searching directory: ${escapeHtml(e.message)}</p>`;
     }
   }
 
-  function renderDirectorySearchResults(results, targetContainer = null) {
-    const container = targetContainer || elements.searchDirectoryResults;
-    if (!container) return;
-    container.innerHTML = '';
+  function renderNextDirectoryBatch(container) {
+    const s = container._dirSearch;
+    if (!s || s.renderedCount >= s.results.length) return;
 
-    if (results.length === 0) {
-      container.innerHTML = `<p style="color: var(--text-muted); padding: 0.5rem;">No podcasts found matching your query.</p>`;
-      return;
-    }
+    const nextBatch = s.results.slice(s.renderedCount, s.renderedCount + DIR_PAGE_SIZE);
+    s.renderedCount += nextBatch.length;
 
-    results.forEach(item => {
-      if (!item.feedUrl) return;
-
+    nextBatch.forEach(item => {
       const isSubbed = state.feeds.includes(item.feedUrl);
       const relDate = item.releaseDate ? formatCompactDate(item.releaseDate) : '';
 
@@ -1467,7 +1523,7 @@
         });
       }
 
-      container.appendChild(card);
+      s.listEl.appendChild(card);
     });
   }
 
@@ -2689,21 +2745,65 @@
 
     if (episode.isYouTube || episode.videoId || episode.playlistId) {
       state.activeEngine = 'youtube';
-      if (state.ytReady && state.ytPlayer) {
+      if (state.ytPlayer && typeof state.ytPlayer.loadVideoById === 'function') {
         if (episode.isYouTubePlaylist && episode.playlistId) {
           state.ytPlayer.loadPlaylist({
             list: episode.playlistId,
             listType: 'playlist'
           });
         } else if (episode.videoId) {
-          state.ytPlayer.loadVideoById({ videoId: episode.videoId, startSeconds: startTime });
+          state.ytPlayer.loadVideoById({ videoId: episode.videoId, startSeconds: startTime || 0 });
         }
-        state.ytPlayer.setPlaybackRate(state.playbackSpeed);
+        if (state.ytPlayer.playVideo) state.ytPlayer.playVideo();
+        if (state.ytPlayer.setPlaybackRate) state.ytPlayer.setPlaybackRate(state.playbackSpeed);
+      } else if (window.YT && window.YT.Player) {
+        const container = document.getElementById('yt-player-container');
+        if (container) {
+          container.innerHTML = '<div id="yt-player"></div>';
+        }
+        const playerConfig = {
+          height: '180',
+          width: '320',
+          playerVars: {
+            autoplay: 1,
+            controls: 0,
+            playsinline: 1,
+            enablejsapi: 1,
+            origin: window.location.origin
+          },
+          events: {
+            onReady: (event) => {
+              state.ytReady = true;
+              if (startTime > 0 && event.target.seekTo) {
+                event.target.seekTo(startTime, true);
+              }
+              if (event.target.playVideo) event.target.playVideo();
+              if (event.target.setPlaybackRate) event.target.setPlaybackRate(state.playbackSpeed);
+            },
+            onStateChange: handleYouTubeStateChange,
+            onError: () => {
+              state.playbackStatus = 'paused';
+              syncPlaybackButtons();
+            }
+          }
+        };
+        if (episode.isYouTubePlaylist && episode.playlistId) {
+          playerConfig.playerVars.listType = 'playlist';
+          playerConfig.playerVars.list = episode.playlistId;
+        } else if (episode.videoId) {
+          playerConfig.videoId = episode.videoId;
+          if (startTime > 0) {
+            playerConfig.playerVars.start = Math.floor(startTime);
+          }
+        }
+        state.ytPlayer = new YT.Player('yt-player', playerConfig);
       } else {
-        alert('YouTube Player is initializing, please try playing in a few seconds.');
-        state.playbackStatus = 'paused';
-        syncPlaybackButtons();
-        return;
+        state.pendingYouTubePlay = { episode, startTime };
+        if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
+          const s = document.createElement('script');
+          s.src = 'https://www.youtube.com/iframe_api';
+          document.head.appendChild(s);
+        }
       }
     } else {
       state.activeEngine = 'audio';
@@ -3283,6 +3383,19 @@
           elements.authModal.classList.remove('hidden');
         } else {
           elements.authModal.classList.remove('hidden');
+        }
+      });
+    }
+
+    if (elements.userStatusPill) {
+      elements.userStatusPill.addEventListener('click', (e) => {
+        if (e.target.closest('#btn-account-toggle')) return;
+        elements.userStatusPill.classList.toggle('is-expanded');
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('#user-status-pill')) {
+          elements.userStatusPill.classList.remove('is-expanded');
         }
       });
     }
