@@ -1,4 +1,4 @@
-const CACHE_NAME = 'podany-v1';
+const CACHE_NAME = 'podany-v2';
 const AUDIO_CACHE_NAME = 'podany-audio-v1';
 
 const APP_SHELL = [

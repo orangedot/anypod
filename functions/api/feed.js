@@ -196,6 +196,16 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
     return str
       .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, '$1')
       .replace(/<[^>]+>/g, ' ')
+      .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)))
+      .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+      .replace(/&ndash;/g, '–')
+      .replace(/&mdash;/g, '—')
+      .replace(/&hellip;/g, '…')
+      .replace(/&bull;/g, '•')
+      .replace(/&rsquo;/g, '’')
+      .replace(/&lsquo;/g, '‘')
+      .replace(/&rdquo;/g, '”')
+      .replace(/&ldquo;/g, '“')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&amp;/g, '&')
@@ -232,6 +242,9 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
     if (!artwork) {
       const imageTag = channelXml.match(/<image[^>]*>([\s\S]*?)<\/image>/i);
       if (imageTag) artwork = getTagContent(imageTag[1], 'url');
+    }
+    if (artwork && artwork.startsWith('http://')) {
+      artwork = artwork.replace(/^http:\/\//i, 'https://');
     }
   }
 
@@ -295,10 +308,16 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
       const epPubDate = getTagContent(itemXml, 'pubDate') || getTagContent(itemXml, 'published');
       const rawContent = getRawTagContent(itemXml, 'encoded') || getRawTagContent(itemXml, 'description') || getRawTagContent(itemXml, 'summary');
       const epDescription = getTagContent(itemXml, 'description') || getTagContent(itemXml, 'summary') || cleanText(rawContent);
-      const epDuration = getTagContent(itemXml, 'duration');
+      let epDuration = getTagContent(itemXml, 'duration');
+      if (epDuration === '0:00' || epDuration === '0' || epDuration === '00:00' || epDuration === '00:00:00') {
+        epDuration = '';
+      }
 
       let audioUrl = getAttribute(itemXml, 'enclosure', 'url') || getAttribute(itemXml, 'media:content', 'url');
       let epArtwork = getAttribute(itemXml, 'image', 'href') || getAttribute(itemXml, 'itunes:image', 'href') || artwork;
+      if (epArtwork && epArtwork.startsWith('http://')) {
+        epArtwork = epArtwork.replace(/^http:\/\//i, 'https://');
+      }
 
       let timestamp = 0;
       if (epPubDate) {

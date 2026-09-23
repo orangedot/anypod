@@ -25,6 +25,8 @@
     DOWNLOAD_SPINNER: '<svg class="spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"></path></svg>'
   };
 
+  const FALLBACK_ARTWORK = 'data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%2318181b%22/%3E%3C/svg%3E';
+
   const DEFAULT_STARTER_FEEDS = [
     'https://changelog.com/podcast/feed',
     'https://feeds.feedburner.com/syntaxfm'
@@ -735,12 +737,11 @@
 
     if (state.currentEpisode) {
       const cur = state.currentEpisode;
-      const fallbackArt = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E';
       elements.queueNowPlayingContainer.innerHTML = `
         <div class="queue-now-playing-card">
           <div class="queue-now-playing-label">Now Playing</div>
           <div class="queue-now-playing-row">
-            <img class="queue-item-artwork" src="${cur.artwork || fallbackArt}" alt="" onerror="this.src='${fallbackArt}';">
+            <img class="queue-item-artwork" src="${cur.artwork || FALLBACK_ARTWORK}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
             <div class="queue-item-info">
               <div class="queue-item-title">${escapeHtml(cur.title)}</div>
               <div class="queue-item-meta">${cur.isYouTube ? 'YouTube' : escapeHtml(cur.podcastTitle)}</div>
@@ -766,7 +767,6 @@
       return;
     }
 
-    const fallbackArt = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E';
     let draggedIndex = null;
 
     state.queue.forEach((ep, idx) => {
@@ -780,7 +780,7 @@
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
         </span>
         <span class="queue-item-index">${idx + 1}</span>
-        <img class="queue-item-artwork" src="${ep.artwork || fallbackArt}" alt="" onerror="this.src='${fallbackArt}';">
+        <img class="queue-item-artwork" src="${ep.artwork || FALLBACK_ARTWORK}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
         <div class="queue-item-info">
           <div class="queue-item-title">${escapeHtml(ep.title)}</div>
           <div class="queue-item-meta">${escapeHtml(ep.podcastTitle)}${ep.duration ? ` • ${escapeHtml(ep.duration)}` : ''}</div>
@@ -1333,11 +1333,14 @@
   function formatEpisodeDuration(durStr) {
     if (!durStr) return '';
     const trimmed = String(durStr).trim();
+    if (trimmed === '0:00' || trimmed === '0' || trimmed === '00:00' || trimmed === '00:00:00') {
+      return '';
+    }
     if (trimmed.startsWith('00:')) {
       return trimmed.slice(3);
     }
     const sec = parseDurationSeconds(trimmed);
-    if (!sec) return trimmed;
+    if (!sec || sec <= 0) return '';
     return formatTime(sec);
   }
 
@@ -1936,7 +1939,6 @@
 
   function setupProgressTrackInteractivity(progressTrack, card, ep) {
     if (!progressTrack) return;
-    const durSec = ep.duration ? parseDurationSeconds(ep.duration) : 0;
     let isDragging = false;
 
     const handleScrub = (clientX, commit) => {
@@ -1947,8 +1949,20 @@
       const fillEl = progressTrack.querySelector('.ep-progress-fill');
       if (fillEl) fillEl.style.width = `${pct}%`;
 
-      if (durSec > 0) {
-        const targetTime = Math.round(ratio * durSec);
+      let totalDur = 0;
+      if (state.currentEpisode && state.currentEpisode.guid === ep.guid) {
+        if (state.activeEngine === 'audio' && elements.audio.duration && !isNaN(elements.audio.duration) && isFinite(elements.audio.duration)) {
+          totalDur = elements.audio.duration;
+        } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getDuration) {
+          totalDur = state.ytPlayer.getDuration() || 0;
+        }
+      }
+      if (!totalDur && ep.duration) {
+        totalDur = parseDurationSeconds(ep.duration);
+      }
+
+      if (totalDur > 0) {
+        const targetTime = Math.round(ratio * totalDur);
         const resumeBadge = card.querySelector('.ep-resume-time');
         if (resumeBadge) resumeBadge.textContent = `• Resumes at ${formatTime(targetTime)}`;
 
@@ -1979,7 +1993,17 @@
           }
         }
       } else if (commit) {
-        toggleEpisodePlayback(ep);
+        if (!state.currentEpisode || state.currentEpisode.guid !== ep.guid) {
+          playEpisode(ep);
+        } else if (state.activeEngine === 'audio' && elements.audio.paused) {
+          elements.audio.play().catch(() => {});
+          state.playbackStatus = 'playing';
+          syncPlaybackButtons();
+        } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.playVideo) {
+          state.ytPlayer.playVideo();
+          state.playbackStatus = 'playing';
+          syncPlaybackButtons();
+        }
       }
     };
 
@@ -2029,7 +2053,17 @@
 
     let progressTrackHtml = '';
     if (hasProgress) {
-      const durSec = ep.duration ? parseDurationSeconds(ep.duration) : 0;
+      let durSec = 0;
+      if (isCurrentlyActive) {
+        if (state.activeEngine === 'audio' && elements.audio.duration && !isNaN(elements.audio.duration) && isFinite(elements.audio.duration)) {
+          durSec = elements.audio.duration;
+        } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getDuration) {
+          durSec = state.ytPlayer.getDuration();
+        }
+      }
+      if (!durSec && ep.duration) {
+        durSec = parseDurationSeconds(ep.duration);
+      }
       let progressPct = 0;
       if (durSec > 0) {
         progressPct = Math.min(100, Math.max(1, Math.round((curPos / durSec) * 100)));
@@ -2078,7 +2112,7 @@
 
     card.innerHTML = `
       <div class="episode-card-top">
-        <img class="episode-artwork" src="${ep.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E'}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E';">
+        <img class="episode-artwork" src="${ep.artwork || FALLBACK_ARTWORK}" alt="" loading="lazy" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
         <div class="episode-header-info">
           <div class="episode-podcast-name">${ep.isYouTube ? 'YOUTUBE' : escapeHtml(ep.podcastTitle)}</div>
           <div class="episode-title">${escapeHtml(ep.title)}</div>
@@ -2401,7 +2435,7 @@
 
       card.innerHTML = `
         <div class="feed-header">
-          <img class="feed-art" src="${meta.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E'}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E';">
+          <img class="feed-art" src="${meta.artwork || FALLBACK_ARTWORK}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
           <div class="feed-info">
             <h4>${escapeHtml(meta.title || url)}</h4>
             <p>${meta.error ? `<span style="color: #ef4444;">${escapeHtml(meta.error)}</span>` : `${meta.episodesCount || feedEpisodes.length} episodes`}</p>
@@ -2465,7 +2499,7 @@
         <button class="btn btn-secondary btn-sm" id="btn-feed-unsubscribe">Unsubscribe</button>
       </div>
       <div class="feed-detail-main">
-        <img class="feed-detail-art" src="${meta.artwork || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E'}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'%2318181b\'/%3E%3C/svg%3E';">
+        <img class="feed-detail-art" src="${meta.artwork || FALLBACK_ARTWORK}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
         <div class="feed-detail-info">
           <div class="feed-detail-title">${escapeHtml(meta.title || 'Untitled Podcast')}</div>
           <div class="feed-detail-author">${escapeHtml(meta.author || '')}</div>
@@ -2520,16 +2554,28 @@
   function setupAudioEngines() {
     const audio = elements.audio;
 
+    const applyPendingAudioSeek = () => {
+      if (state.pendingStartTime === null || state.pendingStartTime === undefined || state.pendingStartTime <= 0) return;
+      const target = state.pendingStartTime;
+      try {
+        if (elements.audio.seekable && elements.audio.seekable.length > 0) {
+          elements.audio.currentTime = target;
+          state.pendingStartTime = null;
+        } else if (elements.audio.duration && elements.audio.duration > 0 && isFinite(elements.audio.duration)) {
+          elements.audio.currentTime = Math.min(target, elements.audio.duration);
+          state.pendingStartTime = null;
+        } else if (elements.audio.readyState >= 1) {
+          elements.audio.currentTime = target;
+          state.pendingStartTime = null;
+        }
+      } catch (_) {}
+    };
+
     audio.addEventListener('timeupdate', () => {
       if (state.activeEngine === 'audio') updateProgress();
     });
     audio.addEventListener('loadedmetadata', () => {
-      if (state.pendingStartTime && state.pendingStartTime > 0) {
-        try {
-          elements.audio.currentTime = state.pendingStartTime;
-        } catch (_) {}
-        state.pendingStartTime = null;
-      }
+      applyPendingAudioSeek();
       if (state.activeEngine === 'audio') updateDuration();
     });
     audio.addEventListener('ended', () => {
@@ -2552,12 +2598,14 @@
       }
     });
     audio.addEventListener('canplay', () => {
+      applyPendingAudioSeek();
       if (state.activeEngine === 'audio' && !audio.paused) {
         state.playbackStatus = 'playing';
         syncPlaybackButtons();
       }
     });
     audio.addEventListener('playing', () => {
+      applyPendingAudioSeek();
       if (state.activeEngine === 'audio') {
         state.playbackStatus = 'playing';
         syncPlaybackButtons();
@@ -2579,21 +2627,29 @@
     });
     audio.addEventListener('error', () => {
       if (state.activeEngine === 'audio') {
+        if (state.currentEpisode && !elements.audio.src.includes('/api/audio-proxy')) {
+          const proxySrc = `/api/audio-proxy?url=${encodeURIComponent(state.currentEpisode.audioUrl)}`;
+          elements.audio.src = proxySrc;
+          elements.audio.play().catch(() => {});
+          return;
+        }
         state.playbackStatus = 'paused';
         syncPlaybackButtons();
       }
     });
 
-    elements.seekBar.addEventListener('input', () => {
+    const handleSeekBarChange = () => {
       const pct = elements.seekBar.value / 100;
       elements.seekBar.style.setProperty('--seek-pct', `${elements.seekBar.value}%`);
-      if (state.activeEngine === 'audio' && audio.duration) {
+      if (state.activeEngine === 'audio' && audio.duration && isFinite(audio.duration)) {
         audio.currentTime = pct * audio.duration;
       } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getDuration) {
         const dur = state.ytPlayer.getDuration();
         if (dur) state.ytPlayer.seekTo(pct * dur, true);
       }
-    });
+    };
+    elements.seekBar.addEventListener('input', handleSeekBarChange);
+    elements.seekBar.addEventListener('change', handleSeekBarChange);
 
     setInterval(() => {
       if (state.currentEpisode && isEnginePlaying()) {
@@ -2807,16 +2863,19 @@
       }
     } else {
       state.activeEngine = 'audio';
-      elements.audio.src = episode.audioUrl;
+      let streamUrl = episode.audioUrl;
+      if (window.location.protocol === 'https:' && streamUrl.startsWith('http://')) {
+        streamUrl = `/api/audio-proxy?url=${encodeURIComponent(streamUrl)}`;
+      }
+      elements.audio.src = streamUrl;
       elements.audio.playbackRate = state.playbackSpeed;
-      state.pendingStartTime = startTime;
+      state.pendingStartTime = startTime > 0 ? startTime : null;
       if (startTime > 0) {
         try {
           elements.audio.currentTime = startTime;
         } catch (_) {}
       }
       elements.audio.play().catch(e => {
-        console.warn('Autoplay blocked:', e);
         state.playbackStatus = 'paused';
         syncPlaybackButtons();
       });
@@ -2824,9 +2883,11 @@
 
     elements.playerTitle.textContent = episode.title;
     elements.playerPodcast.textContent = episode.podcastTitle;
-    if (episode.artwork) {
-      elements.playerArtwork.src = episode.artwork;
-    }
+    elements.playerArtwork.src = episode.artwork || FALLBACK_ARTWORK;
+    elements.playerArtwork.onerror = () => {
+      elements.playerArtwork.onerror = null;
+      elements.playerArtwork.src = FALLBACK_ARTWORK;
+    };
 
     if ('mediaSession' in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
@@ -2923,8 +2984,23 @@
     } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getDuration) {
       dur = state.ytPlayer.getDuration();
     }
-    if (dur) {
-      elements.totalDurationLabel.textContent = formatTime(dur);
+    if (dur && isFinite(dur) && dur > 0) {
+      const formatted = formatTime(dur);
+      elements.totalDurationLabel.textContent = formatted;
+      if (state.currentEpisode) {
+        state.currentEpisode.duration = formatted;
+        const matchAll = state.allEpisodes.find(e => e.guid === state.currentEpisode.guid);
+        if (matchAll) matchAll.duration = formatted;
+        const matchFiltered = state.filteredEpisodes.find(e => e.guid === state.currentEpisode.guid);
+        if (matchFiltered) matchFiltered.duration = formatted;
+        const card = document.querySelector(`.episode-card[data-guid="${CSS.escape(state.currentEpisode.guid)}"]`);
+        if (card) {
+          const durBadge = card.querySelector('.episode-duration');
+          if (durBadge && (!durBadge.textContent || durBadge.textContent === '0:00')) {
+            durBadge.textContent = formatted;
+          }
+        }
+      }
     }
   }
 
@@ -3695,9 +3771,31 @@
     return `${mins}:${secStr}`;
   }
 
-  function escapeHtml(str) {
+  function decodeHtmlEntities(str) {
     if (!str) return '';
     return String(str)
+      .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)))
+      .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+      .replace(/&ndash;/g, '–')
+      .replace(/&mdash;/g, '—')
+      .replace(/&hellip;/g, '…')
+      .replace(/&bull;/g, '•')
+      .replace(/&rsquo;/g, '’')
+      .replace(/&lsquo;/g, '‘')
+      .replace(/&rdquo;/g, '”')
+      .replace(/&ldquo;/g, '“')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&apos;/g, "'")
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>');
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    const decoded = decodeHtmlEntities(str);
+    return decoded
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
