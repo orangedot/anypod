@@ -2076,6 +2076,18 @@
       updateDockVisibility();
     });
 
+    const emptyCatChips = elements.timelineList?.querySelectorAll('#empty-category-chips .category-chip');
+    if (emptyCatChips && quickInput && quickResults) {
+      emptyCatChips.forEach(chip => {
+        chip.addEventListener('click', () => {
+          const cat = chip.dataset.category;
+          quickInput.value = cat;
+          if (quickSubmit) quickSubmit.textContent = 'Search';
+          searchPodcastDirectory(cat, quickResults);
+        });
+      });
+    }
+
     const chips = elements.timelineList?.querySelectorAll('.starter-suggestion-chip');
     if (chips) {
       chips.forEach(chip => {
@@ -2119,6 +2131,13 @@
                 <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-empty-quick-submit">Add</button>
               </div>
             </form>
+            <div class="empty-category-chips" id="empty-category-chips">
+              <button type="button" class="category-chip" data-category="News">News</button>
+              <button type="button" class="category-chip" data-category="Tech">Tech</button>
+              <button type="button" class="category-chip" data-category="Wissen">Science</button>
+              <button type="button" class="category-chip" data-category="Culture">Culture</button>
+              <button type="button" class="category-chip" data-category="Music">Music</button>
+            </div>
             <div id="empty-quick-results" class="quick-results-container"></div>
           </div>
           <div class="empty-actions">
@@ -3543,10 +3562,19 @@ const formattedDuration = ep.duration ? formatEpisodeDuration(ep.duration) : '';
       savePlaybackPositionToD1(state.currentEpisode.guid, 0, true);
     }
 
-    if (state.sleepTimer.active && state.sleepTimer.minutes === 'end') {
-      stopSleepTimer();
-      pauseCurrentEngine();
-      return;
+    if (state.sleepTimer.active) {
+      if (state.sleepTimer.minutes === 'end') {
+        stopSleepTimer();
+        pauseCurrentEngine();
+        return;
+      }
+      if (state.sleepTimer.minutes === 'end-queue') {
+        if (!state.queue || state.queue.length === 0) {
+          stopSleepTimer();
+          pauseCurrentEngine();
+          return;
+        }
+      }
     }
 
     playNextEpisode();
@@ -3719,7 +3747,7 @@ const formattedDuration = ep.duration ? formatEpisodeDuration(ep.duration) : '';
     state.sleepTimer.minutes = minutes;
     state.sleepTimer.initialVolume = elements.audio.volume || 1.0;
 
-    if (minutes !== 'end') {
+    if (minutes !== 'end' && minutes !== 'end-queue') {
       const ms = minutes * 60 * 1000;
       state.sleepTimer.endTime = Date.now() + ms;
 
@@ -4161,11 +4189,22 @@ const formattedDuration = ep.duration ? formatEpisodeDuration(ep.duration) : '';
     elements.timerBtns.forEach(btn => {
       btn.addEventListener('click', () => {
         const val = btn.dataset.minutes;
-        startSleepTimer(val === 'end' ? 'end' : parseInt(val, 10));
+        startSleepTimer(val === 'end' || val === 'end-queue' ? val : parseInt(val, 10));
       });
     });
     elements.fadeoutCheck.addEventListener('change', (e) => {
       state.sleepTimer.fadeout = e.target.checked;
+    });
+
+    const modalCatChips = document.querySelectorAll('#modal-category-chips .category-chip');
+    modalCatChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        const cat = chip.dataset.category;
+        if (elements.podcastSearchQuery) {
+          elements.podcastSearchQuery.value = cat;
+          searchPodcastDirectory(cat);
+        }
+      });
     });
 
     if (elements.btnOpenQueue) elements.btnOpenQueue.addEventListener('click', openQueueModal);
