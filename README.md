@@ -2,6 +2,14 @@
 
 Private podcast RSS feed aggregator and web player hosted on Cloudflare Pages with Cloudflare D1 storage.
 
+## Screenshots
+
+### Dark Mode
+![Podany Dark Mode](docs/screenshots/preview-dark.png)
+
+### Light Mode
+![Podany Light Mode](docs/screenshots/preview-light.png)
+
 ## Features
 
 - **Audio & YouTube Playback**: Streams standard podcast RSS enclosures (MP3, M4A, AAC) and YouTube playlists/channels.
@@ -26,6 +34,10 @@ Private podcast RSS feed aggregator and web player hosted on Cloudflare Pages wi
 
 ```
 podany/
+├── docs/
+│   └── screenshots/
+│       ├── preview-dark.png
+│       └── preview-light.png
 ├── functions/
 │   └── api/
 │       ├── auth/
