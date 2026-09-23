@@ -35,13 +35,23 @@ Private podcast RSS feed aggregator and web player hosted on Cloudflare Pages wi
 - **OPML Support**: Export and import subscription lists in standard OPML format.
 - **Responsive Interface**: Minimalist dark and light themes, optimized single-column layout on mobile, and desktop multi-column grid.
 
+## Self-Hosting with Docker 🐳
+
+Run Podany completely locally on your home server, NAS (Synology, Unraid, TrueNAS), or Raspberry Pi with local SQLite storage and zero cloud lock-in.
+
+```bash
+docker compose up -d
+```
+See [SELF_HOSTING.md](SELF_HOSTING.md) for detailed configuration, local volumes, offline login, and backup guides.
+
 ## Technology Stack
 
 - **Frontend**: Vanilla JavaScript (ES6+), HTML5 Audio, CSS3 Variables, PWA Service Worker.
-- **Hosting**: Cloudflare Pages.
-- **Serverless API**: Cloudflare Pages Functions (`workerd`).
-- **Database**: Cloudflare D1 (SQLite).
-- **Email Delivery**: Resend REST API.
+- **Production Bundler**: `esbuild` minifying modern JS & CSS into `public/dist/`.
+- **Hosting Options**: Docker (Self-Hosted on NAS/Server) or Cloudflare Pages.
+- **Serverless API**: Cloudflare Pages Functions (`workerd` / local Miniflare runtime).
+- **Database**: Local SQLite (in Docker) or Cloudflare D1.
+- **Email Delivery**: Resend REST API (optional; offline magic-link mode supported without email provider).
 
 ## Project Structure
 

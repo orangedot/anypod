@@ -1,0 +1,20 @@
+# ==============================================================================
+# Podany Configuration File (config.yaml)
+# You can mount this file into your container or place it in your ./data folder!
+# ==============================================================================
+
+# Server port (default: 8788)
+PORT: 8788
+
+# Base URL used for magic-link authentication (e.g. LAN IP, domain, or reverse proxy)
+APP_URL: "http://localhost:8788"
+
+# From email sender header
+FROM_EMAIL: "Podany <login@podany.local>"
+
+# Optional: Resend API Key for sending emails (https://resend.com)
+# Leave blank to run offline (magic login links will be shown directly in the UI & docker logs)
+RESEND_API_KEY: ""
+
+# Optional: Secret token to protect the /api/cron/cleanup endpoint
+CRON_SECRET: ""
