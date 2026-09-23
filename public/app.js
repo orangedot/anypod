@@ -1863,6 +1863,87 @@
     }
   }
 
+  function setupProgressTrackInteractivity(progressTrack, card, ep) {
+    if (!progressTrack) return;
+    const durSec = ep.duration ? parseDurationSeconds(ep.duration) : 0;
+    let isDragging = false;
+
+    const handleScrub = (clientX, commit) => {
+      const rect = progressTrack.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      const pct = Math.round(ratio * 100);
+      const fillEl = progressTrack.querySelector('.ep-progress-fill');
+      if (fillEl) fillEl.style.width = `${pct}%`;
+
+      if (durSec > 0) {
+        const targetTime = Math.round(ratio * durSec);
+        const resumeBadge = card.querySelector('.ep-resume-time');
+        if (resumeBadge) resumeBadge.textContent = `• Resumes at ${formatTime(targetTime)}`;
+
+        if (commit) {
+          state.playbackPositions[ep.guid] = {
+            position: targetTime,
+            completed: false,
+            lastListenedAt: Math.floor(Date.now() / 1000)
+          };
+          savePositionsToStorage();
+
+          if (state.currentEpisode && state.currentEpisode.guid === ep.guid) {
+            if (state.activeEngine === 'audio') {
+              elements.audio.currentTime = targetTime;
+              if (elements.audio.paused) {
+                elements.audio.play().catch(() => {});
+                state.playbackStatus = 'playing';
+                syncPlaybackButtons();
+              }
+            } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.seekTo) {
+              state.ytPlayer.seekTo(targetTime, true);
+              state.ytPlayer.playVideo();
+              state.playbackStatus = 'playing';
+              syncPlaybackButtons();
+            }
+          } else {
+            playEpisode(ep, targetTime);
+          }
+        }
+      } else if (commit) {
+        toggleEpisodePlayback(ep);
+      }
+    };
+
+    progressTrack.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      isDragging = true;
+      try { progressTrack.setPointerCapture(e.pointerId); } catch (_) {}
+      handleScrub(e.clientX, false);
+    });
+
+    progressTrack.addEventListener('pointermove', (e) => {
+      if (!isDragging) return;
+      e.stopPropagation();
+      handleScrub(e.clientX, false);
+    });
+
+    progressTrack.addEventListener('pointerup', (e) => {
+      if (!isDragging) return;
+      e.stopPropagation();
+      isDragging = false;
+      try { progressTrack.releasePointerCapture(e.pointerId); } catch (_) {}
+      handleScrub(e.clientX, true);
+    });
+
+    progressTrack.addEventListener('pointercancel', (e) => {
+      if (!isDragging) return;
+      isDragging = false;
+      try { progressTrack.releasePointerCapture(e.pointerId); } catch (_) {}
+    });
+
+    progressTrack.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+  }
+
   function createEpisodeCard(ep) {
     const isCurrentlyActive = state.currentEpisode && state.currentEpisode.guid === ep.guid;
     const isPlaying = isCurrentlyActive && state.playbackStatus === 'playing';
@@ -1871,19 +1952,20 @@
 
     const savedPos = state.playbackPositions[ep.guid];
     const isCompleted = savedPos && (savedPos.completed === 1 || savedPos.completed === true);
-    const hasProgress = savedPos && savedPos.position > 15 && !isCompleted;
-    const resumeTimeStr = hasProgress ? `Resumes at ${formatTime(savedPos.position)}` : '';
+    const hasProgress = (isCurrentlyActive || (savedPos && savedPos.position > 2)) && !isCompleted;
+    const curPos = isCurrentlyActive ? ((state.activeEngine === 'audio' ? elements.audio.currentTime : (state.ytPlayer && state.ytPlayer.getCurrentTime ? state.ytPlayer.getCurrentTime() : 0)) || (savedPos ? savedPos.position : 0)) : (savedPos ? savedPos.position : 0);
+    const resumeTimeStr = hasProgress ? `Resumes at ${formatTime(curPos)}` : '';
 
     let progressTrackHtml = '';
     if (hasProgress) {
       const durSec = ep.duration ? parseDurationSeconds(ep.duration) : 0;
       let progressPct = 0;
       if (durSec > 0) {
-        progressPct = Math.min(100, Math.max(1, Math.round((savedPos.position / durSec) * 100)));
+        progressPct = Math.min(100, Math.max(1, Math.round((curPos / durSec) * 100)));
       } else {
         progressPct = 5;
       }
-      progressTrackHtml = `<div class="ep-progress-track"><div class="ep-progress-fill" style="width: ${progressPct}%"></div></div>`;
+      progressTrackHtml = `<div class="ep-progress-track" title="Click or scrub to resume at any point"><div class="ep-progress-fill" style="width: ${progressPct}%"></div></div>`;
     }
 
     const card = document.createElement('div');
@@ -1937,7 +2019,7 @@
         <div class="episode-meta">
           <span title="${escapeHtml(fullDate)}">${escapeHtml(humanDate)}</span>
           ${formattedDuration ? `<span>${escapeHtml(formattedDuration)}</span>` : ''}
-          ${resumeTimeStr ? `<span class="ep-resume-time">• ${resumeTimeStr}</span>` : ''}
+          ${resumeTimeStr ? `<span class="ep-resume-time" title="Click to resume playback">• ${resumeTimeStr}</span>` : ''}
         </div>
         <div class="episode-card-actions">
           ${downloadBtnHtml}
@@ -2004,6 +2086,19 @@
       e.stopPropagation();
       toggleMarkPlayed(ep);
     });
+
+    const progressTrack = card.querySelector('.ep-progress-track');
+    if (progressTrack) {
+      setupProgressTrackInteractivity(progressTrack, card, ep);
+    }
+
+    const resumeBadge = card.querySelector('.ep-resume-time');
+    if (resumeBadge) {
+      resumeBadge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleEpisodePlayback(ep);
+      });
+    }
 
     return card;
   }
@@ -2358,6 +2453,12 @@
       if (state.activeEngine === 'audio') updateProgress();
     });
     audio.addEventListener('loadedmetadata', () => {
+      if (state.pendingStartTime && state.pendingStartTime > 0) {
+        try {
+          elements.audio.currentTime = state.pendingStartTime;
+        } catch (_) {}
+        state.pendingStartTime = null;
+      }
       if (state.activeEngine === 'audio') updateDuration();
     });
     audio.addEventListener('ended', () => {
@@ -2414,6 +2515,7 @@
 
     elements.seekBar.addEventListener('input', () => {
       const pct = elements.seekBar.value / 100;
+      elements.seekBar.style.setProperty('--seek-pct', `${elements.seekBar.value}%`);
       if (state.activeEngine === 'audio' && audio.duration) {
         audio.currentTime = pct * audio.duration;
       } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getDuration) {
@@ -2531,7 +2633,7 @@
     }
   }
 
-  function playEpisode(episode) {
+  function playEpisode(episode, overrideStartTime) {
     state.currentEpisode = episode;
     state.playbackStatus = 'loading';
     syncPlaybackButtons();
@@ -2542,11 +2644,17 @@
     }
 
     const savedPos = state.playbackPositions[episode.guid];
-    const startTime = (savedPos && savedPos.position > 1) ? savedPos.position : 0;
+    let startTime = 0;
+    if (typeof overrideStartTime === 'number') {
+      startTime = overrideStartTime;
+    } else {
+      startTime = (savedPos && savedPos.position > 1) ? savedPos.position : 0;
+    }
 
     state.playbackPositions[episode.guid] = {
       position: startTime || 2,
-      completed: false
+      completed: false,
+      lastListenedAt: Math.floor(Date.now() / 1000)
     };
     savePositionsToStorage();
 
@@ -2586,7 +2694,12 @@
       state.activeEngine = 'audio';
       elements.audio.src = episode.audioUrl;
       elements.audio.playbackRate = state.playbackSpeed;
-      if (startTime > 0) elements.audio.currentTime = startTime;
+      state.pendingStartTime = startTime;
+      if (startTime > 0) {
+        try {
+          elements.audio.currentTime = startTime;
+        } catch (_) {}
+      }
       elements.audio.play().catch(e => {
         console.warn('Autoplay blocked:', e);
         state.playbackStatus = 'paused';
@@ -2630,7 +2743,50 @@
 
     elements.currentTimeLabel.textContent = formatTime(current);
     if (total > 0) {
-      elements.seekBar.value = (current / total) * 100;
+      const pct = (current / total) * 100;
+      elements.seekBar.value = pct;
+      elements.seekBar.style.setProperty('--seek-pct', `${pct}%`);
+
+      if (state.currentEpisode) {
+        const activeCards = document.querySelectorAll(`.episode-card[data-guid="${CSS.escape(state.currentEpisode.guid)}"]`);
+        activeCards.forEach(card => {
+          let track = card.querySelector('.ep-progress-track');
+          let fill = card.querySelector('.ep-progress-fill');
+          if (!track && current > 2) {
+            track = document.createElement('div');
+            track.className = 'ep-progress-track';
+            track.title = 'Click or scrub to resume at any point';
+            fill = document.createElement('div');
+            fill.className = 'ep-progress-fill';
+            track.appendChild(fill);
+            const footer = card.querySelector('.episode-footer');
+            if (footer) {
+              card.insertBefore(track, footer);
+              setupProgressTrackInteractivity(track, card, state.currentEpisode);
+            }
+          }
+          if (fill) {
+            fill.style.width = `${Math.min(100, Math.max(1, pct))}%`;
+          }
+          let resumeBadge = card.querySelector('.ep-resume-time');
+          if (!resumeBadge && current > 2) {
+            const meta = card.querySelector('.episode-meta');
+            if (meta) {
+              resumeBadge = document.createElement('span');
+              resumeBadge.className = 'ep-resume-time';
+              resumeBadge.title = 'Click to resume playback';
+              meta.appendChild(resumeBadge);
+              resumeBadge.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleEpisodePlayback(state.currentEpisode);
+              });
+            }
+          }
+          if (resumeBadge) {
+            resumeBadge.textContent = `• Resumes at ${formatTime(current)}`;
+          }
+        });
+      }
     }
 
     if (state.sleepTimer.active && state.sleepTimer.fadeout && state.sleepTimer.endTime) {
