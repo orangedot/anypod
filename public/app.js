@@ -2389,7 +2389,10 @@
     if (elements.showNotesMeta) {
       const dStr = ep.timestamp ? formatHumanRelativeDate(ep.timestamp) : (ep.pubDate || '');
       const dur = ep.duration ? formatEpisodeDuration(ep.duration) : '';
-      elements.showNotesMeta.textContent = [dStr, dur].filter(Boolean).join(' • ');
+      elements.showNotesMeta.innerHTML = [
+        dStr ? `<span>${escapeHtml(dStr)}</span>` : '',
+        dur ? `<span class="show-notes-duration">${escapeHtml(dur)}</span>` : ''
+      ].filter(Boolean).join(' • ');
     }
     if (elements.showNotesContent) {
       const rawContent = ep.content || ep.description || '';

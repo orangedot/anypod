@@ -3306,18 +3306,18 @@ body.has-active-episode.has-mini-player .player-mini {
 }
 
 .show-notes-content a {
-  color: var(--text-secondary);
+  color: rgba(249, 115, 22, 0.88);
   text-decoration: underline;
   text-underline-offset: 3px;
   text-decoration-thickness: 1px;
-  text-decoration-color: var(--border-light);
+  text-decoration-color: rgba(249, 115, 22, 0.3);
   transition: color 0.15s, text-decoration-color 0.15s;
   word-break: break-all;
 }
 
 .show-notes-content a:hover {
-  color: var(--text-primary);
-  text-decoration-color: var(--text-secondary);
+  color: var(--accent-orange-hover);
+  text-decoration-color: var(--accent-orange);
 }
 
 .show-notes-content ul,
@@ -3338,18 +3338,18 @@ body.has-active-episode.has-mini-player .player-mini {
   font-style: italic;
 }
 
-/* Timecode chips — subtle pill, no orange */
+/* Timecode chips — subtle orange accent */
 .note-timestamp {
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
-  padding: 0.1rem 0.45rem;
-  border-radius: 4px;
-  background: transparent;
-  border: 1px solid var(--border-light);
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  font-weight: 500;
+  padding: 0.12rem 0.48rem;
+  border-radius: 5px;
+  background: rgba(249, 115, 22, 0.08);
+  border: 1px solid rgba(249, 115, 22, 0.24);
+  color: var(--accent-orange);
+  font-size: 0.82rem;
+  font-weight: 550;
   font-variant-numeric: tabular-nums;
   font-family: inherit;
   cursor: pointer;
@@ -3360,9 +3360,16 @@ body.has-active-episode.has-mini-player .player-mini {
 }
 
 .note-timestamp:hover {
-  background: var(--border-light);
-  color: var(--text-primary);
-  border-color: var(--text-secondary);
+  background: rgba(249, 115, 22, 0.18);
+  color: var(--accent-orange-hover);
+  border-color: rgba(249, 115, 22, 0.5);
+  transform: translateY(-0.5px);
+}
+
+.show-notes-duration {
+  color: rgba(249, 115, 22, 0.9);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
 .episode-desc-link {
