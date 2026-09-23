@@ -2308,6 +2308,23 @@ body.has-active-episode.has-mini-player .player-mini {
   right: -4px;
 }
 
+#sleep-badge {
+  min-width: 14px;
+  height: 14px;
+  padding: 0 4px;
+  border-radius: 7px;
+  font-size: 9px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-fg, #141414);
+  background: var(--primary);
+  top: -4px;
+  right: -4px;
+  width: auto;
+}
+
 /* Modals */
 @keyframes modalOverlayFade {
   from {
@@ -2446,17 +2463,63 @@ body.has-active-episode.has-mini-player .player-mini {
   background: var(--bg-card);
   border: 1px solid var(--border-light);
   color: var(--text-primary);
-  padding: 0.75rem;
+  padding: 0.75rem 0.5rem;
   border-radius: var(--radius-sm);
   font-family: inherit;
   font-size: 0.9rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .timer-btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-focus);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.timer-btn.active {
   background: var(--primary);
+  color: var(--primary-fg, #141414);
   border-color: var(--primary);
+  font-weight: 600;
+  box-shadow: 0 0 16px var(--primary-glow);
+}
+
+.timer-btn.active:hover {
+  background: var(--primary-hover);
+  color: var(--primary-fg, #141414);
+  border-color: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.timer-btn.timer-cancel {
+  grid-column: 1 / -1;
+  margin-top: 0.25rem;
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.timer-btn.timer-cancel:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #ef4444;
+  transform: translateY(-1px);
+}
+
+.timer-btn.timer-cancel.is-inactive {
+  opacity: 0.45;
+  cursor: default;
+  border-color: var(--border-light);
+  color: var(--text-muted);
+  background: transparent;
+  transform: none;
 }
 
 .fade-toggle {
@@ -2466,6 +2529,17 @@ body.has-active-episode.has-mini-player .player-mini {
   margin-top: 1rem;
   font-size: 0.85rem;
   color: var(--text-secondary);
+}
+
+@media (max-width: 480px) {
+  .timer-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+  .timer-btn {
+    font-size: 0.82rem;
+    padding: 0.65rem 0.4rem;
+  }
 }
 
 .hidden {

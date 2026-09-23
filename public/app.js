@@ -3868,9 +3868,66 @@
   // Pauses playback after a set duration, with optional volume fadeout.
   // ─────────────────────────────────────────────────────────────────────────
 
+  function updateSleepTimerUI() {
+    const isActive = Boolean(state.sleepTimer && state.sleepTimer.active);
+    const currentMin = state.sleepTimer ? state.sleepTimer.minutes : 0;
+
+    elements.timerBtns.forEach(btn => {
+      const val = btn.dataset.minutes;
+      if (val === '0') {
+        btn.classList.toggle('is-inactive', !isActive);
+        return;
+      }
+      const isThisActive = isActive && (
+        val === String(currentMin) ||
+        (val === 'end' && currentMin === 'end') ||
+        (val === 'end-queue' && currentMin === 'end-queue')
+      );
+      btn.classList.toggle('active', Boolean(isThisActive));
+    });
+
+    const statusEl = document.getElementById('sleep-status-text');
+    if (statusEl) {
+      if (isActive) {
+        if (state.sleepTimer.endTime) {
+          const remainingSec = Math.max(0, Math.round((state.sleepTimer.endTime - Date.now()) / 1000));
+          const remainingMin = Math.ceil(remainingSec / 60);
+          statusEl.innerHTML = `<span style="color: var(--primary); font-weight: 600;">● Active:</span> stops in <strong>${remainingMin} min</strong> (${formatTime(remainingSec)})`;
+        } else if (currentMin === 'end') {
+          statusEl.innerHTML = `<span style="color: var(--primary); font-weight: 600;">● Active:</span> stops at <strong>end of current episode</strong>`;
+        } else if (currentMin === 'end-queue') {
+          statusEl.innerHTML = `<span style="color: var(--primary); font-weight: 600;">● Active:</span> stops at <strong>end of queue</strong>`;
+        }
+      } else {
+        statusEl.textContent = 'Automatically stop audio playback after specified time:';
+      }
+    }
+
+    if (elements.sleepBadge) {
+      if (isActive) {
+        elements.sleepBadge.classList.remove('hidden');
+        if (state.sleepTimer.endTime) {
+          const remainingMin = Math.max(1, Math.ceil((state.sleepTimer.endTime - Date.now()) / 60000));
+          elements.sleepBadge.textContent = `${remainingMin}m`;
+        } else {
+          elements.sleepBadge.textContent = '✓';
+        }
+      } else {
+        elements.sleepBadge.classList.add('hidden');
+        elements.sleepBadge.textContent = '';
+      }
+    }
+  }
+
   function startSleepTimer(minutes) {
-    stopSleepTimer();
-    if (minutes === 0) return;
+    if (state.sleepTimer.intervalId) {
+      clearInterval(state.sleepTimer.intervalId);
+    }
+
+    if (minutes === 0 || minutes === '0') {
+      stopSleepTimer();
+      return;
+    }
 
     state.sleepTimer.active = true;
     state.sleepTimer.minutes = minutes;
@@ -3886,11 +3943,15 @@
           pauseCurrentEngine();
           elements.audio.volume = state.sleepTimer.initialVolume;
           stopSleepTimer();
+        } else {
+          updateSleepTimerUI();
         }
       }, 1000);
+    } else {
+      state.sleepTimer.endTime = null;
     }
 
-    elements.sleepBadge.classList.remove('hidden');
+    updateSleepTimerUI();
     closeSleepModal();
   }
 
@@ -3906,7 +3967,7 @@
       fadeout: true,
       initialVolume: 1.0
     };
-    elements.sleepBadge.classList.add('hidden');
+    updateSleepTimerUI();
     closeSleepModal();
   }
 
@@ -4514,6 +4575,7 @@
   }
 
   function openSleepModal() {
+    updateSleepTimerUI();
     elements.sleepModal.classList.remove('hidden');
     window.history.pushState({ modal: 'sleep' }, '', window.location.hash);
   }

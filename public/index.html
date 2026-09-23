@@ -263,7 +263,7 @@
           <button class="btn-close" id="btn-close-sleep">&times;</button>
         </div>
         <div class="modal-body">
-          <p>Automatically stop audio playback after specified time:</p>
+          <p id="sleep-status-text">Automatically stop audio playback after specified time:</p>
           <div class="timer-grid">
             <button class="timer-btn" data-minutes="15">15 Min</button>
             <button class="timer-btn" data-minutes="30">30 Min</button>
@@ -271,7 +271,7 @@
             <button class="timer-btn" data-minutes="60">60 Min</button>
             <button class="timer-btn" data-minutes="end">End of Episode</button>
             <button class="timer-btn" data-minutes="end-queue">End of Queue</button>
-            <button class="timer-btn timer-cancel" data-minutes="0">Turn Off</button>
+            <button class="timer-btn timer-cancel" data-minutes="0" id="btn-timer-cancel">Turn Off Timer</button>
           </div>
           <div class="fade-toggle">
             <input type="checkbox" id="fadeout-check" checked>
