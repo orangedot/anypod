@@ -1,3 +1,5 @@
+import { isValidExternalUrl } from './utils.js';
+
 export async function onRequest(context) {
   const { request } = context;
   const urlParams = new URL(request.url).searchParams;
@@ -14,8 +16,8 @@ export async function onRequest(context) {
     return new Response(null, { headers: corsHeaders, status: 204 });
   }
 
-  if (!targetUrl) {
-    return new Response('Missing url parameter', { status: 400, headers: corsHeaders });
+  if (!targetUrl || !isValidExternalUrl(targetUrl)) {
+    return new Response('Invalid or disallowed url parameter', { status: 400, headers: corsHeaders });
   }
 
   try {

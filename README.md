@@ -4,11 +4,21 @@ Private podcast RSS feed aggregator and web player hosted on Cloudflare Pages wi
 
 ## Screenshots
 
-### Dark Mode
+### Desktop Views
+
+#### Dark Mode
 ![Podany Dark Mode](docs/screenshots/preview-dark.png)
 
-### Light Mode
+#### Light Mode
 ![Podany Light Mode](docs/screenshots/preview-light.png)
+
+### Mobile Views
+
+#### Subscribed Feeds
+![Podany Mobile Feeds](docs/screenshots/mobile-feeds.png)
+
+#### Active Playback
+![Podany Mobile Playback](docs/screenshots/mobile-player.png)
 
 ## Features
 
@@ -36,6 +46,8 @@ Private podcast RSS feed aggregator and web player hosted on Cloudflare Pages wi
 podany/
 ├── docs/
 │   └── screenshots/
+│       ├── mobile-feeds.png
+│       ├── mobile-player.png
 │       ├── preview-dark.png
 │       └── preview-light.png
 ├── functions/

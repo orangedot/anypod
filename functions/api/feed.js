@@ -1,4 +1,4 @@
-import { getUserFromRequest } from './utils.js';
+import { getUserFromRequest, isValidExternalUrl } from './utils.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -30,8 +30,9 @@ export async function onRequest(context) {
     try {
       const body = await request.json();
       if (body.urls && Array.isArray(body.urls)) {
+        const validUrls = body.urls.filter(u => typeof u === 'string' && isValidExternalUrl(u));
         const results = await Promise.allSettled(
-          body.urls.map(u => fetchAndParseFeed(u))
+          validUrls.map(u => fetchAndParseFeed(u))
         );
         const feeds = results
           .filter(r => r.status === 'fulfilled' && r.value)
@@ -50,9 +51,9 @@ export async function onRequest(context) {
     }
   }
 
-  if (!targetUrl) {
+  if (!targetUrl || !isValidExternalUrl(targetUrl)) {
     return new Response(JSON.stringify({ 
-      error: 'Missing feed URL parameter.' 
+      error: 'Invalid or disallowed feed URL parameter.' 
     }), {
       headers: corsHeaders,
       status: 400

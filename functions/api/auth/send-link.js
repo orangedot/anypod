@@ -25,7 +25,8 @@ export async function onRequest(context) {
     const body = await request.json();
     const email = body.email ? String(body.email).trim().toLowerCase() : '';
 
-    if (!email || !email.includes('@')) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || email.length > 120 || !emailRegex.test(email)) {
       return new Response(JSON.stringify({ error: 'Valid email address required.' }), {
         headers: corsHeaders,
         status: 400
@@ -41,7 +42,26 @@ export async function onRequest(context) {
     }
 
     let user = await db.prepare('SELECT id, email FROM users WHERE email = ?').bind(email).first();
-    if (!user) {
+    if (user) {
+      const recentAttempts = await db.prepare(
+        'SELECT COUNT(*) as count FROM auth_tokens WHERE user_id = ? AND created_at > (unixepoch() - 600)'
+      ).bind(user.id).first('count');
+      if (Number(recentAttempts) >= 5) {
+        return new Response(JSON.stringify({ error: 'Too many login attempts. Please wait a few minutes before trying again.' }), {
+          headers: corsHeaders,
+          status: 429
+        });
+      }
+    } else {
+      const recentNewUsers = await db.prepare(
+        'SELECT COUNT(*) as count FROM users WHERE created_at > (unixepoch() - 600)'
+      ).first('count');
+      if (Number(recentNewUsers) >= 30) {
+        return new Response(JSON.stringify({ error: 'Registration rate limit reached. Please wait a few minutes before trying again.' }), {
+          headers: corsHeaders,
+          status: 429
+        });
+      }
       const newUserId = `usr_${crypto.randomUUID()}`;
       await db.prepare('INSERT INTO users (id, email) VALUES (?, ?)').bind(newUserId, email).run();
       user = { id: newUserId, email };

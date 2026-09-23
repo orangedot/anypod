@@ -1,4 +1,4 @@
-import { getUserFromRequest } from '../utils.js';
+import { getUserFromRequest, isValidExternalUrl } from '../utils.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -35,8 +35,8 @@ export async function onRequest(context) {
       const body = await request.json();
       const { feedUrl, title, artwork } = body;
 
-      if (!feedUrl) {
-        return new Response(JSON.stringify({ error: 'feedUrl required' }), { headers: corsHeaders, status: 400 });
+      if (!feedUrl || !isValidExternalUrl(feedUrl)) {
+        return new Response(JSON.stringify({ error: 'Valid external feedUrl required' }), { headers: corsHeaders, status: 400 });
       }
 
       const id = 'sub_' + crypto.randomUUID();
