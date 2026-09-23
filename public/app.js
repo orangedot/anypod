@@ -1317,28 +1317,20 @@
       });
     }
 
+    elements.offlineEpisodesList.innerHTML = '';
+
     if (list.length === 0) {
       elements.offlineEpisodesList.innerHTML = q
-        ? `<p style="color: var(--text-muted); font-size: 0.85rem; padding: 0.5rem 0;">No downloaded episodes match "${escapeHtml(state.searchQuery)}".</p>`
-        : '<p style="color: var(--text-muted); font-size: 0.85rem; padding: 0.5rem 0;">No episodes downloaded for offline listening yet.</p>';
+        ? `<div class="empty-state" style="grid-column: 1 / -1; padding: 2.5rem 1rem; text-align: center;"><p style="color: var(--text-muted); font-size: 0.9rem;">No downloaded episodes match "${escapeHtml(state.searchQuery)}".</p></div>`
+        : '<div class="empty-state" style="grid-column: 1 / -1; padding: 2.5rem 1rem; text-align: center;"><p style="color: var(--text-muted); font-size: 0.9rem;">No episodes downloaded for offline listening yet.</p></div>';
       return;
     }
 
-    elements.offlineEpisodesList.innerHTML = list.map(item => `
-      <div class="offline-ep-row" data-guid="${escapeHtml(item.guid)}">
-        <div class="offline-ep-info">
-          <div class="offline-ep-title">${escapeHtml(item.title || 'Untitled')}</div>
-          <div class="offline-ep-sub">${escapeHtml(item.podcastTitle || '')} • ${formatBytes(item.size || 0)}</div>
-        </div>
-        <button class="btn-remove-download" data-guid="${escapeHtml(item.guid)}" title="Remove offline download">Remove</button>
-      </div>
-    `).join('');
-
-    elements.offlineEpisodesList.querySelectorAll('.btn-remove-download').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const guid = btn.dataset.guid;
-        if (guid) removeDownloadedEpisode(guid);
-      });
+    list.forEach(item => {
+      const matched = (state.allEpisodes || []).find(e => e.guid === item.guid);
+      const ep = matched ? { ...matched, size: item.size } : { ...item };
+      const card = createEpisodeCard(ep);
+      elements.offlineEpisodesList.appendChild(card);
     });
   }
 
