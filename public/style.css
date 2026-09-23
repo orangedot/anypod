@@ -383,18 +383,6 @@ body.has-active-episode .app-container {
   }
 }
 
-@media (min-width: 1150px) {
-  .shelf-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1400px) {
-  .shelf-grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-}
-
 .ep-progress-track {
   width: 100%;
   height: 6px;
@@ -705,18 +693,6 @@ select {
 @media (min-width: 880px) {
   .episode-list {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1150px) {
-  .episode-list {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1400px) {
-  .episode-list {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
@@ -2669,12 +2645,11 @@ body.has-active-episode.has-mini-player .player-mini {
   color: var(--text-muted);
 }
 
-/* Category Discovery Chips in Add Modal */
 .modal-category-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
-  margin-bottom: 0.85rem;
+  margin-bottom: 0.5rem;
 }
 
 .category-chip {
@@ -2695,6 +2670,67 @@ body.has-active-episode.has-mini-player .player-mini {
   color: var(--text-primary);
   border-color: var(--text-secondary);
   transform: translateY(-1px);
+}
+
+.category-chip.active {
+  background: var(--text-primary);
+  color: var(--bg-dark);
+  border-color: var(--text-primary);
+  font-weight: 600;
+}
+
+.subgenre-chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.15rem 0 0.75rem 0;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed var(--border-light);
+  animation: fadeIn 0.2s ease-out;
+}
+
+[data-theme="light"] .subgenre-chips-container,
+:root:not([data-theme="dark"]) .subgenre-chips-container {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.subgenre-label {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--accent-orange, #ea580c);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 0.2rem;
+}
+
+.subgenre-chip {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  font-weight: 400;
+  padding: 0.18rem 0.55rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.subgenre-chip:hover {
+  background: rgba(249, 115, 22, 0.15);
+  border-color: var(--accent-orange, #ea580c);
+  color: var(--accent-orange, #ea580c);
+  transform: translateY(-1px);
+}
+
+.subgenre-chip.active {
+  background: var(--accent-orange, #ea580c);
+  color: #ffffff;
+  border-color: var(--accent-orange, #ea580c);
+  font-weight: 500;
 }
 
 .modal-header {

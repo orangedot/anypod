@@ -9,7 +9,8 @@
     "dev": "wrangler pages dev public --port 8788",
     "dev:prod": "npm run build && wrangler pages dev public/dist --port 8788",
     "dev:init-db": "mkdir -p .wrangler/state/v3/d1/miniflare-D1DatabaseObject && sqlite3 .wrangler/state/v3/d1/miniflare-D1DatabaseObject/1d2c6f471d53ebbab1505a69a966ce3e563bc9428255f6f61ad83474526c0fe6.sqlite < schema.sql",
-    "deploy": "npm run build && wrangler pages deploy public"
+    "deploy": "npm run build && wrangler pages deploy public",
+    "screenshots": "node scripts/capture_screenshots.js"
   },
   "devDependencies": {
     "wrangler": "^3.100.0"

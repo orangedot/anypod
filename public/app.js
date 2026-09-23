@@ -125,6 +125,7 @@
 
   const STORAGE_KEYS = {
     FEEDS: 'podany_feeds',
+    MUTED_FEEDS: 'podany_muted_feeds',
     SESSION: 'podany_session_token',
     CACHED_EPISODES: 'podany_cached_episodes',
     CACHED_METADATA: 'podany_cached_metadata',
@@ -144,7 +145,9 @@
     QUEUE_ADDED: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h7"></path><polyline points="15 18 18 21 23 15"></polyline></svg>',
     DOWNLOAD: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>',
     DOWNLOADED: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a1 1 0 0 1 1 1v10.586l3.293-3.293a1 1 0 1 1 1.414 1.414l-5 5a1 1 0 0 1-1.414 0l-5-5a1 1 0 1 1 1.414-1.414L11 13.586V3a1 1 0 0 1 1-1zM4 20a1 1 0 0 1 1-1h14a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"/></svg>',
-    DOWNLOAD_SPINNER: '<svg class="spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"></path></svg>'
+    DOWNLOAD_SPINNER: '<svg class="spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"></path></svg>',
+    BELL_OFF: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.73 21a2 2 0 0 1-3.46 0"></path><path d="M18.63 13A17.89 17.89 0 0 1 18 8"></path><path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"></path><path d="M18 8a6 6 0 0 0-9.33-5"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>',
+    BELL: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>'
   };
 
   const FALLBACK_ARTWORK = 'data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%2318181b%22/%3E%3C/svg%3E';
@@ -165,6 +168,7 @@
     sessionToken: '',
     userEmail: '',
     feeds: [],
+    mutedFeeds: [],
     feedMetadata: {},
     allEpisodes: [],
     filteredEpisodes: [],
@@ -276,6 +280,7 @@
     podcastSearchQuery: document.getElementById('podcast-search-query'),
     btnSearchDirectory: document.getElementById('btn-search-directory'),
     searchDirectoryResults: document.getElementById('search-directory-results'),
+    modalSubgenreChips: document.getElementById('modal-subgenre-chips'),
     feedUrlInput: document.getElementById('feed-url-input'),
     btnCloseAdd: document.getElementById('btn-close-add'),
     btnCancelAdd: document.getElementById('btn-cancel-add'),
@@ -1817,6 +1822,88 @@
   }
 
   const DIR_PAGE_SIZE = 12;
+
+  const SUBGENRE_MAP = {
+    'Music': [
+      { label: 'Electronic & Club', query: 'Electronic Music' },
+      { label: 'Jazz & Soul', query: 'Jazz Music' },
+      { label: 'Hip Hop & Rap', query: 'Hip Hop' },
+      { label: 'Rock & Indie', query: 'Indie Rock' },
+      { label: 'Classical & Ambient', query: 'Classical Music' },
+      { label: 'DJ Mixes & Sets', query: 'DJ Mix' }
+    ],
+    'Tech': [
+      { label: 'Artificial Intelligence', query: 'AI Artificial Intelligence' },
+      { label: 'Software & Dev', query: 'Software Engineering Coding' },
+      { label: 'Cybersecurity', query: 'Cybersecurity' },
+      { label: 'Startups & Tech News', query: 'Tech Startups' },
+      { label: 'Gadgets & Hardware', query: 'Hardware Gadgets' }
+    ],
+    'News': [
+      { label: 'Daily Briefings', query: 'Daily News Briefing' },
+      { label: 'World Affairs & Politics', query: 'World News Politics' },
+      { label: 'Business & Markets', query: 'Business Economy Markets' },
+      { label: 'Investigative Journalism', query: 'Investigative Journalism' }
+    ],
+    'Wissen': [
+      { label: 'Astronomy & Space', query: 'Astronomy Space NASA' },
+      { label: 'Biology & Nature', query: 'Nature Biology Wildlife' },
+      { label: 'History & Deep Dives', query: 'History Deep Dive' },
+      { label: 'Physics & Earth Science', query: 'Physics Science' },
+      { label: 'Psychology & Mind', query: 'Psychology Neuroscience' }
+    ],
+    'Culture': [
+      { label: 'Cinema & TV Shows', query: 'Film Cinema Movies' },
+      { label: 'Literature & Books', query: 'Books Literature' },
+      { label: 'Art & Design', query: 'Art Design' },
+      { label: 'Society & Philosophy', query: 'Philosophy Society Culture' }
+    ],
+    'True Crime': [
+      { label: 'Serial & Solved', query: 'True Crime Mystery' },
+      { label: 'Unsolved & Cold Cases', query: 'Unsolved Cold Cases' },
+      { label: 'Courtroom & Law', query: 'Courtroom True Crime Law' },
+      { label: 'Heists & Scams', query: 'Scams Heists Fraud' }
+    ],
+    'Comedy': [
+      { label: 'Stand-Up & Interviews', query: 'Stand Up Comedians' },
+      { label: 'Satire & Parody', query: 'Satire Comedy' },
+      { label: 'Improv & Storytelling', query: 'Improv Comedy' }
+    ]
+  };
+
+  function renderSubgenreChips(category, container = elements.modalSubgenreChips, onSelect = null) {
+    if (!container) return;
+    const subgenres = SUBGENRE_MAP[category];
+    if (!subgenres || subgenres.length === 0) {
+      container.innerHTML = '';
+      container.classList.add('hidden');
+      return;
+    }
+
+    container.classList.remove('hidden');
+    container.innerHTML = `
+      <span class="subgenre-label">Subgenres:</span>
+      ${subgenres.map(sub => `
+        <button type="button" class="subgenre-chip" data-query="${escapeHtml(sub.query)}" data-label="${escapeHtml(sub.label)}">
+          ${escapeHtml(sub.label)}
+        </button>
+      `).join('')}
+    `;
+
+    container.querySelectorAll('.subgenre-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        container.querySelectorAll('.subgenre-chip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const q = btn.dataset.query;
+        if (typeof onSelect === 'function') {
+          onSelect(q, btn.dataset.label);
+        } else if (elements.podcastSearchQuery) {
+          elements.podcastSearchQuery.value = q;
+          searchPodcastDirectory(q);
+        }
+      });
+    });
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // SECTION 16 · Podcast Directory Search
@@ -4445,7 +4532,10 @@
     const modalCatChips = document.querySelectorAll('#modal-category-chips .category-chip');
     modalCatChips.forEach(chip => {
       chip.addEventListener('click', () => {
+        modalCatChips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
         const cat = chip.dataset.category;
+        renderSubgenreChips(cat, elements.modalSubgenreChips);
         if (elements.podcastSearchQuery) {
           elements.podcastSearchQuery.value = cat;
           searchPodcastDirectory(cat);
@@ -4623,6 +4713,11 @@
     elements.podcastSearchQuery.value = '';
     elements.searchDirectoryResults.innerHTML = '';
     elements.feedUrlInput.value = '';
+    if (elements.modalSubgenreChips) {
+      elements.modalSubgenreChips.innerHTML = '';
+      elements.modalSubgenreChips.classList.add('hidden');
+    }
+    document.querySelectorAll('#modal-category-chips .category-chip').forEach(c => c.classList.remove('active'));
     if (window.history.state && window.history.state.modal) {
       window.history.back();
     } else if (elements.addModal) {

@@ -6,20 +6,38 @@ Private podcast RSS feed aggregator and web player hosted on Cloudflare Pages wi
 
 <table>
   <tr>
-    <td align="center" width="50%"><b>Desktop Dark Mode</b></td>
-    <td align="center" width="50%"><b>Desktop Light Mode</b></td>
+    <th align="center" width="50%">Dark Theme</th>
+    <th align="center" width="50%">Light Theme</th>
+  </tr>
+  <tr>
+    <td align="center"><b>Desktop (Timeline & Full Player)</b></td>
+    <td align="center"><b>Desktop (Timeline & Full Player)</b></td>
   </tr>
   <tr>
     <td><img src="docs/screenshots/preview-dark.png" alt="Desktop Dark Mode" /></td>
     <td><img src="docs/screenshots/preview-light.png" alt="Desktop Light Mode" /></td>
   </tr>
   <tr>
-    <td align="center"><b>Mobile Feeds</b></td>
     <td align="center"><b>Mobile Active Playback</b></td>
+    <td align="center"><b>Mobile Active Playback (Light)</b></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/mobile-feeds.png" width="320" alt="Mobile Feeds" /></td>
-    <td align="center"><img src="docs/screenshots/mobile-player.png" width="320" alt="Mobile Active Playback" /></td>
+    <td align="center"><img src="docs/screenshots/mobile-player.png" width="320" alt="Mobile Active Playback Dark" /></td>
+    <td align="center"><img src="docs/screenshots/mobile-player-light.png" width="320" alt="Mobile Active Playback Light" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Mobile Mini-Player</b></td>
+    <td align="center"><b>Mobile Mini-Player (Light)</b></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/mobile-mini.png" width="320" alt="Mobile Mini Player Dark" /></td>
+    <td align="center"><img src="docs/screenshots/mobile-mini-light.png" width="320" alt="Mobile Mini Player Light" /></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><b>Mobile Subscribed Feeds</b></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><img src="docs/screenshots/mobile-feeds.png" width="320" alt="Mobile Subscribed Feeds" /></td>
   </tr>
 </table>
 
