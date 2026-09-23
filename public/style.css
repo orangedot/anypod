@@ -2166,7 +2166,8 @@ body.has-active-episode .bottom-action-dock {
   }
 
   .episode-list,
-  .shelf-grid {
+  .shelf-grid,
+  .feeds-grid {
     grid-template-columns: 1fr;
     gap: 0.75rem;
     width: 100%;
