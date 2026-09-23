@@ -66,6 +66,8 @@ export async function onRequest(context) {
       });
     }
 
+    db.prepare('UPDATE users SET last_active_at = unixepoch(), warned_30d_at = NULL, warned_50d_at = NULL WHERE id = ?').bind(userId).run().catch(() => {});
+
     const sessionBuffer = new Uint8Array(32);
     crypto.getRandomValues(sessionBuffer);
     const rawSessionToken = Array.from(sessionBuffer).map(b => b.toString(16).padStart(2, '0')).join('');

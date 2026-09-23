@@ -24,6 +24,7 @@ export async function onRequest(context) {
   }
 
   const userId = user.id;
+  db.prepare('UPDATE users SET last_active_at = unixepoch(), warned_30d_at = NULL, warned_50d_at = NULL WHERE id = ?').bind(userId).run().catch(() => {});
 
   try {
     if (request.method === 'GET') {

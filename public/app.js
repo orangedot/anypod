@@ -673,6 +673,10 @@
     if (elements.btnAccountToggle) {
       elements.btnAccountToggle.textContent = isConnected ? 'Sign Out' : 'Log In';
     }
+    const cardDelete = document.getElementById('card-delete-account');
+    if (cardDelete) {
+      cardDelete.style.display = isConnected ? 'block' : 'none';
+    }
   }
 
   function getWebmailProvider(email) {
@@ -3996,16 +4000,29 @@
     }
   }
 
+  function openConfirmDialog({ title, message, actionLabel = 'Confirm', onConfirm }) {
+    state.confirmModalAction = onConfirm;
+    const titleEl = elements.confirmModal?.querySelector('h2');
+    if (titleEl && title) titleEl.textContent = title;
+    if (elements.confirmModalMsg && message) elements.confirmModalMsg.textContent = message;
+    if (elements.btnConfirmDelete && actionLabel) elements.btnConfirmDelete.textContent = actionLabel;
+    if (elements.confirmModal) elements.confirmModal.classList.remove('hidden');
+  }
+
   function promptRemoveFeed(url) {
     state.feedToDelete = url;
+    state.confirmModalAction = null;
     const meta = state.feedMetadata[url] || {};
     const title = meta.title || 'this podcast';
-    if (elements.confirmModalMsg) {
-      elements.confirmModalMsg.textContent = `Do you want to unsubscribe from "${title}"?`;
-    }
-    if (elements.confirmModal) {
-      elements.confirmModal.classList.remove('hidden');
-    }
+    openConfirmDialog({
+      title: 'Remove from Library',
+      message: `Do you want to unsubscribe from "${title}"?`,
+      actionLabel: 'Remove',
+      onConfirm: () => {
+        removeFeed(url);
+        state.feedToDelete = null;
+      }
+    });
   }
 
   function purgeOrphanedDownloads() {
@@ -4241,17 +4258,61 @@
     if (elements.btnConfirmCancel) {
       elements.btnConfirmCancel.addEventListener('click', () => {
         state.feedToDelete = null;
+        state.confirmModalAction = null;
         if (elements.confirmModal) elements.confirmModal.classList.add('hidden');
       });
     }
 
     if (elements.btnConfirmDelete) {
       elements.btnConfirmDelete.addEventListener('click', () => {
-        if (state.feedToDelete) {
+        if (typeof state.confirmModalAction === 'function') {
+          const action = state.confirmModalAction;
+          state.confirmModalAction = null;
+          action();
+        } else if (state.feedToDelete) {
           removeFeed(state.feedToDelete);
           state.feedToDelete = null;
         }
         if (elements.confirmModal) elements.confirmModal.classList.add('hidden');
+      });
+    }
+
+    const btnDeleteAccount = document.getElementById('btn-delete-account');
+    if (btnDeleteAccount) {
+      btnDeleteAccount.addEventListener('click', () => {
+        openConfirmDialog({
+          title: 'Delete Cloud Account?',
+          message: 'Permanently wipe your account email, synced podcast subscriptions, playback positions, and active sessions from Cloudflare D1. This action cannot be undone.',
+          actionLabel: 'Wipe & Delete',
+          onConfirm: async () => {
+            btnDeleteAccount.disabled = true;
+            btnDeleteAccount.textContent = 'Deleting account...';
+            try {
+              const res = await fetch('/api/auth/delete-account', {
+                method: 'POST',
+                credentials: 'include'
+              });
+              const data = await res.json();
+              if (!res.ok || !data.success) {
+                throw new Error(data.error || 'Failed to delete account');
+              }
+
+              localStorage.removeItem(STORAGE_KEYS.SESSION);
+              localStorage.removeItem('podcast_pulse_session_token');
+              localStorage.removeItem('podany_session_token');
+              state.sessionToken = '';
+              state.userEmail = '';
+
+              updateSyncStatusUI('Logged in as guest / local device storage', '', false);
+              showStatus('Cloud account and sync data permanently wiped.');
+            } catch (err) {
+              showStatus('Failed to delete account: ' + err.message);
+            } finally {
+              btnDeleteAccount.disabled = false;
+              btnDeleteAccount.textContent = 'Delete Account & Wipe Cloud Data';
+            }
+          }
+        });
       });
     }
 

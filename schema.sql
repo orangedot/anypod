@@ -1,7 +1,10 @@
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
-  created_at INTEGER DEFAULT (unixepoch())
+  created_at INTEGER DEFAULT (unixepoch()),
+  last_active_at INTEGER,
+  warned_30d_at INTEGER,
+  warned_50d_at INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS auth_tokens (
