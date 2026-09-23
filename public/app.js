@@ -647,10 +647,7 @@
       }
     } catch (e) {}
 
-    const isGuestDismissed = sessionStorage.getItem('podany_guest_mode');
-    if (!isGuestDismissed) {
-      elements.authModal.classList.remove('hidden');
-    }
+    elements.authModal.classList.add('hidden');
     updateSyncStatusUI('Logged in as guest / local device storage');
     if (state.feeds.length > 0) {
       refreshAllFeeds();
@@ -793,8 +790,7 @@
       if (res.status === 401) {
         localStorage.removeItem(STORAGE_KEYS.SESSION);
         state.sessionToken = '';
-        updateSyncStatusUI('Session Expired', '', false);
-        elements.authModal.classList.remove('hidden');
+        updateSyncStatusUI('Session Expired • Switched to Guest Mode', '', false);
         return;
       }
 
@@ -1576,7 +1572,6 @@
       const response = await fetch(apiUrl, { headers });
 
       if (response.status === 401) {
-        elements.authModal.classList.remove('hidden');
         throw new Error('Unauthorized');
       }
 

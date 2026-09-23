@@ -16,15 +16,6 @@ export async function onRequest(context) {
     return new Response(null, { headers: corsHeaders, status: 204 });
   }
 
-  const user = await getUserFromRequest(request, env);
-  if (!user) {
-    return new Response(JSON.stringify({ 
-      error: 'Unauthorized: Magic session token required.' 
-    }), {
-      headers: corsHeaders,
-      status: 401
-    });
-  }
 
   if (request.method === 'POST') {
     try {
