@@ -2697,34 +2697,7 @@ body.has-active-episode.has-mini-player .player-mini {
   flex: 1;
 }
 
-.modal-category-chips,
-.empty-category-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  max-height: 125px;
-  overflow-y: auto;
-  padding: 0.25rem 0.1rem;
-}
 
-.subgenre-chips-container {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem;
-  max-height: 135px;
-  overflow-y: auto;
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px dashed rgba(255, 255, 255, 0.15);
-  margin-bottom: 0.85rem;
-}
-
-[data-theme="light"] .subgenre-chips-container {
-  background: rgba(0, 0, 0, 0.02);
-  border-color: rgba(0, 0, 0, 0.15);
-}
 
 /* Dedicated Auth / Sync Modal Styling */
 /* Dedicated Auth / Sync Modal Styling */
@@ -2970,8 +2943,12 @@ body.has-active-episode.has-mini-player .player-mini {
 .modal-category-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.35rem;
+  max-height: 82px;
+  overflow-y: auto;
+  padding: 0.2rem 0.1rem;
   margin-bottom: 0.5rem;
+  scrollbar-width: thin;
 }
 
 .category-chip {
@@ -2979,12 +2956,19 @@ body.has-active-episode.has-mini-player .player-mini {
   border: 1px solid var(--border-light);
   border-radius: var(--radius-full);
   color: var(--text-secondary);
-  font-size: 0.78rem;
-  font-weight: 450;
-  padding: 0.25rem 0.65rem;
+  font-size: 0.76rem;
+  font-weight: 500;
+  padding: 0.22rem 0.6rem;
   cursor: pointer;
   transition: all 0.15s ease;
   font-family: inherit;
+}
+
+[data-theme="light"] .category-chip,
+:root:not([data-theme="dark"]) .category-chip {
+  background: #f4f4f5;
+  color: #27272a;
+  border-color: rgba(0, 0, 0, 0.12);
 }
 
 .category-chip:hover {
@@ -3001,44 +2985,61 @@ body.has-active-episode.has-mini-player .player-mini {
   font-weight: 600;
 }
 
+[data-theme="light"] .category-chip.active,
+:root:not([data-theme="dark"]) .category-chip.active {
+  background: #18181b;
+  color: #ffffff;
+  border-color: #18181b;
+}
+
 .subgenre-chips-container {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem;
-  margin: 0.15rem 0 0.75rem 0;
-  padding: 0.4rem 0.6rem;
+  max-height: 105px;
+  overflow-y: auto;
+  margin: 0.2rem 0 0.8rem 0;
+  padding: 0.45rem 0.65rem;
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px dashed var(--border-light);
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--border-light);
+  scrollbar-width: thin;
   animation: fadeIn 0.2s ease-out;
 }
 
 [data-theme="light"] .subgenre-chips-container,
 :root:not([data-theme="dark"]) .subgenre-chips-container {
-  background: rgba(0, 0, 0, 0.02);
+  background: #f4f4f5;
+  border-color: rgba(0, 0, 0, 0.1);
 }
 
 .subgenre-label {
-  font-size: 0.7rem;
-  font-weight: 500;
+  font-size: 0.72rem;
+  font-weight: 600;
   color: var(--accent-orange, #ea580c);
   text-transform: none;
-  letter-spacing: normal;
-  margin-right: 0.2rem;
+  margin-right: 0.25rem;
 }
 
 .subgenre-chip {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg-card);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-full);
-  color: var(--text-secondary);
-  font-size: 0.74rem;
-  font-weight: 400;
-  padding: 0.18rem 0.55rem;
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.22rem 0.65rem;
   cursor: pointer;
   transition: all 0.15s ease;
   font-family: inherit;
+}
+
+[data-theme="light"] .subgenre-chip,
+:root:not([data-theme="dark"]) .subgenre-chip {
+  background: #ffffff;
+  color: #18181b;
+  border-color: rgba(0, 0, 0, 0.15);
 }
 
 .subgenre-chip:hover {
@@ -3049,10 +3050,10 @@ body.has-active-episode.has-mini-player .player-mini {
 }
 
 .subgenre-chip.active {
-  background: var(--accent-orange, #ea580c);
-  color: #ffffff;
-  border-color: var(--accent-orange, #ea580c);
-  font-weight: 500;
+  background: var(--accent-orange, #ea580c) !important;
+  color: #ffffff !important;
+  border-color: var(--accent-orange, #ea580c) !important;
+  font-weight: 600;
 }
 
 .modal-header {

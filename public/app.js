@@ -2794,20 +2794,55 @@
     }
 
     container._dirSearch = null;
-    container.innerHTML = `<p style="color: var(--text-muted); padding: 0.5rem;">Searching directory...</p>`;
+    container.innerHTML = `
+      <div style="padding: 0.75rem 0.25rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.75rem;">
+          <svg class="spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"></path></svg>
+          Searching podcasts for "${escapeHtml(q)}"...
+        </div>
+        <div class="skeleton-card" style="margin-bottom: 0.5rem;"><div class="skeleton-art"></div><div class="skeleton-lines"><div class="skeleton-line" style="width: 40%;"></div><div class="skeleton-line" style="width: 70%;"></div></div></div>
+        <div class="skeleton-card"><div class="skeleton-art"></div><div class="skeleton-lines"><div class="skeleton-line" style="width: 35%;"></div><div class="skeleton-line" style="width: 60%;"></div></div></div>
+      </div>
+    `;
+
+    // Smoothly scroll results into view so they are never hidden offscreen
+    if (container === elements.searchDirectoryResults && elements.addModal && !elements.addModal.classList.contains('hidden')) {
+      const modalBody = elements.addModal.querySelector('.modal-body');
+      if (modalBody) {
+        modalBody.scrollTo({ top: container.offsetTop - 70, behavior: 'smooth' });
+      }
+    }
 
     try {
-      const countryParam = (state.directoryCountry && state.directoryCountry !== 'all') ? `&country=${state.directoryCountry}` : '';
-      const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=podcast${countryParam}&limit=200`;
-      const res = await fetch(searchUrl);
-      if (!res.ok) throw new Error('Search failed');
+      const countryParam = (state.directoryCountry && state.directoryCountry !== 'all') ? `&country=${encodeURIComponent(state.directoryCountry)}` : '';
+      let data = null;
 
-      const data = await res.json();
+      // 1. Try first-party API proxy (immune to client-side ad blockers & CORS blocks)
+      try {
+        const proxyRes = await fetch(`/api/search-directory?term=${encodeURIComponent(q)}${countryParam}&limit=100`);
+        if (proxyRes.ok) {
+          data = await proxyRes.json();
+        }
+      } catch (_) {}
+
+      // 2. Fallback to direct iTunes search if proxy was unavailable (e.g. local static server)
+      if (!data || !data.results) {
+        const directUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=podcast${countryParam}&limit=100`;
+        const directRes = await fetch(directUrl);
+        if (!directRes.ok) throw new Error('Search request failed (' + directRes.status + ')');
+        data = await directRes.json();
+      }
+
       const results = (data.results || []).filter(item => Boolean(item.feedUrl));
       container.innerHTML = '';
 
       if (results.length === 0) {
-        container.innerHTML = `<p style="color: var(--text-muted); padding: 0.5rem;">No podcasts found matching your query.</p>`;
+        container.innerHTML = `
+          <div style="padding: 1.5rem 1rem; text-align: center; color: var(--text-muted); background: rgba(0, 0, 0, 0.03); border: 1px solid var(--border-light); border-radius: var(--radius-sm);">
+            <p style="font-weight: 500; color: var(--text-primary); margin-bottom: 0.25rem;">No podcasts found</p>
+            <p style="font-size: 0.82rem;">No matching shows found for "${escapeHtml(q)}". Try searching a broader term, or paste an RSS feed URL directly below.</p>
+          </div>
+        `;
         return;
       }
 
