@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "podany",
+  "name": "anypod",
   "pages_build_output_dir": "./public",
   "compatibility_date": "2026-09-01",
   "compatibility_flags": [
