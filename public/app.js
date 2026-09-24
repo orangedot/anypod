@@ -133,6 +133,7 @@
     THEME: 'anypod_theme',
     QUEUE: 'anypod_playback_queue',
     DOWNLOADS: 'anypod_downloads',
+    FAVORITES: 'anypod_favorites',
     EXPERIMENTAL: 'anypod_experimental_settings'
   };
 
@@ -142,6 +143,8 @@
     SPINNER: '<svg class="spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"></path></svg>',
     CHECK: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="16 9 11 14 8 11"></polyline></svg>',
     CHECK_FILLED: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>',
+    HEART: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>',
+    HEART_FILLED: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>',
     QUEUE: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h7"></path><path d="M18 15v6M15 18h6"></path></svg>',
     QUEUE_ADDED: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h7"></path><polyline points="15 18 18 21 23 15"></polyline></svg>',
     DOWNLOAD: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>',
@@ -376,6 +379,8 @@
     navHistory: [],          // stack of { tab, feedUrl } entries for back navigation
     continueCollapsed: true,
     queue: [],
+    favorites: [],
+    favoriteGuids: new Set(),
     downloadedEpisodes: {},
     downloadingGuids: new Set(),
     directoryCountry: 'all',
@@ -438,18 +443,24 @@
     panels: document.querySelectorAll('.tab-panel'),
     tabFeeds: document.getElementById('tab-feeds'),
     tabTimeline: document.getElementById('tab-timeline'),
+    tabFavorites: document.getElementById('tab-favorites'),
     tabDownloads: document.getElementById('tab-downloads'),
     tabSettings: document.getElementById('tab-settings'),
     panelFeeds: document.getElementById('panel-feeds'),
     panelTimeline: document.getElementById('panel-timeline'),
+    panelFavorites: document.getElementById('panel-favorites'),
     panelDownloads: document.getElementById('panel-downloads'),
     panelFeedDetail: document.getElementById('panel-feed-detail'),
     feedDetailHeader: document.getElementById('feed-detail-header'),
     feedDetailEpisodes: document.getElementById('feed-detail-episodes'),
+    favoritesEpisodesList: document.getElementById('favorites-episodes-list'),
+    favoritesHeaderCount: document.getElementById('favorites-header-count'),
     themeBtns: document.querySelectorAll('.btn-theme'),
     feedCount: document.getElementById('feed-count'),
+    favoritesTabCount: document.getElementById('favorites-tab-count'),
     downloadsTabCount: document.getElementById('downloads-tab-count'),
     btnOpenSettings: document.getElementById('btn-open-settings'),
+    btnPlayerFav: document.getElementById('btn-player-fav'),
 
     searchInput: document.getElementById('search-input'),
     sortOrderSelect: document.getElementById('sort-order'),
@@ -679,6 +690,9 @@
       } else if (targetTab === 'timeline') {
         if (elements.searchInput) elements.searchInput.placeholder = 'Search loaded episodes...';
         renderTimeline();
+      } else if (targetTab === 'favorites') {
+        if (elements.searchInput) elements.searchInput.placeholder = 'Search favorite episodes...';
+        renderFavorites();
       } else if (targetTab === 'downloads') {
         if (elements.searchInput) elements.searchInput.placeholder = 'Search downloaded episodes...';
         updateDownloadedCountUI();
@@ -749,7 +763,7 @@
         const raw = window.location.hash.slice(1);
         if (raw.startsWith('feed=')) {
           _applyView({ tab: null, feedUrl: decodeURIComponent(raw.slice(5)) });
-        } else if (['timeline', 'feeds', 'downloads', 'settings'].includes(raw)) {
+        } else if (['timeline', 'feeds', 'favorites', 'downloads', 'settings'].includes(raw)) {
           _applyView({ tab: raw, feedUrl: null });
         } else {
           _applyView({ tab: 'timeline', feedUrl: null });
@@ -764,7 +778,7 @@
       const feedUrl = decodeURIComponent(hash.slice(5));
       _applyView({ tab: null, feedUrl });
       window.history.replaceState({ tab: null, feedUrl }, '', '#' + hash);
-    } else if (['timeline', 'feeds', 'downloads', 'settings'].includes(hash)) {
+    } else if (['timeline', 'feeds', 'favorites', 'downloads', 'settings'].includes(hash)) {
       _applyView({ tab: hash, feedUrl: null });
       window.history.replaceState({ tab: hash, feedUrl: null }, '', '#' + hash);
     } else {
@@ -826,6 +840,7 @@
     loadFeedsFromStorage();
     loadCacheFromStorage();
     loadQueueFromStorage();
+    loadFavoritesFromStorage();
     loadDownloadsFromStorage();
     setupEventListeners();
     setupAudioEngines();
@@ -880,6 +895,7 @@
         state.feeds = Array.isArray(data.feeds) ? data.feeds.map(f => f.feed_url) : [];
         saveFeedsToStorage();
         await loadPlaybackPositionsFromD1();
+        await syncFavoritesWithD1();
         await refreshAllFeeds();
         return;
       }
@@ -1043,6 +1059,7 @@
       saveFeedsToStorage();
 
       await loadPlaybackPositionsFromD1();
+      await syncFavoritesWithD1();
       await refreshAllFeeds();
 
     } catch (err) {
@@ -1530,6 +1547,187 @@
     } else if (elements.queueModal) {
       elements.queueModal.classList.add('hidden');
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 11b · Favorites (Synced Starred Episodes)
+  // Persisted locally under STORAGE_KEYS.FAVORITES and synced with Cloud D1
+  // via /api/sync/favorites.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  function loadFavoritesFromStorage() {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.FAVORITES);
+      state.favorites = stored ? JSON.parse(stored) : [];
+      if (!Array.isArray(state.favorites)) state.favorites = [];
+      state.favoriteGuids = new Set(state.favorites.map(f => f.guid).filter(Boolean));
+    } catch (e) {
+      state.favorites = [];
+      state.favoriteGuids = new Set();
+    }
+    updateFavoritesCountUI();
+  }
+
+  function saveFavoritesToStorage() {
+    try {
+      localStorage.setItem(STORAGE_KEYS.FAVORITES, JSON.stringify(state.favorites));
+      updateFavoritesCountUI();
+    } catch (e) {}
+  }
+
+  function updateFavoritesCountUI() {
+    const count = (state.favorites || []).length;
+    if (elements.favoritesTabCount) {
+      elements.favoritesTabCount.textContent = count > 0 ? count : '';
+    }
+    if (elements.favoritesHeaderCount) {
+      elements.favoritesHeaderCount.textContent = `${count} ${count === 1 ? 'favorite' : 'favorites'}`;
+    }
+  }
+
+  function isEpisodeFavorited(guid) {
+    if (!guid) return false;
+    return state.favoriteGuids && state.favoriteGuids.has(guid);
+  }
+
+  async function toggleFavoriteEpisode(ep) {
+    if (!ep || !ep.guid) return;
+    const isFav = isEpisodeFavorited(ep.guid);
+    if (isFav) {
+      state.favorites = (state.favorites || []).filter(f => f.guid !== ep.guid);
+      state.favoriteGuids.delete(ep.guid);
+      showStatus('Removed from favorites');
+    } else {
+      const favObj = {
+        guid: ep.guid,
+        feedUrl: ep.feedUrl || '',
+        title: ep.title || 'Untitled Episode',
+        podcastTitle: ep.podcastTitle || '',
+        artwork: ep.artwork || '',
+        audioUrl: ep.audioUrl || '',
+        duration: ep.duration || '',
+        pubDate: ep.pubDate || ep.timestamp || '',
+        description: ep.description || '',
+        addedAt: Date.now()
+      };
+      state.favorites = [favObj, ...(state.favorites || []).filter(f => f.guid !== ep.guid)];
+      state.favoriteGuids.add(ep.guid);
+      showStatus('Added to favorites');
+    }
+
+    saveFavoritesToStorage();
+    updateEpisodeCardFavoriteState(ep.guid);
+    updatePlayerFavButton();
+
+    const activeTab = document.querySelector('.nav-tab.active')?.dataset.tab;
+    if (activeTab === 'favorites') {
+      renderFavorites();
+    }
+
+    syncFavoriteToD1(ep, !isFav);
+  }
+
+  function updateEpisodeCardFavoriteState(guid) {
+    if (!guid) return;
+    const isFav = isEpisodeFavorited(guid);
+    document.querySelectorAll(`.episode-card[data-guid="${CSS.escape(guid)}"] .btn-fav-ep`).forEach(btn => {
+      btn.classList.toggle('is-favorited', isFav);
+      btn.innerHTML = isFav ? CARD_ICONS.HEART_FILLED : CARD_ICONS.HEART;
+      btn.title = isFav ? 'Remove from favorites' : 'Add to favorites';
+    });
+  }
+
+  function updatePlayerFavButton() {
+    if (!elements.btnPlayerFav) return;
+    const current = state.currentEpisode;
+    if (!current) {
+      elements.btnPlayerFav.classList.remove('is-favorited');
+      return;
+    }
+    const isFav = isEpisodeFavorited(current.guid);
+    elements.btnPlayerFav.classList.toggle('is-favorited', isFav);
+    elements.btnPlayerFav.title = isFav ? 'Remove from favorites' : 'Add to favorites';
+  }
+
+  async function syncFavoritesWithD1() {
+    try {
+      const headers = {};
+      if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
+      const res = await fetch('/api/sync/favorites', { headers, credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        const remoteFavs = data.favorites || [];
+        const map = new Map();
+        (state.favorites || []).forEach(f => map.set(f.guid, f));
+        remoteFavs.forEach(rf => {
+          if (!map.has(rf.guid)) {
+            map.set(rf.guid, rf);
+          } else {
+            map.set(rf.guid, { ...map.get(rf.guid), ...rf });
+          }
+        });
+        state.favorites = Array.from(map.values()).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+        state.favoriteGuids = new Set(state.favorites.map(f => f.guid).filter(Boolean));
+        saveFavoritesToStorage();
+        updateFavoritesCountUI();
+        if (document.querySelector('.nav-tab.active')?.dataset.tab === 'favorites') {
+          renderFavorites();
+        }
+      }
+    } catch (e) {}
+  }
+
+  async function syncFavoriteToD1(ep, isFavorite) {
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
+      await fetch('/api/sync/favorites', {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: JSON.stringify({
+          episodeGuid: ep.guid,
+          feedUrl: ep.feedUrl || '',
+          title: ep.title || '',
+          podcastTitle: ep.podcastTitle || '',
+          artwork: ep.artwork || '',
+          audioUrl: ep.audioUrl || '',
+          duration: ep.duration || '',
+          pubDate: ep.pubDate || ep.timestamp || '',
+          isFavorite
+        })
+      });
+    } catch (e) {}
+  }
+
+  function renderFavorites() {
+    if (!elements.favoritesEpisodesList) return;
+    let list = [...(state.favorites || [])];
+    const q = (state.searchQuery || '').trim().toLowerCase();
+    if (q) {
+      list = list.filter(item => {
+        return (item.title || '').toLowerCase().includes(q) ||
+               (item.podcastTitle || '').toLowerCase().includes(q);
+      });
+    }
+
+    elements.favoritesEpisodesList.innerHTML = '';
+
+    if (list.length === 0) {
+      elements.favoritesEpisodesList.innerHTML = q
+        ? `<div class="empty-state" style="grid-column: 1 / -1; padding: 2.5rem 1rem; text-align: center;"><p style="color: var(--text-muted); font-size: 0.9rem;">No favorite episodes match "${escapeHtml(state.searchQuery)}".</p></div>`
+        : `<div class="empty-state" style="grid-column: 1 / -1; padding: 2.5rem 1rem; text-align: center;"><p style="color: var(--text-muted); font-size: 0.9rem;">No favorite episodes yet. Click the heart icon on any episode to save it here.</p></div>`;
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    list.forEach(item => {
+      const matched = (state.allEpisodes || []).find(e => e.guid === item.guid);
+      const ep = matched ? { ...matched, ...item } : { ...item };
+      const card = createEpisodeCard(ep);
+      frag.appendChild(card);
+    });
+    elements.favoritesEpisodesList.appendChild(frag);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -3431,6 +3629,13 @@
       dlTitle = 'Downloaded (Click to remove)';
     }
 
+    const isFav = isEpisodeFavorited(ep.guid);
+    const favBtnHtml = `
+      <button class="btn-fav-ep ${isFav ? 'is-favorited' : ''}" title="${isFav ? 'Remove from favorites' : 'Add to favorites'}">
+        ${isFav ? CARD_ICONS.HEART_FILLED : CARD_ICONS.HEART}
+      </button>
+    `;
+
     const downloadBtnHtml = ep.isYouTube ? '' : `
       <button class="btn-download-ep ${isDownloaded ? 'is-downloaded' : ''} ${isDownloading ? 'is-downloading' : ''}" title="${dlTitle}">
         ${dlIcon}
@@ -3441,7 +3646,7 @@
       <div class="episode-card-top">
         <img class="episode-artwork" src="${ep.artwork || FALLBACK_ARTWORK}" alt="" loading="lazy" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
         <div class="episode-header-info">
-          <div class="episode-podcast-name">${ep.isYouTube ? 'YOUTUBE' : highlightText(ep.podcastTitle, state.searchQuery)}</div>
+          <div class="episode-podcast-name">${ep.isYouTube ? 'YouTube' : highlightText(ep.podcastTitle, state.searchQuery)}</div>
           <div class="episode-title">${highlightText(ep.title, state.searchQuery)}</div>
         </div>
       </div>
@@ -3456,6 +3661,7 @@
           </span>
         </div>
         <div class="episode-card-actions" style="display:flex; gap:4px; flex-wrap:nowrap;">
+          ${favBtnHtml}
           ${downloadBtnHtml}
           <button class="btn-queue-ep ${isQueued ? 'is-queued' : ''}" title="${isQueued ? 'Remove from Up Next' : 'Add to Up Next'}">
             ${isQueued ? CARD_ICONS.QUEUE_ADDED : CARD_ICONS.QUEUE}
@@ -3491,6 +3697,14 @@
       podNameEl.addEventListener('click', (e) => {
         e.stopPropagation();
         openFeedDetail(ep.feedUrl);
+      });
+    }
+
+    const favBtn = card.querySelector('.btn-fav-ep');
+    if (favBtn) {
+      favBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleFavoriteEpisode(ep);
       });
     }
 
@@ -4359,6 +4573,7 @@
       elements.playerBar.classList.add('active-episode');
     }
     document.body.classList.add('has-active-episode');
+    updatePlayerFavButton();
 
     setPlayerCollapsed(false, false);
     initOrLoadEpisodeTimeline(episode, (episode.duration ? parseDurationSeconds(episode.duration) : 0));
@@ -4691,6 +4906,7 @@
   function updatePlayerUI(isPlaying) {
     state.playbackStatus = isPlaying ? 'playing' : 'paused';
     syncPlaybackButtons();
+    updatePlayerFavButton();
   }
 
   function setPlayerCollapsed(collapsed, save = true) {
@@ -5346,6 +5562,9 @@
     }
 
     if (elements.btnPlayerNotes) elements.btnPlayerNotes.addEventListener('click', () => openShowNotes(null, 'notes'));
+    if (elements.btnPlayerFav) elements.btnPlayerFav.addEventListener('click', () => {
+      if (state.currentEpisode) toggleFavoriteEpisode(state.currentEpisode);
+    });
     if (elements.btnPlayerTranscript) elements.btnPlayerTranscript.addEventListener('click', () => openShowNotes(null, 'transcript'));
     if (elements.playerTrackInfo) elements.playerTrackInfo.addEventListener('click', () => openShowNotes(null, 'notes'));
     if (elements.btnCloseNotes) elements.btnCloseNotes.addEventListener('click', closeShowNotes);

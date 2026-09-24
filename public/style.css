@@ -94,6 +94,7 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  text-transform: none;
 }
 
 html,
@@ -786,11 +787,11 @@ select {
 }
 
 .episode-podcast-name {
-  font-size: 0.75rem;
+  font-size: 0.76rem;
   font-weight: 500;
   color: var(--primary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: none;
+  letter-spacing: normal;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -913,6 +914,7 @@ mark.search-highlight {
 }
 
 @media (hover: hover) and (min-width: 769px) {
+  .episode-card-actions .btn-fav-ep:not(.is-favorited),
   .episode-card-actions .btn-download-ep,
   .episode-card-actions .btn-queue-ep,
   .episode-card-actions .btn-mark-played {
@@ -931,9 +933,11 @@ mark.search-highlight {
                 transform 0.18s ease;
   }
 
+  .episode-card:hover .episode-card-actions .btn-fav-ep,
   .episode-card:hover .episode-card-actions .btn-download-ep,
   .episode-card:hover .episode-card-actions .btn-queue-ep,
   .episode-card:hover .episode-card-actions .btn-mark-played,
+  .episode-card:focus-within .episode-card-actions .btn-fav-ep,
   .episode-card:focus-within .episode-card-actions .btn-download-ep,
   .episode-card:focus-within .episode-card-actions .btn-queue-ep,
   .episode-card:focus-within .episode-card-actions .btn-mark-played {
@@ -1043,6 +1047,50 @@ mark.search-highlight {
   background: rgba(224, 90, 43, 0.15);
   color: var(--accent-orange);
   border-color: var(--accent-orange);
+}
+
+.btn-fav-ep {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: transparent;
+  border: 1px solid var(--border-light);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.18s ease;
+  padding: 0;
+}
+
+.btn-fav-ep svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.15s ease;
+}
+
+.btn-fav-ep:hover {
+  background: var(--bg-card-hover);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+  transform: scale(1.05);
+}
+
+.btn-fav-ep.is-favorited {
+  background: rgba(239, 68, 68, 0.14) !important;
+  color: #ef4444 !important;
+  border-color: rgba(239, 68, 68, 0.45) !important;
+  opacity: 1 !important;
+  max-width: 32px !important;
+  width: 32px !important;
+  pointer-events: auto !important;
+}
+
+.btn-fav-ep.is-favorited:hover {
+  background: rgba(239, 68, 68, 0.22) !important;
+  transform: scale(1.08);
 }
 
 .btn-download-ep {
@@ -1291,8 +1339,8 @@ mark.search-highlight {
 .starter-suggestions-title {
   font-size: 0.78rem;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: none;
+  letter-spacing: normal;
   font-weight: 500;
 }
 
@@ -1591,10 +1639,10 @@ mark.search-highlight {
 
 .feed-recent-header {
   font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: normal;
   color: var(--text-muted);
-  font-weight: 400;
+  font-weight: 500;
   margin-bottom: 0.35rem;
 }
 
@@ -2012,6 +2060,42 @@ mark.search-highlight {
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
+}
+
+.favorites-header-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.favorites-header-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.favorites-header-card h3 {
+  font-size: 1.15rem;
+  font-weight: 450;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.35rem;
+}
+
+.favorites-header-card p {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  font-weight: 350;
+  margin: 0;
+}
+
+.favorites-count {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  font-weight: 450;
 }
 
 .downloads-header-card {
@@ -2948,8 +3032,8 @@ body.has-active-episode.has-mini-player .player-mini {
   font-size: 0.7rem;
   font-weight: 500;
   color: var(--accent-orange, #ea580c);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: none;
+  letter-spacing: normal;
   margin-right: 0.2rem;
 }
 
@@ -3308,7 +3392,8 @@ body.has-active-episode.has-mini-player .player-mini {
   .btn-play-ep,
   .btn-mark-played,
   .btn-queue-ep,
-  .btn-download-ep {
+  .btn-download-ep,
+  .btn-fav-ep {
     width: 26px;
     height: 26px;
   }
@@ -3316,7 +3401,8 @@ body.has-active-episode.has-mini-player .player-mini {
   .btn-play-ep svg,
   .btn-mark-played svg,
   .btn-queue-ep svg,
-  .btn-download-ep svg {
+  .btn-download-ep svg,
+  .btn-fav-ep svg {
     width: 11px;
     height: 11px;
   }
@@ -3632,11 +3718,11 @@ body.has-active-episode.has-mini-player .player-mini {
 }
 
 .queue-now-playing-label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-size: 0.72rem;
+  text-transform: none;
+  letter-spacing: normal;
   color: var(--accent-orange);
-  font-weight: 600;
+  font-weight: 500;
   margin-bottom: 0.5rem;
 }
 
@@ -3713,8 +3799,8 @@ body.has-active-episode.has-mini-player .player-mini {
 
 .queue-subhead {
   font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: normal;
   color: var(--text-muted);
   font-weight: 500;
 }
@@ -3855,6 +3941,22 @@ body.has-active-episode.has-mini-player .player-mini {
   color: var(--accent-orange);
 }
 
+#btn-player-fav:hover {
+  color: #ef4444;
+}
+
+#btn-player-fav.is-favorited {
+  color: #ef4444;
+}
+
+#btn-player-fav.is-favorited .icon-fav-unfilled {
+  display: none !important;
+}
+
+#btn-player-fav.is-favorited .icon-fav-filled {
+  display: block !important;
+}
+
 #btn-player-notes:hover {
   color: var(--accent-orange);
 }
@@ -3893,8 +3995,8 @@ body.has-active-episode.has-mini-player .player-mini {
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--accent-orange);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  text-transform: none;
+  letter-spacing: normal;
   display: block;
   margin-bottom: 0.35rem;
 }
@@ -4222,10 +4324,10 @@ body.has-active-episode.has-mini-player .player-mini {
 }
 
 .experimental-badge {
-  font-size: 0.65rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
   background: rgba(249, 115, 22, 0.18);

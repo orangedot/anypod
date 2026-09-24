@@ -56,3 +56,20 @@ CREATE TABLE IF NOT EXISTS episode_transcripts (
   source TEXT DEFAULT 'probe',
   created_at INTEGER DEFAULT (unixepoch())
 );
+
+CREATE TABLE IF NOT EXISTS favorites (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  episode_guid TEXT NOT NULL,
+  feed_url TEXT,
+  title TEXT,
+  podcast_title TEXT,
+  artwork TEXT,
+  audio_url TEXT,
+  duration TEXT,
+  pub_date TEXT,
+  created_at INTEGER DEFAULT (unixepoch()),
+  UNIQUE(user_id, episode_guid),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
