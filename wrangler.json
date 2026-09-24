@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "anypod",
+  "name": "podany",
   "pages_build_output_dir": "./public",
   "compatibility_date": "2026-09-01",
   "compatibility_flags": [
@@ -9,7 +9,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "anypod-db",
+      "database_name": "podany-db",
       "database_id": "a75faccd-ee65-42dd-9db8-e70c7c43ab4e"
     }
   ],
