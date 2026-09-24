@@ -6058,12 +6058,13 @@
       const raw = localStorage.getItem(STORAGE_KEYS.EXPERIMENTAL);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed.enableVisualizer === undefined) parsed.enableVisualizer = true;
         if (parsed.enableAudioClassifier === undefined) parsed.enableAudioClassifier = true;
         if (parsed.enableTranscript === undefined) parsed.enableTranscript = true;
+        parsed.enableVisualizer = true; // Timeline spectrum waveform is standard player default
         Object.assign(state.experimentalSettings, parsed);
       }
     } catch (_) {}
+    state.experimentalSettings.enableVisualizer = true;
     syncExperimentalUI();
   }
 
