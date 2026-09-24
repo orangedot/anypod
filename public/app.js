@@ -210,6 +210,8 @@
       duration: 0,
       bars: [],        // array of { height: 0..1, type: 'speech' | 'music' | 'neutral', time: seconds }
       segments: [],    // array of { start: s, end: s, type: 'speech' | 'music' }
+      cues: [],        // array of { start: s, end: s, text: string, type: 'speech' }
+      transcriptSource: '',
       isProbing: false,
       progressPct: 0
     }
@@ -322,6 +324,13 @@
     showNotesEpisodeTitle: document.getElementById('show-notes-episode-title'),
     showNotesMeta: document.getElementById('show-notes-meta'),
     showNotesContent: document.getElementById('show-notes-content'),
+    tabBtnNotes: document.getElementById('tab-btn-notes'),
+    tabBtnTranscript: document.getElementById('tab-btn-transcript'),
+    transcriptSourcePill: document.getElementById('transcript-source-pill'),
+    showTranscriptContent: document.getElementById('show-transcript-content'),
+    transcriptSearchInput: document.getElementById('transcript-search-input'),
+    transcriptFileInput: document.getElementById('transcript-file-input'),
+    transcriptCuesList: document.getElementById('transcript-cues-list'),
 
     audio: document.getElementById('audio-engine'),
     playerBar: document.getElementById('player-bar'),
@@ -337,6 +346,7 @@
     totalDurationLabel: document.getElementById('total-duration'),
     seekBar: document.getElementById('seek-bar'),
     btnSpeedToggle: document.getElementById('btn-speed-toggle'),
+    btnPlayerTranscript: document.getElementById('btn-player-transcript'),
     btnPlayerNotes: document.getElementById('btn-player-notes'),
     btnCollapsePlayer: document.getElementById('btn-collapse-player'),
     playerMini: document.getElementById('player-mini'),
@@ -2553,7 +2563,124 @@
     updateProgress();
   }
 
-  function openShowNotes(targetEp) {
+  function switchShowNotesTab(tab) {
+    const isNotes = tab === 'notes';
+    if (elements.tabBtnNotes) elements.tabBtnNotes.classList.toggle('active', isNotes);
+    if (elements.tabBtnTranscript) elements.tabBtnTranscript.classList.toggle('active', !isNotes);
+    if (elements.showNotesContent) elements.showNotesContent.classList.toggle('hidden', !isNotes);
+    if (elements.showTranscriptContent) elements.showTranscriptContent.classList.toggle('hidden', isNotes);
+
+    if (!isNotes) {
+      renderTranscriptView();
+    }
+  }
+
+  function renderTranscriptView(filterText = '') {
+    const cuesList = elements.transcriptCuesList;
+    if (!cuesList) return;
+
+    const cues = state.episodeTimeline.cues || [];
+    const source = state.episodeTimeline.transcriptSource || (cues.length > 0 ? 'RSS' : '');
+
+    if (elements.transcriptSourcePill) {
+      if (source) {
+        elements.transcriptSourcePill.textContent = source.toUpperCase();
+        elements.transcriptSourcePill.classList.remove('hidden');
+      } else {
+        elements.transcriptSourcePill.classList.add('hidden');
+      }
+    }
+
+    if (cues.length === 0) {
+      const segments = state.episodeTimeline.segments || [];
+      const speechSegs = segments.filter(s => s.type === 'speech');
+      const musicSegs = segments.filter(s => s.type === 'music');
+
+      cuesList.innerHTML = `
+        <div class="transcript-empty-state">
+          <div style="font-size: 2.2rem; margin-bottom: 0.75rem;">🎙️</div>
+          <h4>No Official Text Transcript in RSS</h4>
+          <p>This podcast feed doesn't publish an official WebVTT/SRT transcript track. However, Anypod analyzed the audio spectrum into <strong>${speechSegs.length} talking sections</strong> and <strong>${musicSegs.length} music sections</strong>.</p>
+          ${segments.length > 0 ? `
+            <div class="transcript-segment-pills">
+              ${segments.slice(0, 16).map(s => `
+                <button type="button" class="segment-jump-pill ${s.type === 'music' ? 'is-music' : 'is-speech'}" data-seconds="${s.start}">
+                  <span>${s.type === 'music' ? '🎵 Music' : '🎙️ Talk'} · ${formatTime(s.start)}</span>
+                </button>
+              `).join('')}
+            </div>
+          ` : ''}
+          <div style="margin-top: 1.5rem; font-size: 0.8rem; color: var(--text-muted);">
+            Have an external transcript file? Use the <strong>Upload VTT/SRT</strong> button above to load it!
+          </div>
+        </div>
+      `;
+
+      cuesList.querySelectorAll('.segment-jump-pill').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const sec = parseFloat(btn.dataset.seconds);
+          if (!isNaN(sec)) {
+            seekToExactTime(sec);
+            if (state.playbackStatus !== 'playing') resumeCurrentEngine();
+          }
+        });
+      });
+      return;
+    }
+
+    const query = (filterText || '').toLowerCase().trim();
+    const filteredCues = query
+      ? cues.filter(c => c.text && c.text.toLowerCase().includes(query))
+      : cues;
+
+    if (filteredCues.length === 0) {
+      cuesList.innerHTML = `
+        <div class="transcript-empty-state">
+          <p>No lines matching "<strong>${escapeHtml(filterText)}</strong>"</p>
+        </div>
+      `;
+      return;
+    }
+
+    let currentSec = 0;
+    if (state.activeEngine === 'audio' && elements.audio) {
+      currentSec = elements.audio.currentTime || 0;
+    } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
+      currentSec = state.ytPlayer.getCurrentTime() || 0;
+    }
+
+    cuesList.innerHTML = filteredCues.map((c, idx) => {
+      const isActive = currentSec >= c.start && currentSec <= c.end;
+      let textHtml = escapeHtml(c.text || '');
+      if (query) {
+        const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        textHtml = textHtml.replace(regex, '<mark>$1</mark>');
+      }
+
+      return `
+        <div class="transcript-cue ${isActive ? 'is-active' : ''}" data-start="${c.start}" data-end="${c.end}" id="transcript-cue-${idx}">
+          <button type="button" class="transcript-cue-time" data-seconds="${c.start}" title="Jump to ${formatTime(c.start)}">
+            ${formatTime(c.start)}
+          </button>
+          <div class="transcript-cue-text">${textHtml}</div>
+        </div>
+      `;
+    }).join('');
+
+    cuesList.querySelectorAll('.transcript-cue-time').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const sec = parseFloat(btn.dataset.seconds);
+        if (!isNaN(sec)) {
+          seekToExactTime(sec);
+          if (state.playbackStatus !== 'playing') resumeCurrentEngine();
+        }
+      });
+    });
+  }
+
+  function openShowNotes(targetEp, defaultTab = 'notes') {
     const ep = targetEp || state.currentEpisode;
     if (!ep || !elements.showNotesModal) return;
 
@@ -2595,6 +2722,7 @@
       });
     }
 
+    switchShowNotesTab(defaultTab);
     elements.showNotesModal.classList.remove('hidden');
     window.history.pushState({ modal: 'showNotes' }, '', window.location.hash);
   }
@@ -3775,6 +3903,22 @@
         elements.waveformTimelineWrap.setAttribute('aria-valuenow', Math.round(pct));
       }
 
+      // Live transcript cue karaoke highlight & auto-scroll
+      if (elements.showTranscriptContent && !elements.showTranscriptContent.classList.contains('hidden')) {
+        const cueEls = elements.transcriptCuesList ? elements.transcriptCuesList.querySelectorAll('.transcript-cue') : [];
+        cueEls.forEach(el => {
+          const start = parseFloat(el.dataset.start);
+          const end = parseFloat(el.dataset.end);
+          const isActive = current >= start && current <= end;
+          if (isActive !== el.classList.contains('is-active')) {
+            el.classList.toggle('is-active', isActive);
+            if (isActive) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+          }
+        });
+      }
+
       if (state.currentEpisode) {
         const activeCards = document.querySelectorAll(`.episode-card[data-guid="${CSS.escape(state.currentEpisode.guid)}"]`);
         activeCards.forEach(card => {
@@ -4715,12 +4859,59 @@
       });
     }
 
-    if (elements.btnPlayerNotes) elements.btnPlayerNotes.addEventListener('click', () => openShowNotes());
-    if (elements.playerTrackInfo) elements.playerTrackInfo.addEventListener('click', () => openShowNotes());
+    if (elements.btnPlayerNotes) elements.btnPlayerNotes.addEventListener('click', () => openShowNotes(null, 'notes'));
+    if (elements.btnPlayerTranscript) elements.btnPlayerTranscript.addEventListener('click', () => openShowNotes(null, 'transcript'));
+    if (elements.playerTrackInfo) elements.playerTrackInfo.addEventListener('click', () => openShowNotes(null, 'notes'));
     if (elements.btnCloseNotes) elements.btnCloseNotes.addEventListener('click', closeShowNotes);
     if (elements.showNotesModal) {
       elements.showNotesModal.addEventListener('click', (e) => {
         if (e.target === elements.showNotesModal) closeShowNotes();
+      });
+    }
+
+    if (elements.tabBtnNotes) {
+      elements.tabBtnNotes.addEventListener('click', () => switchShowNotesTab('notes'));
+    }
+    if (elements.tabBtnTranscript) {
+      elements.tabBtnTranscript.addEventListener('click', () => switchShowNotesTab('transcript'));
+    }
+    if (elements.transcriptSearchInput) {
+      elements.transcriptSearchInput.addEventListener('input', (e) => {
+        renderTranscriptView(e.target.value);
+      });
+    }
+    if (elements.transcriptFileInput) {
+      elements.transcriptFileInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const text = evt.target.result;
+          const cues = parseVttOrSrtTimestamps(text);
+          if (cues.length > 0) {
+            state.episodeTimeline.cues = cues;
+            state.episodeTimeline.transcriptSource = 'Upload';
+            const dur = (elements.audio && elements.audio.duration) ? elements.audio.duration : state.episodeTimeline.duration;
+            state.episodeTimeline.bars = deriveBarsFromCues(cues, dur, TIMELINE_BAR_COUNT);
+            state.episodeTimeline.segments = deriveSegmentsFromCues(cues, dur);
+
+            if (state.currentEpisode) {
+              try {
+                localStorage.setItem('anypod_timeline_' + state.currentEpisode.guid, JSON.stringify({
+                  bars: state.episodeTimeline.bars,
+                  segments: state.episodeTimeline.segments,
+                  cues: cues,
+                  transcriptSource: 'Upload'
+                }));
+              } catch (_) {}
+              saveTimelineToCommunityCache(state.currentEpisode, dur, state.episodeTimeline.bars, state.episodeTimeline.segments, 'upload');
+            }
+
+            renderWaveformChart();
+            renderTranscriptView();
+          }
+        };
+        reader.readAsText(file);
       });
     }
 
@@ -5147,6 +5338,8 @@
         if (parsed.bars && parsed.bars.length > 0) {
           state.episodeTimeline.bars = parsed.bars;
           state.episodeTimeline.segments = parsed.segments || [];
+          state.episodeTimeline.cues = parsed.cues || [];
+          state.episodeTimeline.transcriptSource = (parsed.cues && parsed.cues.length > 0) ? (parsed.transcriptSource || 'Cache') : '';
           renderWaveformChart();
           return;
         }
@@ -5156,6 +5349,8 @@
     // Generate initial baseline bars so scrubber is immediately interactive
     state.episodeTimeline.bars = generateBaselineBars(episode.guid, TIMELINE_BAR_COUNT);
     state.episodeTimeline.segments = deriveSegmentsFromBars(state.episodeTimeline.bars, dur);
+    state.episodeTimeline.cues = [];
+    state.episodeTimeline.transcriptSource = '';
     renderWaveformChart();
 
     // Cascading Free-Tier Pipeline: Tier 1 (RSS Transcript) -> Tier 2 (D1 Community Cache) -> Tier 3 (Client Probe)
@@ -5187,9 +5382,11 @@
 
             state.episodeTimeline.bars = bars;
             state.episodeTimeline.segments = segments;
+            state.episodeTimeline.cues = cues;
+            state.episodeTimeline.transcriptSource = 'RSS';
 
             try {
-              localStorage.setItem(cacheKey, JSON.stringify({ bars, segments }));
+              localStorage.setItem(cacheKey, JSON.stringify({ bars, segments, cues, transcriptSource: 'RSS' }));
             } catch (_) {}
 
             renderWaveformChart();
@@ -5259,11 +5456,24 @@
     if (!text || typeof text !== 'string') return [];
     const cues = [];
     const timeRegex = /(?:(\d{1,2}):)?(\d{2}):(\d{2})[.,](\d{3})\s*-->\s*(?:(\d{1,2}):)?(\d{2}):(\d{2})[.,](\d{3})/;
-    const lines = text.split(/\r?\n/);
+    const blocks = text.split(/\r?\n\r?\n/);
 
-    for (let i = 0; i < lines.length; i++) {
-      const match = lines[i].match(timeRegex);
-      if (match) {
+    for (const block of blocks) {
+      const lines = block.trim().split(/\r?\n/);
+      if (lines.length < 2) continue;
+
+      let timeLineIdx = -1;
+      let match = null;
+
+      for (let l = 0; l < lines.length; l++) {
+        match = lines[l].match(timeRegex);
+        if (match) {
+          timeLineIdx = l;
+          break;
+        }
+      }
+
+      if (timeLineIdx !== -1 && match) {
         const startH = parseInt(match[1] || '0', 10);
         const startM = parseInt(match[2], 10);
         const startS = parseInt(match[3], 10);
@@ -5276,8 +5486,15 @@
         const endMs = parseInt(match[8], 10);
         const endSec = endH * 3600 + endM * 60 + endS + endMs / 1000;
 
+        const textPayload = lines.slice(timeLineIdx + 1).join(' ').replace(/<[^>]+>/g, '').trim();
+
         if (endSec > startSec) {
-          cues.push({ start: startSec, end: endSec, type: 'speech' });
+          cues.push({
+            start: startSec,
+            end: endSec,
+            text: textPayload,
+            type: 'speech'
+          });
         }
       }
     }

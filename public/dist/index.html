@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.min.css?v=1790274529923">
+  <link rel="stylesheet" href="style.min.css?v=1790275266594">
 </head>
 <body>
   <!-- Cloud Sync & Magic Auth Modal -->
@@ -422,8 +422,25 @@
           </div>
           <button class="btn-close" id="btn-close-notes" aria-label="Close Show Notes">&times;</button>
         </div>
+        <div class="modal-tabs show-notes-tabs">
+          <button class="modal-tab-btn active" id="tab-btn-notes" type="button">Show Notes</button>
+          <button class="modal-tab-btn" id="tab-btn-transcript" type="button">
+            <span>Transcript</span>
+            <span class="transcript-source-pill hidden" id="transcript-source-pill">RSS</span>
+          </button>
+        </div>
         <div class="modal-body show-notes-modal-body">
           <div class="show-notes-content" id="show-notes-content"></div>
+          <div class="show-transcript-content hidden" id="show-transcript-content">
+            <div class="transcript-toolbar">
+              <input type="text" id="transcript-search-input" class="transcript-search-input" placeholder="Search transcript...">
+              <label class="btn-transcript-upload" title="Upload local .vtt or .srt transcript">
+                <span>Upload VTT/SRT</span>
+                <input type="file" id="transcript-file-input" accept=".vtt,.srt,.txt" style="display: none;">
+              </label>
+            </div>
+            <div class="transcript-cues-list" id="transcript-cues-list"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -523,6 +540,9 @@
       </div>
 
       <div class="player-right-options">
+        <button class="btn-icon" id="btn-player-transcript" title="View Transcript" aria-label="View Transcript">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="13" y2="13"></line></svg>
+        </button>
         <button class="btn-icon" id="btn-player-notes" title="Show Notes & Links">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
         </button>
@@ -570,6 +590,6 @@
 
   <!-- YouTube Iframe API -->
   <script src="https://www.youtube.com/iframe_api"></script>
-  <script src="app.min.js?v=1790274529923"></script>
+  <script src="app.min.js?v=1790275266594"></script>
 </body>
 </html>
