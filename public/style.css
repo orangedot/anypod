@@ -916,6 +916,7 @@ mark.search-highlight {
 @media (hover: hover) and (min-width: 769px) {
   .episode-card-actions .btn-fav-ep:not(.is-favorited),
   .episode-card-actions .btn-download-ep,
+  .episode-card-actions .btn-transcript-ep,
   .episode-card-actions .btn-queue-ep,
   .episode-card-actions .btn-mark-played {
     opacity: 0;
@@ -935,10 +936,12 @@ mark.search-highlight {
 
   .episode-card:hover .episode-card-actions .btn-fav-ep,
   .episode-card:hover .episode-card-actions .btn-download-ep,
+  .episode-card:hover .episode-card-actions .btn-transcript-ep,
   .episode-card:hover .episode-card-actions .btn-queue-ep,
   .episode-card:hover .episode-card-actions .btn-mark-played,
   .episode-card:focus-within .episode-card-actions .btn-fav-ep,
   .episode-card:focus-within .episode-card-actions .btn-download-ep,
+  .episode-card:focus-within .episode-card-actions .btn-transcript-ep,
   .episode-card:focus-within .episode-card-actions .btn-queue-ep,
   .episode-card:focus-within .episode-card-actions .btn-mark-played {
     opacity: 1;
@@ -1016,7 +1019,8 @@ mark.search-highlight {
   border-color: var(--text-primary);
 }
 
-.btn-queue-ep {
+.btn-queue-ep,
+.btn-transcript-ep {
   width: 32px;
   height: 32px;
   border-radius: var(--radius-full);
@@ -1030,6 +1034,19 @@ mark.search-highlight {
   flex-shrink: 0;
   transition: all 0.2s ease;
   padding: 0;
+}
+
+.btn-queue-ep svg,
+.btn-transcript-ep svg {
+  width: 14px;
+  height: 14px;
+}
+
+.btn-queue-ep:hover,
+.btn-transcript-ep:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
 }
 
 .btn-queue-ep svg {
@@ -4116,7 +4133,7 @@ body.has-active-episode.has-mini-player .player-mini {
 .waveform-timeline-wrap {
   display: none;
   position: absolute;
-  bottom: calc(100% - 2px);
+  bottom: calc(100% - 0px);
   left: 2rem;
   right: 2rem;
   height: 44px;

@@ -151,7 +151,8 @@
     DOWNLOADED: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a1 1 0 0 1 1 1v10.586l3.293-3.293a1 1 0 1 1 1.414 1.414l-5 5a1 1 0 0 1-1.414 0l-5-5a1 1 0 1 1 1.414-1.414L11 13.586V3a1 1 0 0 1 1-1zM4 20a1 1 0 0 1 1-1h14a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1z"/></svg>',
     DOWNLOAD_SPINNER: '<svg class="spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"></path></svg>',
     BELL_OFF: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.73 21a2 2 0 0 1-3.46 0"></path><path d="M18.63 13A17.89 17.89 0 0 1 18 8"></path><path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"></path><path d="M18 8a6 6 0 0 0-9.33-5"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>',
-    BELL: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>'
+    BELL: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>',
+    TRANSCRIPT: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>'
   };
 
   const FALLBACK_ARTWORK = 'data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%2318181b%22/%3E%3C/svg%3E';
@@ -395,7 +396,8 @@
     experimentalSettings: {
       enableVisualizer: true,
       enableAudioClassifier: true,
-      autoSkipSpeech: false
+      autoSkipSpeech: false,
+      enableTranscript: true
     },
     episodeTimeline: {
       guid: null,
@@ -576,6 +578,7 @@
     toggleVisualizer: document.getElementById('toggle-visualizer'),
     toggleClassifier: document.getElementById('toggle-classifier'),
     toggleAutoSkip: document.getElementById('toggle-auto-skip'),
+    toggleTranscript: document.getElementById('toggle-transcript'),
     experimentalStatus: document.getElementById('experimental-status')
   };
 
@@ -3698,6 +3701,9 @@
         <div class="episode-card-actions" style="display:flex; gap:4px; flex-wrap:nowrap;">
           ${favBtnHtml}
           ${downloadBtnHtml}
+          <button class="btn-transcript-ep" title="View Transcript" style="${state.experimentalSettings.enableTranscript === false ? 'display:none;' : ''}">
+            ${CARD_ICONS.TRANSCRIPT}
+          </button>
           <button class="btn-queue-ep ${isQueued ? 'is-queued' : ''}" title="${isQueued ? 'Remove from Up Next' : 'Add to Up Next'}">
             ${isQueued ? CARD_ICONS.QUEUE_ADDED : CARD_ICONS.QUEUE}
           </button>
@@ -3752,6 +3758,14 @@
         } else {
           downloadEpisode(ep);
         }
+      });
+    }
+
+    const transcriptBtn = card.querySelector('.btn-transcript-ep');
+    if (transcriptBtn) {
+      transcriptBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openShowNotes(ep, 'transcript');
       });
     }
 
@@ -5962,6 +5976,7 @@
         const parsed = JSON.parse(raw);
         if (parsed.enableVisualizer === undefined) parsed.enableVisualizer = true;
         if (parsed.enableAudioClassifier === undefined) parsed.enableAudioClassifier = true;
+        if (parsed.enableTranscript === undefined) parsed.enableTranscript = true;
         Object.assign(state.experimentalSettings, parsed);
       }
     } catch (_) {}
@@ -5978,10 +5993,20 @@
     const es = state.experimentalSettings;
     const isVis = !!es.enableVisualizer;
     const isClass = !!es.enableAudioClassifier;
+    const isTrans = es.enableTranscript !== false;
 
     if (elements.toggleVisualizer) elements.toggleVisualizer.checked = isVis;
     if (elements.toggleClassifier) elements.toggleClassifier.checked = isClass;
     if (elements.toggleAutoSkip) elements.toggleAutoSkip.checked = !!es.autoSkipSpeech;
+    if (elements.toggleTranscript) elements.toggleTranscript.checked = isTrans;
+
+    if (elements.btnPlayerTranscript) {
+      elements.btnPlayerTranscript.style.display = isTrans ? '' : 'none';
+    }
+    const epTranscriptBtns = document.querySelectorAll('.btn-transcript-ep');
+    epTranscriptBtns.forEach(btn => {
+      btn.style.display = isTrans ? '' : 'none';
+    });
 
     const skipRow = document.getElementById('row-auto-skip');
     if (skipRow) skipRow.style.opacity = isClass ? '1' : '0.4';
@@ -6037,6 +6062,13 @@
       elements.toggleAutoSkip.addEventListener('change', () => {
         state.experimentalSettings.autoSkipSpeech = elements.toggleAutoSkip.checked;
         saveExperimentalSettings();
+      });
+    }
+    if (elements.toggleTranscript) {
+      elements.toggleTranscript.addEventListener('change', () => {
+        state.experimentalSettings.enableTranscript = elements.toggleTranscript.checked;
+        saveExperimentalSettings();
+        syncExperimentalUI();
       });
     }
   }
