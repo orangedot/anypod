@@ -456,9 +456,6 @@
 
     <!-- Sticky Audio Player Footer -->
     <footer class="player-bar" id="player-bar">
-      <!-- Audio Visualizer Canvas (Experimental) -->
-      <canvas id="visualizer-canvas" class="visualizer-canvas" width="0" height="32" aria-hidden="true"></canvas>
-
       <div class="player-track-info">
         <img id="player-artwork" src="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%2318181b%22/%3E%3C/svg%3E" alt="Episode Artwork" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%2318181b%22/%3E%3C/svg%3E';">
         <div class="track-text">
@@ -494,10 +491,36 @@
           </button>
         </div>
 
-        <div class="time-scrubber">
-          <span class="time-label" id="current-time">0:00</span>
-          <input type="range" id="seek-bar" min="0" max="100" value="0" step="0.1" aria-label="Seek position">
-          <span class="time-label" id="total-duration">0:00</span>
+        <div class="time-scrubber" id="time-scrubber">
+          <!-- Full-Episode Waveform & Speech/Music Spectrum Timeline Chart -->
+          <div class="waveform-timeline-wrap" id="waveform-timeline-wrap" role="slider" aria-label="Episode timeline audio waveform" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0">
+            <canvas id="episode-waveform-canvas" class="episode-waveform-canvas" height="38"></canvas>
+            <div class="waveform-progress-overlay" id="waveform-progress-overlay"></div>
+            <div class="waveform-playhead-line" id="waveform-playhead-line"></div>
+            <div class="waveform-hover-cursor" id="waveform-hover-cursor"></div>
+            <div class="waveform-tooltip hidden" id="waveform-tooltip">0:00</div>
+          </div>
+
+          <div class="time-scrubber-bottom">
+            <span class="time-label" id="current-time">0:00</span>
+            <div class="timeline-legend" id="timeline-legend">
+              <button type="button" class="legend-btn legend-speech" id="btn-jump-speech" title="Jump to next talking segment">
+                <span class="legend-dot speech-dot"></span>
+                <span>Talk</span>
+                <span class="legend-jump-icon">⏭</span>
+              </button>
+              <button type="button" class="legend-btn legend-music" id="btn-jump-music" title="Jump to next music segment">
+                <span class="legend-dot music-dot"></span>
+                <span>Music</span>
+                <span class="legend-jump-icon">⏭</span>
+              </button>
+              <span class="probe-status-pill hidden" id="probe-status-pill">Probing audio...</span>
+            </div>
+            <span class="time-label" id="total-duration">0:00</span>
+          </div>
+
+          <!-- Native range input kept hidden for accessibility / fallback -->
+          <input type="range" id="seek-bar" min="0" max="100" value="0" step="0.1" aria-label="Seek position" class="sr-only-range">
         </div>
       </div>
 
