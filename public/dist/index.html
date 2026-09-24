@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.min.css?v=1790267193435">
+  <link rel="stylesheet" href="style.min.css?v=1790271186075">
 </head>
 <body>
   <!-- Cloud Sync & Magic Auth Modal -->
@@ -491,19 +491,20 @@
           </button>
         </div>
 
-        <div class="time-scrubber" id="time-scrubber" style="display: flex; flex-direction: column; width: 100%; max-width: 580px; gap: 0.35rem;">
-          <!-- Full-Episode Waveform & Speech/Music Spectrum Timeline Chart -->
-          <div class="waveform-timeline-wrap" id="waveform-timeline-wrap" role="slider" aria-label="Episode timeline audio waveform" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0" style="position: relative; width: 100%; height: 38px; cursor: pointer; user-select: none;">
-            <canvas id="episode-waveform-canvas" class="episode-waveform-canvas" height="38" style="width: 100%; height: 100%; display: block;"></canvas>
+        <div class="time-scrubber" id="time-scrubber">
+          <!-- Full-Episode Waveform & Speech/Music Spectrum Timeline Chart (when toggled ON in Settings) -->
+          <div class="waveform-timeline-wrap" id="waveform-timeline-wrap" role="slider" aria-label="Episode timeline audio waveform" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0">
+            <canvas id="episode-waveform-canvas" class="episode-waveform-canvas" height="38"></canvas>
             <div class="waveform-progress-overlay" id="waveform-progress-overlay"></div>
             <div class="waveform-playhead-line" id="waveform-playhead-line"></div>
             <div class="waveform-hover-cursor" id="waveform-hover-cursor"></div>
             <div class="waveform-tooltip hidden" id="waveform-tooltip">0:00</div>
           </div>
 
-          <div class="time-scrubber-bottom" style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+          <div class="time-scrubber-row">
             <span class="time-label" id="current-time">0:00</span>
-            <div class="timeline-legend" id="timeline-legend" style="display: flex; align-items: center; gap: 0.4rem;">
+            <input type="range" id="seek-bar" min="0" max="100" value="0" step="0.1" aria-label="Seek position">
+            <div class="timeline-legend" id="timeline-legend">
               <button type="button" class="legend-btn legend-speech" id="btn-jump-speech" title="Jump to next talking segment">
                 <span class="legend-dot speech-dot"></span>
                 <span>Talk</span>
@@ -518,9 +519,6 @@
             </div>
             <span class="time-label" id="total-duration">0:00</span>
           </div>
-
-          <!-- Native range input kept hidden for accessibility / fallback -->
-          <input type="range" id="seek-bar" min="0" max="100" value="0" step="0.1" aria-label="Seek position" class="sr-only-range" style="display: none;">
         </div>
       </div>
 
@@ -572,6 +570,6 @@
 
   <!-- YouTube Iframe API -->
   <script src="https://www.youtube.com/iframe_api"></script>
-  <script src="app.min.js?v=1790267193435"></script>
+  <script src="app.min.js?v=1790271186075"></script>
 </body>
 </html>

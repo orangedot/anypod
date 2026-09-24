@@ -2328,6 +2328,22 @@ body.has-active-episode.has-mini-player .player-mini {
   max-width: 580px;
 }
 
+.time-scrubber:not(.has-waveform) {
+  gap: 0;
+}
+
+.time-scrubber-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.time-scrubber.has-waveform .time-scrubber-row {
+  justify-content: space-between;
+  padding: 0 0.15rem;
+}
+
 .time-label {
   font-size: 0.75rem;
   color: var(--text-muted);
@@ -3873,6 +3889,7 @@ body.has-active-episode.has-mini-player .player-mini {
    ───────────────────────────────────────────────────────────────────────── */
 
 .waveform-timeline-wrap {
+  display: none;
   position: relative;
   width: 100%;
   height: 42px;
@@ -3882,10 +3899,17 @@ body.has-active-episode.has-mini-player .player-mini {
   background: rgba(0, 0, 0, 0.28);
   border: 1px solid var(--border-light);
   overflow: hidden;
-  display: flex;
   align-items: center;
   touch-action: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.time-scrubber.has-waveform .waveform-timeline-wrap {
+  display: flex;
+}
+
+.time-scrubber.has-waveform #seek-bar {
+  display: none !important;
 }
 
 [data-theme="light"] .waveform-timeline-wrap {
@@ -3962,18 +3986,28 @@ body.has-active-episode.has-mini-player .player-mini {
   color: var(--text-primary);
 }
 
-.time-scrubber-bottom {
+.time-scrubber-bottom,
+.time-scrubber-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.75rem;
   width: 100%;
+}
+
+.time-scrubber.has-waveform .time-scrubber-row,
+.time-scrubber.has-waveform .time-scrubber-bottom {
+  justify-content: space-between;
   padding: 0 0.15rem;
 }
 
 .timeline-legend {
-  display: flex;
+  display: none;
   align-items: center;
   gap: 0.4rem;
+}
+
+.time-scrubber.has-waveform.has-classifier .timeline-legend {
+  display: flex;
 }
 
 .legend-btn {

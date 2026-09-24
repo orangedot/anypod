@@ -352,6 +352,8 @@
     miniProgressFill: document.getElementById('mini-progress-fill'),
 
     // Full-Episode Waveform & Speech/Music Timeline Chart
+    timeScrubber: document.getElementById('time-scrubber'),
+    timelineLegend: document.getElementById('timeline-legend'),
     waveformTimelineWrap: document.getElementById('waveform-timeline-wrap'),
     episodeWaveformCanvas: document.getElementById('episode-waveform-canvas'),
     waveformProgressOverlay: document.getElementById('waveform-progress-overlay'),
@@ -5022,12 +5024,34 @@
 
   function syncExperimentalUI() {
     const es = state.experimentalSettings;
-    if (elements.toggleVisualizer) elements.toggleVisualizer.checked = es.enableVisualizer;
-    if (elements.toggleClassifier) elements.toggleClassifier.checked = es.enableAudioClassifier;
-    if (elements.toggleAutoSkip) elements.toggleAutoSkip.checked = es.autoSkipSpeech;
+    const isVis = !!es.enableVisualizer;
+    const isClass = !!es.enableAudioClassifier;
+
+    if (elements.toggleVisualizer) elements.toggleVisualizer.checked = isVis;
+    if (elements.toggleClassifier) elements.toggleClassifier.checked = isClass;
+    if (elements.toggleAutoSkip) elements.toggleAutoSkip.checked = !!es.autoSkipSpeech;
 
     const skipRow = document.getElementById('row-auto-skip');
-    if (skipRow) skipRow.style.opacity = es.enableAudioClassifier ? '1' : '0.4';
+    if (skipRow) skipRow.style.opacity = isClass ? '1' : '0.4';
+
+    if (elements.timeScrubber) {
+      elements.timeScrubber.classList.toggle('has-waveform', isVis);
+      elements.timeScrubber.classList.toggle('has-classifier', isClass);
+    }
+
+    if (elements.waveformTimelineWrap) {
+      elements.waveformTimelineWrap.style.display = isVis ? 'flex' : 'none';
+    }
+    if (elements.seekBar) {
+      elements.seekBar.style.display = isVis ? 'none' : 'block';
+    }
+    if (elements.timelineLegend) {
+      elements.timelineLegend.style.display = (isVis && isClass) ? 'flex' : 'none';
+    }
+
+    if (isVis) {
+      renderWaveformChart();
+    }
   }
 
   function setupExperimentalSettings() {
@@ -5035,7 +5059,10 @@
       elements.toggleVisualizer.addEventListener('change', () => {
         state.experimentalSettings.enableVisualizer = elements.toggleVisualizer.checked;
         saveExperimentalSettings();
-        renderWaveformChart();
+        syncExperimentalUI();
+        if (state.experimentalSettings.enableVisualizer && state.currentEpisode) {
+          initOrLoadEpisodeTimeline(state.currentEpisode, state.episodeTimeline.duration);
+        }
       });
     }
     if (elements.toggleClassifier) {
@@ -5049,6 +5076,8 @@
         syncExperimentalUI();
         if (state.currentEpisode && state.experimentalSettings.enableAudioClassifier) {
           probeEpisodeAudio(state.currentEpisode, state.episodeTimeline.duration);
+        } else if (!state.experimentalSettings.enableAudioClassifier) {
+          renderWaveformChart();
         }
       });
     }
@@ -5097,6 +5126,7 @@
 
   function initOrLoadEpisodeTimeline(episode, duration) {
     if (!episode || !episode.guid) return;
+    if (!state.experimentalSettings.enableVisualizer) return;
     const dur = (duration && duration > 0) ? duration : 1800; // fallback 30m if unknown
 
     if (state.episodeTimeline.guid === episode.guid && state.episodeTimeline.bars.length > 0) {
@@ -5128,8 +5158,10 @@
     state.episodeTimeline.segments = deriveSegmentsFromBars(state.episodeTimeline.bars, dur);
     renderWaveformChart();
 
-    // Launch background audio probing
-    probeEpisodeAudio(episode, dur);
+    // Launch background audio probing only if classifier is enabled
+    if (state.experimentalSettings.enableAudioClassifier) {
+      probeEpisodeAudio(episode, dur);
+    }
   }
 
   function deriveSegmentsFromBars(bars, duration) {
@@ -5160,6 +5192,7 @@
   }
 
   function renderWaveformChart() {
+    if (!state.experimentalSettings.enableVisualizer) return;
     const canvas = elements.episodeWaveformCanvas;
     const wrap = elements.waveformTimelineWrap;
     if (!canvas || !wrap) return;
@@ -5182,6 +5215,7 @@
     const barWidth = w / bars.length;
     const gap = Math.max(1, Math.floor(barWidth * 0.25));
     const drawWidth = Math.max(1.5, barWidth - gap);
+    const showClassifier = !!state.experimentalSettings.enableAudioClassifier;
 
     for (let i = 0; i < bars.length; i++) {
       const b = bars[i];
@@ -5190,12 +5224,12 @@
       const y = (h - barH) / 2;
 
       // Color coding: Speech = Orange, Music = Vibrant Purple
-      if (b.type === 'music') {
+      if (showClassifier && b.type === 'music') {
         ctx.fillStyle = '#a855f7'; // Purple/Violet
-      } else if (b.type === 'speech') {
+      } else if (showClassifier && b.type === 'speech') {
         ctx.fillStyle = '#f97316'; // Podcast Orange
       } else {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+        ctx.fillStyle = '#f97316'; // Standard single-color waveform
       }
 
       // Draw rounded bar
@@ -5218,6 +5252,10 @@
 
   async function probeEpisodeAudio(episode, duration) {
     if (!episode || !episode.audioUrl || episode.isYouTube) {
+      if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
+      return;
+    }
+    if (!state.experimentalSettings.enableAudioClassifier) {
       if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
       return;
     }
