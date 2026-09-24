@@ -1609,8 +1609,19 @@
     const incomingEpisodes = [];
     const updatedMetadata = { ...state.feedMetadata };
 
-    const fetchPromises = state.feeds.map(url => fetchSingleFeed(url, incomingEpisodes, updatedMetadata));
-    await Promise.allSettled(fetchPromises);
+    // Process feeds in bounded concurrent chunks (max 5 in-flight)
+    // to avoid overloading Cloudflare Workers subrequest limits and causing 503s.
+    const CONCURRENCY = 5;
+    const queue = [...state.feeds];
+    const workers = Array(Math.min(CONCURRENCY, queue.length)).fill(0).map(async () => {
+      while (queue.length > 0) {
+        const url = queue.shift();
+        if (url) {
+          await fetchSingleFeed(url, incomingEpisodes, updatedMetadata);
+        }
+      }
+    });
+    await Promise.all(workers);
 
     if (incomingEpisodes.length > 0) {
       const epMap = new Map();
@@ -1639,7 +1650,13 @@
       const headers = {};
       if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
 
-      const response = await fetch(apiUrl, { headers });
+      let response = await fetch(apiUrl, { headers });
+
+      // If Cloudflare or origin returns 503/524, retry once after a short backoff
+      if (response.status === 503 || response.status === 524) {
+        await new Promise(r => setTimeout(r, 750));
+        response = await fetch(apiUrl, { headers });
+      }
 
       if (response.status === 401) {
         throw new Error('Unauthorized');

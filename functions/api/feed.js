@@ -9,7 +9,8 @@ export async function onRequest(context) {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Session-Token',
-    'Content-Type': 'application/json; charset=utf-8'
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'public, max-age=180, stale-while-revalidate=300'
   };
 
   if (request.method === 'OPTIONS') {
@@ -104,12 +105,27 @@ async function fetchAndParseFeed(inputUrl) {
     return fetchYouTubeOEmbedFallback(playlistId, inputUrl);
   }
 
-  const response = await fetch(inputUrl, {
+  const fetchOptions = {
     headers: {
       'User-Agent': 'Podany/1.0 (+CloudflarePages)',
       'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
     }
-  });
+  };
+
+  // Add Cloudflare edge caching when running on Cloudflare Workers/Pages
+  try {
+    fetchOptions.cf = {
+      cacheTtl: 300,
+      cacheEverything: true
+    };
+  } catch (_) {}
+
+  // 8.5s timeout prevents Cloudflare Worker from hitting 503 on hanging origins
+  if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) {
+    fetchOptions.signal = AbortSignal.timeout(8500);
+  }
+
+  const response = await fetch(inputUrl, fetchOptions);
 
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: Unable to fetch feed`);
