@@ -4065,6 +4065,8 @@
       document.body.classList.add('has-full-player');
       if (elements.btnCollapsePlayer) elements.btnCollapsePlayer.setAttribute('aria-expanded', 'true');
       if (elements.miniToggle) elements.miniToggle.setAttribute('aria-expanded', 'true');
+      requestAnimationFrame(() => renderWaveformChart());
+      setTimeout(() => renderWaveformChart(), 350);
     }
     if (save) {
       try {
