@@ -2111,12 +2111,50 @@ mark.search-highlight {
   }
 }
 
+#panel-settings {
+  display: none;
+}
+
+#panel-settings.active {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+
+@media (min-width: 860px) {
+  #panel-settings.active {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  /* Experimental card has multiple toggles, make it span cleanly or fit gracefully */
+  #panel-settings .experimental-card {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 1400px) {
+  #panel-settings.active {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
+
+  #panel-settings .experimental-card {
+    grid-column: span 2;
+  }
+}
+
 .settings-card {
   background: var(--bg-card);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-md);
   padding: 1.5rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .settings-card h3 {
@@ -2137,6 +2175,7 @@ mark.search-highlight {
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
+  margin-top: auto;
 }
 
 .favorites-header-card {
@@ -2500,13 +2539,14 @@ body.has-active-episode.has-mini-player .player-mini {
 .player-track-info {
   display: flex;
   align-items: center;
-  gap: 0.9rem;
+  gap: 0.75rem;
   min-width: 0;
+  flex: 1;
 }
 
 #player-artwork {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-sm);
   object-fit: cover;
   background: #1f2937;
@@ -2515,7 +2555,11 @@ body.has-active-episode.has-mini-player .player-mini {
 
 .track-text {
   min-width: 0;
-  flex: 1;
+  flex: 1 1 0%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
 }
 
 .track-title {
@@ -2526,6 +2570,7 @@ body.has-active-episode.has-mini-player .player-mini {
   text-overflow: ellipsis;
   cursor: pointer;
   transition: color 0.15s ease;
+  line-height: 1.25;
 }
 
 .track-title:hover {
@@ -2534,7 +2579,7 @@ body.has-active-episode.has-mini-player .player-mini {
 }
 
 .track-podcast {
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -2543,6 +2588,7 @@ body.has-active-episode.has-mini-player .player-mini {
   transition: color 0.15s ease;
   display: inline-block;
   max-width: 100%;
+  line-height: 1.25;
 }
 
 .track-podcast:hover {
@@ -3598,10 +3644,10 @@ body.has-active-episode.has-mini-player .player-mini {
   }
 
   .player-bar {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: auto auto;
-    padding: 0.6rem 0.75rem;
-    gap: 0.4rem;
+    padding: 0.55rem 0.75rem calc(0.55rem + env(safe-area-inset-bottom, 0px)) 0.75rem;
+    gap: 0.35rem 0.6rem;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
@@ -3618,10 +3664,13 @@ body.has-active-episode.has-mini-player .player-mini {
 
   .player-track-info {
     grid-column: 1 / 2;
+    min-width: 0;
+    width: 100%;
   }
 
   .player-right-options {
     grid-column: 2 / 3;
+    gap: 0.4rem;
   }
 
   .player-center-controls {
@@ -4323,17 +4372,18 @@ body.has-active-episode.has-mini-player .player-mini {
 .timeline-legend {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  margin-left: 0.5rem;
+  gap: 0.3rem;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .legend-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.2rem 0.55rem;
+  gap: 0.25rem;
+  padding: 0.2rem 0.5rem;
   border-radius: 999px;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 500;
   border: 1px solid var(--border-light);
   background: rgba(255, 255, 255, 0.04);
