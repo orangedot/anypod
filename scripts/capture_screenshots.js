@@ -351,7 +351,7 @@ function inPageSetup(continueData, timelineData, feedsData) {
     const curTime = document.getElementById('current-time');
     if (curTime) curTime.textContent = '14:20';
     const totTime = document.getElementById('total-duration');
-    if (totTime) totTime.textContent = '54:02';
+    if (totTime) totTime.textContent = '-39:42';
     const seekBar = document.getElementById('seek-bar');
     if (seekBar) {
       seekBar.value = '26.5';
@@ -384,7 +384,7 @@ function inPageSetup(continueData, timelineData, feedsData) {
     wrap.style.display = 'flex';
     const rect = wrap.getBoundingClientRect();
     const w = (rect.width > 0) ? rect.width : window.innerWidth;
-    const h = (rect.height > 0) ? rect.height : 38;
+    const h = canvas.clientHeight || canvas.offsetHeight || 30;
     const dpr = window.devicePixelRatio || 1;
     canvas.width = Math.floor(w * dpr);
     canvas.height = Math.floor(h * dpr);
@@ -408,7 +408,7 @@ function inPageSetup(continueData, timelineData, feedsData) {
     const drawWidth = Math.max(1.5, barWidth - gap);
     for (let i = 0; i < bars.length; i++) {
       const b = bars[i];
-      const barH = Math.max(3, Math.round(b.height * (h - 8)));
+      const barH = Math.max(3, Math.round(b.height * (h - 4)));
       const x = i * barWidth + (gap / 2);
       const y = h - barH;
       const isPlayed = (x + drawWidth * 0.5) <= playheadX;

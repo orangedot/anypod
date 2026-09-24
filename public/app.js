@@ -417,7 +417,8 @@
       transcriptSource: '',
       isProbing: false,
       progressPct: 0
-    }
+    },
+    showRemainingTime: true
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -4657,11 +4658,24 @@
       total = state.ytPlayer.getDuration() || 0;
     }
 
-    elements.currentTimeLabel.textContent = formatTime(current);
+    if (elements.currentTimeLabel) {
+      elements.currentTimeLabel.textContent = formatTime(current);
+    }
+    if (elements.totalDurationLabel) {
+      if (total > 0 && state.showRemainingTime && total > current) {
+        elements.totalDurationLabel.textContent = `-${formatTime(total - current)}`;
+      } else if (total > 0) {
+        elements.totalDurationLabel.textContent = formatTime(total);
+      } else {
+        elements.totalDurationLabel.textContent = '0:00';
+      }
+    }
     if (total > 0) {
       const pct = (current / total) * 100;
-      elements.seekBar.value = pct;
-      elements.seekBar.style.setProperty('--seek-pct', `${pct}%`);
+      if (elements.seekBar) {
+        elements.seekBar.value = pct;
+        elements.seekBar.style.setProperty('--seek-pct', `${pct}%`);
+      }
       if (elements.miniProgressFill) {
         elements.miniProgressFill.style.width = `${pct}%`;
       }
@@ -5664,6 +5678,20 @@
       });
     }
 
+    if (elements.totalDurationLabel) {
+      elements.totalDurationLabel.addEventListener('click', (e) => {
+        e.stopPropagation();
+        state.showRemainingTime = !state.showRemainingTime;
+        updateProgress();
+      });
+    }
+
+    if (elements.currentTimeLabel) {
+      elements.currentTimeLabel.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+    }
+
     if (elements.btnCloseNotes) elements.btnCloseNotes.addEventListener('click', closeShowNotes);
     if (elements.showNotesModal) {
       elements.showNotesModal.addEventListener('click', (e) => {
@@ -6488,7 +6516,7 @@
 
     const rect = wrap.getBoundingClientRect();
     const w = (rect.width > 0) ? rect.width : (wrap.offsetWidth > 0 ? wrap.offsetWidth : (window.innerWidth || 500));
-    const h = (rect.height > 0) ? rect.height : (wrap.offsetHeight > 0 ? wrap.offsetHeight : 42);
+    const h = canvas.clientHeight || canvas.offsetHeight || 32;
     const dpr = window.devicePixelRatio || 1;
 
     canvas.width = Math.floor(w * dpr);
@@ -6856,6 +6884,7 @@
     };
 
     wrap.addEventListener('mousedown', (e) => {
+      if (e.target && (e.target.id === 'total-duration' || e.target.id === 'current-time')) return;
       isDragging = true;
       seekToPoint(e.clientX);
     });
@@ -6872,6 +6901,7 @@
 
     // Touch events for mobile
     wrap.addEventListener('touchstart', (e) => {
+      if (e.target && (e.target.id === 'total-duration' || e.target.id === 'current-time')) return;
       if (e.touches && e.touches[0]) {
         isDragging = true;
         seekToPoint(e.touches[0].clientX);

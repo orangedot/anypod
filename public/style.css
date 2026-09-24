@@ -2382,7 +2382,7 @@ body.has-active-episode.has-mini-player .bottom-action-dock {
   border-top: 1px solid var(--border-light);
   padding: 0.85rem 2rem;
   display: grid;
-  grid-template-columns: minmax(220px, 1.25fr) minmax(320px, 1.75fr) auto;
+  grid-template-columns: minmax(220px, 1.25fr) auto minmax(220px, 1.25fr);
   align-items: center;
   gap: 1.5rem;
   z-index: 100;
@@ -2599,9 +2599,8 @@ body.has-active-episode.has-mini-player .player-mini {
 
 .player-center-controls {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
+  justify-content: center;
 }
 
 .control-buttons {
@@ -4327,7 +4326,7 @@ body.has-active-episode.has-mini-player .player-mini {
   right: 0;
   width: 100%;
   grid-column: 1 / -1;
-  height: 44px;
+  height: 52px;
   cursor: pointer;
   user-select: none;
   background: var(--bg-glass);
@@ -4336,7 +4335,8 @@ body.has-active-episode.has-mini-player .player-mini {
   border-top: 1px solid var(--border-light);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   z-index: 10;
-  align-items: flex-end;
+  flex-direction: column;
+  justify-content: flex-end;
   touch-action: none;
   pointer-events: auto;
   overflow: hidden;
@@ -4353,16 +4353,59 @@ body.has-active-episode.has-mini-player .player-mini {
   .waveform-timeline-wrap {
     left: 0;
     right: 0;
-    height: 38px;
+    height: 48px;
     padding: 0;
   }
 }
 
 .episode-waveform-canvas {
   width: 100%;
-  height: 100%;
+  height: 33px;
   display: block;
   pointer-events: auto;
+}
+
+@media (max-width: 768px) {
+  .episode-waveform-canvas {
+    height: 29px;
+  }
+}
+
+.waveform-time-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 17px;
+  padding: 0 1.25rem 3px 1.25rem;
+  box-sizing: border-box;
+  pointer-events: auto;
+  user-select: none;
+}
+
+@media (max-width: 768px) {
+  .waveform-time-row {
+    padding: 0 0.85rem 3px 0.85rem;
+  }
+}
+
+.waveform-time-label {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Outfit", system-ui, sans-serif;
+  font-size: 0.68rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  line-height: 1;
+  transition: color 0.15s ease;
+}
+
+.waveform-time-label.time-remaining {
+  cursor: pointer;
+}
+
+.waveform-time-label.time-remaining:hover {
+  color: var(--text-primary);
 }
 
 .waveform-progress-overlay {
@@ -4371,8 +4414,8 @@ body.has-active-episode.has-mini-player .player-mini {
 
 .waveform-playhead-line {
   position: absolute;
-  top: 4px;
-  bottom: 0;
+  top: 0;
+  bottom: 17px;
   left: 0%;
   width: 2px;
   background: #fff;
@@ -4385,8 +4428,8 @@ body.has-active-episode.has-mini-player .player-mini {
 
 .waveform-hover-cursor {
   position: absolute;
-  top: 4px;
-  bottom: 0;
+  top: 0;
+  bottom: 17px;
   width: 1.5px;
   background: rgba(255, 255, 255, 0.85);
   box-shadow: 0 0 4px rgba(255, 255, 255, 0.7);

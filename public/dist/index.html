@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.min.css?v=1790289618605">
+  <link rel="stylesheet" href="style.min.css?v=1790290741406">
 </head>
 <body>
   <!-- Cloud Sync & Magic Auth Modal -->
@@ -515,11 +515,16 @@
     <footer class="player-bar" id="player-bar">
       <!-- Full-Episode Waveform & Speech/Music Spectrum Timeline Crest (Over content, under player bar) -->
       <div class="waveform-timeline-wrap" id="waveform-timeline-wrap" role="slider" aria-label="Episode timeline audio waveform" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0">
-        <canvas id="episode-waveform-canvas" class="episode-waveform-canvas" height="42"></canvas>
+        <canvas id="episode-waveform-canvas" class="episode-waveform-canvas"></canvas>
         <div class="waveform-progress-overlay" id="waveform-progress-overlay"></div>
         <div class="waveform-playhead-line" id="waveform-playhead-line"></div>
         <div class="waveform-hover-cursor" id="waveform-hover-cursor"></div>
         <div class="waveform-tooltip hidden" id="waveform-tooltip">0:00</div>
+        <div class="waveform-time-row" id="waveform-time-row">
+          <span class="waveform-time-label time-elapsed" id="current-time" title="Elapsed Time">0:00</span>
+          <span class="waveform-time-label time-remaining" id="total-duration" title="Tap to toggle between remaining time and total duration">0:00</span>
+        </div>
+        <input type="range" id="seek-bar" min="0" max="100" value="0" step="0.1" class="sr-only-range" aria-label="Seek position">
       </div>
 
       <div class="player-track-info">
@@ -568,14 +573,6 @@
           <button class="btn-icon" id="btn-player-mark-played" title="Mark as Listened & Play Next">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="16 9 11 14 8 11"></polyline></svg>
           </button>
-        </div>
-
-        <div class="time-scrubber" id="time-scrubber">
-          <div class="time-scrubber-row">
-            <span class="time-label" id="current-time">0:00</span>
-            <input type="range" id="seek-bar" min="0" max="100" value="0" step="0.1" aria-label="Seek position">
-            <span class="time-label" id="total-duration">0:00</span>
-          </div>
         </div>
       </div>
 
@@ -634,6 +631,6 @@
 
   <!-- YouTube Iframe API -->
   <script src="https://www.youtube.com/iframe_api"></script>
-  <script src="app.min.js?v=1790289618605"></script>
+  <script src="app.min.js?v=1790290741406"></script>
 </body>
 </html>
