@@ -242,6 +242,55 @@
         </div>
 
 
+        <div class="settings-card experimental-card">
+          <div class="experimental-card-header">
+            <h3>Experimental Features</h3>
+            <span class="experimental-badge">Beta</span>
+          </div>
+          <p>Enable audio analysis and visualizer features. These are experimental and may not work with all podcast streams due to CORS restrictions.</p>
+
+          <div class="experimental-row">
+            <label class="experimental-toggle-label" for="toggle-visualizer">
+              <div>
+                <strong>Audio Spectrum Visualizer</strong>
+                <span>SoundCloud-style bars in the player</span>
+              </div>
+              <div class="toggle-switch">
+                <input type="checkbox" id="toggle-visualizer" role="switch">
+                <span class="toggle-track"></span>
+              </div>
+            </label>
+          </div>
+
+          <div class="experimental-row">
+            <label class="experimental-toggle-label" for="toggle-classifier">
+              <div>
+                <strong>Audio Classifier</strong>
+                <span>Detect speech vs. music segments (heuristic)</span>
+              </div>
+              <div class="toggle-switch">
+                <input type="checkbox" id="toggle-classifier" role="switch">
+                <span class="toggle-track"></span>
+              </div>
+            </label>
+          </div>
+
+          <div class="experimental-row" id="row-auto-skip">
+            <label class="experimental-toggle-label" for="toggle-auto-skip">
+              <div>
+                <strong>Auto-Skip Speech in Music Feeds</strong>
+                <span>Skip forward 30s when speech is detected for >8s</span>
+              </div>
+              <div class="toggle-switch">
+                <input type="checkbox" id="toggle-auto-skip" role="switch">
+                <span class="toggle-track"></span>
+              </div>
+            </label>
+          </div>
+
+          <div class="experimental-status" id="experimental-status"></div>
+        </div>
+
         <div class="settings-card danger-zone">
           <h3>Clear Local Cache</h3>
           <p>Reset local storage, cached episode state, and saved feeds.</p>
@@ -414,6 +463,9 @@
           <div class="track-podcast" id="player-podcast">Podany</div>
         </div>
       </div>
+
+      <!-- Audio Visualizer Canvas (Experimental) -->
+      <canvas id="visualizer-canvas" class="visualizer-canvas" width="0" height="32" aria-hidden="true"></canvas>
 
       <div class="player-center-controls">
         <div class="control-buttons">

@@ -132,7 +132,8 @@
     POSITIONS: 'podany_playback_positions',
     THEME: 'podany_theme',
     QUEUE: 'podany_playback_queue',
-    DOWNLOADS: 'podany_downloads'
+    DOWNLOADS: 'podany_downloads',
+    EXPERIMENTAL: 'podany_experimental_settings'
   };
 
   const CARD_ICONS = {
@@ -198,6 +199,21 @@
       intervalId: null,
       fadeout: true,
       initialVolume: 1.0
+    },
+    experimentalSettings: {
+      enableVisualizer: false,
+      enableAudioClassifier: false,
+      autoSkipSpeech: false
+    },
+    audioAnalysis: {
+      ctx: null,           // AudioContext singleton
+      analyser: null,      // AnalyserNode
+      source: null,        // MediaElementSourceNode (created once)
+      rafId: null,         // requestAnimationFrame id
+      dataArray: null,     // Uint8Array for frequency data
+      corsBlocked: false,  // true when getByteFrequencyData returns zeros
+      classifierSpeechMs: 0, // rolling ms of speech detected
+      lastClassifyAt: 0
     }
   };
 
@@ -335,7 +351,14 @@
     miniIconPause: document.querySelector('.mini-icon-pause'),
     miniIconSpinner: document.querySelector('.mini-icon-spinner'),
     miniToggle: document.getElementById('mini-toggle'),
-    miniProgressFill: document.getElementById('mini-progress-fill')
+    miniProgressFill: document.getElementById('mini-progress-fill'),
+    visualizerCanvas: document.getElementById('visualizer-canvas'),
+
+    // Experimental feature toggles
+    toggleVisualizer: document.getElementById('toggle-visualizer'),
+    toggleClassifier: document.getElementById('toggle-classifier'),
+    toggleAutoSkip: document.getElementById('toggle-auto-skip'),
+    experimentalStatus: document.getElementById('experimental-status')
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -599,6 +622,7 @@
     loadDownloadsFromStorage();
     setupEventListeners();
     setupAudioEngines();
+    hookVisualizerToAudio();
     setupNetworkListeners();
     updateQueueUI();
     updateDownloadedCountUI();
@@ -606,6 +630,8 @@
     initServiceWorker();
     initNavigationRoute();
     checkAuth();
+    loadExperimentalSettings();
+    setupExperimentalSettings();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -4923,6 +4949,371 @@
     const excerpt = prefix + cleanText.slice(startIdx, actualEnd).trim() + suffix;
 
     return highlightText(excerpt, q);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 30 · Experimental: Audio Analysis & Visualizer
+  // Web Audio API pipeline: AudioContext → MediaElementSource → AnalyserNode.
+  // Visualizer: Canvas-based spectrum bars in the full player footer.
+  // Classifier stub: heuristic energy/spectral-centroid speech vs music.
+  // Auto-skip: if speech detected >8 s in a row, seek forward 30 s.
+  //
+  // CORS note: podcast streams rarely expose CORS headers, so
+  // getByteFrequencyData may return all-zeros (tainted). The audio itself
+  // still plays. We detect this and fall back to an idle animation.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // ── Experimental settings persistence ──────────────────────────────────
+
+  function loadExperimentalSettings() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.EXPERIMENTAL);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        Object.assign(state.experimentalSettings, parsed);
+      }
+    } catch (_) {}
+    syncExperimentalUI();
+  }
+
+  function saveExperimentalSettings() {
+    try {
+      localStorage.setItem(STORAGE_KEYS.EXPERIMENTAL, JSON.stringify(state.experimentalSettings));
+    } catch (_) {}
+  }
+
+  function syncExperimentalUI() {
+    const es = state.experimentalSettings;
+    if (elements.toggleVisualizer) elements.toggleVisualizer.checked = es.enableVisualizer;
+    if (elements.toggleClassifier) elements.toggleClassifier.checked = es.enableAudioClassifier;
+    if (elements.toggleAutoSkip) elements.toggleAutoSkip.checked = es.autoSkipSpeech;
+
+    // Show/hide auto-skip row depending on classifier being enabled
+    const skipRow = document.getElementById('row-auto-skip');
+    if (skipRow) skipRow.style.opacity = es.enableAudioClassifier ? '1' : '0.4';
+  }
+
+  function setupExperimentalSettings() {
+    if (elements.toggleVisualizer) {
+      elements.toggleVisualizer.addEventListener('change', () => {
+        state.experimentalSettings.enableVisualizer = elements.toggleVisualizer.checked;
+        saveExperimentalSettings();
+        if (state.experimentalSettings.enableVisualizer) {
+          initAudioContext();
+          if (state.playbackStatus === 'playing' && state.activeEngine === 'audio') {
+            startVisualizerLoop();
+          }
+        } else {
+          stopVisualizerLoop();
+        }
+      });
+    }
+    if (elements.toggleClassifier) {
+      elements.toggleClassifier.addEventListener('change', () => {
+        state.experimentalSettings.enableAudioClassifier = elements.toggleClassifier.checked;
+        if (!state.experimentalSettings.enableAudioClassifier) {
+          state.experimentalSettings.autoSkipSpeech = false;
+          if (elements.toggleAutoSkip) elements.toggleAutoSkip.checked = false;
+        }
+        saveExperimentalSettings();
+        syncExperimentalUI();
+        if (state.experimentalSettings.enableAudioClassifier) {
+          initAudioContext();
+        }
+      });
+    }
+    if (elements.toggleAutoSkip) {
+      elements.toggleAutoSkip.addEventListener('change', () => {
+        state.experimentalSettings.autoSkipSpeech = elements.toggleAutoSkip.checked;
+        saveExperimentalSettings();
+      });
+    }
+  }
+
+  // ── AudioContext / AnalyserNode init ────────────────────────────────────
+
+  function initAudioContext() {
+    const aa = state.audioAnalysis;
+    if (aa.ctx) return; // already initialised
+
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) {
+        setExperimentalStatus('Web Audio API not supported in this browser.', 'warn');
+        return;
+      }
+      aa.ctx = new AudioCtx();
+
+      // AnalyserNode — fftSize 256 gives 128 frequency bins (fast enough for 60 fps)
+      aa.analyser = aa.ctx.createAnalyser();
+      aa.analyser.fftSize = 256;
+      aa.analyser.smoothingTimeConstant = 0.8;
+      aa.dataArray = new Uint8Array(aa.analyser.frequencyBinCount); // 128 bins
+
+      // MediaElementSource — created once; cannot be re-created for same element.
+      // crossOrigin must already be set (or we accept zero-data graceful fallback).
+      try {
+        aa.source = aa.ctx.createMediaElementSource(elements.audio);
+        aa.source.connect(aa.analyser);
+        aa.analyser.connect(aa.ctx.destination);
+      } catch (e) {
+        // If source was already created (InvalidStateError), ignore.
+        if (!String(e).includes('InvalidStateError')) {
+          console.warn('[AudioAnalysis] createMediaElementSource failed:', e);
+        }
+        // Connect analyser directly to destination as fallback
+        try { aa.analyser.connect(aa.ctx.destination); } catch (_) {}
+      }
+    } catch (e) {
+      console.warn('[AudioAnalysis] AudioContext init failed:', e);
+      setExperimentalStatus('AudioContext init failed: ' + e.message, 'warn');
+    }
+  }
+
+  // ── Visualizer loop ─────────────────────────────────────────────────────
+
+  function startVisualizerLoop() {
+    const aa = state.audioAnalysis;
+    const es = state.experimentalSettings;
+    if (!es.enableVisualizer) return;
+    if (!aa.ctx || !aa.analyser) {
+      initAudioContext();
+      if (!aa.ctx) return;
+    }
+    if (aa.ctx.state === 'suspended') {
+      aa.ctx.resume().catch(() => {});
+    }
+    stopVisualizerLoop(); // cancel any previous RAF
+
+    const canvas = elements.visualizerCanvas;
+    if (!canvas) return;
+    canvas.classList.add('active');
+
+    const ctx2d = canvas.getContext('2d');
+
+    let corsCheckCount = 0;
+    let isCorsBlocked = false;
+
+    function resizeCanvas() {
+      const bar = elements.playerBar;
+      if (!bar) return;
+      const w = bar.offsetWidth;
+      canvas.width = w * (window.devicePixelRatio || 1);
+      canvas.height = 32 * (window.devicePixelRatio || 1);
+      canvas.style.width = w + 'px';
+      canvas.style.height = '32px';
+    }
+    resizeCanvas();
+
+    function drawFrame() {
+      // Pause rendering when player is mini / hidden
+      const isFullPlayer = document.body.classList.contains('has-full-player');
+      if (!isFullPlayer || state.playbackStatus !== 'playing' || state.activeEngine !== 'audio') {
+        // Draw a flat idle line instead of clearing
+        ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+        aa.rafId = requestAnimationFrame(drawFrame);
+        return;
+      }
+
+      aa.analyser.getByteFrequencyData(aa.dataArray);
+
+      // CORS detection: if first 10 frames all return zero sum, mark as blocked
+      if (!isCorsBlocked && corsCheckCount < 10) {
+        let sum = 0;
+        for (let i = 0; i < aa.dataArray.length; i++) sum += aa.dataArray[i];
+        if (sum === 0) corsCheckCount++;
+        else corsCheckCount = 0; // reset if we get data
+        if (corsCheckCount >= 10) {
+          isCorsBlocked = true;
+          aa.corsBlocked = true;
+          setExperimentalStatus('ℹ️ Stream lacks CORS headers — showing idle animation. Audio plays normally.', 'warn');
+        }
+      }
+
+      ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+
+      const W = canvas.width;
+      const H = canvas.height;
+      const bins = aa.dataArray.length;
+
+      // Use only the lower half of bins (voice/music fundamentals: 0–4 kHz)
+      const useBins = Math.floor(bins * 0.5);
+      const barW = W / useBins;
+      const gap = Math.max(1, Math.floor(barW * 0.15));
+
+      // Accent colour from CSS variable or fallback to orange
+      const accentRaw = getComputedStyle(document.documentElement).getPropertyValue('--accent-orange').trim();
+      const accent = accentRaw || '#f97316';
+
+      for (let i = 0; i < useBins; i++) {
+        let val = isCorsBlocked
+          ? (Math.sin(Date.now() / 400 + i * 0.6) * 0.5 + 0.5) * 0.35  // idle animation
+          : aa.dataArray[i] / 255;
+
+        const barH = Math.max(2, val * H);
+        const x = i * barW;
+        const y = H - barH;
+
+        // Gradient: brighter orange at top, dimmer at bottom
+        const grad = ctx2d.createLinearGradient(0, y, 0, H);
+        grad.addColorStop(0, accent);
+        grad.addColorStop(1, accent + '44');
+
+        ctx2d.fillStyle = grad;
+        ctx2d.fillRect(x + gap / 2, y, barW - gap, barH);
+      }
+
+      // Audio classification (if enabled) — sample every ~250 ms
+      if (es.enableAudioClassifier && !isCorsBlocked) {
+        const now = performance.now();
+        if (now - aa.lastClassifyAt > 250) {
+          aa.lastClassifyAt = now;
+          classifyAudioFrame();
+        }
+      }
+
+      aa.rafId = requestAnimationFrame(drawFrame);
+    }
+
+    aa.rafId = requestAnimationFrame(drawFrame);
+
+    // Resize canvas when window resizes
+    window._vizResizeHandler = () => resizeCanvas();
+    window.addEventListener('resize', window._vizResizeHandler);
+  }
+
+  function stopVisualizerLoop() {
+    const aa = state.audioAnalysis;
+    if (aa.rafId) {
+      cancelAnimationFrame(aa.rafId);
+      aa.rafId = null;
+    }
+    const canvas = elements.visualizerCanvas;
+    if (canvas) {
+      canvas.classList.remove('active');
+      const ctx2d = canvas.getContext('2d');
+      if (ctx2d) ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    if (window._vizResizeHandler) {
+      window.removeEventListener('resize', window._vizResizeHandler);
+      window._vizResizeHandler = null;
+    }
+  }
+
+  // ── Audio Classifier (heuristic stub) ──────────────────────────────────
+  // Heuristic approach using energy levels and spectral centroid.
+  // Ready to be replaced with @xenova/transformers / ONNX model.
+  //
+  // Speech characteristics:
+  //   - Mid-frequency energy dominant (300 Hz – 3 kHz, bins ~5–65 of 128)
+  //   - Low spectral centroid (centred around 1–2 kHz)
+  //   - Moderate total energy (not silence, not loud music)
+  //
+  // Music characteristics:
+  //   - Broader frequency spread
+  //   - Higher total energy or heavy low-end bass
+
+  function classifyAudioFrame() {
+    const aa = state.audioAnalysis;
+    if (!aa.dataArray) return;
+    const data = aa.dataArray;
+    const len = data.length; // 128 bins at fftSize=256
+
+    // Compute total energy
+    let totalEnergy = 0;
+    for (let i = 0; i < len; i++) totalEnergy += data[i];
+
+    if (totalEnergy < 200) {
+      // Near-silence — don't classify
+      aa.classifierSpeechMs = 0;
+      return;
+    }
+
+    // Spectral centroid: weighted mean of frequency bins
+    let weightedSum = 0;
+    for (let i = 0; i < len; i++) weightedSum += i * data[i];
+    const centroid = weightedSum / (totalEnergy || 1);
+
+    // Low-end energy (bass: bins 0-10)
+    let bassEnergy = 0;
+    for (let i = 0; i < Math.min(10, len); i++) bassEnergy += data[i];
+
+    // High-end energy (treble: bins 80-128)
+    let highEnergy = 0;
+    for (let i = 80; i < len; i++) highEnergy += data[i];
+
+    // Heuristic classification:
+    // Speech: centroid in voice range (roughly bins 8-45), low bass, low treble
+    const isSpeech = (centroid > 8 && centroid < 45) &&
+                     (bassEnergy / totalEnergy < 0.25) &&
+                     (highEnergy / totalEnergy < 0.2);
+
+    if (isSpeech) {
+      aa.classifierSpeechMs += 250;
+    } else {
+      aa.classifierSpeechMs = Math.max(0, aa.classifierSpeechMs - 100);
+    }
+
+    updateClassifierStatus(isSpeech, centroid);
+
+    // Auto-skip if speech detected continuously for >8 s in music mode
+    if (state.experimentalSettings.autoSkipSpeech && aa.classifierSpeechMs >= 8000) {
+      aa.classifierSpeechMs = 0;
+      if (state.activeEngine === 'audio' && elements.audio.duration) {
+        const newTime = Math.min(elements.audio.duration, elements.audio.currentTime + 30);
+        elements.audio.currentTime = newTime;
+        setExperimentalStatus('⏭ Auto-skipped 30s (speech detected)', 'ok');
+        setTimeout(() => updateClassifierStatus(false, centroid), 3000);
+      }
+    }
+  }
+
+  function updateClassifierStatus(isSpeech, centroid) {
+    if (!elements.experimentalStatus) return;
+    if (!state.experimentalSettings.enableAudioClassifier) return;
+    const speechBar = Math.min(100, (state.audioAnalysis.classifierSpeechMs / 8000) * 100).toFixed(0);
+    const label = isSpeech ? '🎙 Speech' : '🎵 Music';
+    const centLabel = centroid ? ` · centroid: ${centroid.toFixed(1)}` : '';
+    elements.experimentalStatus.textContent = `${label}${centLabel} · speech confidence: ${speechBar}%`;
+    elements.experimentalStatus.className = 'experimental-status' + (isSpeech ? ' warn' : ' ok');
+  }
+
+  function setExperimentalStatus(msg, cls) {
+    if (!elements.experimentalStatus) return;
+    elements.experimentalStatus.textContent = msg;
+    elements.experimentalStatus.className = 'experimental-status' + (cls ? ' ' + cls : '');
+  }
+
+  // ── Hook visualizer into audio engine events ────────────────────────────
+  // Called from setupAudioEngines() after the audio element is ready.
+
+  function hookVisualizerToAudio() {
+    const audio = elements.audio;
+
+    audio.addEventListener('playing', () => {
+      if (state.activeEngine === 'audio' && state.experimentalSettings.enableVisualizer) {
+        // Resume AudioContext (browsers suspend it until user gesture)
+        if (state.audioAnalysis.ctx && state.audioAnalysis.ctx.state === 'suspended') {
+          state.audioAnalysis.ctx.resume().catch(() => {});
+        }
+        startVisualizerLoop();
+      }
+    });
+
+    audio.addEventListener('pause', () => {
+      if (state.experimentalSettings.enableVisualizer) {
+        stopVisualizerLoop();
+      }
+      state.audioAnalysis.classifierSpeechMs = 0;
+    });
+
+    audio.addEventListener('ended', () => {
+      stopVisualizerLoop();
+      state.audioAnalysis.classifierSpeechMs = 0;
+    });
+
+    // When a new src is assigned, the AudioContext source stays connected —
+    // we just need to resume if it was suspended.
   }
 
   document.addEventListener('DOMContentLoaded', init);
