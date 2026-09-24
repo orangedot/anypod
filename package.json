@@ -1,5 +1,5 @@
 {
-  "name": "podany",
+  "name": "anypod",
   "version": "1.0.0",
   "description": "Private podcast RSS feed aggregator and web player hosted on Cloudflare Pages/Workers",
   "main": "public/index.html",

@@ -107,7 +107,7 @@ export async function onRequest(context) {
       } catch (e) {}
     }
     if (!appUrl || appUrl === 'null') {
-      appUrl = env.APP_URL || 'https://podany.poizoom.com';
+      appUrl = env.APP_URL || 'https://anypod.org';
     }
     appUrl = appUrl.replace(/\/$/, '');
 
@@ -131,9 +131,9 @@ export async function onRequest(context) {
 <head><meta charset="utf-8"></head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0c0a09; color: #f5f5f4; padding: 40px 20px;">
   <div style="max-width: 480px; margin: 0 auto; background: #1c1917; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 32px; text-align: center;">
-    <h1 style="color: #ffffff; font-size: 22px; margin-bottom: 12px; font-weight: 700;">Sign in to Podany</h1>
+    <h1 style="color: #ffffff; font-size: 22px; margin-bottom: 12px; font-weight: 700;">Sign in to Anypod</h1>
     <p style="color: #a8a29e; font-size: 15px; line-height: 1.5; margin-bottom: 28px;">Click the button below to complete your sign in. This magic link is valid for 15 minutes.</p>
-    <a href="${verifyUrl}" style="display: inline-block; background: #d8cdbe; color: #141414; font-weight: 600; font-size: 15px; padding: 13px 28px; border-radius: 8px; text-decoration: none;">Sign In to Podany</a>
+    <a href="${verifyUrl}" style="display: inline-block; background: #d8cdbe; color: #141414; font-weight: 600; font-size: 15px; padding: 13px 28px; border-radius: 8px; text-decoration: none;">Sign In to Anypod</a>
     <p style="color: #78716c; font-size: 12px; margin-top: 32px; word-break: break-all;">Link not working? Paste this URL into your browser:<br><a href="${verifyUrl}" style="color: #d8cdbe;">${verifyUrl}</a></p>
   </div>
 </body>
@@ -148,7 +148,7 @@ export async function onRequest(context) {
       body: JSON.stringify({
         from: fromEmail,
         to: [email],
-        subject: 'Podany Magic Login Link',
+        subject: 'Anypod Magic Login Link',
         html: emailHtml
       })
     });

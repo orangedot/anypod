@@ -28,10 +28,10 @@ async function createMagicActionToken(db, userId, purpose = 'keep_active') {
 }
 
 function buildCleanerEmailHtml({ email, appUrl, verifyUrl, opmlUrl, isFinalNotice = false }) {
-  const title = isFinalNotice ? 'Final Notice: Account Deletion in 10 Days' : 'Podany Cleaner Monday: Inactive Account Check';
+  const title = isFinalNotice ? 'Final Notice: Account Deletion in 10 Days' : 'Anypod Cleaner Monday: Inactive Account Check';
   const subtitle = isFinalNotice 
-    ? 'Your Podany account and cloud sync data are scheduled for permanent deletion in <strong>10 days</strong> due to 50 days of inactivity.'
-    : 'You haven\'t used your Podany cloud sync in the last <strong>30 days</strong>. To protect your privacy and keep our servers lean, we automatically wipe inactive accounts after 60 days.';
+    ? 'Your Anypod account and cloud sync data are scheduled for permanent deletion in <strong>10 days</strong> due to 50 days of inactivity.'
+    : 'You haven\'t used your Anypod cloud sync in the last <strong>30 days</strong>. To protect your privacy and keep our servers lean, we automatically wipe inactive accounts after 60 days.';
 
   return `<!DOCTYPE html>
 <html>
@@ -49,7 +49,7 @@ function buildCleanerEmailHtml({ email, appUrl, verifyUrl, opmlUrl, isFinalNotic
     <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 10px; padding: 18px; margin-bottom: 26px; text-align: left;">
       <p style="color: #e7e5e4; font-size: 13px; font-weight: 600; margin: 0 0 8px 0;">What would you like to do?</p>
       <ul style="color: #a8a29e; font-size: 13px; line-height: 1.5; margin: 0; padding-left: 20px;">
-        <li style="margin-bottom: 6px;"><strong>Keep Account:</strong> Tap the button below to confirm you still use Podany.</li>
+        <li style="margin-bottom: 6px;"><strong>Keep Account:</strong> Tap the button below to confirm you still use Anypod.</li>
         <li style="margin-bottom: 6px;"><strong>Export Feeds:</strong> Download your podcast library as a standard OPML file.</li>
         <li><strong>Let it expire:</strong> Do nothing, and your data will be permanently wiped with zero traces left.</li>
       </ul>
@@ -65,7 +65,7 @@ function buildCleanerEmailHtml({ email, appUrl, verifyUrl, opmlUrl, isFinalNotic
     </div>
 
     <p style="color: #78716c; font-size: 11px; line-height: 1.4; margin: 0; border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 20px;">
-      Podany believes in Privacy by Default &amp; Storage Limitation (GDPR Art. 5). We do not keep inactive data indefinitely.
+      Anypod believes in Privacy by Default &amp; Storage Limitation (GDPR Art. 5). We do not keep inactive data indefinitely.
     </p>
   </div>
 </body>
@@ -113,8 +113,8 @@ export async function onRequest(context) {
   await ensureCleanerColumns(db);
 
   const resendKey = env.RESEND_API_KEY;
-  const fromEmail = env.FROM_EMAIL || 'Podany Cleaner <login@podany.poizoom.com>';
-  const appUrl = (env.APP_URL || 'https://podany.poizoom.com').replace(/\/$/, '');
+  const fromEmail = env.FROM_EMAIL || 'Anypod Cleaner <login@anypod.org>';
+  const appUrl = (env.APP_URL || 'https://anypod.org').replace(/\/$/, '');
 
   const isDryRun = url.searchParams.get('dryRun') === 'true' || (!url.searchParams.get('run') && !url.searchParams.get('testEmail'));
   const testEmail = url.searchParams.get('testEmail');
@@ -124,7 +124,7 @@ export async function onRequest(context) {
     const isFinal = url.searchParams.get('type') === 'final' || url.searchParams.get('type') === '50d';
     const sampleToken = 'test_' + Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join('');
     const verifyUrl = `${appUrl}/auth/verify/?token=${sampleToken}`;
-    const subject = isFinal ? '[Test] Final Notice: Podany Account Deletion in 10 Days' : '[Test] Podany Cleaner Monday: Inactive Account Check';
+    const subject = isFinal ? '[Test] Final Notice: Anypod Account Deletion in 10 Days' : '[Test] Anypod Cleaner Monday: Inactive Account Check';
 
     const emailHtml = buildCleanerEmailHtml({
       email: testEmail,
@@ -312,7 +312,7 @@ export async function onRequest(context) {
           body: JSON.stringify({
             from: fromEmail,
             to: [target.email],
-            subject: 'Final Notice: 10 Days Until Podany Account Deletion',
+            subject: 'Final Notice: 10 Days Until Anypod Account Deletion',
             html
           })
         });
@@ -348,7 +348,7 @@ export async function onRequest(context) {
           body: JSON.stringify({
             from: fromEmail,
             to: [target.email],
-            subject: 'Podany Cleaner Monday: Inactive Account Check',
+            subject: 'Anypod Cleaner Monday: Inactive Account Check',
             html
           })
         });

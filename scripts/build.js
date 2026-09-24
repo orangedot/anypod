@@ -8,7 +8,7 @@ const rootDir = path.resolve(__dirname, '..');
 const publicDir = path.join(rootDir, 'public');
 const distDir = path.join(publicDir, 'dist');
 
-console.log('📦 Starting Podany production build...');
+console.log('📦 Starting Anypod production build...');
 
 if (!fs.existsSync(distDir)) {
   fs.mkdirSync(distDir, { recursive: true });

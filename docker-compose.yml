@@ -1,10 +1,10 @@
 services:
-  podany:
+  anypod:
     build:
       context: .
       dockerfile: Dockerfile
-    image: podany:latest
-    container_name: podany
+    image: anypod:latest
+    container_name: anypod
     restart: unless-stopped
     ports:
       - "${PORT:-8788}:8788"
@@ -16,9 +16,9 @@ services:
     environment:
       - PORT=${PORT:-8788}
       - APP_URL=${APP_URL:-http://localhost:8788}
-      - FROM_EMAIL=${FROM_EMAIL:-Podany <login@podany.local>}
+      - FROM_EMAIL=${FROM_EMAIL:-Anypod <login@anypod.local>}
       # Optional: Resend API key for magic-link emails (https://resend.com)
-      # If left empty, Podany runs in 100% offline mode (magic login link is printed to terminal & returned in UI!)
+      # If left empty, Anypod runs in 100% offline mode (magic login link is printed to terminal & returned in UI!)
       - RESEND_API_KEY=${RESEND_API_KEY:-}
       # Optional: Secret key to secure the /api/cron/cleanup endpoint
       - CRON_SECRET=${CRON_SECRET:-}

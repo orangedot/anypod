@@ -2,7 +2,7 @@
   'use strict';
 
   /**
-   * app.js — Podany Podcast App
+   * app.js — Anypod Podcast App
    *
    * Single-file vanilla JS frontend for a private podcast player.
    * Runs on Cloudflare Pages + D1. No build step, no bundler.
@@ -124,16 +124,16 @@
   // ─────────────────────────────────────────────────────────────────────────
 
   const STORAGE_KEYS = {
-    FEEDS: 'podany_feeds',
-    MUTED_FEEDS: 'podany_muted_feeds',
-    SESSION: 'podany_session_token',
-    CACHED_EPISODES: 'podany_cached_episodes',
-    CACHED_METADATA: 'podany_cached_metadata',
-    POSITIONS: 'podany_playback_positions',
-    THEME: 'podany_theme',
-    QUEUE: 'podany_playback_queue',
-    DOWNLOADS: 'podany_downloads',
-    EXPERIMENTAL: 'podany_experimental_settings'
+    FEEDS: 'anypod_feeds',
+    MUTED_FEEDS: 'anypod_muted_feeds',
+    SESSION: 'anypod_session_token',
+    CACHED_EPISODES: 'anypod_cached_episodes',
+    CACHED_METADATA: 'anypod_cached_metadata',
+    POSITIONS: 'anypod_playback_positions',
+    THEME: 'anypod_theme',
+    QUEUE: 'anypod_playback_queue',
+    DOWNLOADS: 'anypod_downloads',
+    EXPERIMENTAL: 'anypod_experimental_settings'
   };
 
   const CARD_ICONS = {
@@ -1337,7 +1337,7 @@
 
   // ─────────────────────────────────────────────────────────────────────────
   // SECTION 12 · Downloads (Offline Listening)
-  // Episodes are cached in the Cache API under 'podany-audio-v1'.
+  // Episodes are cached in the Cache API under 'anypod-audio-v1'.
   // Metadata (guid, size, title…) is tracked in state.downloadedEpisodes
   // and persisted to localStorage under STORAGE_KEYS.DOWNLOADS.
   // downloadEpisode — fetches audio, falls back to /api/audio-proxy on CORS.
@@ -1442,7 +1442,7 @@
       const approxSize = blob.size || 0;
 
       if ('caches' in window) {
-        const audioCache = await caches.open('podany-audio-v1');
+        const audioCache = await caches.open('anypod-audio-v1');
         const headers = new Headers();
         headers.set('Content-Type', blob.type || 'audio/mpeg');
         headers.set('Content-Length', String(blob.size));
@@ -1485,7 +1485,7 @@
     const ep = state.downloadedEpisodes[guid];
     if (ep && 'caches' in window) {
       try {
-        const audioCache = await caches.open('podany-audio-v1');
+        const audioCache = await caches.open('anypod-audio-v1');
         await audioCache.delete(ep.audioUrl);
       } catch (e) {}
     }
@@ -1501,7 +1501,7 @@
   async function clearAllDownloads() {
     if ('caches' in window) {
       try {
-        await caches.delete('podany-audio-v1');
+        await caches.delete('anypod-audio-v1');
       } catch (e) {}
     }
     state.downloadedEpisodes = {};
@@ -4072,7 +4072,7 @@
     }
     if (save) {
       try {
-        localStorage.setItem('podany_player_collapsed', collapsed ? 'true' : 'false');
+        localStorage.setItem('anypod_player_collapsed', collapsed ? 'true' : 'false');
       } catch (e) {}
     }
   }
@@ -4260,7 +4260,7 @@
       if (isAllFeedsGone || isFeedMissing || (!dl.feedUrl && isGuidMissing)) {
         if ('caches' in window) {
           try {
-            caches.open('podany-audio-v1').then(cache => cache.delete(dl.audioUrl)).catch(() => {});
+            caches.open('anypod-audio-v1').then(cache => cache.delete(dl.audioUrl)).catch(() => {});
           } catch (e) {}
         }
         delete state.downloadedEpisodes[guid];
@@ -4291,7 +4291,7 @@
       if (guidsToRemove.has(guid) || dl.feedUrl === url) {
         if ('caches' in window) {
           try {
-            caches.open('podany-audio-v1').then(cache => cache.delete(dl.audioUrl)).catch(() => {});
+            caches.open('anypod-audio-v1').then(cache => cache.delete(dl.audioUrl)).catch(() => {});
           } catch (e) {}
         }
         delete state.downloadedEpisodes[guid];
@@ -4350,7 +4350,7 @@
   }
 
   function exportOpml() {
-    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<opml version="2.0">\n  <head>\n    <title>Podany Export</title>\n  </head>\n  <body>\n`;
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<opml version="2.0">\n  <head>\n    <title>Anypod Export</title>\n  </head>\n  <body>\n`;
     
     state.feeds.forEach(url => {
       const meta = state.feedMetadata[url] || {};
@@ -4363,7 +4363,7 @@
     const blob = new Blob([xml], { type: 'text/xml' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'podany_subscriptions.opml';
+    a.download = 'anypod_subscriptions.opml';
     a.click();
   }
 
@@ -4385,14 +4385,14 @@
     if (elements.btnCloseAuth) {
       elements.btnCloseAuth.addEventListener('click', () => {
         elements.authModal.classList.add('hidden');
-        sessionStorage.setItem('podany_guest_mode', '1');
+        sessionStorage.setItem('anypod_guest_mode', '1');
       });
     }
 
     if (elements.btnCancelAuth) {
       elements.btnCancelAuth.addEventListener('click', () => {
         elements.authModal.classList.add('hidden');
-        sessionStorage.setItem('podany_guest_mode', '1');
+        sessionStorage.setItem('anypod_guest_mode', '1');
       });
     }
 
@@ -4530,7 +4530,7 @@
 
               localStorage.removeItem(STORAGE_KEYS.SESSION);
               localStorage.removeItem('podcast_pulse_session_token');
-              localStorage.removeItem('podany_session_token');
+              localStorage.removeItem('anypod_session_token');
               state.sessionToken = '';
               state.userEmail = '';
 
@@ -4782,7 +4782,7 @@
       if (confirm('Are you sure you want to clear all feeds and state?')) {
         localStorage.clear();
         if ('caches' in window) {
-          caches.delete('podany-audio-v1').catch(() => {});
+          caches.delete('anypod-audio-v1').catch(() => {});
         }
         state.downloadedEpisodes = {};
         state.feeds = [];
@@ -5139,7 +5139,7 @@
     state.episodeTimeline.duration = dur;
 
     // Check localStorage cache
-    const cacheKey = 'podany_timeline_' + episode.guid;
+    const cacheKey = 'anypod_timeline_' + episode.guid;
     try {
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
@@ -5357,7 +5357,7 @@
 
       // Save to localStorage cache
       try {
-        localStorage.setItem('podany_timeline_' + episode.guid, JSON.stringify({
+        localStorage.setItem('anypod_timeline_' + episode.guid, JSON.stringify({
           bars: state.episodeTimeline.bars,
           segments: state.episodeTimeline.segments
         }));

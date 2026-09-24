@@ -1,4 +1,4 @@
-# Podany
+# Anypod
 
 Private podcast RSS feed aggregator and web player hosted on Cloudflare Pages with Cloudflare D1 storage.
 
@@ -55,7 +55,7 @@ Private podcast RSS feed aggregator and web player hosted on Cloudflare Pages wi
 
 ## Self-Hosting with Docker 🐳
 
-Run Podany completely locally on your home server, NAS (Synology, Unraid, TrueNAS), or Raspberry Pi with local SQLite storage, zero cloud lock-in, and instant offline magic links.
+Run Anypod completely locally on your home server, NAS (Synology, Unraid, TrueNAS), or Raspberry Pi with local SQLite storage, zero cloud lock-in, and instant offline magic links.
 
 ```bash
 docker compose up -d
@@ -81,7 +81,7 @@ See [SELF_HOSTING.md](SELF_HOSTING.md) for full configuration guides, environmen
 ## Project Structure
 
 ```
-podany/
+anypod/
 ├── docs/
 │   └── screenshots/
 │       ├── mobile-feeds.png
@@ -193,29 +193,29 @@ CREATE TABLE IF NOT EXISTS playback_state (
 ### 1. Create D1 Database
 
 ```bash
-npx wrangler d1 create podany-db
+npx wrangler d1 create anypod-db
 ```
 
 Update `database_id` in `wrangler.json` with the generated database ID.
 
 Execute the schema against the remote D1 instance:
 ```bash
-npx wrangler d1 execute podany-db --file=schema.sql --remote
+npx wrangler d1 execute anypod-db --file=schema.sql --remote
 ```
 
 ### 2. Configure Secrets and Variables
 
 Set the Resend API key for authentication emails:
 ```bash
-npx wrangler pages secret put RESEND_API_KEY --project-name podany
+npx wrangler pages secret put RESEND_API_KEY --project-name anypod
 ```
 
 Verify or update the variables in `wrangler.json`:
 ```json
 {
   "vars": {
-    "APP_URL": "https://podany.poizoom.com",
-    "FROM_EMAIL": "Podany <login@podany.poizoom.com>"
+    "APP_URL": "https://anypod.org",
+    "FROM_EMAIL": "Anypod <login@anypod.org>"
   }
 }
 ```
@@ -223,14 +223,14 @@ Verify or update the variables in `wrangler.json`:
 ### 3. Deploy to Cloudflare Pages
 
 ```bash
-npx wrangler pages deploy public --project-name podany --branch main
+npx wrangler pages deploy public --project-name anypod --branch main
 ```
 
 ## Configuration
 
 | Name | Type | Target | Description |
 | :--- | :--- | :--- | :--- |
-| `DB` | D1 Binding | `wrangler.json` | Cloudflare D1 database binding (`podany-db`) |
+| `DB` | D1 Binding | `wrangler.json` | Cloudflare D1 database binding (`anypod-db`) |
 | `RESEND_API_KEY` | Secret | Pages Secrets | Resend API key for transactional login emails |
 | `APP_URL` | String | `wrangler.json` | Canonical base URL used in magic links |
 | `FROM_EMAIL` | String | `wrangler.json` | Sender address for magic link emails |

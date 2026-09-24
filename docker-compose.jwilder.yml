@@ -9,7 +9,7 @@
 # ==============================================================================
 
 services:
-  podany:
+  anypod:
     environment:
       - VIRTUAL_HOST=${VIRTUAL_HOST:-podcast.local}
       - VIRTUAL_PORT=8788

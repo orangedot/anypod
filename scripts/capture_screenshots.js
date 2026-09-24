@@ -76,7 +76,7 @@ function startStaticServer(port) {
     let reqPath = req.url.split('?')[0];
     if (reqPath.startsWith('/api/')) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ feeds: [], user: { email: 'alex@podany.org' } }));
+      res.end(JSON.stringify({ feeds: [], user: { email: 'alex@anypod.org' } }));
       return;
     }
     if (reqPath === '/' || reqPath === '') reqPath = '/index.html';
@@ -255,7 +255,7 @@ function inPageSetup(continueData, timelineData, feedsData) {
 
   const userStatusPill = document.getElementById('user-status-pill');
   if (userStatusPill) {
-    userStatusPill.innerHTML = '<span class="status-indicator active"></span><span class="user-pill-details"><span id="user-email-label">alex@podany.org</span><button class="btn-pill-action" id="btn-account-toggle">Log Out</button></span>';
+    userStatusPill.innerHTML = '<span class="status-indicator active"></span><span class="user-pill-details"><span id="user-email-label">alex@anypod.org</span><button class="btn-pill-action" id="btn-account-toggle">Log Out</button></span>';
   }
 
   const shelf = document.getElementById('continue-shelf');
@@ -426,7 +426,7 @@ async function main() {
   }
 
   const debugPort = await getAvailablePort(9225);
-  const tmpProfile = `/tmp/podany-chrome-shot-${Date.now()}`;
+  const tmpProfile = `/tmp/anypod-chrome-shot-${Date.now()}`;
   fs.mkdirSync(tmpProfile, { recursive: true });
 
   const chrome = spawn(chromePath, [

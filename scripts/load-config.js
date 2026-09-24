@@ -82,7 +82,7 @@ export function syncConfigToEnv() {
   // Defaults
   if (!envOut.PORT) envOut.PORT = '8788';
   if (!envOut.APP_URL) envOut.APP_URL = `http://localhost:${envOut.PORT}`;
-  if (!envOut.FROM_EMAIL) envOut.FROM_EMAIL = 'Podany <podany@localhost>';
+  if (!envOut.FROM_EMAIL) envOut.FROM_EMAIL = 'Anypod <anypod@localhost>';
 
   // Write to .env for wrangler pages dev
   const envLines = [];
@@ -96,7 +96,7 @@ export function syncConfigToEnv() {
   fs.writeFileSync(envPath, envLines.join('\n') + '\n', 'utf-8');
 
   // Friendly console banner
-  console.log('⚡ Podany Environment Configuration:');
+  console.log('⚡ Anypod Environment Configuration:');
   console.log(`   - PORT:           ${envOut.PORT}`);
   console.log(`   - APP_URL:        ${envOut.APP_URL}`);
   console.log(`   - FROM_EMAIL:     ${envOut.FROM_EMAIL}`);

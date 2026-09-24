@@ -1,8 +1,8 @@
-# 🐳 Podany Self-Hosting Guide
+# 🐳 Anypod Self-Hosting Guide
 
-Willkommen beim Self-Hosting von **Podany**! 😊
+Willkommen beim Self-Hosting von **Anypod**! 😊
 
-Dieser Guide ist für alle gedacht, die Podany komplett unabhängig und privat auf dem eigenen Heimserver, NAS (z. B. Synology, Unraid, TrueNAS) oder Raspberry Pi betreiben möchten.
+Dieser Guide ist für alle gedacht, die Anypod komplett unabhängig und privat auf dem eigenen Heimserver, NAS (z. B. Synology, Unraid, TrueNAS) oder Raspberry Pi betreiben möchten.
 
 Alles läuft zu 100 % lokal in Docker mit lokaler SQLite-Datenbank – ohne Zwang zu externen Cloud-Diensten.
 
@@ -12,8 +12,8 @@ Alles läuft zu 100 % lokal in Docker mit lokaler SQLite-Datenbank – ohne Zwan
 
 ### 1. Repository klonen
 ```bash
-git clone https://github.com/orangedot/podany.git
-cd podany
+git clone https://github.com/orangedot/anypod.git
+cd anypod
 ```
 
 ### 2. Container starten
@@ -28,7 +28,7 @@ docker compose up -d
 
 ## 💾 Lokaler Speicher & Datenpersistenz
 
-Alle Daten von Podany werden im gemounteten Verzeichnis `./data` gespeichert:
+Alle Daten von Anypod werden im gemounteten Verzeichnis `./data` gespeichert:
 
 ```
 ./data/
@@ -42,22 +42,22 @@ Alle Daten von Podany werden im gemounteten Verzeichnis `./data` gespeichert:
 - **Automatische Initialisierung**: Beim ersten Start wird das Datenbankschema (`schema.sql`) vollautomatisch aufgesetzt.
 - **Backups**: Für ein komplettes Backup musst du einfach nur den Ordner `./data` sichern:
   ```bash
-  tar -czvf podany-backup-$(date +%F).tar.gz ./data
+  tar -czvf anypod-backup-$(date +%F).tar.gz ./data
   ```
 
 ---
 
 ## ⚙️ Konfiguration
 
-Podany unterstützt Konfiguration sowohl über **Environment-Variablen** (in `docker-compose.yml` oder `.env`) als auch über eine **Konfigurationsdatei** (`config.yaml` oder `config.json`).
+Anypod unterstützt Konfiguration sowohl über **Environment-Variablen** (in `docker-compose.yml` oder `.env`) als auch über eine **Konfigurationsdatei** (`config.yaml` oder `config.json`).
 
 ### Konfigurations-Variablen
 
 | Variable | Standardwert | Beschreibung |
 | :--- | :--- | :--- |
-| `PORT` | `8788` | Port, auf dem Podany im Container lauscht |
+| `PORT` | `8788` | Port, auf dem Anypod im Container lauscht |
 | `APP_URL` | `http://localhost:8788` | Externe URL deiner Instanz (z. B. `http://192.168.1.50:8788` oder deine Domain) |
-| `FROM_EMAIL` | `Podany <login@podany.local>` | Absenderadresse für E-Mails |
+| `FROM_EMAIL` | `Anypod <login@anypod.local>` | Absenderadresse für E-Mails |
 | `RESEND_API_KEY` | *(leer)* | Optionaler API-Key für [Resend](https://resend.com) zum E-Mail-Versand |
 | `CRON_SECRET` | *(leer)* | Optionaler Token zum Absichern des Cleanup-Endpunkts (`/api/cron/cleanup`) |
 
@@ -75,7 +75,7 @@ Beispiel `.env`:
 ```env
 PORT=8788
 APP_URL=http://192.168.1.50:8788
-FROM_EMAIL="Mein Podcast Player <podany@home.arpa>"
+FROM_EMAIL="Mein Podcast Player <anypod@home.arpa>"
 RESEND_API_KEY=
 CRON_SECRET=super_geheimer_cron_schluessel_123
 ```
@@ -84,7 +84,7 @@ CRON_SECRET=super_geheimer_cron_schluessel_123
 
 ### Methode B: Über Konfigurationsdatei (`config.yaml` oder `config.json`)
 
-Wenn du lieber eine zentrale Konfigurationsdatei nutzt: Podany liest automatisch eine `config.yaml` oder `config.json` ein!
+Wenn du lieber eine zentrale Konfigurationsdatei nutzt: Anypod liest automatisch eine `config.yaml` oder `config.json` ein!
 
 Lege sie einfach direkt in deinen `./data`-Ordner (`./data/config.yaml`):
 
@@ -92,7 +92,7 @@ Lege sie einfach direkt in deinen `./data`-Ordner (`./data/config.yaml`):
 # ./data/config.yaml
 PORT: 8788
 APP_URL: "http://192.168.1.50:8788"
-FROM_EMAIL: "Podany <login@podany.local>"
+FROM_EMAIL: "Anypod <login@anypod.local>"
 RESEND_API_KEY: ""
 CRON_SECRET: "super_geheimer_cron_schluessel_123"
 ```
@@ -102,7 +102,7 @@ Alternativ als JSON (`./data/config.json`):
 {
   "PORT": 8788,
   "APP_URL": "http://192.168.1.50:8788",
-  "FROM_EMAIL": "Podany <login@podany.local>",
+  "FROM_EMAIL": "Anypod <login@anypod.local>",
   "RESEND_API_KEY": "",
   "CRON_SECRET": "super_geheimer_cron_schluessel_123"
 }
@@ -112,13 +112,13 @@ Alternativ als JSON (`./data/config.json`):
 
 ## 🔑 Offline-Login & Magic Links
 
-Podany nutzt passwortloses Magic-Link-Login. Du musst dafür **keinen E-Mail-Dienst einrichten**:
+Anypod nutzt passwortloses Magic-Link-Login. Du musst dafür **keinen E-Mail-Dienst einrichten**:
 
-1. Wenn **`RESEND_API_KEY` leer** ist, läuft Podany im **Offline-Modus**.
+1. Wenn **`RESEND_API_KEY` leer** ist, läuft Anypod im **Offline-Modus**.
 2. Gib deine E-Mail im Login-Dialog ein.
 3. Der Magic-Login-Link wird:
    - **Direkt im Browser-Dialog als klickbarer Button angezeigt** 🪄
-   - **In den Docker-Logs ausgegeben** (`docker compose logs -f podany`)
+   - **In den Docker-Logs ausgegeben** (`docker compose logs -f anypod`)
 4. Ein Klick genügt, und du bist eingeloggt und deine Feeds & Hörstände synchronisieren sich lokal auf deinem Server!
 
 *Tipp für echte E-Mails:* Falls du echte E-Mails an dich selbst senden willst, hole dir einfach einen kostenlosen API-Key bei [resend.com](https://resend.com) (3.000 Mails/Monat gratis) und trage ihn bei `RESEND_API_KEY` ein.
@@ -127,7 +127,7 @@ Podany nutzt passwortloses Magic-Link-Login. Du musst dafür **keinen E-Mail-Die
 
 ## 📦 Production Bundler
 
-Podany enthält einen integrierten Bundler mit `esbuild`, der HTML, CSS und modernstes JavaScript für maximale Performance minifiziert:
+Anypod enthält einen integrierten Bundler mit `esbuild`, der HTML, CSS und modernstes JavaScript für maximale Performance minifiziert:
 
 - **JS**: 190 KB → 102 KB (`public/dist/app.min.js`)
 - **CSS**: 64 KB → 51 KB (`public/dist/style.min.css`)
@@ -143,11 +143,11 @@ npm run build
 
 ## 🔒 Reverse Proxy (Nginx / Caddy / Traefik)
 
-Wenn du Podany hinter einem Reverse Proxy mit SSL (HTTPS) betreibst:
+Wenn du Anypod hinter einem Reverse Proxy mit SSL (HTTPS) betreibst:
 
 ### Caddy
 ```caddy
-podany.deinedomain.de {
+anypod.deinedomain.de {
     reverse_proxy localhost:8788
 }
 ```
@@ -156,7 +156,7 @@ podany.deinedomain.de {
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name podany.deinedomain.de;
+    server_name anypod.deinedomain.de;
 
     ssl_certificate /pfad/zu/cert.pem;
     ssl_certificate_key /pfad/zu/key.pem;
@@ -189,7 +189,7 @@ docker compose -f docker-compose.yml -f docker-compose.jwilder.yml up -d
 
 Eine häufige Frage von Sysadmins: *„Warum kein MariaDB / MySQL im separaten Container?“*
 
-1. **Cloudflare D1 Kompatibilität**: Podany nutzt die Cloudflare D1 API (`db.prepare(...)`). D1 *ist* SQLite am Edge. Durch SQLite im Container läuft exakt dieselbe Codebasis lokal wie in der Cloud – ohne Abstraktions-Overhead.
+1. **Cloudflare D1 Kompatibilität**: Anypod nutzt die Cloudflare D1 API (`db.prepare(...)`). D1 *ist* SQLite am Edge. Durch SQLite im Container läuft exakt dieselbe Codebasis lokal wie in der Cloud – ohne Abstraktions-Overhead.
 2. **0 MB Leerlauf-RAM**: MariaDB benötigt im Leerlauf 150–300 MB RAM und eigene Netzwerk-Sockets. SQLite läuft in-process, verbraucht 0 MB zusätzlichen RAM und hat keine Latenz.
 3. **Ausfallsicherheit**: Kein separater Datenbank-Container, der crashen oder Verbindungs-Timeouts werfen kann.
 4. **1-Klick Backup**: Die gesamte Datenbank ist eine einzige Datei in `./data/`. Kein `mysqldump` oder Stop-Container nötig.
@@ -199,7 +199,7 @@ Eine häufige Frage von Sysadmins: *„Warum kein MariaDB / MySQL im separaten C
 ## 💾 Storage Management & Caching
 
 ### 1. Offline-Audio & Cover-Cache (Client PWA)
-Podany verfügt über einen integrierten Service Worker mit **HTTP 206 Range-Request Support**:
+Anypod verfügt über einen integrierten Service Worker mit **HTTP 206 Range-Request Support**:
 - Klicke bei einer Episode auf **„Download“**, um Audio und Cover auf dein Handy oder den Laptop herunterzuladen.
 - Im Tab **„Downloads“** kannst du Folgen ohne Internetverbindung offline hören.
 - Über den Button **„Clear Download“** oder in den Einstellungen lässt sich belegter Speicher jederzeit mit einem Klick freigeben.
@@ -213,7 +213,7 @@ Für Self-Hosters, die Feeds serverseitig spiegeln möchten:
 
 ## 🧹 Automatischer Inaktivitäts-Cleanup ("Cleaner Monday")
 
-Podany schützt die Privatsphäre und hält die lokale Datenbank sauber:
+Anypod schützt die Privatsphäre und hält die lokale Datenbank sauber:
 - Accounts, die 30 Tage inaktiv sind, erhalten einen Hinweis.
 - Nach 50 Tagen folgt die letzte Erinnerung.
 - Nach 60 Tagen werden inaktive Accounts und alle zugehörigen Daten DSGVO-konform restlos gelöscht.
@@ -230,7 +230,7 @@ Du kannst den Cleanup wöchentlich per System-Cronjob auf deinem Host anstoßen:
 
 ## 🔄 Updates
 
-Um deine lokale Podany-Instanz auf den neuesten Stand zu bringen:
+Um deine lokale Anypod-Instanz auf den neuesten Stand zu bringen:
 
 ```bash
 git pull

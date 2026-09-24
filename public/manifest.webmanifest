@@ -1,6 +1,6 @@
 {
-  "name": "Podany - Private Podcast Player",
-  "short_name": "Podany",
+  "name": "Anypod - Private Podcast Player",
+  "short_name": "Anypod",
   "description": "Personal private podcast player and RSS feed aggregator with offline playback.",
   "start_url": "/",
   "display": "standalone",

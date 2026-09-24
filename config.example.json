@@ -1,7 +1,7 @@
 {
   "PORT": 8788,
   "APP_URL": "http://localhost:8788",
-  "FROM_EMAIL": "Podany <login@podany.local>",
+  "FROM_EMAIL": "Anypod <login@anypod.local>",
   "RESEND_API_KEY": "",
   "CRON_SECRET": ""
 }

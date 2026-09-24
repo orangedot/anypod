@@ -21,7 +21,7 @@ RUN chmod +x docker-entrypoint.sh
 # Persistent storage volume for SQLite DB and config
 VOLUME ["/data"]
 
-# Default Podany port
+# Default Anypod port
 EXPOSE 8788
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

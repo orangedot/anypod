@@ -26,7 +26,7 @@ export async function onRequest(context) {
     if (range) {
       upstreamHeaders.set('Range', range);
     }
-    upstreamHeaders.set('User-Agent', 'Podany/1.0 (+CloudflarePages)');
+    upstreamHeaders.set('User-Agent', 'Anypod/1.0 (+CloudflarePages)');
 
     const upstreamResponse = await fetch(targetUrl, {
       method: request.method,

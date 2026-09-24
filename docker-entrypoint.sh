@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-echo "🚀 Starting Podany Self-Hosted Container..."
+echo "🚀 Starting Anypod Self-Hosted Container..."
 
 # 1. Load config from config.json / config.yaml / environment variables into .env
 node /app/scripts/load-config.js
@@ -16,7 +16,7 @@ mkdir -p "$D1_DIR"
 DB_FILE="$D1_DIR/1d2c6f471d53ebbab1505a69a966ce3e563bc9428255f6f61ad83474526c0fe6.sqlite"
 
 if [ ! -f "$DB_FILE" ]; then
-  echo "📦 Initializing Podany local SQLite database at $DB_FILE..."
+  echo "📦 Initializing Anypod local SQLite database at $DB_FILE..."
   sqlite3 "$DB_FILE" < /app/schema.sql
   echo "✅ Database initialized successfully."
 else
@@ -36,7 +36,7 @@ if [ ! -f "$SERVE_DIR/index.html" ]; then
   SERVE_DIR="/app/public"
 fi
 
-echo "✨ Podany is ready! Serving $SERVE_DIR on 0.0.0.0:${PORT}"
+echo "✨ Anypod is ready! Serving $SERVE_DIR on 0.0.0.0:${PORT}"
 echo "🌐 Open in your browser: ${APP_URL:-http://localhost:${PORT}}"
 
 # 4. Start Wrangler Pages dev with full local persistence in /data

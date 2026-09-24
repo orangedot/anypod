@@ -1,5 +1,5 @@
 # ==============================================================================
-# Podany Configuration File (config.yaml)
+# Anypod Configuration File (config.yaml)
 # You can mount this file into your container or place it in your ./data folder!
 # ==============================================================================
 
@@ -10,7 +10,7 @@ PORT: 8788
 APP_URL: "http://localhost:8788"
 
 # From email sender header
-FROM_EMAIL: "Podany <login@podany.local>"
+FROM_EMAIL: "Anypod <login@anypod.local>"
 
 # Optional: Resend API Key for sending emails (https://resend.com)
 # Leave blank to run offline (magic login links will be shown directly in the UI & docker logs)
