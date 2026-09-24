@@ -1160,9 +1160,9 @@ mark.search-highlight {
   background: var(--bg-card);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-md);
-  max-width: 620px;
+  max-width: 100%;
   width: 100%;
-  margin: 3rem auto;
+  margin: 1.5rem auto;
   box-sizing: border-box;
 }
 
@@ -1188,7 +1188,7 @@ mark.search-highlight {
 
 .empty-state p {
   color: var(--text-secondary);
-  max-width: 480px;
+  max-width: 680px;
   margin: 0 auto 1.5rem auto;
   font-size: 0.925rem;
   font-weight: 300;
@@ -1196,7 +1196,7 @@ mark.search-highlight {
 }
 
 .empty-quick-add {
-  max-width: 480px;
+  max-width: 720px;
   margin: 0 auto 1.5rem auto;
   width: 100%;
 }
