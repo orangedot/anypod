@@ -37,9 +37,10 @@ await esbuild.build({
 
 // 3. Prepare production HTML in public/dist/index.html
 const rawHtml = fs.readFileSync(path.join(publicDir, 'index.html'), 'utf-8');
+const v = Date.now();
 const prodHtml = rawHtml
-  .replace('href="style.css"', 'href="style.min.css"')
-  .replace('src="app.js"', 'src="app.min.js"');
+  .replace(/href="style\.css(\?[^"]*)?"/, `href="style.min.css?v=${v}"`)
+  .replace(/src="app\.js(\?[^"]*)?"/, `src="app.min.js?v=${v}"`);
 
 fs.writeFileSync(path.join(distDir, 'index.html'), prodHtml, 'utf-8');
 

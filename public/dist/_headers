@@ -1,0 +1,20 @@
+/*
+  Access-Control-Allow-Origin: *
+
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/app.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/style.css
+  Cache-Control: public, max-age=0, must-revalidate
+
+/dist/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/dist/app.min.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/dist/style.min.css
+  Cache-Control: public, max-age=0, must-revalidate

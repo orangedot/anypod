@@ -205,16 +205,6 @@
       enableAudioClassifier: false,
       autoSkipSpeech: false
     },
-    audioAnalysis: {
-      ctx: null,           // AudioContext singleton
-      analyser: null,      // AnalyserNode
-      source: null,        // MediaElementSourceNode (created once)
-      rafId: null,         // requestAnimationFrame id
-      dataArray: null,     // Uint8Array for frequency data
-      corsBlocked: false,  // true when getByteFrequencyData returns zeros
-      classifierSpeechMs: 0, // rolling ms of speech detected
-      lastClassifyAt: 0
-    },
     episodeTimeline: {
       guid: null,
       duration: 0,
