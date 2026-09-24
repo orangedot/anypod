@@ -5158,10 +5158,222 @@
     state.episodeTimeline.segments = deriveSegmentsFromBars(state.episodeTimeline.bars, dur);
     renderWaveformChart();
 
-    // Launch background audio probing only if classifier is enabled
-    if (state.experimentalSettings.enableAudioClassifier) {
-      probeEpisodeAudio(episode, dur);
+    // Cascading Free-Tier Pipeline: Tier 1 (RSS Transcript) -> Tier 2 (D1 Community Cache) -> Tier 3 (Client Probe)
+    fetchTimelineFromPipeline(episode, dur);
+  }
+
+  // ── Cascading Free-Tier Pipeline ────────────────────────────────────────
+
+  async function fetchTimelineFromPipeline(episode, duration) {
+    if (!episode || !episode.guid) return;
+    const cacheKey = 'anypod_timeline_' + episode.guid;
+
+    // TIER 1: Check Podcasting 2.0 <podcast:transcript>
+    if (episode.transcriptUrl) {
+      if (elements.probeStatusPill) {
+        elements.probeStatusPill.textContent = 'Reading transcript...';
+        elements.probeStatusPill.classList.remove('hidden');
+      }
+
+      try {
+        const proxyUrl = `/api/transcript-proxy?url=${encodeURIComponent(episode.transcriptUrl)}`;
+        const res = await fetch(proxyUrl);
+        if (res.ok) {
+          const vttText = await res.text();
+          const cues = parseVttOrSrtTimestamps(vttText);
+          if (cues.length > 5) {
+            const bars = deriveBarsFromCues(cues, duration, TIMELINE_BAR_COUNT);
+            const segments = deriveSegmentsFromCues(cues, duration);
+
+            state.episodeTimeline.bars = bars;
+            state.episodeTimeline.segments = segments;
+
+            try {
+              localStorage.setItem(cacheKey, JSON.stringify({ bars, segments }));
+            } catch (_) {}
+
+            renderWaveformChart();
+
+            // Seed community cache in D1
+            saveTimelineToCommunityCache(episode, duration, bars, segments, 'transcript', episode.transcriptUrl);
+
+            if (elements.probeStatusPill) {
+              elements.probeStatusPill.textContent = '✓ RSS Transcript';
+              setTimeout(() => {
+                if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
+              }, 2500);
+            }
+            return;
+          }
+        }
+      } catch (_) {
+        // Fall through to Tier 2
+      }
     }
+
+    // TIER 2: Check Cloudflare D1 Community Cache
+    try {
+      if (elements.probeStatusPill) {
+        elements.probeStatusPill.textContent = 'Checking community...';
+        elements.probeStatusPill.classList.remove('hidden');
+      }
+
+      const res = await fetch(`/api/community-transcripts?guid=${encodeURIComponent(episode.guid)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.found && data.bars && data.bars.length > 0) {
+          state.episodeTimeline.bars = data.bars;
+          state.episodeTimeline.segments = data.segments || [];
+
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify({
+              bars: data.bars,
+              segments: data.segments || []
+            }));
+          } catch (_) {}
+
+          renderWaveformChart();
+
+          if (elements.probeStatusPill) {
+            elements.probeStatusPill.textContent = '✓ Community Cached';
+            setTimeout(() => {
+              if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
+            }, 2500);
+          }
+          return;
+        }
+      }
+    } catch (_) {
+      // Fall through to Tier 3
+    }
+
+    // TIER 3: Fallback to Client-side Probing if Classifier is Enabled
+    if (state.experimentalSettings.enableAudioClassifier) {
+      probeEpisodeAudio(episode, duration);
+    } else {
+      if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
+    }
+  }
+
+  function parseVttOrSrtTimestamps(text) {
+    if (!text || typeof text !== 'string') return [];
+    const cues = [];
+    const timeRegex = /(?:(\d{1,2}):)?(\d{2}):(\d{2})[.,](\d{3})\s*-->\s*(?:(\d{1,2}):)?(\d{2}):(\d{2})[.,](\d{3})/;
+    const lines = text.split(/\r?\n/);
+
+    for (let i = 0; i < lines.length; i++) {
+      const match = lines[i].match(timeRegex);
+      if (match) {
+        const startH = parseInt(match[1] || '0', 10);
+        const startM = parseInt(match[2], 10);
+        const startS = parseInt(match[3], 10);
+        const startMs = parseInt(match[4], 10);
+        const startSec = startH * 3600 + startM * 60 + startS + startMs / 1000;
+
+        const endH = parseInt(match[5] || '0', 10);
+        const endM = parseInt(match[6], 10);
+        const endS = parseInt(match[7], 10);
+        const endMs = parseInt(match[8], 10);
+        const endSec = endH * 3600 + endM * 60 + endS + endMs / 1000;
+
+        if (endSec > startSec) {
+          cues.push({ start: startSec, end: endSec, type: 'speech' });
+        }
+      }
+    }
+    return cues;
+  }
+
+  function deriveBarsFromCues(cues, duration, count) {
+    const bars = [];
+    const dur = duration > 0 ? duration : 1800;
+    const barSec = dur / count;
+
+    for (let i = 0; i < count; i++) {
+      const bStart = i * barSec;
+      const bEnd = (i + 1) * barSec;
+      let speechDuration = 0;
+
+      for (const cue of cues) {
+        if (cue.end > bStart && cue.start < bEnd) {
+          const overlap = Math.min(cue.end, bEnd) - Math.max(cue.start, bStart);
+          if (overlap > 0) speechDuration += overlap;
+        }
+      }
+
+      const speechRatio = speechDuration / barSec;
+      const isSpeech = speechRatio > 0.2;
+      const height = isSpeech ? Math.min(0.95, 0.4 + speechRatio * 0.5) : (i < 3 || i > count - 4 ? 0.65 : 0.28);
+      bars.push({
+        height: parseFloat(height.toFixed(2)),
+        type: isSpeech ? 'speech' : 'music'
+      });
+    }
+    return bars;
+  }
+
+  function deriveSegmentsFromCues(cues, duration) {
+    if (!cues || cues.length === 0) return [];
+    const consolidated = [];
+    let cur = { start: cues[0].start, end: cues[0].end, type: 'speech' };
+
+    for (let i = 1; i < cues.length; i++) {
+      if (cues[i].start <= cur.end + 3.0) {
+        cur.end = Math.max(cur.end, cues[i].end);
+      } else {
+        consolidated.push(cur);
+        cur = { start: cues[i].start, end: cues[i].end, type: 'speech' };
+      }
+    }
+    consolidated.push(cur);
+
+    const fullTimeline = [];
+    let lastEnd = 0;
+
+    for (const seg of consolidated) {
+      if (seg.start > lastEnd + 4.0) {
+        fullTimeline.push({
+          start: Math.round(lastEnd),
+          end: Math.round(seg.start),
+          type: 'music'
+        });
+      }
+      fullTimeline.push({
+        start: Math.round(seg.start),
+        end: Math.round(seg.end),
+        type: 'speech'
+      });
+      lastEnd = seg.end;
+    }
+
+    if (duration > lastEnd + 4.0) {
+      fullTimeline.push({
+        start: Math.round(lastEnd),
+        end: Math.round(duration),
+        type: 'music'
+      });
+    }
+
+    return fullTimeline;
+  }
+
+  async function saveTimelineToCommunityCache(episode, duration, bars, segments, source, transcriptUrl) {
+    if (!episode || !episode.guid) return;
+    try {
+      fetch('/api/community-transcripts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          episodeGuid: episode.guid,
+          feedUrl: episode.feedUrl || '',
+          duration: duration || 0,
+          bars: bars || [],
+          segments: segments || [],
+          transcriptUrl: transcriptUrl || '',
+          source: source || 'probe'
+        })
+      }).catch(() => {});
+    } catch (_) {}
   }
 
   function deriveSegmentsFromBars(bars, duration) {
@@ -5363,13 +5575,20 @@
         }));
       } catch (_) {}
 
+      // Seed community cache in D1 for all users
+      saveTimelineToCommunityCache(episode, duration, state.episodeTimeline.bars, state.episodeTimeline.segments, 'probe');
+
+      if (elements.probeStatusPill) {
+        elements.probeStatusPill.textContent = '✓ Indexed for Community';
+        setTimeout(() => {
+          if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
+        }, 2500);
+      }
+
     } catch (e) {
       // Aborted or finished
     } finally {
       state.episodeTimeline.isProbing = false;
-      if (elements.probeStatusPill) {
-        elements.probeStatusPill.classList.add('hidden');
-      }
       try { audioCtx.close(); } catch (_) {}
     }
   }

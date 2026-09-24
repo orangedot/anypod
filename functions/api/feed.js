@@ -326,6 +326,10 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
         epArtwork = epArtwork.replace(/^http:\/\//i, 'https://');
       }
 
+      // Podcasting 2.0 <podcast:transcript url="..." type="..." />
+      const transcriptUrl = getAttribute(itemXml, 'podcast:transcript', 'url') || getAttribute(itemXml, 'transcript', 'url');
+      const transcriptType = getAttribute(itemXml, 'podcast:transcript', 'type') || getAttribute(itemXml, 'transcript', 'type') || 'text/vtt';
+
       let timestamp = 0;
       if (epPubDate) {
         const parsed = Date.parse(epPubDate);
@@ -344,7 +348,9 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
           duration: epDuration || '',
           artwork: epArtwork,
           podcastTitle: title,
-          feedUrl: originalUrl
+          feedUrl: originalUrl,
+          transcriptUrl: transcriptUrl || '',
+          transcriptType: transcriptType || ''
         });
       }
     }

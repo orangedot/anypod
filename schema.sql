@@ -45,3 +45,14 @@ CREATE TABLE IF NOT EXISTS playback_state (
   UNIQUE(user_id, episode_guid),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS episode_transcripts (
+  episode_guid TEXT PRIMARY KEY,
+  feed_url TEXT,
+  duration REAL DEFAULT 0,
+  bars_json TEXT,
+  segments_json TEXT,
+  transcript_url TEXT,
+  source TEXT DEFAULT 'probe',
+  created_at INTEGER DEFAULT (unixepoch())
+);
