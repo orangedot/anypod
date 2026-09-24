@@ -1653,6 +1653,36 @@ mark.search-highlight {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.feed-detail-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-feed-mute {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.btn-feed-mute svg {
+  flex-shrink: 0;
+}
+
+.btn-feed-mute.is-muted {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: var(--danger);
+}
+
+.btn-feed-mute.is-muted:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: var(--danger);
 }
 
 .btn-back-nav {
@@ -1767,6 +1797,16 @@ mark.search-highlight {
 
 .feed-link-badge:hover {
   text-decoration: underline;
+}
+
+.feed-link-badge.feed-muted-badge {
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.feed-link-badge.feed-muted-badge:hover {
+  text-decoration: none;
 }
 
 [data-theme="light"] .feed-link-badge {
@@ -2537,7 +2577,7 @@ body.has-active-episode.has-mini-player .player-mini {
 
 .auth-input-wrapper input {
   width: 100%;
-  padding: 0.75rem 1rem 0.75rem 2.6rem;
+  padding: 0.75rem 1rem;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border-light);

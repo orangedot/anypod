@@ -917,6 +917,45 @@
     } catch (e) {
       state.feeds = [];
     }
+    loadMutedFeedsFromStorage();
+  }
+
+  function loadMutedFeedsFromStorage() {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.MUTED_FEEDS);
+      state.mutedFeeds = saved ? JSON.parse(saved) : [];
+      if (!Array.isArray(state.mutedFeeds)) state.mutedFeeds = [];
+    } catch (e) {
+      state.mutedFeeds = [];
+    }
+  }
+
+  function saveMutedFeedsToStorage() {
+    try {
+      localStorage.setItem(STORAGE_KEYS.MUTED_FEEDS, JSON.stringify(state.mutedFeeds));
+    } catch (e) {}
+  }
+
+  function isFeedMuted(url) {
+    return Array.isArray(state.mutedFeeds) && state.mutedFeeds.includes(url);
+  }
+
+  function toggleMuteFeed(url) {
+    if (!url) return;
+    if (isFeedMuted(url)) {
+      state.mutedFeeds = state.mutedFeeds.filter(u => u !== url);
+    } else {
+      if (!state.mutedFeeds.includes(url)) {
+        state.mutedFeeds.push(url);
+      }
+    }
+    saveMutedFeedsToStorage();
+    processAndSortEpisodes();
+    renderTimeline();
+    renderFeedsGrid();
+    if (state.activeFeedDetailUrl === url) {
+      renderFeedDetail(url);
+    }
   }
 
   function saveFeedsToStorage() {
@@ -1740,6 +1779,10 @@
 
   function processAndSortEpisodes() {
     let list = [...state.allEpisodes];
+
+    if (!state.searchQuery && state.mutedFeeds && state.mutedFeeds.length > 0) {
+      list = list.filter(ep => !state.mutedFeeds.includes(ep.feedUrl));
+    }
 
     if (state.searchQuery) {
       const q = state.searchQuery.toLowerCase();
@@ -3057,7 +3100,7 @@
           <img class="feed-art" src="${meta.artwork || FALLBACK_ARTWORK}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
           <div class="feed-info">
             <h4>${highlightText(meta.title || url, state.searchQuery)}</h4>
-            <p>${meta.error ? `<span style="color: #ef4444;">${escapeHtml(meta.error)}</span>` : `${meta.episodesCount || feedEpisodes.length} episodes`}</p>
+            <p>${meta.error ? `<span style="color: #ef4444;">${escapeHtml(meta.error)}</span>` : `${meta.episodesCount || feedEpisodes.length} episodes`}${isFeedMuted(url) ? ' • <span style="color: var(--danger); font-weight: 500;">Muted</span>' : ''}</p>
           </div>
           <button class="btn-feed-unsubscribe" title="Remove podcast" aria-label="Remove podcast">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -3102,6 +3145,7 @@
 
   function renderFeedDetail(feedUrl) {
     const isSubbed = state.feeds.includes(feedUrl);
+    const isMuted = isFeedMuted(feedUrl);
     const meta = state.feedMetadata[feedUrl] || {};
     let episodes = state.allEpisodes.filter(e => e.feedUrl === feedUrl);
     const header = elements.feedDetailHeader;
@@ -3129,9 +3173,16 @@
       header.innerHTML = `
         <div class="feed-detail-top-nav">
           <button class="btn-back-nav" id="btn-feed-back">${escapeHtml(backLabel)}</button>
-          <button class="btn ${isSubbed ? 'btn-secondary' : 'btn-primary'} btn-sm" id="btn-feed-action">
-            ${isSubbed ? 'Unsubscribe' : '+ Follow Podcast'}
-          </button>
+          <div class="feed-detail-top-actions">
+            ${isSubbed ? `
+              <button class="btn btn-secondary btn-sm btn-feed-mute ${isMuted ? 'is-muted' : ''}" id="btn-feed-mute" title="${isMuted ? 'Unmute: show episodes in timeline' : 'Mute: hide episodes from timeline'}">
+                <span>${isMuted ? 'Muted' : 'Mute'}</span>
+              </button>
+            ` : ''}
+            <button class="btn ${isSubbed ? 'btn-secondary' : 'btn-primary'} btn-sm" id="btn-feed-action">
+              ${isSubbed ? 'Unsubscribe' : '+ Follow Podcast'}
+            </button>
+          </div>
         </div>
         <div class="feed-detail-main">
           <img class="feed-detail-art" src="${meta.artwork || FALLBACK_ARTWORK}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
@@ -3143,6 +3194,7 @@
               ${meta.link ? `<a href="${escapeHtml(meta.link)}" target="_blank" rel="noopener noreferrer" class="feed-link-badge">Website</a>` : ''}
               <button class="feed-link-badge" id="btn-copy-rss" title="Copy RSS Feed URL">Copy RSS</button>
               <span class="feed-link-badge" id="feed-episodes-badge" style="cursor: default;">${q ? `${episodes.length} / ${totalCount} episodes` : `${totalCount} episodes`}</span>
+              ${isSubbed && isMuted ? `<span class="feed-link-badge feed-muted-badge" style="cursor: default;">Timeline Muted</span>` : ''}
             </div>
           </div>
         </div>
@@ -3152,6 +3204,13 @@
         navigateBack();
       });
 
+      const muteBtn = header.querySelector('#btn-feed-mute');
+      if (muteBtn) {
+        muteBtn.addEventListener('click', () => {
+          toggleMuteFeed(feedUrl);
+        });
+      }
+
       const actionBtn = header.querySelector('#btn-feed-action');
       if (actionBtn) {
         actionBtn.addEventListener('click', () => {
@@ -3159,9 +3218,8 @@
             promptRemoveFeed(feedUrl);
           } else {
             addFeed(feedUrl, meta.title, meta.artwork);
-            actionBtn.textContent = 'Unsubscribe';
-            actionBtn.classList.remove('btn-primary');
-            actionBtn.classList.add('btn-secondary');
+            header.dataset.feedUrl = '';
+            renderFeedDetail(feedUrl);
           }
         });
       }
@@ -3184,6 +3242,27 @@
       if (actionBtn) {
         actionBtn.textContent = isSubbed ? 'Unsubscribe' : '+ Follow Podcast';
         actionBtn.className = `btn ${isSubbed ? 'btn-secondary' : 'btn-primary'} btn-sm`;
+      }
+      const muteBtn = header.querySelector('#btn-feed-mute');
+      if (muteBtn) {
+        muteBtn.className = `btn btn-secondary btn-sm btn-feed-mute ${isMuted ? 'is-muted' : ''}`;
+        muteBtn.title = isMuted ? 'Unmute: show episodes in timeline' : 'Mute: hide episodes from timeline';
+        muteBtn.innerHTML = `<span>${isMuted ? 'Muted' : 'Mute'}</span>`;
+      }
+      const existingMutedBadge = header.querySelector('.feed-muted-badge');
+      if (isSubbed && isMuted) {
+        if (!existingMutedBadge) {
+          const linksRow = header.querySelector('.feed-detail-links');
+          if (linksRow) {
+            const span = document.createElement('span');
+            span.className = 'feed-link-badge feed-muted-badge';
+            span.style.cursor = 'default';
+            span.textContent = 'Timeline Muted';
+            linksRow.appendChild(span);
+          }
+        }
+      } else if (existingMutedBadge) {
+        existingMutedBadge.remove();
       }
     }
 
@@ -4158,6 +4237,10 @@
 
     state.allEpisodes = state.allEpisodes.filter(ep => ep.feedUrl !== url);
     state.feeds = state.feeds.filter(f => f !== url);
+    if (state.mutedFeeds) {
+      state.mutedFeeds = state.mutedFeeds.filter(f => f !== url);
+      saveMutedFeedsToStorage();
+    }
     delete state.feedMetadata[url];
     saveFeedsToStorage();
     removeFeedFromD1(url);
@@ -4282,6 +4365,7 @@
           localStorage.removeItem(STORAGE_KEYS.SESSION);
           localStorage.removeItem('podcast_pulse_session_token');
           localStorage.removeItem(STORAGE_KEYS.FEEDS);
+          localStorage.removeItem(STORAGE_KEYS.MUTED_FEEDS);
           localStorage.removeItem(STORAGE_KEYS.POSITIONS);
           localStorage.removeItem(STORAGE_KEYS.CACHED_EPISODES);
           localStorage.removeItem(STORAGE_KEYS.CACHED_METADATA);
@@ -4291,6 +4375,7 @@
           state.sessionToken = '';
           state.userEmail = '';
           state.feeds = [];
+          state.mutedFeeds = [];
           state.playbackPositions = {};
           state.allEpisodes = [];
           state.filteredEpisodes = [];
@@ -4634,6 +4719,7 @@
         }
         state.downloadedEpisodes = {};
         state.feeds = [];
+        state.mutedFeeds = [];
         state.feedMetadata = {};
         state.allEpisodes = [];
         state.filteredEpisodes = [];

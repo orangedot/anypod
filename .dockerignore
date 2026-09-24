@@ -1,0 +1,10 @@
+node_modules
+.wrangler
+.git
+.DS_Store
+*.log
+.env
+data/
+config.json
+config.yaml
+config.yml
