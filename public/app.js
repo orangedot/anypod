@@ -257,23 +257,32 @@
     const chipsHTML = filtered.map(item => {
       const isSubbed = state.feeds.includes(item.feed);
       return `
-        <div class="starter-suggestion-chip" data-feed="${escapeHtml(item.feed)}" data-title="${escapeHtml(item.title)}">
-          <span class="starter-chip-badge">${escapeHtml(item.badge)}</span>
-          <span class="starter-chip-name" title="Click to view episodes &amp; prelisten">${escapeHtml(item.title)}</span>
-          <button type="button" class="starter-chip-preview-btn" title="View episodes &amp; prelisten">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-            <span>Prelisten</span>
-          </button>
-          <button type="button" class="starter-chip-add ${isSubbed ? 'subscribed' : ''}" ${isSubbed ? 'disabled' : ''}>
-            ${isSubbed ? 'Subscribed' : '+ Follow'}
-          </button>
+        <div class="starter-show-card" data-feed="${escapeHtml(item.feed)}" data-title="${escapeHtml(item.title)}">
+          <div class="starter-show-card-top">
+            <span class="starter-show-badge">${escapeHtml(item.badge)}</span>
+            <button type="button" class="starter-chip-add ${isSubbed ? 'subscribed' : ''}" ${isSubbed ? 'disabled' : ''} title="${isSubbed ? 'Subscribed' : 'Follow show'}">
+              ${isSubbed ? '✓ Followed' : '+ Follow'}
+            </button>
+          </div>
+          <div class="starter-show-info">
+            <div class="starter-show-name" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
+          </div>
+          <div class="starter-show-actions">
+            <button type="button" class="starter-chip-preview-btn" title="View episodes &amp; prelisten">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
+              <span>Prelisten</span>
+            </button>
+          </div>
         </div>
       `;
     }).join('');
 
     return `
       <div class="starter-suggestions-section">
-        <div class="starter-suggestions-title">Discover Science, Planet &amp; Climate shows worldwide (50 curated shows)</div>
+        <div class="starter-suggestions-header">
+          <div class="starter-suggestions-title">Discover Curated Shows Worldwide</div>
+          <div class="starter-suggestions-sub">Science, Planet &amp; Climate • 50 Curated Worldwide Audio Shows</div>
+        </div>
         <div class="starter-filters-row">
           ${filterPillsHTML}
         </div>
@@ -304,7 +313,7 @@
       });
     });
 
-    const chips = container.querySelectorAll('.starter-suggestion-chip');
+    const chips = container.querySelectorAll('.starter-show-card, .starter-suggestion-chip');
     chips.forEach(chip => {
       const feedUrl = chip.dataset.feed;
       if (!feedUrl) return;
@@ -344,7 +353,7 @@
       const previewBtn = chip.querySelector('.starter-chip-preview-btn');
       if (previewBtn) previewBtn.addEventListener('click', openPreview);
 
-      const nameEl = chip.querySelector('.starter-chip-name');
+      const nameEl = chip.querySelector('.starter-show-name, .starter-chip-name');
       if (nameEl) nameEl.addEventListener('click', openPreview);
     });
   }
