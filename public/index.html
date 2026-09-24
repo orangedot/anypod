@@ -17,38 +17,19 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css?v=20260924_transcript">
+  <link rel="stylesheet" href="style.css?v=20260924_curated_science">
 </head>
 <body>
   <!-- Cloud Sync & Magic Auth Modal -->
   <div class="modal-overlay hidden" id="auth-modal">
     <div class="modal-card auth-modal-card">
       <div class="auth-modal-header">
-        <div class="auth-icon-badge">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path>
-            <path d="M12 12v9"></path>
-            <path d="m16 16-4-4-4 4"></path>
-          </svg>
-        </div>
         <button class="btn-close auth-btn-close" id="btn-close-auth" title="Close" aria-label="Close">&times;</button>
       </div>
 
       <div class="auth-modal-intro">
-        <h2 class="auth-modal-title">Cloud Sync &amp; Backup</h2>
-        <p class="auth-modal-subtitle">Keep your subscriptions, bookmarks, and playback progress synchronized across all your devices.</p>
-      </div>
-
-      <div class="auth-feature-pills">
-        <div class="auth-pill">
-          <span>Passwordless Magic Link</span>
-        </div>
-        <div class="auth-pill">
-          <span>Multi-Device Sync</span>
-        </div>
-        <div class="auth-pill">
-          <span>Private &amp; Secure</span>
-        </div>
+        <h2 class="auth-modal-title">Cloud Sync (Optional)</h2>
+        <p class="auth-modal-subtitle">Listen freely without an account. Sign in only if you want to sync your queue and history across devices — zero passwords, zero stress.</p>
       </div>
 
       <!-- Magic Link Email Form -->
@@ -63,16 +44,16 @@
 
         <div class="auth-modal-actions">
           <button type="submit" class="btn btn-primary btn-auth-submit" id="btn-submit-magic">
-            <span>Send Magic Sign-In Link</span>
+            <span>Send Magic Link</span>
           </button>
-          <button type="button" class="btn-auth-cancel" id="btn-cancel-auth">
-            Continue as Guest (No Account)
+          <button type="button" class="btn btn-auth-cancel" id="btn-cancel-auth">
+            Just continue without account
           </button>
         </div>
       </form>
 
       <div class="auth-privacy-footnote">
-        <span>Zero spam. Your email is only used for authentication.</span>
+        <span>Zero spam. Zero passwords. Listen freely anytime.</span>
       </div>
     </div>
   </div>
@@ -156,17 +137,13 @@
               </form>
               <div class="dir-filters-row">
                 <div class="empty-category-chips" id="empty-category-chips">
-                  <button type="button" class="category-chip" data-category="News">News</button>
-                  <button type="button" class="category-chip" data-category="Tech">Tech</button>
-                  <button type="button" class="category-chip" data-category="Wissen">Science & Wissen</button>
-                  <button type="button" class="category-chip" data-category="Culture">Culture</button>
-                  <button type="button" class="category-chip" data-category="True Crime">True Crime</button>
-                  <button type="button" class="category-chip" data-category="Comedy">Comedy</button>
-                  <button type="button" class="category-chip" data-category="Music">Music</button>
-                </div>
-                <div class="dir-region-toggle">
-                  <button type="button" class="region-chip active" data-region="de" title="German directory shows">🇩🇪 DE</button>
-                  <button type="button" class="region-chip" data-region="all" title="Global directory shows">🌐 Global</button>
+                  <button type="button" class="category-chip" data-category="Science">Science</button>
+                  <button type="button" class="category-chip" data-category="Climate">Climate &amp; Planet</button>
+                  <button type="button" class="category-chip" data-category="Earth Nature">Earth &amp; Nature</button>
+                  <button type="button" class="category-chip" data-category="Space Astronomy">Space &amp; Astronomy</button>
+                  <button type="button" class="category-chip" data-category="Oceans Ecology">Oceans &amp; Ecology</button>
+                  <button type="button" class="category-chip" data-category="Wissenschaft">Wissen (DE)</button>
+                  <button type="button" class="category-chip" data-category="Science Climat">Sciences (FR/ES)</button>
                 </div>
               </div>
               <div id="empty-quick-results" class="quick-results-container"></div>
@@ -320,17 +297,13 @@
 
           <div class="dir-filters-row">
             <div class="modal-category-chips" id="modal-category-chips">
-              <button type="button" class="category-chip" data-category="News">News</button>
-              <button type="button" class="category-chip" data-category="Tech">Tech</button>
-              <button type="button" class="category-chip" data-category="Wissen">Science & Wissen</button>
-              <button type="button" class="category-chip" data-category="Culture">Culture</button>
-              <button type="button" class="category-chip" data-category="True Crime">True Crime</button>
-              <button type="button" class="category-chip" data-category="Comedy">Comedy</button>
-              <button type="button" class="category-chip" data-category="Music">Music</button>
-            </div>
-            <div class="dir-region-toggle">
-              <button type="button" class="region-chip active" data-region="de" title="German directory shows">🇩🇪 DE</button>
-              <button type="button" class="region-chip" data-region="all" title="Global directory shows">🌐 Global</button>
+              <button type="button" class="category-chip" data-category="Science">Science</button>
+              <button type="button" class="category-chip" data-category="Climate">Climate &amp; Planet</button>
+              <button type="button" class="category-chip" data-category="Earth Nature">Earth &amp; Nature</button>
+              <button type="button" class="category-chip" data-category="Space Astronomy">Space &amp; Astronomy</button>
+              <button type="button" class="category-chip" data-category="Oceans Ecology">Oceans &amp; Ecology</button>
+              <button type="button" class="category-chip" data-category="Wissenschaft">Wissen (DE)</button>
+              <button type="button" class="category-chip" data-category="Science Climat">Sciences (FR/ES)</button>
             </div>
           </div>
 
@@ -590,6 +563,6 @@
 
   <!-- YouTube Iframe API -->
   <script src="https://www.youtube.com/iframe_api"></script>
-  <script src="app.js?v=20260924_transcript"></script>
+  <script src="app.js?v=20260924_curated_science"></script>
 </body>
 </html>

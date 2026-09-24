@@ -154,9 +154,168 @@
   const FALLBACK_ARTWORK = 'data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%2318181b%22/%3E%3C/svg%3E';
 
   const DEFAULT_STARTER_FEEDS = [
-    'https://changelog.com/podcast/feed',
-    'https://feeds.feedburner.com/syntaxfm'
+    'https://feeds.megaphone.fm/NATIONALAERONAUTICSANDSPACEADMINISTRATION8162188566',
+    'https://podcasts.files.bbci.co.uk/w13xtvb6.rss',
+    'https://feeds.simplecast.com/EmVW7VGp',
+    'https://www.deutschlandfunk.de/forschung-aktuell-102.xml'
   ];
+
+  // Curated 50 Science, Planet & Climate shows worldwide across multiple languages
+  const CURATED_SCIENCE_FEEDS = [
+    // --- English (EN) ---
+    { title: "NASA's Curious Universe", feed: "https://feeds.megaphone.fm/NATIONALAERONAUTICSANDSPACEADMINISTRATION8162188566", lang: "en", badge: "EN • Space", topic: "space" },
+    { title: "Radiolab", feed: "https://feeds.simplecast.com/EmVW7VGp", lang: "en", badge: "EN • Science", topic: "science" },
+    { title: "The Climate Question (BBC)", feed: "https://podcasts.files.bbci.co.uk/w13xtvb6.rss", lang: "en", badge: "EN • Climate", topic: "climate" },
+    { title: "Science Vs", feed: "https://feeds.megaphone.fm/sciencevs", lang: "en", badge: "EN • Science", topic: "science" },
+    { title: "Ologies with Alie Ward", feed: "https://feeds.alieward.com/ologies", lang: "en", badge: "EN • Nature", topic: "nature" },
+    { title: "Nature Podcast", feed: "https://feeds.acast.com/public/shows/nature", lang: "en", badge: "EN • Research", topic: "science" },
+    { title: "StarTalk Radio", feed: "https://feeds.megaphone.fm/STARTALKRADIO", lang: "en", badge: "EN • Space", topic: "space" },
+    { title: "Science Friday", feed: "https://feeds.simplecast.com/82FI3hdh", lang: "en", badge: "EN • Science", topic: "science" },
+    { title: "TED Climate", feed: "https://feeds.feedburner.com/tedtalks_audio", lang: "en", badge: "EN • Climate", topic: "climate" },
+    { title: "Costing the Earth (BBC)", feed: "https://podcasts.files.bbci.co.uk/b006r4wn.rss", lang: "en", badge: "EN • Ecology", topic: "climate" },
+    { title: "BBC Earth Podcast", feed: "https://podcasts.files.bbci.co.uk/p0761w1w.rss", lang: "en", badge: "EN • Planet", topic: "nature" },
+    { title: "Future Ecologies", feed: "https://feeds.pacificcontent.com/future-ecologies", lang: "en", badge: "EN • Ecology", topic: "nature" },
+    { title: "Mongabay Newscast", feed: "https://mongabay.libsyn.com/rss", lang: "en", badge: "EN • Forests", topic: "nature" },
+    { title: "Living on Earth (PRI)", feed: "https://www.loe.org/loe.rss", lang: "en", badge: "EN • Environment", topic: "climate" },
+    { title: "Short Wave (NPR)", feed: "https://feeds.npr.org/510351/podcast.xml", lang: "en", badge: "EN • Science", topic: "science" },
+    { title: "Huberman Lab", feed: "https://feeds.megaphone.fm/hubermanlab", lang: "en", badge: "EN • Biology", topic: "science" },
+    { title: "Planetary Radio", feed: "https://www.omnycontent.com/d/playlist/064e4324-4f01-443b-8519-ae5c00e199d3/3d03ca4f-4d3a-4dd8-bc6b-ae600078dc1e/f76a5960-911e-45fa-8f19-ae600078dc2f/podcast.rss", lang: "en", badge: "EN • Space", topic: "space" },
+    { title: "The Infinite Monkey Cage (BBC)", feed: "https://podcasts.files.bbci.co.uk/b00snr0w.rss", lang: "en", badge: "EN • Science", topic: "science" },
+    { title: "Quanta Science Podcast", feed: "https://api.quantamagazine.org/feed/podcast/", lang: "en", badge: "EN • Physics", topic: "science" },
+    { title: "Outrage + Optimism", feed: "https://feeds.acast.com/public/shows/outrage-and-optimism", lang: "en", badge: "EN • Climate", topic: "climate" },
+    { title: "CrowdScience (BBC)", feed: "https://podcasts.files.bbci.co.uk/p04r5rpm.rss", lang: "en", badge: "EN • Global", topic: "science" },
+    { title: "Climate One", feed: "https://feeds.megaphone.fm/climateone", lang: "en", badge: "EN • Climate", topic: "climate" },
+    { title: "Volts (Clean Energy)", feed: "https://api.substack.com/feed/podcast/101899.rss", lang: "en", badge: "EN • Energy", topic: "climate" },
+    { title: "Gastropod", feed: "https://feeds.simplecast.com/1B-hW7gq", lang: "en", badge: "EN • Food Sci", topic: "science" },
+    { title: "The Energy Gang", feed: "https://feeds.megaphone.fm/energygang", lang: "en", badge: "EN • Energy", topic: "climate" },
+
+    // --- German (DE) ---
+    { title: "Forschung aktuell (DLF)", feed: "https://www.deutschlandfunk.de/forschung-aktuell-102.xml", lang: "de", badge: "DE • Wissen", topic: "science" },
+    { title: "ARD Klima-Update", feed: "https://www.ndr.de/nachrichten/info/podcast4696.xml", lang: "de", badge: "DE • Klima", topic: "climate" },
+    { title: "ZEIT WISSEN: Woher weißt du das?", feed: "https://feeds.simplecast.com/NM3_bR51", lang: "de", badge: "DE • Wissen", topic: "science" },
+    { title: "Terra X Podcast (ZDF)", feed: "https://terra-x-der-podcast.podigee.io/feed/mp3", lang: "de", badge: "DE • Natur", topic: "nature" },
+    { title: "radiowissen (Bayern 2)", feed: "https://feeds.br.de/radiowissen/feed.xml", lang: "de", badge: "DE • Wissen", topic: "science" },
+    { title: "Synapsen (NDR Info)", feed: "https://www.ndr.de/nachrichten/info/podcast5054.xml", lang: "de", badge: "DE • Forschung", topic: "science" },
+    { title: "Spektrum der Wissenschaft", feed: "https://detektor.fm/feeds/spektrum-podcast", lang: "de", badge: "DE • Natur", topic: "nature" },
+    { title: "Das Klima (IPCC)", feed: "https://dasklima.podigee.io/feed/mp3", lang: "de", badge: "DE • Klima", topic: "climate" },
+    { title: "Quarks Science-Cops (WDR)", feed: "https://kinder.wdr.de/radio/quarks/science-cops-podcast-100.podcast", lang: "de", badge: "DE • Fakten", topic: "science" },
+    { title: "Gradmesser (Tagesspiegel)", feed: "https://gradmesser.podigee.io/feed/mp3", lang: "de", badge: "DE • Klima", topic: "climate" },
+    { title: "Sternengeschichten", feed: "https://sternengeschichten.podigee.io/feed/mp3", lang: "de", badge: "DE • Raumfahrt", topic: "space" },
+    { title: "Mission Klima (NDR Info)", feed: "https://www.ndr.de/nachrichten/info/podcast5200.xml", lang: "de", badge: "DE • Lösungen", topic: "climate" },
+
+    // --- French (FR) ---
+    { title: "La Terre au carré (France Inter)", feed: "https://radiofrance-podcast.net/podcast09/rss_10078.xml", lang: "fr", badge: "FR • Écologie", topic: "nature" },
+    { title: "La Science, CQFD (France Culture)", feed: "https://radiofrance-podcast.net/podcast09/rss_10076.xml", lang: "fr", badge: "FR • Sciences", topic: "science" },
+    { title: "Chaleur Humaine (Le Monde)", feed: "https://feeds.acast.com/public/shows/chaleur-humaine", lang: "fr", badge: "FR • Climat", topic: "climate" },
+    { title: "Sixième Science (20 Minutes)", feed: "https://feeds.acast.com/public/shows/sixieme-science", lang: "fr", badge: "FR • Sciences", topic: "science" },
+    { title: "Baleine sous gravillon", feed: "https://feeds.acast.com/public/shows/baleine-sous-gravillon", lang: "fr", badge: "FR • Vivant", topic: "nature" },
+    { title: "Sur les épaules de Darwin", feed: "https://radiofrance-podcast.net/podcast09/rss_11553.xml", lang: "fr", badge: "FR • Évolution", topic: "nature" },
+
+    // --- Spanish (ES) ---
+    { title: "Coffee Break: Señal y Ruido", feed: "https://feeds.ivoox.com/feed_fg_f1172991_filtro_1.xml", lang: "es", badge: "ES • Cosmos", topic: "space" },
+    { title: "Materia Oscura", feed: "https://feeds.ivoox.com/feed_fg_f1772652_filtro_1.xml", lang: "es", badge: "ES • Ciencia", topic: "science" },
+    { title: "Planeta Océano", feed: "https://feeds.ivoox.com/feed_fg_f11132140_filtro_1.xml", lang: "es", badge: "ES • Océanos", topic: "nature" },
+    { title: "A Hombros de Gigantes (RNE)", feed: "https://api.rtve.es/api/programas/1850/audios.rss", lang: "es", badge: "ES • Divulgación", topic: "science" },
+    { title: "Catástrofe Ultravioleta", feed: "https://feeds.feedburner.com/catastrofeultravioleta", lang: "es", badge: "ES • Ciencia", topic: "science" },
+
+    // --- Multilingual Worldwide (IT / SV) ---
+    { title: "Radio3 Scienza (Rai)", feed: "https://www.raiplaysound.it/programmi/radio3scienza.xml", lang: "it", badge: "IT • Scienza", topic: "science" },
+    { title: "Vetenskapsradion Klotet (SR)", feed: "https://api.sr.se/api/rss/pod/3966", lang: "sv", badge: "SV • Miljö & Klimat", topic: "climate" }
+  ];
+
+  // Helper to build curated science starter suggestions HTML
+  function buildStarterSuggestionsHTML(activeFilter = 'all') {
+    const filters = [
+      { id: 'all', label: 'All (50)' },
+      { id: 'en', label: 'English (25)' },
+      { id: 'de', label: 'Deutsch (12)' },
+      { id: 'fr', label: 'Français (6)' },
+      { id: 'es', label: 'Español (5)' },
+      { id: 'other', label: 'Global / Other (2)' },
+      { id: 'climate', label: '🌱 Climate & Planet' },
+      { id: 'science', label: '🔬 Science' },
+      { id: 'space', label: '🚀 Space' }
+    ];
+
+    const filterPillsHTML = filters.map(f => `
+      <button type="button" class="starter-filter-pill ${f.id === activeFilter ? 'active' : ''}" data-filter="${f.id}">${f.label}</button>
+    `).join('');
+
+    const filtered = CURATED_SCIENCE_FEEDS.filter(item => {
+      if (activeFilter === 'all') return true;
+      if (activeFilter === 'other') return item.lang === 'it' || item.lang === 'sv';
+      if (activeFilter === 'climate' || activeFilter === 'science' || activeFilter === 'space' || activeFilter === 'nature') {
+        return item.topic === activeFilter;
+      }
+      return item.lang === activeFilter;
+    });
+
+    const chipsHTML = filtered.map(item => {
+      const isSubbed = state.feeds.includes(item.feed);
+      return `
+        <div class="starter-suggestion-chip" data-feed="${escapeHtml(item.feed)}">
+          <span class="starter-chip-badge">${escapeHtml(item.badge)}</span>
+          <span class="starter-chip-name">${escapeHtml(item.title)}</span>
+          <span class="starter-chip-add ${isSubbed ? 'subscribed' : ''}">${isSubbed ? 'Subscribed' : '+ Follow'}</span>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="starter-suggestions-section">
+        <div class="starter-suggestions-title">Discover Science, Planet &amp; Climate shows worldwide (50 curated shows)</div>
+        <div class="starter-filters-row">
+          ${filterPillsHTML}
+        </div>
+        <div class="starter-suggestions-grid">
+          ${chipsHTML}
+        </div>
+      </div>
+    `;
+  }
+
+  function wireStarterSuggestionsEvents(container) {
+    if (!container) return;
+
+    const filterPills = container.querySelectorAll('.starter-filter-pill');
+    filterPills.forEach(pill => {
+      pill.addEventListener('click', (e) => {
+        e.preventDefault();
+        const filter = pill.dataset.filter || 'all';
+        const section = container.querySelector('.starter-suggestions-section');
+        if (section) {
+          const newWrapper = document.createElement('div');
+          newWrapper.innerHTML = buildStarterSuggestionsHTML(filter);
+          const newSection = newWrapper.firstElementChild;
+          section.replaceWith(newSection);
+          wireStarterSuggestionsEvents(container);
+        }
+      });
+    });
+
+    const chips = container.querySelectorAll('.starter-suggestion-chip');
+    chips.forEach(chip => {
+      chip.addEventListener('click', (e) => {
+        e.preventDefault();
+        const feedUrl = chip.dataset.feed;
+        if (!feedUrl) return;
+        if (state.feeds.includes(feedUrl)) {
+          showStatus('Already in your podcast library');
+          return;
+        }
+        const addSpan = chip.querySelector('.starter-chip-add');
+        if (addSpan) addSpan.textContent = 'Adding...';
+        addFeed(feedUrl).then(() => {
+          if (addSpan) {
+            addSpan.textContent = 'Subscribed';
+            addSpan.classList.add('subscribed');
+          }
+        }).catch(() => {
+          if (addSpan) addSpan.textContent = '+ Follow';
+        });
+      });
+    });
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // SECTION 2 · State
@@ -191,7 +350,7 @@
     queue: [],
     downloadedEpisodes: {},
     downloadingGuids: new Set(),
-    directoryCountry: (typeof navigator !== 'undefined' && navigator.language && navigator.language.startsWith('de')) ? 'de' : 'all',
+    directoryCountry: 'all',
     sleepTimer: {
       active: false,
       minutes: 0,
@@ -1930,50 +2089,46 @@
   const DIR_PAGE_SIZE = 12;
 
   const SUBGENRE_MAP = {
-    'Music': [
-      { label: 'Electronic & Club', query: 'Electronic Music' },
-      { label: 'Jazz & Soul', query: 'Jazz Music' },
-      { label: 'Hip Hop & Rap', query: 'Hip Hop' },
-      { label: 'Rock & Indie', query: 'Indie Rock' },
-      { label: 'Classical & Ambient', query: 'Classical Music' },
-      { label: 'DJ Mixes & Sets', query: 'DJ Mix' }
+    'Science': [
+      { label: 'General Science', query: 'Science Nature Research' },
+      { label: 'Neuroscience & Biology', query: 'Neuroscience Biology Science' },
+      { label: 'Physics & Math', query: 'Physics Quantum Science' },
+      { label: 'Daily Science News', query: 'Daily Science Discovery' }
     ],
-    'Tech': [
-      { label: 'Artificial Intelligence', query: 'AI Artificial Intelligence' },
-      { label: 'Software & Dev', query: 'Software Engineering Coding' },
-      { label: 'Cybersecurity', query: 'Cybersecurity' },
-      { label: 'Startups & Tech News', query: 'Tech Startups' },
-      { label: 'Gadgets & Hardware', query: 'Hardware Gadgets' }
+    'Climate': [
+      { label: 'Climate Change & Policy', query: 'Climate Change Global Warming' },
+      { label: 'Clean Energy & Transition', query: 'Clean Energy Transition Volts' },
+      { label: 'Climate Solutions', query: 'Climate Solutions Carbon' },
+      { label: 'Ecology & Activism', query: 'Ecology Climate Action' }
     ],
-    'News': [
-      { label: 'Daily Briefings', query: 'Daily News Briefing' },
-      { label: 'World Affairs & Politics', query: 'World News Politics' },
-      { label: 'Business & Markets', query: 'Business Economy Markets' },
-      { label: 'Investigative Journalism', query: 'Investigative Journalism' }
+    'Earth Nature': [
+      { label: 'Biodiversity & Wildlife', query: 'Biodiversity Wildlife Nature Animals' },
+      { label: 'Forests & Conservation', query: 'Forest Conservation Ecology' },
+      { label: 'Geology & Earth Science', query: 'Geology Earth Science' },
+      { label: 'Natural History', query: 'Natural History Planet' }
     ],
-    'Wissen': [
-      { label: 'Astronomy & Space', query: 'Astronomy Space NASA' },
-      { label: 'Biology & Nature', query: 'Nature Biology Wildlife' },
-      { label: 'History & Deep Dives', query: 'History Deep Dive' },
-      { label: 'Physics & Earth Science', query: 'Physics Science' },
-      { label: 'Psychology & Mind', query: 'Psychology Neuroscience' }
+    'Space Astronomy': [
+      { label: 'Astrophysics & Cosmos', query: 'Astrophysics Cosmos Space' },
+      { label: 'NASA & Exploration', query: 'NASA Spaceflight Exploration' },
+      { label: 'Planets & Solar System', query: 'Planets Solar System Astronomy' },
+      { label: 'Universe & Physics', query: 'Cosmology Universe Quantum' }
     ],
-    'Culture': [
-      { label: 'Cinema & TV Shows', query: 'Film Cinema Movies' },
-      { label: 'Literature & Books', query: 'Books Literature' },
-      { label: 'Art & Design', query: 'Art Design' },
-      { label: 'Society & Philosophy', query: 'Philosophy Society Culture' }
+    'Oceans Ecology': [
+      { label: 'Marine Biology & Seas', query: 'Marine Biology Ocean Sea' },
+      { label: 'Ocean Conservation', query: 'Ocean Marine Conservation' },
+      { label: 'Deep Sea & Coral Reefs', query: 'Coral Reefs Deep Sea' }
     ],
-    'True Crime': [
-      { label: 'Serial & Solved', query: 'True Crime Mystery' },
-      { label: 'Unsolved & Cold Cases', query: 'Unsolved Cold Cases' },
-      { label: 'Courtroom & Law', query: 'Courtroom True Crime Law' },
-      { label: 'Heists & Scams', query: 'Scams Heists Fraud' }
+    'Wissenschaft': [
+      { label: 'Forschung aktuell (DE)', query: 'Forschung aktuell Wissenschaft' },
+      { label: 'Klimawandel & Zukunft (DE)', query: 'Klima Umwelt Wissenschaft' },
+      { label: 'Astronomie & Sterne (DE)', query: 'Astronomie Sterne Universum' },
+      { label: 'Natur & Erde (DE)', query: 'Terra X Natur Erde Tiere' }
     ],
-    'Comedy': [
-      { label: 'Stand-Up & Interviews', query: 'Stand Up Comedians' },
-      { label: 'Satire & Parody', query: 'Satire Comedy' },
-      { label: 'Improv & Storytelling', query: 'Improv Comedy' }
+    'Science Climat': [
+      { label: 'Climat & Écologie (FR)', query: 'Terre au carre chaleur humaine climat' },
+      { label: 'Sciences & Univers (FR)', query: 'Science CQFD sixieme science' },
+      { label: 'Ciencia y Cosmos (ES)', query: 'Coffee Break Señal y Ruido Materia Oscura' },
+      { label: 'Océanos y Clima (ES)', query: 'Planeta Oceano cambio climatico' }
     ]
   };
 
@@ -2227,19 +2382,6 @@
     const quickSubmit = document.getElementById('btn-empty-quick-submit');
     const quickResults = document.getElementById('empty-quick-results');
 
-    const regionChips = elements.timelineList?.querySelectorAll('.region-chip');
-    if (regionChips) {
-      regionChips.forEach(chip => {
-        chip.classList.toggle('active', chip.dataset.region === state.directoryCountry);
-        chip.addEventListener('click', () => {
-          setDirectoryCountry(chip.dataset.region);
-          if (quickInput && quickInput.value.trim()) {
-            searchPodcastDirectory(quickInput.value.trim(), quickResults);
-          }
-        });
-      });
-    }
-
     if (quickInput && quickForm) {
       quickInput.addEventListener('input', () => {
         const val = quickInput.value.trim();
@@ -2312,18 +2454,7 @@
       });
     }
 
-    const chips = elements.timelineList?.querySelectorAll('.starter-suggestion-chip');
-    if (chips) {
-      chips.forEach(chip => {
-        chip.addEventListener('click', () => {
-          const feedUrl = chip.dataset.feed;
-          if (!feedUrl) return;
-          const addSpan = chip.querySelector('.starter-chip-add');
-          if (addSpan) addSpan.textContent = 'Adding...';
-          addFeed(feedUrl);
-        });
-      });
-    }
+    wireStarterSuggestionsEvents(elements.timelineList);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -2357,17 +2488,13 @@
             </form>
             <div class="dir-filters-row">
               <div class="empty-category-chips" id="empty-category-chips">
-                <button type="button" class="category-chip" data-category="News">News</button>
-                <button type="button" class="category-chip" data-category="Tech">Tech</button>
-                <button type="button" class="category-chip" data-category="Wissen">Science & Wissen</button>
-                <button type="button" class="category-chip" data-category="Culture">Culture</button>
-                <button type="button" class="category-chip" data-category="True Crime">True Crime</button>
-                <button type="button" class="category-chip" data-category="Comedy">Comedy</button>
-                <button type="button" class="category-chip" data-category="Music">Music</button>
-              </div>
-              <div class="dir-region-toggle">
-                <button type="button" class="region-chip active" data-region="de" title="German directory shows">🇩🇪 DE</button>
-                <button type="button" class="region-chip" data-region="all" title="Global directory shows">🌐 Global</button>
+                <button type="button" class="category-chip" data-category="Science">Science</button>
+                <button type="button" class="category-chip" data-category="Climate">Climate &amp; Planet</button>
+                <button type="button" class="category-chip" data-category="Earth Nature">Earth &amp; Nature</button>
+                <button type="button" class="category-chip" data-category="Space Astronomy">Space &amp; Astronomy</button>
+                <button type="button" class="category-chip" data-category="Oceans Ecology">Oceans &amp; Ecology</button>
+                <button type="button" class="category-chip" data-category="Wissenschaft">Wissen (DE)</button>
+                <button type="button" class="category-chip" data-category="Science Climat">Sciences (FR/ES)</button>
               </div>
             </div>
             <div id="empty-quick-results" class="quick-results-container"></div>
@@ -2375,35 +2502,7 @@
           <div class="empty-actions">
             <button class="btn btn-secondary" id="btn-empty-opml-trigger">Import OPML File</button>
           </div>
-          <div class="starter-suggestions-section">
-            <div class="starter-suggestions-title">Discover Science, Planet & Climate shows:</div>
-            <div class="starter-suggestions-grid">
-              <div class="starter-suggestion-chip" data-feed="https://feeds.megaphone.fm/NATIONALAERONAUTICSANDSPACEADMINISTRATION8162188566">
-                <span class="starter-chip-name">NASA's Curious Universe</span>
-                <span class="starter-chip-add">+ Follow</span>
-              </div>
-              <div class="starter-suggestion-chip" data-feed="https://feeds.simplecast.com/EmVW7VGp">
-                <span class="starter-chip-name">Radiolab</span>
-                <span class="starter-chip-add">+ Follow</span>
-              </div>
-              <div class="starter-suggestion-chip" data-feed="https://www.deutschlandfunk.de/forschung-aktuell-102.xml">
-                <span class="starter-chip-name">Forschung aktuell (DLF)</span>
-                <span class="starter-chip-add">+ Follow</span>
-              </div>
-              <div class="starter-suggestion-chip" data-feed="https://www.ndr.de/nachrichten/info/podcast4696.xml">
-                <span class="starter-chip-name">ARD Klima-Update</span>
-                <span class="starter-chip-add">+ Follow</span>
-              </div>
-              <div class="starter-suggestion-chip" data-feed="https://feeds.simplecast.com/NM3_bR51">
-                <span class="starter-chip-name">ZEIT WISSEN</span>
-                <span class="starter-chip-add">+ Follow</span>
-              </div>
-              <div class="starter-suggestion-chip" data-feed="https://podcasts.files.bbci.co.uk/w13xtvb6.rss">
-                <span class="starter-chip-name">The Climate Question (BBC)</span>
-                <span class="starter-chip-add">+ Follow</span>
-              </div>
-            </div>
-          </div>
+          ${buildStarterSuggestionsHTML('all')}
         </div>
       `;
       wireEmptyStateEvents();
@@ -3066,19 +3165,6 @@
       });
     }
 
-    const regionChips = elements.feedsList?.querySelectorAll('.region-chip');
-    if (regionChips) {
-      regionChips.forEach(chip => {
-        chip.classList.toggle('active', chip.dataset.region === state.directoryCountry);
-        chip.addEventListener('click', () => {
-          setDirectoryCountry(chip.dataset.region);
-          if (quickInput && quickInput.value.trim()) {
-            searchPodcastDirectory(quickInput.value.trim(), quickResults);
-          }
-        });
-      });
-    }
-
     const catChips = document.querySelectorAll('#feeds-empty-category-chips .category-chip');
     catChips.forEach(chip => {
       chip.addEventListener('click', () => {
@@ -3095,16 +3181,7 @@
       elements.btnLoadDefaults?.click();
     });
 
-    const chips = elements.feedsGrid.querySelectorAll('.starter-suggestion-chip');
-    chips.forEach(chip => {
-      chip.addEventListener('click', () => {
-        const feedUrl = chip.dataset.feed;
-        if (!feedUrl) return;
-        const addSpan = chip.querySelector('.starter-chip-add');
-        if (addSpan) addSpan.textContent = 'Adding...';
-        addFeed(feedUrl);
-      });
-    });
+    wireStarterSuggestionsEvents(elements.feedsGrid);
   }
 
   function renderFeedsGrid() {
@@ -3134,17 +3211,13 @@
             </form>
             <div class="dir-filters-row">
               <div class="empty-category-chips" id="feeds-empty-category-chips">
-                <button type="button" class="category-chip" data-category="News">News</button>
-                <button type="button" class="category-chip" data-category="Tech">Tech</button>
-                <button type="button" class="category-chip" data-category="Wissen">Science & Wissen</button>
-                <button type="button" class="category-chip" data-category="Culture">Culture</button>
-                <button type="button" class="category-chip" data-category="True Crime">True Crime</button>
-                <button type="button" class="category-chip" data-category="Comedy">Comedy</button>
-                <button type="button" class="category-chip" data-category="Music">Music</button>
-              </div>
-              <div class="dir-region-toggle">
-                <button type="button" class="region-chip active" data-region="de" title="German directory shows">🇩🇪 DE</button>
-                <button type="button" class="region-chip" data-region="all" title="Global directory shows">🌐 Global</button>
+                <button type="button" class="category-chip" data-category="Science">Science</button>
+                <button type="button" class="category-chip" data-category="Climate">Climate &amp; Planet</button>
+                <button type="button" class="category-chip" data-category="Earth Nature">Earth &amp; Nature</button>
+                <button type="button" class="category-chip" data-category="Space Astronomy">Space &amp; Astronomy</button>
+                <button type="button" class="category-chip" data-category="Oceans Ecology">Oceans &amp; Ecology</button>
+                <button type="button" class="category-chip" data-category="Wissenschaft">Wissen (DE)</button>
+                <button type="button" class="category-chip" data-category="Science Climat">Sciences (FR/ES)</button>
               </div>
             </div>
             <div id="feeds-empty-quick-results" class="quick-results-container"></div>
@@ -3152,35 +3225,7 @@
           <div class="empty-actions">
             <button class="btn btn-secondary" id="btn-feeds-empty-opml">Import OPML File</button>
           </div>
-          <div class="starter-suggestions-section">
-            <div class="starter-suggestions-title">Discover Science, Planet & Climate shows:</div>
-            <div class="starter-suggestions-grid">
-              <div class="starter-suggestion-chip" data-feed="https://feeds.megaphone.fm/NATIONALAERONAUTICSANDSPACEADMINISTRATION8162188566">
-                <span class="starter-chip-name">NASA's Curious Universe</span>
-                <span class="starter-chip-add">+ Follow</span>
-              </div>
-              <div class="starter-suggestion-chip" data-feed="https://feeds.simplecast.com/EmVW7VGp">
-                <span class="starter-chip-name">Radiolab</span>
-                <span class="starter-chip-add">+ Follow</span>
-              </div>
-              <div class="starter-suggestion-chip" data-feed="https://www.deutschlandfunk.de/forschung-aktuell-102.xml">
-                <span class="starter-chip-name">Forschung aktuell (DLF)</span>
-                <span class="starter-chip-add">+ Follow</span>
-              </div>
-              <div class="starter-suggestion-chip" data-feed="https://www.ndr.de/nachrichten/info/podcast4696.xml">
-                <span class="starter-chip-name">ARD Klima-Update</span>
-                <span class="starter-chip-add">+ Follow</span>
-              </div>
-              <div class="starter-suggestion-chip" data-feed="https://feeds.simplecast.com/NM3_bR51">
-                <span class="starter-chip-name">ZEIT WISSEN</span>
-                <span class="starter-chip-add">+ Follow</span>
-              </div>
-              <div class="starter-suggestion-chip" data-feed="https://podcasts.files.bbci.co.uk/w13xtvb6.rss">
-                <span class="starter-chip-name">The Climate Question (BBC)</span>
-                <span class="starter-chip-add">+ Follow</span>
-              </div>
-            </div>
-          </div>
+          ${buildStarterSuggestionsHTML('all')}
         </div>
       `;
       wireFeedsEmptyStateEvents();
@@ -4839,17 +4884,6 @@
       });
     });
 
-    const modalRegionChips = document.querySelectorAll('#add-modal .region-chip');
-    modalRegionChips.forEach(chip => {
-      chip.classList.toggle('active', chip.dataset.region === state.directoryCountry);
-      chip.addEventListener('click', () => {
-        setDirectoryCountry(chip.dataset.region);
-        if (elements.podcastSearchQuery && elements.podcastSearchQuery.value.trim()) {
-          searchPodcastDirectory(elements.podcastSearchQuery.value.trim());
-        }
-      });
-    });
-
     if (elements.btnOpenQueue) elements.btnOpenQueue.addEventListener('click', openQueueModal);
     if (elements.btnCloseQueue) elements.btnCloseQueue.addEventListener('click', closeQueueModal);
     if (elements.btnClearQueue) elements.btnClearQueue.addEventListener('click', clearQueue);
@@ -4939,7 +4973,7 @@
     if (elements.btnLoadDefaults) {
       elements.btnLoadDefaults.addEventListener('click', async () => {
         showStatus('Adding recommended starter feeds...');
-        const searchTerms = ['ZEIT Geschichte', 'ZEIT WISSEN', 'Weltspiegel Podcast', 'Syntax Podcast'];
+        const searchTerms = ["NASA's Curious Universe", "The Climate Question", "Radiolab", "Forschung aktuell"];
         for (const term of searchTerms) {
           try {
             const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=podcast&limit=1`);
@@ -5050,6 +5084,10 @@
   function openAddModal() {
     elements.addModal.classList.remove('hidden');
     elements.podcastSearchQuery.focus();
+    if (!elements.podcastSearchQuery.value.trim() && elements.searchDirectoryResults) {
+      elements.searchDirectoryResults.innerHTML = buildStarterSuggestionsHTML('all');
+      wireStarterSuggestionsEvents(elements.searchDirectoryResults);
+    }
     window.history.pushState({ modal: 'add' }, '', window.location.hash);
   }
 
