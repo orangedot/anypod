@@ -5639,7 +5639,30 @@
       if (state.currentEpisode) toggleFavoriteEpisode(state.currentEpisode);
     });
     if (elements.btnPlayerTranscript) elements.btnPlayerTranscript.addEventListener('click', () => openShowNotes(null, 'transcript'));
-    if (elements.playerTrackInfo) elements.playerTrackInfo.addEventListener('click', () => openShowNotes(null, 'notes'));
+    
+    if (elements.playerTitle) {
+      elements.playerTitle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openShowNotes(null, 'notes');
+      });
+    }
+
+    if (elements.playerPodcast) {
+      elements.playerPodcast.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (state.currentEpisode && state.currentEpisode.feedUrl) {
+          openFeedDetail(state.currentEpisode.feedUrl);
+        }
+      });
+    }
+
+    if (elements.playerArtwork) {
+      elements.playerArtwork.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openShowNotes(null, 'notes');
+      });
+    }
+
     if (elements.btnCloseNotes) elements.btnCloseNotes.addEventListener('click', closeShowNotes);
     if (elements.showNotesModal) {
       elements.showNotesModal.addEventListener('click', (e) => {
@@ -5976,7 +5999,7 @@
   // 6. Caches episode timeline analysis permanently in localStorage.
   // ─────────────────────────────────────────────────────────────────────────
 
-  const TIMELINE_BAR_COUNT = 85;
+  const TIMELINE_BAR_COUNT = 140;
 
   function loadExperimentalSettings() {
     try {
@@ -6086,7 +6109,6 @@
 
   function generateBaselineBars(guid, count) {
     const bars = [];
-    // Pseudo-random deterministic seed from episode GUID
     let seed = 42;
     for (let c = 0; c < (guid || '').length; c++) {
       seed = (seed * 31 + guid.charCodeAt(c)) & 0x7fffffff;
@@ -6096,20 +6118,32 @@
       return (seed - 1) / 2147483646;
     };
 
+    // Realistic podcast pattern:
+    // - Intro music first ~3%
+    // - Discussion with natural conversational pauses
+    // - Short music interlude mid-way
+    // - Outro music last ~4%
+    const midInterludeStart = 0.48;
+    const midInterludeEnd = 0.51;
+
     for (let i = 0; i < count; i++) {
       const pos = i / count;
-      // Typical podcast profile: intro music, steady discussion, outro music
-      const isIntro = pos < 0.05;
-      const isOutro = pos > 0.94;
-      const defaultType = (isIntro || isOutro) ? 'music' : 'speech';
-      // Energy contour
-      const baseAmp = 0.35 + Math.sin(pos * Math.PI) * 0.25;
-      const noise = (rand() - 0.5) * 0.35;
-      const height = Math.min(1.0, Math.max(0.15, baseAmp + noise));
+      const isIntro = pos < 0.035;
+      const isOutro = pos > 0.955;
+      const isMidMusic = pos >= midInterludeStart && pos <= midInterludeEnd;
+      const isMusic = isIntro || isOutro || isMidMusic;
+
+      // Natural speech envelope with high-resolution dynamics
+      const speechEnvelope = 0.38 + Math.sin(pos * Math.PI) * 0.22;
+      const cadence = Math.sin(i * 0.85) * 0.15;
+      const microVariance = (rand() - 0.5) * 0.35;
+      const height = isMusic
+        ? Math.min(0.92, Math.max(0.35, 0.55 + Math.sin(i * 0.5) * 0.25))
+        : Math.min(1.0, Math.max(0.12, speechEnvelope + cadence + microVariance));
 
       bars.push({
         height: parseFloat(height.toFixed(2)),
-        type: defaultType
+        type: isMusic ? 'music' : 'speech'
       });
     }
     return bars;
@@ -6482,31 +6516,39 @@
 
     const barWidth = w / bars.length;
     const gap = Math.max(1, Math.floor(barWidth * 0.28));
-    const drawWidth = Math.max(2, barWidth - gap);
+    const drawWidth = Math.max(1.5, barWidth - gap);
     const showClassifier = !!state.experimentalSettings.enableAudioClassifier;
+
+    // Track active mode at playhead for UI pill dots
+    let activeModeAtPlayhead = 'speech';
 
     for (let i = 0; i < bars.length; i++) {
       const b = bars[i];
-      const barH = Math.max(4, Math.round(b.height * (h - 8)));
+      const barH = Math.max(3, Math.round(b.height * (h - 8)));
       const x = i * barWidth + (gap / 2);
       const y = h - barH; // Baseline rises up from the bottom!
 
       const isPlayed = (x + drawWidth * 0.5) <= playheadX;
+      if (isPlayed) {
+        activeModeAtPlayhead = b.type || 'speech';
+      }
 
-      // Color coding: Speech = Orange, Music = Vibrant Purple
+      // Elegant, lighter spectrum color palette with depth:
+      // - Speech: Warm amber/gold glow, softer opacity for unplayed
+      // - Music: Subtle electric violet, lighter tint
       let color;
       if (showClassifier && b.type === 'music') {
-        color = isPlayed ? '#a855f7' : 'rgba(168, 85, 247, 0.45)';
+        color = isPlayed ? '#c084fc' : 'rgba(192, 132, 252, 0.28)';
       } else if (showClassifier && b.type === 'speech') {
-        color = isPlayed ? '#f97316' : 'rgba(249, 115, 22, 0.45)';
+        color = isPlayed ? '#fb923c' : 'rgba(251, 146, 60, 0.28)';
       } else {
-        color = isPlayed ? '#f97316' : 'rgba(249, 115, 22, 0.45)';
+        color = isPlayed ? '#fb923c' : 'rgba(255, 255, 255, 0.22)';
       }
 
       ctx.fillStyle = color;
 
-      // Draw rounded pill bar (rounded top corners)
-      const r = Math.min(drawWidth / 2, 2.5);
+      // Draw rounded pill bar (rounded top corners) with subtle shadow depth
+      const r = Math.min(drawWidth / 2, 2);
       if (typeof ctx.roundRect === 'function') {
         ctx.beginPath();
         ctx.roundRect(x, y, drawWidth, barH, [r, r, 0, 0]);
@@ -6514,6 +6556,12 @@
       } else {
         ctx.fillRect(x, y, drawWidth, barH);
       }
+    }
+
+    // Sync visual active mode indicator in control-buttons row
+    if (elements.btnJumpSpeech && elements.btnJumpMusic) {
+      elements.btnJumpSpeech.classList.toggle('is-active-mode', activeModeAtPlayhead === 'speech');
+      elements.btnJumpMusic.classList.toggle('is-active-mode', activeModeAtPlayhead === 'music');
     }
   }
 
