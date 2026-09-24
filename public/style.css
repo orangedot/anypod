@@ -2292,6 +2292,7 @@ body.has-active-episode.has-mini-player .bottom-action-dock {
   opacity: 0;
   pointer-events: none;
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+  overflow: visible;
 }
 
 .player-bar.active-episode {
@@ -3468,7 +3469,7 @@ body.has-active-episode.has-mini-player .player-mini {
   }
 
   body.has-active-episode .bottom-action-dock {
-    bottom: 145px;
+    bottom: 155px;
   }
 
   body.has-active-episode.has-mini-player .bottom-action-dock {
@@ -4133,19 +4134,24 @@ body.has-active-episode.has-mini-player .player-mini {
 .waveform-timeline-wrap {
   display: none;
   position: absolute;
-  bottom: calc(100% - 0px);
-  left: 2rem;
-  right: 2rem;
+  bottom: 100%;
+  left: 0;
+  right: 0;
   height: 44px;
   cursor: pointer;
   user-select: none;
-  background: transparent;
-  border: none;
-  z-index: -1;
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border-light);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  z-index: 10;
   align-items: flex-end;
   touch-action: none;
   pointer-events: auto;
-  overflow: visible;
+  overflow: hidden;
+  padding: 0 1.5rem;
+  box-sizing: border-box;
   transition: opacity 0.25s ease;
 }
 
@@ -4155,9 +4161,10 @@ body.has-active-episode.has-mini-player .player-mini {
 
 @media (max-width: 768px) {
   .waveform-timeline-wrap {
-    left: 0.75rem;
-    right: 0.75rem;
+    left: 0;
+    right: 0;
     height: 38px;
+    padding: 0 0.5rem;
   }
 }
 
