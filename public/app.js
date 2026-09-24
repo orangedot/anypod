@@ -499,6 +499,7 @@
     opmlFileInput: document.getElementById('opml-file-input'),
     btnExportOpml: document.getElementById('btn-export-opml'),
     btnLoadDefaults: document.getElementById('btn-load-defaults'),
+    btnReloadCache: document.getElementById('btn-reload-cache'),
     btnClearStorage: document.getElementById('btn-clear-storage'),
 
     addModal: document.getElementById('add-modal'),
@@ -5767,6 +5768,29 @@
         if (confirm(`Remove all ${count} downloaded podcast episodes from this device?`)) {
           clearAllDownloads();
         }
+      });
+    }
+
+    if (elements.btnReloadCache) {
+      elements.btnReloadCache.addEventListener('click', async () => {
+        showStatus('Refreshing app cache & checking updates...');
+        try {
+          if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(
+              keys.map(k => k !== 'anypod-audio-v1' ? caches.delete(k) : Promise.resolve())
+            );
+          }
+          if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (const reg of registrations) {
+              await reg.update();
+            }
+          }
+        } catch (err) {
+          console.warn('Cache refresh error:', err);
+        }
+        window.location.reload(true);
       });
     }
 

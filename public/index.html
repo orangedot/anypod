@@ -317,9 +317,12 @@
         </div>
 
         <div class="settings-card danger-zone">
-          <h3>Clear Local Cache</h3>
-          <p>Reset local storage, cached episode state, and saved feeds.</p>
-          <button class="btn btn-danger" id="btn-clear-storage">Clear All Storage</button>
+          <h3>Cache & Storage Management</h3>
+          <p>Reload app bundle & update cache without losing your account login or subscriptions.</p>
+          <div class="settings-actions">
+            <button class="btn btn-secondary" id="btn-reload-cache" style="border-color: var(--accent-orange); color: var(--accent-orange);">Reload App &amp; Update Cache</button>
+            <button class="btn btn-danger" id="btn-clear-storage">Reset All Local Storage</button>
+          </div>
         </div>
 
         <div class="settings-card danger-zone" id="card-delete-account" style="display: none;">

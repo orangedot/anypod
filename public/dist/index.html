@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.min.css?v=1790287309084">
+  <link rel="stylesheet" href="style.min.css?v=1790288058670">
 </head>
 <body>
   <!-- Cloud Sync & Magic Auth Modal -->
@@ -317,9 +317,12 @@
         </div>
 
         <div class="settings-card danger-zone">
-          <h3>Clear Local Cache</h3>
-          <p>Reset local storage, cached episode state, and saved feeds.</p>
-          <button class="btn btn-danger" id="btn-clear-storage">Clear All Storage</button>
+          <h3>Cache & Storage Management</h3>
+          <p>Reload app bundle & update cache without losing your account login or subscriptions.</p>
+          <div class="settings-actions">
+            <button class="btn btn-secondary" id="btn-reload-cache" style="border-color: var(--accent-orange); color: var(--accent-orange);">Reload App &amp; Update Cache</button>
+            <button class="btn btn-danger" id="btn-clear-storage">Reset All Local Storage</button>
+          </div>
         </div>
 
         <div class="settings-card danger-zone" id="card-delete-account" style="display: none;">
@@ -632,6 +635,6 @@
 
   <!-- YouTube Iframe API -->
   <script src="https://www.youtube.com/iframe_api"></script>
-  <script src="app.min.js?v=1790287309084"></script>
+  <script src="app.min.js?v=1790288058670"></script>
 </body>
 </html>
