@@ -393,8 +393,8 @@
       initialVolume: 1.0
     },
     experimentalSettings: {
-      enableVisualizer: false,
-      enableAudioClassifier: false,
+      enableVisualizer: true,
+      enableAudioClassifier: true,
       autoSkipSpeech: false
     },
     episodeTimeline: {
@@ -4295,11 +4295,16 @@
     const handleSeekBarChange = () => {
       const pct = elements.seekBar.value / 100;
       elements.seekBar.style.setProperty('--seek-pct', `${elements.seekBar.value}%`);
+      state._lastDrawnWaveformBarIndex = -1;
       if (state.activeEngine === 'audio' && audio.duration && isFinite(audio.duration)) {
         audio.currentTime = pct * audio.duration;
       } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getDuration) {
         const dur = state.ytPlayer.getDuration();
         if (dur) state.ytPlayer.seekTo(pct * dur, true);
+      }
+      updateProgress();
+      if (state.experimentalSettings.enableVisualizer) {
+        renderWaveformChart();
       }
     };
     elements.seekBar.addEventListener('input', handleSeekBarChange);
@@ -4601,14 +4606,24 @@
       if (elements.miniProgressFill) {
         elements.miniProgressFill.style.width = `${pct}%`;
       }
-      if (elements.waveformProgressOverlay) {
-        elements.waveformProgressOverlay.style.width = `${pct}%`;
-      }
       if (elements.waveformPlayheadLine) {
         elements.waveformPlayheadLine.style.left = `${pct}%`;
       }
       if (elements.waveformTimelineWrap) {
         elements.waveformTimelineWrap.setAttribute('aria-valuenow', Math.round(pct));
+      }
+
+      const dur = state.episodeTimeline.duration || total || 0;
+      const progressRatio = dur > 0 ? (current / dur) : (pct / 100);
+      state.episodeTimeline.progressPct = progressRatio;
+
+      const barCount = (state.episodeTimeline.bars && state.episodeTimeline.bars.length) || 85;
+      const curBarIdx = Math.floor(progressRatio * barCount);
+      if (state._lastDrawnWaveformBarIndex !== curBarIdx) {
+        state._lastDrawnWaveformBarIndex = curBarIdx;
+        if (state.experimentalSettings.enableVisualizer) {
+          renderWaveformChart();
+        }
       }
 
       // Live transcript cue karaoke highlight & auto-scroll
@@ -5910,6 +5925,8 @@
       const raw = localStorage.getItem(STORAGE_KEYS.EXPERIMENTAL);
       if (raw) {
         const parsed = JSON.parse(raw);
+        if (parsed.enableVisualizer === undefined) parsed.enableVisualizer = true;
+        if (parsed.enableAudioClassifier === undefined) parsed.enableAudioClassifier = true;
         Object.assign(state.experimentalSettings, parsed);
       }
     } catch (_) {}
@@ -5943,10 +5960,10 @@
       elements.waveformTimelineWrap.style.display = isVis ? 'flex' : 'none';
     }
     if (elements.seekBar) {
-      elements.seekBar.style.display = isVis ? 'none' : 'block';
+      elements.seekBar.style.display = 'block';
     }
     if (elements.timelineLegend) {
-      elements.timelineLegend.style.display = (isVis && isClass) ? 'flex' : 'none';
+      elements.timelineLegend.style.display = isClass ? 'flex' : 'none';
     }
 
     if (isVis) {
@@ -6337,7 +6354,7 @@
 
     const rect = wrap.getBoundingClientRect();
     const w = rect.width || wrap.offsetWidth || 500;
-    const h = 38;
+    const h = 42;
     const dpr = window.devicePixelRatio || 1;
 
     canvas.width = Math.floor(w * dpr);
@@ -6350,30 +6367,73 @@
     const bars = state.episodeTimeline.bars;
     if (!bars || bars.length === 0) return;
 
+    // Calculate current playhead progress
+    let curSec = 0;
+    let totalDur = state.episodeTimeline.duration || 0;
+    if (state.activeEngine === 'audio' && elements.audio) {
+      curSec = elements.audio.currentTime || 0;
+      if (!totalDur && elements.audio.duration && isFinite(elements.audio.duration)) {
+        totalDur = elements.audio.duration;
+      }
+    } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
+      curSec = state.ytPlayer.getCurrentTime() || 0;
+      if (!totalDur && state.ytPlayer.getDuration) {
+        totalDur = state.ytPlayer.getDuration();
+      }
+    }
+    const curPct = (totalDur > 0) ? Math.min(1, Math.max(0, curSec / totalDur)) : (state.episodeTimeline.progressPct || 0);
+    const playheadX = curPct * w;
+
+    // 1. Soft illuminated capsule around played portion (matching screenshot)
+    if (playheadX > 6) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(249, 115, 22, 0.12)';
+      ctx.strokeStyle = 'rgba(249, 115, 22, 0.28)';
+      ctx.lineWidth = 1;
+      const pillH = h - 6;
+      const pillW = Math.min(w, playheadX + 2);
+      const pillRadius = Math.min(pillH / 2, 8);
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(0, 3, pillW, pillH, pillRadius);
+      } else {
+        ctx.rect(0, 3, pillW, pillH);
+      }
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+
     const barWidth = w / bars.length;
-    const gap = Math.max(1, Math.floor(barWidth * 0.25));
-    const drawWidth = Math.max(1.5, barWidth - gap);
+    const gap = Math.max(1, Math.floor(barWidth * 0.28));
+    const drawWidth = Math.max(2, barWidth - gap);
     const showClassifier = !!state.experimentalSettings.enableAudioClassifier;
 
     for (let i = 0; i < bars.length; i++) {
       const b = bars[i];
-      const barH = Math.max(3, b.height * (h - 6));
+      const barH = Math.max(4, Math.round(b.height * (h - 8)));
       const x = i * barWidth + (gap / 2);
-      const y = (h - barH) / 2;
+      const y = h - barH; // Baseline rises up from the bottom!
+
+      const isPlayed = (x + drawWidth * 0.5) <= playheadX;
 
       // Color coding: Speech = Orange, Music = Vibrant Purple
+      let color;
       if (showClassifier && b.type === 'music') {
-        ctx.fillStyle = '#a855f7'; // Purple/Violet
+        color = isPlayed ? '#a855f7' : 'rgba(168, 85, 247, 0.45)';
       } else if (showClassifier && b.type === 'speech') {
-        ctx.fillStyle = '#f97316'; // Podcast Orange
+        color = isPlayed ? '#f97316' : 'rgba(249, 115, 22, 0.45)';
       } else {
-        ctx.fillStyle = '#f97316'; // Standard single-color waveform
+        color = isPlayed ? '#f97316' : 'rgba(249, 115, 22, 0.45)';
       }
 
-      // Draw rounded bar
+      ctx.fillStyle = color;
+
+      // Draw rounded pill bar (rounded top corners)
+      const r = Math.min(drawWidth / 2, 2.5);
       if (typeof ctx.roundRect === 'function') {
         ctx.beginPath();
-        ctx.roundRect(x, y, drawWidth, barH, 2);
+        ctx.roundRect(x, y, drawWidth, barH, [r, r, 0, 0]);
         ctx.fill();
       } else {
         ctx.fillRect(x, y, drawWidth, barH);
@@ -6634,12 +6694,16 @@
 
       if (totalDur > 0) {
         const targetSec = pct * totalDur;
+        state._lastDrawnWaveformBarIndex = -1;
         if (state.activeEngine === 'audio') {
           elements.audio.currentTime = targetSec;
         } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.seekTo) {
           state.ytPlayer.seekTo(targetSec, true);
         }
         updateProgress();
+        if (state.experimentalSettings.enableVisualizer) {
+          renderWaveformChart();
+        }
       }
     };
 

@@ -497,6 +497,15 @@
 
     <!-- Sticky Audio Player Footer -->
     <footer class="player-bar" id="player-bar">
+      <!-- Full-Episode Waveform & Speech/Music Spectrum Timeline Crest (Over content, under player bar) -->
+      <div class="waveform-timeline-wrap" id="waveform-timeline-wrap" role="slider" aria-label="Episode timeline audio waveform" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0">
+        <canvas id="episode-waveform-canvas" class="episode-waveform-canvas" height="42"></canvas>
+        <div class="waveform-progress-overlay" id="waveform-progress-overlay"></div>
+        <div class="waveform-playhead-line" id="waveform-playhead-line"></div>
+        <div class="waveform-hover-cursor" id="waveform-hover-cursor"></div>
+        <div class="waveform-tooltip hidden" id="waveform-tooltip">0:00</div>
+      </div>
+
       <div class="player-track-info">
         <img id="player-artwork" src="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%2318181b%22/%3E%3C/svg%3E" alt="Episode Artwork" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%2318181b%22/%3E%3C/svg%3E';">
         <div class="track-text">
@@ -533,15 +542,6 @@
         </div>
 
         <div class="time-scrubber" id="time-scrubber">
-          <!-- Full-Episode Waveform & Speech/Music Spectrum Timeline Chart (when toggled ON in Settings) -->
-          <div class="waveform-timeline-wrap" id="waveform-timeline-wrap" role="slider" aria-label="Episode timeline audio waveform" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0">
-            <canvas id="episode-waveform-canvas" class="episode-waveform-canvas" height="38"></canvas>
-            <div class="waveform-progress-overlay" id="waveform-progress-overlay"></div>
-            <div class="waveform-playhead-line" id="waveform-playhead-line"></div>
-            <div class="waveform-hover-cursor" id="waveform-hover-cursor"></div>
-            <div class="waveform-tooltip hidden" id="waveform-tooltip">0:00</div>
-          </div>
-
           <div class="time-scrubber-row">
             <span class="time-label" id="current-time">0:00</span>
             <input type="range" id="seek-bar" min="0" max="100" value="0" step="0.1" aria-label="Seek position">
