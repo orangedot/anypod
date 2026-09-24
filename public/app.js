@@ -253,10 +253,16 @@
     const chipsHTML = filtered.map(item => {
       const isSubbed = state.feeds.includes(item.feed);
       return `
-        <div class="starter-suggestion-chip" data-feed="${escapeHtml(item.feed)}">
+        <div class="starter-suggestion-chip" data-feed="${escapeHtml(item.feed)}" data-title="${escapeHtml(item.title)}">
           <span class="starter-chip-badge">${escapeHtml(item.badge)}</span>
-          <span class="starter-chip-name">${escapeHtml(item.title)}</span>
-          <span class="starter-chip-add ${isSubbed ? 'subscribed' : ''}">${isSubbed ? 'Subscribed' : '+ Follow'}</span>
+          <span class="starter-chip-name" title="Click to view episodes &amp; prelisten">${escapeHtml(item.title)}</span>
+          <button type="button" class="starter-chip-preview-btn" title="View episodes &amp; prelisten">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            <span>Prelisten</span>
+          </button>
+          <button type="button" class="starter-chip-add ${isSubbed ? 'subscribed' : ''}" ${isSubbed ? 'disabled' : ''}>
+            ${isSubbed ? 'Subscribed' : '+ Follow'}
+          </button>
         </div>
       `;
     }).join('');
@@ -281,6 +287,7 @@
     filterPills.forEach(pill => {
       pill.addEventListener('click', (e) => {
         e.preventDefault();
+        e.stopPropagation();
         const filter = pill.dataset.filter || 'all';
         const section = container.querySelector('.starter-suggestions-section');
         if (section) {
@@ -295,25 +302,46 @@
 
     const chips = container.querySelectorAll('.starter-suggestion-chip');
     chips.forEach(chip => {
-      chip.addEventListener('click', (e) => {
-        e.preventDefault();
-        const feedUrl = chip.dataset.feed;
-        if (!feedUrl) return;
-        if (state.feeds.includes(feedUrl)) {
-          showStatus('Already in your podcast library');
-          return;
-        }
-        const addSpan = chip.querySelector('.starter-chip-add');
-        if (addSpan) addSpan.textContent = 'Adding...';
-        addFeed(feedUrl).then(() => {
-          if (addSpan) {
-            addSpan.textContent = 'Subscribed';
-            addSpan.classList.add('subscribed');
+      const feedUrl = chip.dataset.feed;
+      if (!feedUrl) return;
+
+      const addBtn = chip.querySelector('.starter-chip-add');
+      if (addBtn) {
+        addBtn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (state.feeds.includes(feedUrl)) {
+            showStatus('Already in your podcast library');
+            return;
           }
-        }).catch(() => {
-          if (addSpan) addSpan.textContent = '+ Follow';
+          addBtn.textContent = 'Adding...';
+          try {
+            await addFeed(feedUrl, chip.dataset.title || '');
+            addBtn.textContent = 'Subscribed';
+            addBtn.classList.add('subscribed');
+            addBtn.disabled = true;
+            showStatus('Subscribed! Added to your library');
+          } catch (err) {
+            console.error('Error adding feed:', err);
+            addBtn.textContent = '+ Follow';
+          }
         });
-      });
+      }
+
+      const openPreview = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (elements.addModal && !elements.addModal.classList.contains('hidden')) {
+          closeAddModal();
+        }
+        openFeedDetail(feedUrl);
+      };
+
+      const previewBtn = chip.querySelector('.starter-chip-preview-btn');
+      if (previewBtn) previewBtn.addEventListener('click', openPreview);
+
+      const nameEl = chip.querySelector('.starter-chip-name');
+      if (nameEl) nameEl.addEventListener('click', openPreview);
     });
   }
 
@@ -2091,44 +2119,428 @@
   const SUBGENRE_MAP = {
     'Science': [
       { label: 'General Science', query: 'Science Nature Research' },
-      { label: 'Neuroscience & Biology', query: 'Neuroscience Biology Science' },
-      { label: 'Physics & Math', query: 'Physics Quantum Science' },
-      { label: 'Daily Science News', query: 'Daily Science Discovery' }
+      { label: 'Daily Science News', query: 'Daily Science Discovery News' },
+      { label: 'Scientific Breakthroughs', query: 'Scientific Breakthroughs Frontiers' },
+      { label: 'Deep Dive Science', query: 'Radiolab Science Vs Explained' },
+      { label: 'Skepticism & Critical Thinking', query: 'Skeptics Guide Science Critical Thinking' },
+      { label: 'Citizen & Open Science', query: 'Open Science Citizen Science' },
+      { label: 'Laboratory & Methods', query: 'Laboratory Scientific Method Experiments' },
+      { label: 'Science Communication', query: 'Science Communication Scicomm' },
+      { label: 'Space & Earth Studies', query: 'Earth Space Science Discovery' },
+      { label: 'Evolution & Origins', query: 'Evolution Origin of Life Science' },
+      { label: 'Cutting-Edge Tech', query: 'Emerging Technology Science Trends' },
+      { label: 'Women in STEM', query: 'Women in Science STEM Research' },
+      { label: 'Science Journalism', query: 'Science Journalism Investigation' },
+      { label: 'Nobel & Discoveries', query: 'Nobel Prize Science Discoveries' },
+      { label: 'Science History & Society', query: 'Science Society Culture Future' }
     ],
     'Climate': [
-      { label: 'Climate Change & Policy', query: 'Climate Change Global Warming' },
-      { label: 'Clean Energy & Transition', query: 'Clean Energy Transition Volts' },
-      { label: 'Climate Solutions', query: 'Climate Solutions Carbon' },
-      { label: 'Ecology & Activism', query: 'Ecology Climate Action' }
+      { label: 'Climate Science', query: 'Climate Science Global Warming Research' },
+      { label: 'Climate Solutions', query: 'Climate Solutions Drawdown Carbon' },
+      { label: 'Global Policy & COP', query: 'Climate Policy IPCC UN COP' },
+      { label: 'Carbon Removal & Capture', query: 'Carbon Capture Removal Climate' },
+      { label: 'Extreme Weather & Planet', query: 'Extreme Weather Climate Impacts' },
+      { label: 'Climate Economics', query: 'Climate Economics Green Finance' },
+      { label: 'Degrowth & Regeneration', query: 'Regenerative Climate Sustainability' },
+      { label: 'Climate Justice', query: 'Climate Justice Frontline Communities' },
+      { label: 'Urban Resilience', query: 'Climate Resilient Cities Urban Design' },
+      { label: 'Cryosphere & Ice', query: 'Arctic Antarctic Glaciers Ice Melt' },
+      { label: 'Decarbonization', query: 'Decarbonization Net Zero Transition' },
+      { label: 'Climate Culture & Fiction', query: 'Climate Culture Storytelling Cli-Fi' },
+      { label: 'Youth & Activism', query: 'Climate Activism Fridays Future Movement' },
+      { label: 'Circular Economy', query: 'Circular Economy Waste Reduction Climate' },
+      { label: 'Renewable Transition', query: 'Clean Transition Climate Action' }
     ],
     'Earth Nature': [
-      { label: 'Biodiversity & Wildlife', query: 'Biodiversity Wildlife Nature Animals' },
-      { label: 'Forests & Conservation', query: 'Forest Conservation Ecology' },
-      { label: 'Geology & Earth Science', query: 'Geology Earth Science' },
-      { label: 'Natural History', query: 'Natural History Planet' }
+      { label: 'Biodiversity & Wildlife', query: 'Biodiversity Wildlife Animals Conservation' },
+      { label: 'Geology & Earth Science', query: 'Geology Rocks Volcanoes Earthquakes' },
+      { label: 'Soil & Mycelium', query: 'Soil Biology Fungi Mycelium Earth' },
+      { label: 'Rainforests & Jungles', query: 'Rainforest Amazon Tropical Ecology' },
+      { label: 'Mountains & Canyons', query: 'Mountains Alpine Ecology Geology' },
+      { label: 'Deserts & Arid Lands', query: 'Desert Ecology Arid Landscapes Nature' },
+      { label: 'Rivers & Freshwaters', query: 'Rivers Freshwater Ecology Wetlands' },
+      { label: 'Wilderness & Rewilding', query: 'Rewilding Wilderness Restoration Nature' },
+      { label: 'National Parks', query: 'National Parks Nature Preservation' },
+      { label: 'Botany & Plant Life', query: 'Botany Plant Ecology Flora Nature' },
+      { label: 'Birdwatching & Ornithology', query: 'Ornithology Birdwatching Birds Nature' },
+      { label: 'Insect World', query: 'Entomology Insects Pollinators Bees' },
+      { label: 'Caves & Subterranean', query: 'Speleology Caves Subterranean Earth' },
+      { label: 'Islands & Endemism', query: 'Island Biogeography Endemic Wildlife' },
+      { label: 'Earth System & Gaia', query: 'Earth System Science Biosphere Gaia' }
     ],
     'Space Astronomy': [
-      { label: 'Astrophysics & Cosmos', query: 'Astrophysics Cosmos Space' },
-      { label: 'NASA & Exploration', query: 'NASA Spaceflight Exploration' },
-      { label: 'Planets & Solar System', query: 'Planets Solar System Astronomy' },
-      { label: 'Universe & Physics', query: 'Cosmology Universe Quantum' }
+      { label: 'Astrophysics & Cosmos', query: 'Astrophysics Cosmos Universe Space' },
+      { label: 'NASA Missions', query: 'NASA Space Exploration Missions' },
+      { label: 'ESA & Global Agencies', query: 'European Space Agency Space Missions' },
+      { label: 'James Webb & Telescopes', query: 'James Webb Hubble Space Telescope Astronomy' },
+      { label: 'Solar System & Planets', query: 'Solar System Mars Jupiter Moon Planets' },
+      { label: 'Exoplanets & Worlds', query: 'Exoplanets Habitable Zones Astronomy' },
+      { label: 'Black Holes & Spacetime', query: 'Black Holes Gravitational Waves Spacetime' },
+      { label: 'Commercial Spaceflight', query: 'SpaceX Rocket Launch Space Exploration' },
+      { label: 'SETI & Astrobiology', query: 'SETI Astrobiology Alien Life Cosmos' },
+      { label: 'Lunar Missions & Artemis', query: 'Artemis Moon Landing Lunar Base' },
+      { label: 'Mars Colonization', query: 'Mars Rover Exploration Colony' },
+      { label: 'The Sun & Space Weather', query: 'Solar Physics Space Weather Sun Flares' },
+      { label: 'Stargazing & Night Sky', query: 'Stargazing Night Sky Constellations Astronomy' },
+      { label: 'Dark Matter & Energy', query: 'Dark Matter Dark Energy Big Bang' },
+      { label: 'Deep Space Telescopes', query: 'Radio Astronomy Deep Space Interferometry' }
     ],
-    'Oceans Ecology': [
-      { label: 'Marine Biology & Seas', query: 'Marine Biology Ocean Sea' },
-      { label: 'Ocean Conservation', query: 'Ocean Marine Conservation' },
-      { label: 'Deep Sea & Coral Reefs', query: 'Coral Reefs Deep Sea' }
+    'Oceans Marine': [
+      { label: 'Marine Biology', query: 'Marine Biology Ocean Sea Creatures' },
+      { label: 'Deep Sea Exploration', query: 'Deep Sea Ocean Abyss Exploration Trench' },
+      { label: 'Coral Reefs & Ecology', query: 'Coral Reefs Marine Conservation Ocean' },
+      { label: 'Whales & Cetaceans', query: 'Whales Dolphins Marine Mammals Ocean' },
+      { label: 'Sharks & Apex Predators', query: 'Sharks Marine Apex Predators Ocean' },
+      { label: 'Ocean Currents & AMOC', query: 'Ocean Currents Atlantic AMOC Climate' },
+      { label: 'Coastal & Mangrove Seas', query: 'Mangroves Coastal Wetlands Ocean Ecology' },
+      { label: 'Plastic Pollution', query: 'Ocean Plastics Marine Debris Cleanup' },
+      { label: 'Sustainable Fisheries', query: 'Sustainable Fisheries Overfishing Ocean' },
+      { label: 'Bioluminescence & Abyssal', query: 'Bioluminescence Abyssal Creatures Deep Sea' },
+      { label: 'Underwater Archaeology', query: 'Shipwrecks Marine Archaeology Submerged Cities' },
+      { label: 'Scientific Diving', query: 'Scientific Diving Ocean Expedition Marine' },
+      { label: 'Kelp Forests', query: 'Kelp Forests Sea Otters Marine Ecosystems' },
+      { label: 'Polar Oceans & Sea Ice', query: 'Arctic Ocean Antarctic Marine Life Sea Ice' },
+      { label: 'Submersibles & Ocean Tech', query: 'Submersibles Ocean Exploration ROV AUV' }
     ],
-    'Wissenschaft': [
-      { label: 'Forschung aktuell (DE)', query: 'Forschung aktuell Wissenschaft' },
-      { label: 'Klimawandel & Zukunft (DE)', query: 'Klima Umwelt Wissenschaft' },
-      { label: 'Astronomie & Sterne (DE)', query: 'Astronomie Sterne Universum' },
-      { label: 'Natur & Erde (DE)', query: 'Terra X Natur Erde Tiere' }
+    'Physics Quantum': [
+      { label: 'Quantum Mechanics', query: 'Quantum Mechanics Quantum Physics Science' },
+      { label: 'Quantum Computing', query: 'Quantum Computing Qubits Quantum Tech' },
+      { label: 'Particle Physics & CERN', query: 'CERN Particle Physics Large Hadron Collider' },
+      { label: 'General Relativity', query: 'Einstein General Relativity Gravitation Physics' },
+      { label: 'String Theory & Multiverse', query: 'String Theory Theoretical Physics Multiverse' },
+      { label: 'Thermodynamics & Entropy', query: 'Thermodynamics Entropy Arrow of Time Physics' },
+      { label: 'Lasers & Optics', query: 'Optics Photonics Laser Physics Light' },
+      { label: 'Nuclear Physics', query: 'Nuclear Physics Fusion Fission Energy' },
+      { label: 'Condensed Matter', query: 'Condensed Matter Superconductivity Materials' },
+      { label: 'Acoustics & Waves', query: 'Acoustics Sound Physics Wave Theory' },
+      { label: 'Quantum Entanglement', query: 'Quantum Entanglement Information Paradox' },
+      { label: 'Standard Model & Higgs', query: 'Standard Model Higgs Boson Particles' },
+      { label: 'Plasma & Fusion Physics', query: 'Plasma Physics Tokamak Nuclear Fusion' },
+      { label: 'Biophysics', query: 'Biophysics Molecular Mechanics Physics of Life' },
+      { label: 'Mathematical Physics', query: 'Mathematical Physics Symmetries Field Theory' }
     ],
-    'Science Climat': [
-      { label: 'Climat & Écologie (FR)', query: 'Terre au carre chaleur humaine climat' },
-      { label: 'Sciences & Univers (FR)', query: 'Science CQFD sixieme science' },
-      { label: 'Ciencia y Cosmos (ES)', query: 'Coffee Break Señal y Ruido Materia Oscura' },
-      { label: 'Océanos y Clima (ES)', query: 'Planeta Oceano cambio climatico' }
+    'Neuroscience Mind': [
+      { label: 'Neuroplasticity & Memory', query: 'Neuroplasticity Brain Learning Memory' },
+      { label: 'Consciousness & Qualia', query: 'Consciousness Philosophy of Mind Neuroscience' },
+      { label: 'Cognitive Science', query: 'Cognitive Science Psychology Neuroscience' },
+      { label: 'Neurons & Synapses', query: 'Neurobiology Neurons Synaptic Transmission' },
+      { label: 'Brain-Computer Interfaces', query: 'Brain Computer Interface Neuralink Neurotech' },
+      { label: 'Sleep & Dreams', query: 'Sleep Science Dreams Circadian Rhythm Neuro' },
+      { label: 'Neurochemistry & Dopamine', query: 'Neurochemistry Dopamine Serotonin Brain' },
+      { label: 'Memory & Recall', query: 'Memory Formation Recall Neuroscience' },
+      { label: 'Emotions & Limbic System', query: 'Affective Neuroscience Emotion Brain Limbic' },
+      { label: 'Sensory Perception', query: 'Sensory Perception Vision Auditory Neuroscience' },
+      { label: 'Neurodegenerative Research', query: 'Alzheimers Parkinsons Brain Disease Research' },
+      { label: 'Psychedelics & Brain', query: 'Psychedelic Science Neuroscience Therapy' },
+      { label: 'Attention & Focus', query: 'Attention Focus ADHD Neuroscience Executive Function' },
+      { label: 'Neuroethics', query: 'Neuroethics Free Will Moral Neuroscience' },
+      { label: 'Animal Intelligence', query: 'Animal Intelligence Comparative Cognition Neuro' }
+    ],
+    'Biology Genetics': [
+      { label: 'CRISPR & Gene Editing', query: 'CRISPR Gene Editing Genetic Engineering' },
+      { label: 'Evolutionary Biology', query: 'Evolutionary Biology Natural Selection Genetics' },
+      { label: 'Epigenetics', query: 'Epigenetics Gene Expression DNA Methylation' },
+      { label: 'Synthetic Biology', query: 'Synthetic Biology Bioengineering DNA Design' },
+      { label: 'Gut Microbiome & Microbes', query: 'Microbiome Gut Bacteria Microbes Biology' },
+      { label: 'Genomics & DNA Sequencing', query: 'Human Genome Project Genomics DNA Sequencing' },
+      { label: 'Cell Biology & Organelles', query: 'Cell Biology Organelles Mitosis Ribosomes' },
+      { label: 'Immunology & Antibodies', query: 'Immunology Immune System White Blood Cells' },
+      { label: 'Virology & Epidemics', query: 'Virology Viruses Epidemics Infectious Disease' },
+      { label: 'Developmental Biology', query: 'Developmental Biology Embryology Morphogenesis' },
+      { label: 'Plant Genetics & Crops', query: 'Plant Genetics GMO Photosynthesis Crop Biology' },
+      { label: 'Rare Diseases & Precision Med', query: 'Rare Genetic Diseases Genomics Precision Medicine' },
+      { label: 'Longevity & Cellular Aging', query: 'Telomeres Cellular Senescence Aging Biology' },
+      { label: 'Extremophiles & Origins', query: 'Extremophiles Origin of Life Astrobiology' },
+      { label: 'Structural Biology', query: 'Structural Biology Protein Folding Molecular Biology' }
+    ],
+    'Clean Energy': [
+      { label: 'Solar & Photovoltaics', query: 'Solar Energy Photovoltaics Solar Power Clean Tech' },
+      { label: 'Wind Energy', query: 'Wind Turbines Offshore Wind Renewable Energy' },
+      { label: 'Battery Tech & Storage', query: 'Battery Technology Grid Storage Lithium Ion Solid State' },
+      { label: 'Green Hydrogen', query: 'Hydrogen Fuel Cells Green Hydrogen Energy' },
+      { label: 'Smart Grids & Transmission', query: 'Smart Grid Energy Transmission High Voltage' },
+      { label: 'Geothermal Energy', query: 'Geothermal Energy Deep Geothermal Heat' },
+      { label: 'Nuclear Fusion Power', query: 'Nuclear Fusion Clean Power Clean Energy' },
+      { label: 'Electric Mobility & EVs', query: 'Electric Vehicles EV Charging Transport Transition' },
+      { label: 'Heat Pumps & Efficiency', query: 'Heat Pumps Building Decarbonization Efficiency' },
+      { label: 'Carbon Capture & Storage', query: 'Carbon Capture Sequestration Direct Air Capture' },
+      { label: 'Hydro & Tidal Power', query: 'Hydropower Ocean Tidal Wave Energy' },
+      { label: 'Biofuels & SAF', query: 'Sustainable Aviation Fuel Biofuels Clean Energy' },
+      { label: 'Green Steel & Industry', query: 'Green Steel Cement Clean Industrial Transition' },
+      { label: 'Energy Policy & Markets', query: 'Energy Markets Policy Power Grid Clean Energy' },
+      { label: 'Microgrids & Decentralized', query: 'Microgrids Decentralized Power Offgrid Solar' }
+    ],
+    'Ecology Forests': [
+      { label: 'Old-Growth & Ancient Trees', query: 'Old Growth Forests Ancient Trees Canopy Ecology' },
+      { label: 'Reforestation & Rewilding', query: 'Reforestation Tree Planting Ecosystem Restoration' },
+      { label: 'Wildfire Ecology', query: 'Wildfire Ecology Forest Management Pyrogeography' },
+      { label: 'Boreal Forests & Taiga', query: 'Boreal Forest Taiga Ecology Carbon Sink' },
+      { label: 'Tree Communication & Fungi', query: 'Tree Communication Suzanne Simard Wood Wide Web' },
+      { label: 'Urban Forestry', query: 'Urban Forestry Green Canopy City Trees Ecology' },
+      { label: 'Mangroves & Blue Carbon', query: 'Mangrove Restoration Blue Carbon Coastal Ecology' },
+      { label: 'Deforestation & Conservation', query: 'Deforestation Tropical Rainforest Conservation' },
+      { label: 'Agroforestry & Permaculture', query: 'Agroforestry Food Forests Regenerative Forestry' },
+      { label: 'Canopy Research', query: 'Forest Canopy Biodiversity Tree Research' },
+      { label: 'Indigenous Land Stewardship', query: 'Indigenous Forest Stewardship Traditional Ecological Knowledge' },
+      { label: 'Temperate Rainforests', query: 'Temperate Rainforest Pacific Northwest Ecology' },
+      { label: 'Mycorrhizal Ecology', query: 'Mycorrhizal Fungi Forest Ecology Mycology' },
+      { label: 'Forest Invasive Species', query: 'Forest Pests Invasive Species Tree Diseases' },
+      { label: 'Forest Carbon Offsets', query: 'Forest Carbon Offset Sequestration Biomass' }
+    ],
+    'Weather Atmosphere': [
+      { label: 'Meteorology & Forecasting', query: 'Meteorology Weather Forecasting Atmospheric Science' },
+      { label: 'Severe Storms & Tornadoes', query: 'Tornadoes Severe Storms Supercells Chasing' },
+      { label: 'Hurricanes & Typhoons', query: 'Hurricanes Tropical Cyclones Typhoons Tracking' },
+      { label: 'Jet Stream & Polar Vortex', query: 'Jet Stream Polar Vortex Atmosphere Climate' },
+      { label: 'Cloud Physics & Rain', query: 'Cloud Microphysics Atmospheric Moisture Rain' },
+      { label: 'Lightning & Thunderstorms', query: 'Lightning Atmospheric Electricity Thunderstorms' },
+      { label: 'Monsoons & Global Weather', query: 'Monsoon Circulation Global Atmospheric Weather' },
+      { label: 'Droughts & Heatwaves', query: 'Heatwaves Drought Atmospheric Blocking Science' },
+      { label: 'Air Quality & Aerosols', query: 'Air Quality Particulate Matter Smog Atmospheric Chemistry' },
+      { label: 'Stratosphere & Ozone', query: 'Ozone Layer Stratospheric Chemistry Atmosphere' },
+      { label: 'Radar & Weather Satellites', query: 'Doppler Radar Weather Satellites Meteorology' },
+      { label: 'Urban Microclimates', query: 'Microclimate Urban Heat Island Weather Science' },
+      { label: 'El Niño & ENSO Cycles', query: 'El Nino Southern Oscillation ENSO Pacific Weather' },
+      { label: 'Blizzards & Winter Storms', query: 'Winter Storms Blizzards Atmospheric Ice Snow' },
+      { label: 'Planetary Weather', query: 'Planetary Atmospheres Mars Venus Weather' }
+    ],
+    'Paleontology Fossils': [
+      { label: 'Dinosaurs & Theropods', query: 'Dinosaurs Paleontology T-Rex Sauropods Fossils' },
+      { label: 'Mass Extinctions', query: 'Mass Extinctions Permian Cretaceous Asteroid Impact' },
+      { label: 'Ice Age & Megafauna', query: 'Ice Age Megafauna Mammoths Paleontology' },
+      { label: 'Marine Reptiles', query: 'Plesiosaurs Mosasaurs Ancient Oceans Fossils' },
+      { label: 'Human Evolution & Hominins', query: 'Paleoanthropology Neanderthals Hominin Evolution' },
+      { label: 'Fossil Hunting & Prep', query: 'Fossil Hunting Dig Sites Paleontology Prep' },
+      { label: 'Cambrian Explosion', query: 'Cambrian Explosion Burgess Shale Early Animal Life' },
+      { label: 'Paleoart & Reconstruction', query: 'Paleoart Dinosaur Reconstruction Paleontology' },
+      { label: 'Paleobotany & Fossil Forests', query: 'Paleobotany Ancient Plants Fossil Trees Carboniferous' },
+      { label: 'Amber & Ancient Insects', query: 'Amber Fossils Ancient Insects Prehistoric Resin' },
+      { label: 'Feathered Dinosaurs', query: 'Feathered Dinosaurs Evolution of Birds Paleontology' },
+      { label: 'Pterosaurs', query: 'Pterosaurs Flying Reptiles Paleontology Fossils' },
+      { label: 'Trilobites & Invertebrates', query: 'Trilobites Paleozoic Fossils Invertebrate Paleontology' },
+      { label: 'Ancient DNA & De-extinction', query: 'Ancient DNA Paleogenomics Mammoth De-extinction' },
+      { label: 'Tar Pits & Quaternary Life', query: 'La Brea Tar Pits Quaternary Paleontology Fossils' }
+    ],
+    'Medicine Health': [
+      { label: 'Immunology & Vaccines', query: 'Immunology Vaccine Development Infectious Disease' },
+      { label: 'Cancer Research & Oncology', query: 'Oncology Cancer Research Immunotherapy Genetics' },
+      { label: 'Longevity & Healthspan', query: 'Longevity Healthspan Lifespan Peter Attia Huberman' },
+      { label: 'Public Health & Pandemics', query: 'Epidemiology Public Health Pandemics Global Health' },
+      { label: 'Cardiology & Heart Health', query: 'Cardiology Heart Health Cardiovascular Science' },
+      { label: 'Endocrinology & Metabolism', query: 'Endocrinology Hormones Metabolism Health Science' },
+      { label: 'Gut Microbiome & Digestion', query: 'Gut Microbiome Gastroenterology Digestive Health' },
+      { label: 'Pharmacology & Drugs', query: 'Pharmacology Drug Discovery Clinical Trials Medicine' },
+      { label: 'Surgical Robotics & Tech', query: 'Medical Devices Surgical Robotics Health Tech' },
+      { label: 'Rare Diseases & Genetics', query: 'Precision Medicine Rare Genetic Disorders Genomics' },
+      { label: 'Psychiatry & Mental Health', query: 'Psychiatry Neurobiology Mental Health Science' },
+      { label: 'Nutrition & Evidence', query: 'Nutrition Science Micronutrients Diet Health Evidence' },
+      { label: 'Infectious Diseases & Superbugs', query: 'Infectious Diseases Antimicrobial Resistance Bacteria' },
+      { label: 'Bioethics & Clinical Ethics', query: 'Bioethics Medical Ethics Patient Care Clinical Trials' },
+      { label: 'Emergency & Critical Care', query: 'Critical Care Emergency Medicine Trauma Science' }
+    ],
+    'AI Tech': [
+      { label: 'Large Language Models', query: 'Large Language Models LLM AI Deep Learning' },
+      { label: 'Machine Learning Research', query: 'Machine Learning Neural Networks AI Research' },
+      { label: 'Generative AI & Diffusion', query: 'Generative AI Diffusion Transformers Neural Nets' },
+      { label: 'Autonomous AI Agents', query: 'AI Agents Autonomous Systems AI Tools' },
+      { label: 'Computer Vision', query: 'Computer Vision Object Detection Image AI' },
+      { label: 'Robotics & Embodied AI', query: 'Embodied AI Robotics Boston Dynamics Manipulation' },
+      { label: 'AI Safety & Alignment', query: 'AI Safety Alignment Superintelligence Anthropic' },
+      { label: 'Natural Language Processing', query: 'Natural Language Processing NLP Linguistics AI' },
+      { label: 'AI Hardware & Silicon', query: 'GPU AI Hardware Accelerators Tensor Chips Nvidia' },
+      { label: 'Reinforcement Learning', query: 'Reinforcement Learning RLHF AlphaGo DeepMind' },
+      { label: 'AI in Science & AlphaFold', query: 'AlphaFold AI in Science Drug Discovery DeepMind' },
+      { label: 'AI Ethics & Governance', query: 'AI Ethics Bias Fairness Technology Regulation' },
+      { label: 'Open Source AI Models', query: 'Open Source AI Hugging Face Open Models Llama' },
+      { label: 'Neuromorphic Computing', query: 'Neuromorphic Computing Spiking Neural Networks AI' },
+      { label: 'History of AI & Pioneers', query: 'History of AI Turing Von Neumann Deep Learning' }
+    ],
+    'History Science': [
+      { label: 'Scientific Revolution', query: 'Scientific Revolution Galileo Newton Copernicus History' },
+      { label: 'Alchemy to Chemistry', query: 'History of Chemistry Alchemy Boyle Lavoisier' },
+      { label: 'Medical History & Pandemics', query: 'History of Medicine Black Death Cholera Penicillin' },
+      { label: 'Darwin & Evolution History', query: 'Charles Darwin Evolution Origin of Species History' },
+      { label: 'Women Pioneers in STEM', query: 'Ada Lovelace Marie Curie Women in Science History' },
+      { label: 'Space Race & Cold War', query: 'Space Race Cold War Apollo Sputnik History' },
+      { label: 'Enlightenment & Natural Phil', query: 'Enlightenment Age of Reason Natural Philosophy' },
+      { label: 'Islamic Golden Age Science', query: 'Islamic Golden Age Algebra Astronomy Science History' },
+      { label: 'Ancient Greek & Roman Science', query: 'Ancient Greek Science Archimedes Aristotle Ptolemy' },
+      { label: 'Manhattan Project & Atom', query: 'Manhattan Project Oppenheimer Atomic Age Nuclear History' },
+      { label: 'History of Computing', query: 'History of Computing Alan Turing Babbage ENIAC' },
+      { label: 'Victorian Naturalists', query: 'Victorian Science Naturalists Humboldt Expeditions' },
+      { label: 'Renaissance Anatomy', query: 'Renaissance Science Da Vinci Vesalius Anatomy' },
+      { label: 'History of Astronomy', query: 'History of Astronomy Telescopes Kepler Brahe' },
+      { label: 'Paradigm Shifts (Kuhn)', query: 'History and Philosophy of Science Paradigm Shifts Kuhn' }
+    ],
+    'Archaeology Ancient': [
+      { label: 'Ancient Egypt & Pyramids', query: 'Ancient Egypt Pyramids Pharaonic Archaeology Tombs' },
+      { label: 'Roman Empire & Pompeii', query: 'Roman Archaeology Pompeii Colosseum Antiquity' },
+      { label: 'Maya & Mesoamerica', query: 'Maya Archaeology Mesoamerica Aztec Teotihuacan' },
+      { label: 'Bronze Age Civilizations', query: 'Bronze Age Minoans Mycenaeans Ancient Near East' },
+      { label: 'Mesopotamia & Sumer', query: 'Mesopotamia Sumerian Babylon Cuneiform Archaeology' },
+      { label: 'Maritime & Shipwrecks', query: 'Maritime Archaeology Shipwrecks Submerged Ruins' },
+      { label: 'Silk Road Discoveries', query: 'Silk Road Archaeology Ancient Trade Routes Asia' },
+      { label: 'Paleolithic Cave Art', query: 'Stone Age Paleolithic Cave Art Neanderthal Sites' },
+      { label: 'LiDAR & Remote Sensing', query: 'LiDAR Archaeology Satellite Remote Sensing Discovery' },
+      { label: 'Archaeogenetics & DNA', query: 'Archaeogenetics Ancient DNA Migration Civilizations' },
+      { label: 'Ancient Greece & Aegean', query: 'Ancient Greece Archaeology Parthenon Knossos' },
+      { label: 'Indus Valley Harappa', query: 'Indus Valley Harappa Mohenjo-daro Archaeology' },
+      { label: 'Incas & Andes Civilizations', query: 'Inca Andes Machu Picchu Archaeology Tiwanaku' },
+      { label: 'Viking Age & Runes', query: 'Viking Age Archaeology Norse Settlements Runes' },
+      { label: 'Bioarchaeology & Mummies', query: 'Bioarchaeology Mummies Skeletal Analysis Antiquity' }
+    ],
+    'Math Logic': [
+      { label: 'Pure Mathematics', query: 'Pure Mathematics Number Theory Algebra Geometry' },
+      { label: 'Prime Numbers & Riemann', query: 'Number Theory Prime Numbers Riemann Hypothesis Math' },
+      { label: 'Cryptography & Ciphers', query: 'Cryptography Ciphers Zero Knowledge Proofs Math' },
+      { label: 'Topology & Manifolds', query: 'Topology Manifolds Poincaré Geometry Math' },
+      { label: 'Probability & Bayes', query: 'Probability Statistics Bayesian Inference Math' },
+      { label: 'Gödel & Mathematical Logic', query: 'Mathematical Logic Gödel Incompleteness Proof Theory' },
+      { label: 'Game Theory & Strategy', query: 'Game Theory Nash Equilibrium Strategic Math' },
+      { label: 'Chaos Theory & Fractals', query: 'Chaos Theory Mandelbrot Fractals Nonlinear Dynamics' },
+      { label: 'Applied Mathematics', query: 'Applied Mathematics Fluid Dynamics Differential Equations' },
+      { label: 'History of Mathematics', query: 'History of Mathematics Euler Gauss Newton Ramanujan' },
+      { label: 'Puzzles & Recreational Math', query: 'Recreational Math Numberphile Puzzles Mathologer' },
+      { label: 'Information Theory (Shannon)', query: 'Claude Shannon Information Theory Entropy Math' },
+      { label: 'Graph Theory & Networks', query: 'Graph Theory Network Analysis Combinatorics' },
+      { label: 'Linear Algebra & Tensors', query: 'Linear Algebra Matrices Vector Spaces Tensors' },
+      { label: 'Quantum Information Math', query: 'Quantum Information Theory Quantum Math Linear Algebra' }
+    ],
+    'Agriculture Food': [
+      { label: 'Regenerative Agriculture', query: 'Regenerative Agriculture Soil Health Carbon Farming' },
+      { label: 'Food Science & Ferment', query: 'Food Science Fermentation Culinary Chemistry' },
+      { label: 'Agtech & Precision Drones', query: 'Precision Agriculture Agtech Drones Satellite Farming' },
+      { label: 'Vertical Farming & Hydro', query: 'Vertical Farming Hydroponics Controlled Environment Ag' },
+      { label: 'Heirloom Seeds & Diversity', query: 'Heirloom Seeds Seed Saving Crop Diversity Botany' },
+      { label: 'Sustainable Aquaculture', query: 'Sustainable Aquaculture Fish Farming Seaweed Ecology' },
+      { label: 'Soil Microbiome & Compost', query: 'Soil Biology Compost Soil Health Agriculture' },
+      { label: 'Cultivated Meat & Alt Protein', query: 'Cultivated Meat Alternative Protein Food Tech' },
+      { label: 'Agroforestry & Food Forests', query: 'Agroforestry Food Forest Permaculture Systems' },
+      { label: 'Water & Drip Irrigation', query: 'Agricultural Irrigation Drip Water Conservation Crops' },
+      { label: 'Pollinators & Beekeeping', query: 'Pollinators Honeybees Beekeeping Agriculture Botany' },
+      { label: 'Food Waste Reduction', query: 'Food Waste Circular Food Systems Sustainable Food' },
+      { label: 'Crop Genetics & CRISPR', query: 'Crop Breeding GMO CRISPR Drought Tolerant Plants' },
+      { label: 'Future Food Security', query: 'Future of Food Nutrition Security Sustainable Diets' },
+      { label: 'Traditional Ecological Farming', query: 'Indigenous Agriculture Traditional Ecological Farming' }
+    ],
+    'Tech Robotics': [
+      { label: 'Humanoid Robots', query: 'Humanoid Robotics Boston Dynamics Bipedal Robots' },
+      { label: 'Autonomous Vehicles', query: 'Autonomous Vehicles Self-Driving Cars Waymo Tech' },
+      { label: 'Drones & UAVs', query: 'Drones UAV Robotics Autonomous Flight Aerial' },
+      { label: 'Industrial Automation', query: 'Industrial Robotics Factory Automation Tech' },
+      { label: 'Surgical & Medical Robotics', query: 'Surgical Robotics Medical Devices Da Vinci Tech' },
+      { label: 'Soft Robotics & Biomimicry', query: 'Soft Robotics Biomimicry Flexible Materials Actuators' },
+      { label: 'Nanorobotics', query: 'Nanorobotics Microbots Targeted Delivery Tech' },
+      { label: 'Swarm Robotics', query: 'Swarm Robotics Distributed Collective Intelligence' },
+      { label: 'Computer Vision & Sensors', query: 'Robotic Sensors LiDAR Computer Vision Perception' },
+      { label: 'Bionics & Cybernetics', query: 'Cybernetics Bionic Prosthetics Human Augmentation' },
+      { label: 'Space Robotics & Mars Rovers', query: 'Space Robotics Mars Rovers Robotic Arms Canadarm' },
+      { label: 'Agricultural Robotics', query: 'Agricultural Robotics Harvest Robots Weeding Automation' },
+      { label: 'Deep Sea ROVs', query: 'Underwater Robotics Deep Sea ROV Exploration' },
+      { label: 'Robotics Ethics & Safety', query: 'Robotics Ethics Laws of Robotics Automation Safety' },
+      { label: 'ROS & Open Robotics', query: 'Robot Operating System ROS Open Robotics Tech' }
+    ],
+    'Wildlife Zoology': [
+      { label: 'Animal Behavior & Ethology', query: 'Animal Behavior Ethology Jane Goodall Zoology' },
+      { label: 'Big Cats & Apex Predators', query: 'Big Cats Lions Tigers Leopards Predators Wildlife' },
+      { label: 'Primatology & Apes', query: 'Primatology Chimpanzees Gorillas Orangutans Jane Goodall' },
+      { label: 'Elephants & Megafauna', query: 'Elephants Wildlife Conservation African Wildlife' },
+      { label: 'Birds of Prey & Raptors', query: 'Raptors Birds of Prey Eagles Hawks Owls Zoology' },
+      { label: 'Reptiles & Amphibians', query: 'Herpetology Reptiles Amphibians Snakes Frogs' },
+      { label: 'Entomology & Arachnids', query: 'Entomology Arachnology Spiders Insects Biodiversity' },
+      { label: 'Animal Communication', query: 'Animal Communication Bioacoustics Animal Vocalization' },
+      { label: 'Bird & Animal Migration', query: 'Animal Migration Bird Migration Magnetic Navigation' },
+      { label: 'Anti-Poaching & Rangers', query: 'Wildlife Conservation Anti Poaching Rangers Safari' },
+      { label: 'Nocturnal Wildlife', query: 'Nocturnal Animals Bats Owls Night Wildlife Ecology' },
+      { label: 'Deep Sea Zoology', query: 'Deep Sea Creatures Marine Zoology Abyssal Biology' },
+      { label: 'Evolutionary Morphology', query: 'Evolutionary Zoology Adaptation Speciation Morphology' },
+      { label: 'Endangered Species Recovery', query: 'Endangered Species Captive Breeding Rewilding' },
+      { label: 'Urban Wildlife', query: 'Urban Wildlife Coyotes Raccoons City Animals Ecology' }
+    ],
+    'Chemistry Materials': [
+      { label: 'Nanotechnology & Graphene', query: 'Materials Science Nanotechnology Graphene Metamaterials' },
+      { label: 'Organic Chemistry', query: 'Organic Chemistry Chemical Synthesis Molecular Design' },
+      { label: 'Battery Chemistry', query: 'Electrochemistry Battery Chemistry Lithium Solid State' },
+      { label: 'Green Chemistry', query: 'Green Chemistry Sustainable Solvents Catalysis' },
+      { label: 'Bioplastics & Polymers', query: 'Polymers Biodegradable Plastics Materials Chemistry' },
+      { label: 'Superconductors', query: 'Superconductivity Room Temperature Superconductors Physics' },
+      { label: 'Periodic Table Elements', query: 'Periodic Table Elements Chemistry Compounds' },
+      { label: 'Biochemistry & Enzymes', query: 'Biochemistry Enzymes Proteins Metabolic Pathways' },
+      { label: 'Catalysis & Reactions', query: 'Catalysis Chemical Reactions Catalysts Chemical Eng' },
+      { label: 'Self-Healing Materials', query: 'Smart Materials Self-Healing Shape Memory Alloys' },
+      { label: 'Quantum Chemistry', query: 'Quantum Chemistry Molecular Orbitals Computational Chemistry' },
+      { label: 'Atmospheric Chemistry', query: 'Atmospheric Chemistry Ozone Aerosols Trace Gases' },
+      { label: 'Crystallography', query: 'Crystallography X-Ray Diffraction Crystal Structure' },
+      { label: 'Forensic Chemistry', query: 'Forensic Science Forensic Chemistry Mass Spectrometry' },
+      { label: 'History of Chemistry', query: 'History of Chemistry Alchemy Elements Lavoisier Mendeleev' }
+    ],
+    'Philosophy Science': [
+      { label: 'Scientific Realism & Method', query: 'Philosophy of Science Scientific Realism Epistemology' },
+      { label: 'Epistemology & Knowledge', query: 'Epistemology Knowledge Truth Justified Belief Philosophy' },
+      { label: 'Philosophy of Spacetime', query: 'Philosophy of Physics Time Space Spacetime Quantum' },
+      { label: 'Philosophy of Biology', query: 'Philosophy of Biology Evolution Organisms Teleology' },
+      { label: 'Consciousness & Physicalism', query: 'Philosophy of Mind Consciousness Qualia Dualism Physicalism' },
+      { label: 'Tech Ethics & Bioethics', query: 'Ethics of Technology AI Ethics Bioethics Philosophy' },
+      { label: 'Causality & Free Will', query: 'Causality Free Will Determinism Chaos Philosophy' },
+      { label: 'Paradigm Shifts (Kuhn)', query: 'Thomas Kuhn Paradigms Incommensurability Science' },
+      { label: 'Formal Logic & Fallacies', query: 'Formal Logic Deductive Inductive Reasoning Arguments' },
+      { label: 'Philosophy of Mathematics', query: 'Philosophy of Mathematics Platonism Constructivism' },
+      { label: 'Deep Ecology & Biosphere', query: 'Environmental Ethics Deep Ecology Biosphere Philosophy' },
+      { label: 'Social Epistemology', query: 'Social Epistemology Peer Review Scientific Consensus' },
+      { label: 'Reductionism & Emergence', query: 'Reductionism Emergence Complexity Complex Systems' },
+      { label: 'Can Machines Think (Turing)', query: 'Can Machines Think Turing Test Chinese Room Philosophy' },
+      { label: 'Philosophy of Time', query: 'Philosophy of Time Presentism Eternalism Arrow of Time' }
+    ],
+    'Wissen DE': [
+      { label: 'Forschung aktuell (DLF)', query: 'Forschung aktuell Deutschlandfunk Wissen' },
+      { label: 'SWR Wissen', query: 'SWR Wissen Wissenschaft Forschung Bildung' },
+      { label: 'Terra X Natur & Erde', query: 'Terra X Natur Erde Tiere ZDF' },
+      { label: 'WDR Quarks', query: 'WDR Quarks Science Wissenschaft Forschung' },
+      { label: 'Sternengeschichten', query: 'Sternengeschichten Astronomie Universum Florian Freistetter' },
+      { label: 'Hörsaal (DLF Nova)', query: 'Deutschlandfunk Nova Hörsaal Wissen Vortrag' },
+      { label: 'Planet Wissen', query: 'Planet Wissen WDR SWR Natur Mensch Technik' },
+      { label: 'Zeit Wissen', query: 'Zeit Wissen Medizin Gesundheit Wissenschaft' },
+      { label: 'Spektrum der Wissenschaft', query: 'Spektrum der Wissenschaft Forschungsquadrant Podcast' },
+      { label: 'Biologie & Natur (DE)', query: 'Biologie Evolution Tiere Natur Deutschlandfunk' },
+      { label: 'Klimawandel & Zukunft (DE)', query: 'Klimawandel Energiewende Deutschlandfunk Klima' },
+      { label: 'Welt der Physik (DE)', query: 'Welt der Physik Teilchenbeschleuniger Quanten' },
+      { label: 'Archäologie & Antike (DE)', query: 'Archäologie Antike Geschichte Ausgrabungen DE' },
+      { label: 'Technik & Zukunft (DE)', query: 'Zukunft Technologie Digitalisierung Wissenschaft DE' },
+      { label: 'Psychologie & Hirnforschung', query: 'Psychologie Neurowissenschaft Gehirn Wissen DE' }
+    ],
+    'Sciences FR': [
+      { label: 'La Terre au Carré (Inter)', query: 'La Terre au Carre France Inter Climat' },
+      { label: 'CQFD Sciences (RTS)', query: 'CQFD Sciences Recherche Nature RTS' },
+      { label: 'Sixième Science', query: 'Sixieme Science 20 Minutes Sciences Avenir' },
+      { label: 'La Science CQFD (Culture)', query: 'La Science CQFD France Culture Recherche' },
+      { label: 'Chaleur Humaine (Le Monde)', query: 'Chaleur Humaine Le Monde Climat Transition' },
+      { label: 'Astronomie & Univers (FR)', query: 'Astronomie Espace Univers Sciences France' },
+      { label: 'Océans & Biodiversité (FR)', query: 'Ecologie Oceans Biodiversite Mer Planete FR' },
+      { label: 'Physique & Quantique (FR)', query: 'Physique Quantique CEA Recherche Sciences FR' },
+      { label: 'Cerveau & Neurosciences (FR)', query: 'Neurosciences Cerveau Psychologie Sciences FR' },
+      { label: 'Santé & Médecine (FR)', query: 'Sante Medecine Recherche Medicale France' },
+      { label: 'Histoire des Sciences (FR)', query: 'Histoire des Sciences Decouvertes France Culture' },
+      { label: 'Archéologie & Préhistoire', query: 'Archeologie Prehistoire Fouilles Histoire FR' },
+      { label: 'IA & Nouvelles Tech (FR)', query: 'Intelligence Artificielle Tech Futur Sciences FR' },
+      { label: 'Forêts & Botanique (FR)', query: 'Foret Botanique Arbres Nature France' },
+      { label: 'Transition & Énergie (FR)', query: 'Transition Energetique Carbone Climat Solutions FR' }
+    ],
+    'Ciencia ES': [
+      { label: 'Coffee Break Señal y Ruido', query: 'Coffee Break Señal y Ruido Ciencia Astrofísica' },
+      { label: 'Materia Oscura & Física', query: 'Materia Oscura Ciencia Fisica Universo' },
+      { label: 'Planeta Océano', query: 'Planeta Oceano Biologia Marina Mar Conservacion' },
+      { label: 'A Hombros de Gigantes (RNE)', query: 'A hombros de gigantes RNE Ciencia Investigacion' },
+      { label: 'Astronomía & Cosmos (ES)', query: 'Astronomia Cosmologia Espacio Universo ES' },
+      { label: 'Biodiversidad & Fauna (ES)', query: 'Biodiversidad Naturaleza Vida Silvestre Ecologia ES' },
+      { label: 'Genética & Células (ES)', query: 'Genetica Biologia Molecular Celulas Ciencia ES' },
+      { label: 'Neurociencia & Mente (ES)', query: 'Neurociencia Cerebro Psicologia Investigacion ES' },
+      { label: 'Historia de la Ciencia (ES)', query: 'Historia de la Ciencia Descubrimientos Cientificos ES' },
+      { label: 'Atapuerca & Evolución (ES)', query: 'Arqueologia Atapuerca Paleontologia Evolucion Humana' },
+      { label: 'Transición Ecológica (ES)', query: 'Transicion Ecologica Energia Renovable Clima ES' },
+      { label: 'Paleontología & Fósiles (ES)', query: 'Paleontologia Dinosaurios Fosiles Tierra ES' },
+      { label: 'IA & Tecnología (ES)', query: 'Inteligencia Artificial Robotica Futuro Ciencia ES' },
+      { label: 'Salud & Biomedicina (ES)', query: 'Medicina Investigacion Biomedica Salud Evidencia ES' },
+      { label: 'Química & Materiales (ES)', query: 'Quimica Materiales Nanotecnologia Divulgacion ES' }
     ]
   };
 
@@ -2492,9 +2904,27 @@
                 <button type="button" class="category-chip" data-category="Climate">Climate &amp; Planet</button>
                 <button type="button" class="category-chip" data-category="Earth Nature">Earth &amp; Nature</button>
                 <button type="button" class="category-chip" data-category="Space Astronomy">Space &amp; Astronomy</button>
-                <button type="button" class="category-chip" data-category="Oceans Ecology">Oceans &amp; Ecology</button>
-                <button type="button" class="category-chip" data-category="Wissenschaft">Wissen (DE)</button>
-                <button type="button" class="category-chip" data-category="Science Climat">Sciences (FR/ES)</button>
+                <button type="button" class="category-chip" data-category="Oceans Marine">Oceans &amp; Marine</button>
+                <button type="button" class="category-chip" data-category="Physics Quantum">Physics &amp; Quantum</button>
+                <button type="button" class="category-chip" data-category="Neuroscience Mind">Neuroscience &amp; Mind</button>
+                <button type="button" class="category-chip" data-category="Biology Genetics">Biology &amp; Genetics</button>
+                <button type="button" class="category-chip" data-category="Clean Energy">Clean Tech &amp; Energy</button>
+                <button type="button" class="category-chip" data-category="Ecology Forests">Ecology &amp; Forests</button>
+                <button type="button" class="category-chip" data-category="Weather Atmosphere">Weather &amp; Atmosphere</button>
+                <button type="button" class="category-chip" data-category="Paleontology Fossils">Paleontology &amp; Fossils</button>
+                <button type="button" class="category-chip" data-category="Medicine Health">Medicine &amp; Health</button>
+                <button type="button" class="category-chip" data-category="AI Tech">Artificial Intelligence</button>
+                <button type="button" class="category-chip" data-category="History Science">History of Science</button>
+                <button type="button" class="category-chip" data-category="Archaeology Ancient">Archaeology &amp; Ancient</button>
+                <button type="button" class="category-chip" data-category="Math Logic">Math &amp; Logic</button>
+                <button type="button" class="category-chip" data-category="Agriculture Food">Agriculture &amp; Food</button>
+                <button type="button" class="category-chip" data-category="Tech Robotics">Technology &amp; Robots</button>
+                <button type="button" class="category-chip" data-category="Wildlife Zoology">Wildlife &amp; Zoology</button>
+                <button type="button" class="category-chip" data-category="Chemistry Materials">Chemistry &amp; Materials</button>
+                <button type="button" class="category-chip" data-category="Philosophy Science">Philosophy of Science</button>
+                <button type="button" class="category-chip" data-category="Wissen DE">Wissen (DE)</button>
+                <button type="button" class="category-chip" data-category="Sciences FR">Sciences &amp; Climat (FR)</button>
+                <button type="button" class="category-chip" data-category="Ciencia ES">Ciencia y Naturaleza (ES)</button>
               </div>
             </div>
             <div id="empty-quick-results" class="quick-results-container"></div>
@@ -3215,9 +3645,27 @@
                 <button type="button" class="category-chip" data-category="Climate">Climate &amp; Planet</button>
                 <button type="button" class="category-chip" data-category="Earth Nature">Earth &amp; Nature</button>
                 <button type="button" class="category-chip" data-category="Space Astronomy">Space &amp; Astronomy</button>
-                <button type="button" class="category-chip" data-category="Oceans Ecology">Oceans &amp; Ecology</button>
-                <button type="button" class="category-chip" data-category="Wissenschaft">Wissen (DE)</button>
-                <button type="button" class="category-chip" data-category="Science Climat">Sciences (FR/ES)</button>
+                <button type="button" class="category-chip" data-category="Oceans Marine">Oceans &amp; Marine</button>
+                <button type="button" class="category-chip" data-category="Physics Quantum">Physics &amp; Quantum</button>
+                <button type="button" class="category-chip" data-category="Neuroscience Mind">Neuroscience &amp; Mind</button>
+                <button type="button" class="category-chip" data-category="Biology Genetics">Biology &amp; Genetics</button>
+                <button type="button" class="category-chip" data-category="Clean Energy">Clean Tech &amp; Energy</button>
+                <button type="button" class="category-chip" data-category="Ecology Forests">Ecology &amp; Forests</button>
+                <button type="button" class="category-chip" data-category="Weather Atmosphere">Weather &amp; Atmosphere</button>
+                <button type="button" class="category-chip" data-category="Paleontology Fossils">Paleontology &amp; Fossils</button>
+                <button type="button" class="category-chip" data-category="Medicine Health">Medicine &amp; Health</button>
+                <button type="button" class="category-chip" data-category="AI Tech">Artificial Intelligence</button>
+                <button type="button" class="category-chip" data-category="History Science">History of Science</button>
+                <button type="button" class="category-chip" data-category="Archaeology Ancient">Archaeology &amp; Ancient</button>
+                <button type="button" class="category-chip" data-category="Math Logic">Math &amp; Logic</button>
+                <button type="button" class="category-chip" data-category="Agriculture Food">Agriculture &amp; Food</button>
+                <button type="button" class="category-chip" data-category="Tech Robotics">Technology &amp; Robots</button>
+                <button type="button" class="category-chip" data-category="Wildlife Zoology">Wildlife &amp; Zoology</button>
+                <button type="button" class="category-chip" data-category="Chemistry Materials">Chemistry &amp; Materials</button>
+                <button type="button" class="category-chip" data-category="Philosophy Science">Philosophy of Science</button>
+                <button type="button" class="category-chip" data-category="Wissen DE">Wissen (DE)</button>
+                <button type="button" class="category-chip" data-category="Sciences FR">Sciences &amp; Climat (FR)</button>
+                <button type="button" class="category-chip" data-category="Ciencia ES">Ciencia y Naturaleza (ES)</button>
               </div>
             </div>
             <div id="feeds-empty-quick-results" class="quick-results-container"></div>
@@ -4395,20 +4843,24 @@
   // addFeed, promptRemoveFeed, purgeOrphanedDownloads, removeFeed
   // ─────────────────────────────────────────────────────────────────────────
 
-  function addFeed(url, title = '', artwork = '') {
+  async function addFeed(url, title = '', artwork = '') {
     const cleanUrl = url.trim();
-    if (!cleanUrl) return;
+    if (!cleanUrl) return false;
 
     if (!state.feeds.includes(cleanUrl)) {
       state.feeds.push(cleanUrl);
       saveFeedsToStorage();
-      saveFeedToD1(cleanUrl, title, artwork);
-      refreshAllFeeds();
+      try {
+        await saveFeedToD1(cleanUrl, title, artwork);
+      } catch (_) {}
+      await refreshAllFeeds();
       if (elements.feedUrlInput && elements.feedUrlInput.value.trim() === cleanUrl) {
         elements.feedUrlInput.value = '';
       }
+      return true;
     } else {
-      alert('This feed is already in your subscriptions.');
+      showStatus('This podcast is already in your subscriptions');
+      return true;
     }
   }
 
