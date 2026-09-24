@@ -377,7 +377,59 @@ function inPageSetup(continueData, timelineData, feedsData) {
   const miniPlayIcon = document.querySelector('.mini-icon-play');
   if (miniPlayIcon) miniPlayIcon.classList.add('hidden');
   const miniPauseIcon = document.querySelector('.mini-icon-pause');
-  document.body.classList.add('has-active-episode', 'has-full-player');
+  window.__renderWaveform = () => {
+    const wrap = document.getElementById('waveform-timeline-wrap');
+    const canvas = document.getElementById('episode-waveform-canvas');
+    if (!wrap || !canvas) return;
+    wrap.style.display = 'flex';
+    const rect = wrap.getBoundingClientRect();
+    const w = (rect.width > 0) ? rect.width : window.innerWidth;
+    const h = (rect.height > 0) ? rect.height : 38;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.floor(w * dpr);
+    canvas.height = Math.floor(h * dpr);
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, w, h);
+    const count = 140;
+    const bars = [];
+    let seed = 42;
+    for (let i = 0; i < count; i++) {
+      seed = (seed * 16807) % 2147483647;
+      const rand = (seed - 1) / 2147483646;
+      const pos = i / count;
+      const isMusic = pos < 0.04 || pos > 0.95 || (pos > 0.48 && pos < 0.52);
+      const val = isMusic ? (0.45 + rand * 0.4) : (0.2 + rand * 0.65);
+      bars.push({ height: parseFloat(val.toFixed(2)), type: isMusic ? 'music' : 'speech' });
+    }
+    const playheadX = 0.265 * w;
+    const barWidth = w / bars.length;
+    const gap = Math.max(1, Math.floor(barWidth * 0.28));
+    const drawWidth = Math.max(1.5, barWidth - gap);
+    for (let i = 0; i < bars.length; i++) {
+      const b = bars[i];
+      const barH = Math.max(3, Math.round(b.height * (h - 8)));
+      const x = i * barWidth + (gap / 2);
+      const y = h - barH;
+      const isPlayed = (x + drawWidth * 0.5) <= playheadX;
+      let color;
+      if (b.type === 'music') {
+        color = isPlayed ? '#c084fc' : 'rgba(192, 132, 252, 0.28)';
+      } else {
+        color = isPlayed ? '#fb923c' : 'rgba(251, 146, 60, 0.28)';
+      }
+      ctx.fillStyle = color;
+      const r = Math.min(drawWidth / 2, 2);
+      if (typeof ctx.roundRect === 'function') {
+        ctx.beginPath();
+        ctx.roundRect(x, y, drawWidth, barH, [r, r, 0, 0]);
+        ctx.fill();
+      } else {
+        ctx.fillRect(x, y, drawWidth, barH);
+      }
+    }
+  };
+  window.__renderWaveform();
 
   window.__renderMockTimeline = () => {
     document.getElementById('empty-state')?.classList.add('hidden');
@@ -522,6 +574,7 @@ async function main() {
       document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
       document.getElementById('tab-timeline')?.classList.add('active');
       if (typeof window.__renderMockTimeline === 'function') window.__renderMockTimeline();
+      if (typeof window.__renderWaveform === 'function') window.__renderWaveform();
     `
   });
   await new Promise(r => setTimeout(r, 800));
@@ -537,6 +590,7 @@ async function main() {
       document.documentElement.setAttribute('data-theme', 'light');
       document.body.style.backgroundColor = '#f8f6f0';
       if (typeof window.__renderMockTimeline === 'function') window.__renderMockTimeline();
+      if (typeof window.__renderWaveform === 'function') window.__renderWaveform();
     `
   });
   await new Promise(r => setTimeout(r, 800));
@@ -565,6 +619,7 @@ async function main() {
       document.getElementById('panel-timeline')?.classList.add('active');
       document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
       document.getElementById('tab-timeline')?.classList.add('active');
+      if (typeof window.__renderWaveform === 'function') window.__renderWaveform();
       window.scrollTo(0, 0);
     `
   });
@@ -636,6 +691,7 @@ async function main() {
       document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
       document.getElementById('tab-timeline')?.classList.add('active');
       if (typeof window.__renderMockTimeline === 'function') window.__renderMockTimeline();
+      if (typeof window.__renderWaveform === 'function') window.__renderWaveform();
       window.scrollTo(0, 0);
     `
   });

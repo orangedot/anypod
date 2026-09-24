@@ -6189,8 +6189,8 @@
     state.episodeTimeline.guid = episode.guid;
     state.episodeTimeline.duration = dur;
 
-    // Check localStorage cache
-    const cacheKey = 'anypod_timeline_' + episode.guid;
+    // Check localStorage cache (v3 prefix for 140 fine-detail bars)
+    const cacheKey = 'anypod_timeline_v3_' + episode.guid;
     try {
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
@@ -6221,7 +6221,7 @@
 
   async function fetchTimelineFromPipeline(episode, duration) {
     if (!episode || !episode.guid) return;
-    const cacheKey = 'anypod_timeline_' + episode.guid;
+    const cacheKey = 'anypod_timeline_v3_' + episode.guid;
 
     // TIER 1: Check Podcasting 2.0 <podcast:transcript>
     if (episode.transcriptUrl) {
@@ -6487,8 +6487,8 @@
     if (!canvas || !wrap) return;
 
     const rect = wrap.getBoundingClientRect();
-    const w = rect.width || wrap.offsetWidth || 500;
-    const h = 42;
+    const w = (rect.width > 0) ? rect.width : (wrap.offsetWidth > 0 ? wrap.offsetWidth : (window.innerWidth || 500));
+    const h = (rect.height > 0) ? rect.height : (wrap.offsetHeight > 0 ? wrap.offsetHeight : 42);
     const dpr = window.devicePixelRatio || 1;
 
     canvas.width = Math.floor(w * dpr);
@@ -6703,7 +6703,7 @@
 
       // Save to localStorage cache
       try {
-        localStorage.setItem('anypod_timeline_' + episode.guid, JSON.stringify({
+        localStorage.setItem('anypod_timeline_v3_' + episode.guid, JSON.stringify({
           bars: state.episodeTimeline.bars,
           segments: state.episodeTimeline.segments
         }));
