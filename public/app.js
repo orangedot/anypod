@@ -3712,8 +3712,7 @@
     }
     document.body.classList.add('has-active-episode');
 
-    const shouldCollapse = localStorage.getItem('podany_player_collapsed') === 'true';
-    setPlayerCollapsed(shouldCollapse, false);
+    setPlayerCollapsed(false, false);
 
     syncPlaybackButtons();
   }
@@ -4806,7 +4805,7 @@
         scrollCollapseTimer = null;
         if (document.body.classList.contains('has-active-episode')) {
           if (window.scrollY > 200 && !document.body.classList.contains('has-mini-player')) {
-            setPlayerCollapsed(true);
+            setPlayerCollapsed(true, false);
           }
         }
       }, 100);

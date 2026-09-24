@@ -456,6 +456,9 @@
 
     <!-- Sticky Audio Player Footer -->
     <footer class="player-bar" id="player-bar">
+      <!-- Audio Visualizer Canvas (Experimental) -->
+      <canvas id="visualizer-canvas" class="visualizer-canvas" width="0" height="32" aria-hidden="true"></canvas>
+
       <div class="player-track-info">
         <img id="player-artwork" src="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%2318181b%22/%3E%3C/svg%3E" alt="Episode Artwork" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%2318181b%22/%3E%3C/svg%3E';">
         <div class="track-text">
@@ -463,9 +466,6 @@
           <div class="track-podcast" id="player-podcast">Podany</div>
         </div>
       </div>
-
-      <!-- Audio Visualizer Canvas (Experimental) -->
-      <canvas id="visualizer-canvas" class="visualizer-canvas" width="0" height="32" aria-hidden="true"></canvas>
 
       <div class="player-center-controls">
         <div class="control-buttons">
