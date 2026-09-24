@@ -670,6 +670,30 @@ async function main() {
   fs.writeFileSync(mobileMiniLightPath, Buffer.from(mobileMiniLightShot.data, 'base64'));
   console.log(`Saved: ${mobileMiniLightPath} (${(fs.statSync(mobileMiniLightPath).size / 1024).toFixed(1)} KB)`);
 
+  // 8. Mobile Subscribed Feeds Light Mode
+  console.log('Capturing Mobile Subscribed Feeds (Light)...');
+  await send('Runtime.evaluate', {
+    expression: `
+      document.documentElement.setAttribute('data-theme', 'light');
+      document.body.style.backgroundColor = '#f8f6f0';
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('panel-feeds')?.classList.add('active');
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+      document.getElementById('tab-feeds')?.classList.add('active');
+      if (typeof window.__renderMockFeeds === 'function') window.__renderMockFeeds();
+      window.scrollTo(0, 0);
+    `
+  });
+  await new Promise(r => setTimeout(r, 800));
+  const mobileFeedsLightShot = await send('Page.captureScreenshot', {
+    format: 'png',
+    captureBeyondViewport: false,
+    clip: { x: 0, y: 0, width: 390, height: 844, scale: 1 }
+  });
+  const mobileFeedsLightPath = path.join(outDir, 'mobile-feeds-light.png');
+  fs.writeFileSync(mobileFeedsLightPath, Buffer.from(mobileFeedsLightShot.data, 'base64'));
+  console.log(`Saved: ${mobileFeedsLightPath} (${(fs.statSync(mobileFeedsLightPath).size / 1024).toFixed(1)} KB)`);
+
   ws.close();
   cleanup();
   console.log('\nAll screenshots captured and saved successfully!');
