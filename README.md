@@ -2,10 +2,33 @@
 
 [![Live Web App](https://img.shields.io/badge/Live_App-anypod.org-f97316?style=for-the-badge&logo=cloudflare)](https://anypod.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+[![Open Source](https://img.shields.io/badge/Open_Source-MIT-green?style=for-the-badge&logo=github)](https://github.com/orangedot/anypod)
 
-> 🌐 **Live Web App & Demo:** [**https://anypod.org**](https://anypod.org)
+> 🌐 **Live App:** [**anypod.org**](https://anypod.org) — no account needed to start listening.
 
-Private podcast RSS feed aggregator and continuous audio player with offline PWA playback, community transcript sync, and real-time speech/music spectrum analysis hosted on Cloudflare Pages with Cloudflare D1 storage.
+**Your podcasts. No algorithm. No ads. No account required.**
+
+Anypod is a free, open-source podcast player that respects you. Open it, search any podcast, and start listening — no sign-up wall, no tracking, no data sold. Cloud sync is *optional* and the data you give us has an expiry date.
+
+## Why Anypod?
+
+| | Anypod | Spotify | Apple Podcasts | Pocket Casts |
+|---|:---:|:---:|:---:|:---:|
+| No account required | ✅ | ❌ | ❌ | ❌ |
+| No ads | ✅ | ❌ | ✅ | ✅ |
+| Open source | ✅ | ❌ | ❌ | ❌ |
+| Self-hostable | ✅ | ❌ | ❌ | ❌ |
+| Auto-deletes inactive accounts | ✅ | ❌ | ❌ | ❌ |
+| Offline playback (PWA) | ✅ | ✅ (app) | ✅ (app) | ✅ (app) |
+| YouTube feeds | ✅ | ❌ | ❌ | ❌ |
+
+## Privacy, by Design
+
+- **Email only** — the only personal data we ever store is your email (for optional sync login)
+- **No tracking, no analytics SDKs, no ads** — the codebase has zero third-party scripts
+- **Account auto-deletion** — if you don't log in for 50 days, your account is deleted automatically. We send two warning emails beforehand, each with a one-click link to export your data. We don't hoard.
+- **Data portability** — export your subscriptions as OPML any time, import them anywhere
+- **Self-host it** — run your own instance in ~10 minutes on Cloudflare's free tier, or locally with Docker
 
 ## Screenshots
 
@@ -26,7 +49,7 @@ Private podcast RSS feed aggregator and continuous audio player with offline PWA
   </tr>
 </table>
 
-### Mobile Views (3 per row)
+### Mobile Views
 
 <table>
   <tr>
@@ -68,30 +91,13 @@ Private podcast RSS feed aggregator and continuous audio player with offline PWA
 - **OPML Support**: Export and import subscription lists in standard OPML format.
 - **Responsive Interface**: Minimalist dark and light themes, optimized single-column layout on mobile, and desktop multi-column grid.
 
-## Self-Hosting with Docker 🐳
-
-Run Anypod completely locally on your home server, NAS (Synology, Unraid, TrueNAS), or Raspberry Pi with local SQLite storage, zero cloud lock-in, and instant offline magic links.
-
-```bash
-docker compose up -d
-```
-Open **`http://localhost:8788`** in your browser.
-
-- 🗄️ **Zero-Maintenance Storage**: In-process SQLite database stored in `./data/` (no heavy database containers, 0 MB idle RAM).
-- 🔒 **Reverse Proxy Ready**: Built-in support for `jwilder/nginx-proxy` + Let's Encrypt SSL via `docker compose -f docker-compose.yml -f docker-compose.jwilder.yml up -d`, plus Caddy and Nginx.
-- 📦 **Built-in Bundler**: `esbuild` minifies modern JS (190KB → 102KB) and CSS (64KB → 56KB).
-- 📲 **Offline PWA Audio Caching**: Download episodes directly to your phone/laptop with HTTP 206 Range support.
-
-See [SELF_HOSTING.md](SELF_HOSTING.md) for full configuration guides, environment variables, offline login, and backup instructions.
-
 ## Technology Stack
 
 - **Frontend**: Vanilla JavaScript (ES6+), HTML5 Audio, CSS3 Variables, PWA Service Worker.
-- **Production Bundler**: `esbuild` minifying modern JS & CSS into `public/dist/`.
-- **Hosting Options**: Docker (Self-Hosted on NAS/Server) or Cloudflare Pages.
-- **Serverless API**: Cloudflare Pages Functions (`workerd` / local Miniflare runtime).
-- **Database**: Local SQLite (in Docker) or Cloudflare D1.
-- **Email Delivery**: Resend REST API (optional; offline magic-link mode supported without email provider).
+- **Hosting**: Cloudflare Pages.
+- **Serverless API**: Cloudflare Pages Functions (`workerd`).
+- **Database**: Cloudflare D1 (SQLite).
+- **Email Delivery**: Resend REST API.
 
 ## Project Structure
 
@@ -99,8 +105,6 @@ See [SELF_HOSTING.md](SELF_HOSTING.md) for full configuration guides, environmen
 anypod/
 ├── docs/
 │   └── screenshots/
-│       ├── mobile-feeds.png
-│       ├── mobile-player.png
 │       ├── preview-dark.png
 │       └── preview-light.png
 ├── functions/
@@ -249,6 +253,16 @@ npx wrangler pages deploy public --project-name anypod --branch main
 | `RESEND_API_KEY` | Secret | Pages Secrets | Resend API key for transactional login emails |
 | `APP_URL` | String | `wrangler.json` | Canonical base URL used in magic links |
 | `FROM_EMAIL` | String | `wrangler.json` | Sender address for magic link emails |
+
+## Support the Project
+
+Anypod is free, open-source, and built by one person in their spare time.
+
+If it saves you from another tracking-heavy podcast app, consider:
+
+- ⭐ **[Star the repo](https://github.com/orangedot/anypod)** — helps others find it
+- 💬 **[Open a Discussion](https://github.com/orangedot/anypod/discussions)** — share your setup, request features, report bugs
+- 🛠️ **Contribute** — PRs welcome, especially self-hosting improvements and new language support
 
 ## License
 
