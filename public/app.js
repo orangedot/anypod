@@ -386,6 +386,7 @@
     sortOrder: 'newest',
     searchQuery: '',
     filterMode: 'unplayed',
+    feedFilter: 'all',
     ytPlayer: null,
     ytReady: false,
     activeEngine: 'audio',
@@ -482,12 +483,16 @@
     btnPlayerFav: document.getElementById('btn-player-fav'),
 
     searchInput: document.getElementById('search-input'),
+    searchBarWrap: document.getElementById('search-bar-wrap'),
+    btnClearSearch: document.getElementById('btn-clear-search'),
     sortOrderSelect: document.getElementById('sort-order'),
     btnOpenAddModal: document.getElementById('btn-open-add-modal'),
     btnRefreshAll: document.getElementById('btn-refresh-all'),
     statusBanner: document.getElementById('status-banner'),
 
     timelineList: document.getElementById('timeline-list'),
+    feedsFilterBar: document.getElementById('feeds-filter-bar'),
+    feedsFilterChips: document.getElementById('feeds-filter-chips'),
     feedsGrid: document.getElementById('feeds-grid'),
     continueShelf: document.getElementById('continue-shelf'),
     continueGrid: document.getElementById('continue-grid'),
@@ -1527,6 +1532,14 @@
         elements.queueBadge.classList.remove('hidden');
       } else {
         elements.queueBadge.classList.add('hidden');
+      }
+    }
+
+    if (elements.miniOpenQueue) {
+      if (count > 0) {
+        elements.miniOpenQueue.classList.remove('hidden');
+      } else {
+        elements.miniOpenQueue.classList.add('hidden');
       }
     }
 
@@ -4241,12 +4254,52 @@
     wireStarterSuggestionsEvents(elements.feedsGrid);
   }
 
+  const FEED_CATEGORIES = [
+    { id: 'all', label: 'All Podcasts', match: () => true },
+    { id: 'audio', label: 'Audio', match: (url) => !url.includes('youtube.com') && !url.includes('youtu.be') },
+    { id: 'video', label: 'Video / YouTube', match: (url) => url.includes('youtube.com') || url.includes('youtu.be') },
+    { id: 'news', label: 'News', match: (url, meta) => /news|nachrichten|politik|zeit|hintergrund|berichte|report|tagesschau|bbc|spiegel|echo/i.test(((meta.title || '') + ' ' + (meta.description || ''))) },
+    { id: 'science', label: 'Science', match: (url, meta) => /science|forschung|wissen|spektrum|nature|nasa|physik|biology|climate|klima|space|planet/i.test(((meta.title || '') + ' ' + (meta.description || ''))) },
+    { id: 'doc', label: 'Docs', match: (url, meta) => /doc|doku|story|geschichten|history|investigative|feature|crime|leben/i.test(((meta.title || '') + ' ' + (meta.description || ''))) },
+    { id: 'music', label: 'Music', match: (url, meta) => /music|techno|dj|sound|mix|beats|song|dance/i.test(((meta.title || '') + ' ' + (meta.description || ''))) },
+    { id: 'tech', label: 'Tech & AI', match: (url, meta) => /tech|technology|software|ai|computer|digital|code|gadget/i.test(((meta.title || '') + ' ' + (meta.description || ''))) }
+  ];
+
+  function renderFeedsFilterChips() {
+    if (!elements.feedsFilterChips) return;
+    const active = state.feedFilter || 'all';
+
+    // Compute counts for each category based on current saved feeds
+    const visibleChips = FEED_CATEGORIES.map(cat => {
+      const count = state.feeds.filter(url => {
+        const meta = state.feedMetadata[url] || {};
+        return cat.match(url, meta);
+      }).length;
+      return { ...cat, count };
+    }).filter(c => c.id === 'all' || c.count > 0);
+
+    elements.feedsFilterChips.innerHTML = visibleChips.map(c => `
+      <button type="button" class="feed-filter-chip ${active === c.id ? 'active' : ''}" data-filter="${c.id}">
+        <span>${escapeHtml(c.label)}</span>
+        <span class="chip-count">(${c.count})</span>
+      </button>
+    `).join('');
+
+    elements.feedsFilterChips.querySelectorAll('.feed-filter-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.feedFilter = btn.dataset.filter;
+        renderFeedsGrid();
+      });
+    });
+  }
+
   function renderFeedsGrid() {
     updateDockVisibility();
     const grid = elements.feedsGrid;
     grid.innerHTML = '';
 
     if (state.feeds.length === 0) {
+      if (elements.feedsFilterBar) elements.feedsFilterBar.classList.add('hidden');
       grid.innerHTML = `
         <div class="empty-state onboarding-card">
           <div class="empty-icon-wrap">
@@ -4307,10 +4360,28 @@
       return;
     }
 
+    if (elements.feedsFilterBar) {
+      elements.feedsFilterBar.classList.remove('hidden');
+      renderFeedsFilterChips();
+    }
+
     let feedsToRender = state.feeds;
+
+    // Apply quick category filter
+    if (state.feedFilter && state.feedFilter !== 'all') {
+      const catObj = FEED_CATEGORIES.find(c => c.id === state.feedFilter);
+      if (catObj) {
+        feedsToRender = feedsToRender.filter(url => {
+          const meta = state.feedMetadata[url] || {};
+          return catObj.match(url, meta);
+        });
+      }
+    }
+
+    // Apply active search query filter
     if (state.searchQuery && elements.tabFeeds && elements.tabFeeds.classList.contains('active')) {
       const q = state.searchQuery.toLowerCase();
-      feedsToRender = state.feeds.filter(url => {
+      feedsToRender = feedsToRender.filter(url => {
         const meta = state.feedMetadata[url] || {};
         return (meta.title && meta.title.toLowerCase().includes(q)) ||
                (meta.author && meta.author.toLowerCase().includes(q)) ||
@@ -4322,7 +4393,7 @@
       grid.innerHTML = `
         <div class="empty-state">
           <h3>No matching podcasts</h3>
-          <p>No podcasts in your library match "${escapeHtml(state.searchQuery)}".</p>
+          <p>${state.searchQuery ? `No podcasts in your library match "${escapeHtml(state.searchQuery)}".` : 'No podcasts match the selected filter.'}</p>
         </div>
       `;
       return;
@@ -4403,20 +4474,34 @@
             <h4>${highlightText(meta.title || url, state.searchQuery)}</h4>
             <p>${meta.error ? `<span style="color: #ef4444;">${escapeHtml(meta.error)}</span>` : `${meta.episodesCount || feedEpisodes.length} episodes`}${isFeedMuted(url) ? ' • <span style="color: var(--danger); font-weight: 500;">Muted</span>' : ''}</p>
           </div>
-          <button class="btn-feed-unsubscribe" title="Remove podcast" aria-label="Remove podcast">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            </svg>
-          </button>
+          <div class="feed-header-actions">
+            <button class="btn-feed-share" title="Share podcast" aria-label="Share podcast">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
+                <polyline points="16 6 12 2 8 6"></polyline>
+                <line x1="12" y1="2" x2="12" y2="15"></line>
+              </svg>
+            </button>
+            <button class="btn-feed-unsubscribe" title="Remove podcast" aria-label="Remove podcast">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
+          </div>
         </div>
         ${plainDesc ? `<p class="feed-card-desc">${escapeHtml(plainDesc)}</p>` : ''}
         ${recentWidgetHtml}
       `;
 
       card.addEventListener('click', (e) => {
-        if (e.target.closest('.btn-feed-unsubscribe') || e.target.closest('.recent-ep-row')) return;
+        if (e.target.closest('.feed-header-actions') || e.target.closest('.recent-ep-row')) return;
         openFeedDetail(url);
+      });
+
+      card.querySelector('.btn-feed-share')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        shareFeed(url, meta.title);
       });
 
       card.querySelector('.btn-feed-unsubscribe')?.addEventListener('click', (e) => {
@@ -5939,6 +6024,13 @@
 
     elements.searchInput.addEventListener('input', (e) => {
       state.searchQuery = e.target.value;
+      const hasText = !!e.target.value.trim();
+      if (elements.btnClearSearch) {
+        elements.btnClearSearch.classList.toggle('hidden', !hasText);
+      }
+      if (elements.searchBarWrap) {
+        elements.searchBarWrap.classList.toggle('has-text', hasText);
+      }
       processAndSortEpisodes();
       renderTimeline();
       renderFeedsGrid();
@@ -5947,6 +6039,43 @@
       }
       renderOfflineStorageSettings();
     });
+
+    if (elements.btnClearSearch) {
+      elements.btnClearSearch.addEventListener('click', (e) => {
+        e.stopPropagation();
+        elements.searchInput.value = '';
+        state.searchQuery = '';
+        elements.btnClearSearch.classList.add('hidden');
+        if (elements.searchBarWrap) {
+          elements.searchBarWrap.classList.remove('has-text');
+        }
+        processAndSortEpisodes();
+        renderTimeline();
+        renderFeedsGrid();
+        if (state.activeFeedDetailUrl) {
+          renderFeedDetail(state.activeFeedDetailUrl);
+        }
+        renderOfflineStorageSettings();
+        elements.searchInput.focus();
+      });
+    }
+
+    elements.searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (elements.searchInput.value) {
+          elements.btnClearSearch?.click();
+        } else {
+          elements.searchInput.blur();
+        }
+      }
+    });
+
+    if (elements.searchBarWrap) {
+      elements.searchBarWrap.addEventListener('click', (e) => {
+        if (e.target.closest('#btn-clear-search')) return;
+        elements.searchInput.focus();
+      });
+    }
 
     elements.sortOrderSelect.addEventListener('change', (e) => {
       state.sortOrder = e.target.value;
@@ -6706,7 +6835,7 @@
       elements.seekBar.style.display = 'block';
     }
     if (elements.timelineLegend) {
-      elements.timelineLegend.style.display = isClass ? 'flex' : 'none';
+      elements.timelineLegend.style.display = isClass ? 'inline-flex' : 'none';
     }
 
     if (isVis) {
