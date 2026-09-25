@@ -351,7 +351,7 @@ function inPageSetup(continueData, timelineData, feedsData) {
     const curTime = document.getElementById('current-time');
     if (curTime) curTime.textContent = '14:20';
     const totTime = document.getElementById('total-duration');
-    if (totTime) totTime.textContent = '-39:42';
+    if (totTime) totTime.textContent = '54:02';
     const seekBar = document.getElementById('seek-bar');
     if (seekBar) {
       seekBar.value = '26.5';
@@ -377,59 +377,7 @@ function inPageSetup(continueData, timelineData, feedsData) {
   const miniPlayIcon = document.querySelector('.mini-icon-play');
   if (miniPlayIcon) miniPlayIcon.classList.add('hidden');
   const miniPauseIcon = document.querySelector('.mini-icon-pause');
-  window.__renderWaveform = () => {
-    const wrap = document.getElementById('waveform-timeline-wrap');
-    const canvas = document.getElementById('episode-waveform-canvas');
-    if (!wrap || !canvas) return;
-    wrap.style.display = 'flex';
-    const rect = wrap.getBoundingClientRect();
-    const w = (rect.width > 0) ? rect.width : window.innerWidth;
-    const h = canvas.clientHeight || canvas.offsetHeight || 30;
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.floor(w * dpr);
-    canvas.height = Math.floor(h * dpr);
-    const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, w, h);
-    const count = 140;
-    const bars = [];
-    let seed = 42;
-    for (let i = 0; i < count; i++) {
-      seed = (seed * 16807) % 2147483647;
-      const rand = (seed - 1) / 2147483646;
-      const pos = i / count;
-      const isMusic = pos < 0.04 || pos > 0.95 || (pos > 0.48 && pos < 0.52);
-      const val = isMusic ? (0.45 + rand * 0.4) : (0.2 + rand * 0.65);
-      bars.push({ height: parseFloat(val.toFixed(2)), type: isMusic ? 'music' : 'speech' });
-    }
-    const playheadX = 0.265 * w;
-    const barWidth = w / bars.length;
-    const gap = Math.max(1, Math.floor(barWidth * 0.28));
-    const drawWidth = Math.max(1.5, barWidth - gap);
-    for (let i = 0; i < bars.length; i++) {
-      const b = bars[i];
-      const barH = Math.max(3, Math.round(b.height * (h - 4)));
-      const x = i * barWidth + (gap / 2);
-      const y = h - barH;
-      const isPlayed = (x + drawWidth * 0.5) <= playheadX;
-      let color;
-      if (b.type === 'music') {
-        color = isPlayed ? '#c084fc' : 'rgba(192, 132, 252, 0.28)';
-      } else {
-        color = isPlayed ? '#fb923c' : 'rgba(251, 146, 60, 0.28)';
-      }
-      ctx.fillStyle = color;
-      const r = Math.min(drawWidth / 2, 2);
-      if (typeof ctx.roundRect === 'function') {
-        ctx.beginPath();
-        ctx.roundRect(x, y, drawWidth, barH, [r, r, 0, 0]);
-        ctx.fill();
-      } else {
-        ctx.fillRect(x, y, drawWidth, barH);
-      }
-    }
-  };
-  window.__renderWaveform();
+  document.body.classList.add('has-active-episode', 'has-full-player');
 
   window.__renderMockTimeline = () => {
     document.getElementById('empty-state')?.classList.add('hidden');
@@ -484,13 +432,19 @@ async function main() {
   const chrome = spawn(chromePath, [
     '--headless=new',
     `--remote-debugging-port=${debugPort}`,
-    '--window-size=1440,900',
-    `--user-data-dir=${tmpProfile}`,
+    '--no-sandbox',
     '--disable-gpu',
-    '--no-first-run',
-    '--no-default-browser-check',
+    `--user-data-dir=${tmpProfile}`,
     targetUrl
   ]);
+
+  chrome.stdout.on('data', data => console.log(`[Chrome stdout] ${data}`));
+  chrome.stderr.on('data', data => console.error(`[Chrome stderr] ${data}`));
+  chrome.on('exit', code => {
+    if (code !== null && code !== 0) {
+      console.error(`[Chrome process exited early with code ${code}]`);
+    }
+  });
 
   const cleanup = () => {
     try { chrome.kill(); } catch (e) {}
@@ -504,11 +458,11 @@ async function main() {
   process.on('SIGTERM', () => { cleanup(); process.exit(0); });
 
   let pageTarget = null;
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 40; i++) {
     await new Promise(r => setTimeout(r, 250));
     try {
       const targets = await new Promise((resolve, reject) => {
-        http.get(`http://127.0.0.1:${debugPort}/json`, (res) => {
+        http.get(`http://localhost:${debugPort}/json`, (res) => {
           let data = '';
           res.on('data', chunk => data += chunk);
           res.on('end', () => resolve(JSON.parse(data)));
@@ -574,7 +528,6 @@ async function main() {
       document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
       document.getElementById('tab-timeline')?.classList.add('active');
       if (typeof window.__renderMockTimeline === 'function') window.__renderMockTimeline();
-      if (typeof window.__renderWaveform === 'function') window.__renderWaveform();
     `
   });
   await new Promise(r => setTimeout(r, 800));
@@ -590,7 +543,6 @@ async function main() {
       document.documentElement.setAttribute('data-theme', 'light');
       document.body.style.backgroundColor = '#f8f6f0';
       if (typeof window.__renderMockTimeline === 'function') window.__renderMockTimeline();
-      if (typeof window.__renderWaveform === 'function') window.__renderWaveform();
     `
   });
   await new Promise(r => setTimeout(r, 800));
@@ -619,7 +571,6 @@ async function main() {
       document.getElementById('panel-timeline')?.classList.add('active');
       document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
       document.getElementById('tab-timeline')?.classList.add('active');
-      if (typeof window.__renderWaveform === 'function') window.__renderWaveform();
       window.scrollTo(0, 0);
     `
   });
@@ -691,7 +642,6 @@ async function main() {
       document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
       document.getElementById('tab-timeline')?.classList.add('active');
       if (typeof window.__renderMockTimeline === 'function') window.__renderMockTimeline();
-      if (typeof window.__renderWaveform === 'function') window.__renderWaveform();
       window.scrollTo(0, 0);
     `
   });
@@ -725,30 +675,6 @@ async function main() {
   const mobileMiniLightPath = path.join(outDir, 'mobile-mini-light.png');
   fs.writeFileSync(mobileMiniLightPath, Buffer.from(mobileMiniLightShot.data, 'base64'));
   console.log(`Saved: ${mobileMiniLightPath} (${(fs.statSync(mobileMiniLightPath).size / 1024).toFixed(1)} KB)`);
-
-  // 8. Mobile Subscribed Feeds Light Mode
-  console.log('Capturing Mobile Subscribed Feeds (Light)...');
-  await send('Runtime.evaluate', {
-    expression: `
-      document.documentElement.setAttribute('data-theme', 'light');
-      document.body.style.backgroundColor = '#f8f6f0';
-      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-      document.getElementById('panel-feeds')?.classList.add('active');
-      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-      document.getElementById('tab-feeds')?.classList.add('active');
-      if (typeof window.__renderMockFeeds === 'function') window.__renderMockFeeds();
-      window.scrollTo(0, 0);
-    `
-  });
-  await new Promise(r => setTimeout(r, 800));
-  const mobileFeedsLightShot = await send('Page.captureScreenshot', {
-    format: 'png',
-    captureBeyondViewport: false,
-    clip: { x: 0, y: 0, width: 390, height: 844, scale: 1 }
-  });
-  const mobileFeedsLightPath = path.join(outDir, 'mobile-feeds-light.png');
-  fs.writeFileSync(mobileFeedsLightPath, Buffer.from(mobileFeedsLightShot.data, 'base64'));
-  console.log(`Saved: ${mobileFeedsLightPath} (${(fs.statSync(mobileFeedsLightPath).size / 1024).toFixed(1)} KB)`);
 
   ws.close();
   cleanup();
