@@ -79,8 +79,11 @@ export async function onRequest(context) {
       'INSERT INTO user_sessions (session_hash, user_id, expires_at) VALUES (?, ?, ?)'
     ).bind(sessionHash, userId, sessionExpiresAt).run();
 
+    const url = new URL(request.url);
+    const domainAttr = url.hostname.endsWith('anypod.org') ? '; Domain=.anypod.org' : '';
+
     const headers = new Headers(corsHeaders);
-    headers.set('Set-Cookie', `podcast_session=${rawSessionToken}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`);
+    headers.set('Set-Cookie', `podcast_session=${rawSessionToken}; HttpOnly; Secure; SameSite=Lax; Path=/${domainAttr}; Max-Age=2592000`);
 
     return new Response(JSON.stringify({ success: true, sessionToken: rawSessionToken }), {
       headers,

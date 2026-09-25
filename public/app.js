@@ -152,7 +152,8 @@
     DOWNLOAD_SPINNER: '<svg class="spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"></path></svg>',
     BELL_OFF: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.73 21a2 2 0 0 1-3.46 0"></path><path d="M18.63 13A17.89 17.89 0 0 1 18 8"></path><path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"></path><path d="M18 8a6 6 0 0 0-9.33-5"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>',
     BELL: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>',
-    TRANSCRIPT: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>'
+    TRANSCRIPT: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>',
+    SHARE: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>'
   };
 
   const FALLBACK_ARTWORK = 'data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%2318181b%22/%3E%3C/svg%3E';
@@ -171,59 +172,59 @@
     { title: "Radiolab", feed: "https://feeds.simplecast.com/EmVW7VGp", lang: "en", badge: "EN • Science", topic: "science" },
     { title: "The Climate Question (BBC)", feed: "https://podcasts.files.bbci.co.uk/w13xtvb6.rss", lang: "en", badge: "EN • Climate", topic: "climate" },
     { title: "Science Vs", feed: "https://feeds.megaphone.fm/sciencevs", lang: "en", badge: "EN • Science", topic: "science" },
-    { title: "Ologies with Alie Ward", feed: "https://feeds.alieward.com/ologies", lang: "en", badge: "EN • Nature", topic: "nature" },
+    { title: "Ologies with Alie Ward", feed: "https://feeds.simplecast.com/S-J-2z2f", lang: "en", badge: "EN • Nature", topic: "nature" },
     { title: "Nature Podcast", feed: "https://feeds.acast.com/public/shows/nature", lang: "en", badge: "EN • Research", topic: "science" },
-    { title: "StarTalk Radio", feed: "https://feeds.megaphone.fm/STARTALKRADIO", lang: "en", badge: "EN • Space", topic: "space" },
-    { title: "Science Friday", feed: "https://feeds.simplecast.com/82FI3hdh", lang: "en", badge: "EN • Science", topic: "science" },
+    { title: "StarTalk Radio", feed: "https://feeds.simplecast.com/4T39_jAj", lang: "en", badge: "EN • Space", topic: "space" },
+    { title: "Science Friday", feed: "https://feeds.simplecast.com/8Px3L_y8", lang: "en", badge: "EN • Science", topic: "science" },
     { title: "TED Climate", feed: "https://feeds.feedburner.com/tedtalks_audio", lang: "en", badge: "EN • Climate", topic: "climate" },
     { title: "Costing the Earth (BBC)", feed: "https://podcasts.files.bbci.co.uk/b006r4wn.rss", lang: "en", badge: "EN • Ecology", topic: "climate" },
-    { title: "BBC Earth Podcast", feed: "https://podcasts.files.bbci.co.uk/p0761w1w.rss", lang: "en", badge: "EN • Planet", topic: "nature" },
-    { title: "Future Ecologies", feed: "https://feeds.pacificcontent.com/future-ecologies", lang: "en", badge: "EN • Ecology", topic: "nature" },
+    { title: "BBC Earth Podcast", feed: "https://feeds.acast.com/public/shows/bbc-earth-podcast", lang: "en", badge: "EN • Planet", topic: "nature" },
+    { title: "Future Ecologies", feed: "https://feeds.captivate.fm/future-ecologies/", lang: "en", badge: "EN • Ecology", topic: "nature" },
     { title: "Mongabay Newscast", feed: "https://mongabay.libsyn.com/rss", lang: "en", badge: "EN • Forests", topic: "nature" },
-    { title: "Living on Earth (PRI)", feed: "https://www.loe.org/loe.rss", lang: "en", badge: "EN • Environment", topic: "climate" },
+    { title: "Living on Earth (PRI)", feed: "https://feeds.megaphone.fm/livingonearth", lang: "en", badge: "EN • Environment", topic: "climate" },
     { title: "Short Wave (NPR)", feed: "https://feeds.npr.org/510351/podcast.xml", lang: "en", badge: "EN • Science", topic: "science" },
     { title: "Huberman Lab", feed: "https://feeds.megaphone.fm/hubermanlab", lang: "en", badge: "EN • Biology", topic: "science" },
-    { title: "Planetary Radio", feed: "https://www.omnycontent.com/d/playlist/064e4324-4f01-443b-8519-ae5c00e199d3/3d03ca4f-4d3a-4dd8-bc6b-ae600078dc1e/f76a5960-911e-45fa-8f19-ae600078dc2f/podcast.rss", lang: "en", badge: "EN • Space", topic: "space" },
+    { title: "Planetary Radio", feed: "https://www.planetary.org/feed/podcast", lang: "en", badge: "EN • Space", topic: "space" },
     { title: "The Infinite Monkey Cage (BBC)", feed: "https://podcasts.files.bbci.co.uk/b00snr0w.rss", lang: "en", badge: "EN • Science", topic: "science" },
     { title: "Quanta Science Podcast", feed: "https://api.quantamagazine.org/feed/podcast/", lang: "en", badge: "EN • Physics", topic: "science" },
-    { title: "Outrage + Optimism", feed: "https://feeds.acast.com/public/shows/outrage-and-optimism", lang: "en", badge: "EN • Climate", topic: "climate" },
-    { title: "CrowdScience (BBC)", feed: "https://podcasts.files.bbci.co.uk/p04r5rpm.rss", lang: "en", badge: "EN • Global", topic: "science" },
-    { title: "Climate One", feed: "https://feeds.megaphone.fm/climateone", lang: "en", badge: "EN • Climate", topic: "climate" },
-    { title: "Volts (Clean Energy)", feed: "https://api.substack.com/feed/podcast/101899.rss", lang: "en", badge: "EN • Energy", topic: "climate" },
-    { title: "Gastropod", feed: "https://feeds.simplecast.com/1B-hW7gq", lang: "en", badge: "EN • Food Sci", topic: "science" },
-    { title: "The Energy Gang", feed: "https://feeds.megaphone.fm/energygang", lang: "en", badge: "EN • Energy", topic: "climate" },
+    { title: "Outrage + Optimism", feed: "https://feeds.acast.com/public/shows/outrage-optimism", lang: "en", badge: "EN • Climate", topic: "climate" },
+    { title: "CrowdScience (BBC)", feed: "https://podcasts.files.bbci.co.uk/p04d42rc.rss", lang: "en", badge: "EN • Global", topic: "science" },
+    { title: "Climate One", feed: "https://feeds.megaphone.fm/CCC9544803627", lang: "en", badge: "EN • Climate", topic: "climate" },
+    { title: "Volts (Clean Energy)", feed: "https://api.substack.com/feed/podcast/193024.rss", lang: "en", badge: "EN • Energy", topic: "climate" },
+    { title: "Gastropod", feed: "https://feeds.megaphone.fm/VMP6255701211", lang: "en", badge: "EN • Food Sci", topic: "science" },
+    { title: "The Energy Gang", feed: "https://rss.art19.com/the-energy-gang", lang: "en", badge: "EN • Energy", topic: "climate" },
 
     // --- German (DE) ---
     { title: "Forschung aktuell (DLF)", feed: "https://www.deutschlandfunk.de/forschung-aktuell-102.xml", lang: "de", badge: "DE • Wissen", topic: "science" },
     { title: "ARD Klima-Update", feed: "https://www.ndr.de/nachrichten/info/podcast4696.xml", lang: "de", badge: "DE • Klima", topic: "climate" },
     { title: "ZEIT WISSEN: Woher weißt du das?", feed: "https://feeds.simplecast.com/NM3_bR51", lang: "de", badge: "DE • Wissen", topic: "science" },
-    { title: "Terra X Podcast (ZDF)", feed: "https://terra-x-der-podcast.podigee.io/feed/mp3", lang: "de", badge: "DE • Natur", topic: "nature" },
+    { title: "Terra X Podcast (ZDF)", feed: "https://cdn.julephosting.de/podcasts/1350-terra-x-der-podcast/feed.rss", lang: "de", badge: "DE • Natur", topic: "nature" },
     { title: "radiowissen (Bayern 2)", feed: "https://feeds.br.de/radiowissen/feed.xml", lang: "de", badge: "DE • Wissen", topic: "science" },
-    { title: "Synapsen (NDR Info)", feed: "https://www.ndr.de/nachrichten/info/podcast5054.xml", lang: "de", badge: "DE • Forschung", topic: "science" },
-    { title: "Spektrum der Wissenschaft", feed: "https://detektor.fm/feeds/spektrum-podcast", lang: "de", badge: "DE • Natur", topic: "nature" },
+    { title: "Synapsen (NDR Info)", feed: "https://www.ndr.de/nachrichten/info/podcast2994.xml", lang: "de", badge: "DE • Forschung", topic: "science" },
+    { title: "Spektrum der Wissenschaft", feed: "https://detektor.fm/podcasts/spektrum-der-wissenschaft/feed", lang: "de", badge: "DE • Natur", topic: "nature" },
     { title: "Das Klima (IPCC)", feed: "https://dasklima.podigee.io/feed/mp3", lang: "de", badge: "DE • Klima", topic: "climate" },
-    { title: "Quarks Science-Cops (WDR)", feed: "https://kinder.wdr.de/radio/quarks/science-cops-podcast-100.podcast", lang: "de", badge: "DE • Fakten", topic: "science" },
-    { title: "Gradmesser (Tagesspiegel)", feed: "https://gradmesser.podigee.io/feed/mp3", lang: "de", badge: "DE • Klima", topic: "climate" },
+    { title: "Quarks Science-Cops (WDR)", feed: "https://www1.wdr.de/mediathek/audio/quarks-science-cops/science-cops-100.podcast", lang: "de", badge: "DE • Fakten", topic: "science" },
+    { title: "Gradmesser (Tagesspiegel)", feed: "https://dergradmesser.podigee.io/feed/mp3", lang: "de", badge: "DE • Klima", topic: "climate" },
     { title: "Sternengeschichten", feed: "https://sternengeschichten.podigee.io/feed/mp3", lang: "de", badge: "DE • Raumfahrt", topic: "space" },
-    { title: "Mission Klima (NDR Info)", feed: "https://www.ndr.de/nachrichten/info/podcast5200.xml", lang: "de", badge: "DE • Lösungen", topic: "climate" },
+    { title: "Quarks Daily (WDR)", feed: "https://www1.wdr.de/mediathek/audio/daily-quarks/daily-quarks-podcast-104.podcast", lang: "de", badge: "DE • Wissen", topic: "science" },
 
     // --- French (FR) ---
     { title: "La Terre au carré (France Inter)", feed: "https://radiofrance-podcast.net/podcast09/rss_10078.xml", lang: "fr", badge: "FR • Écologie", topic: "nature" },
     { title: "La Science, CQFD (France Culture)", feed: "https://radiofrance-podcast.net/podcast09/rss_10076.xml", lang: "fr", badge: "FR • Sciences", topic: "science" },
-    { title: "Chaleur Humaine (Le Monde)", feed: "https://feeds.acast.com/public/shows/chaleur-humaine", lang: "fr", badge: "FR • Climat", topic: "climate" },
+    { title: "Chaleur Humaine (Le Monde)", feed: "https://feeds.acast.com/public/shows/68db9a016d92c33f9c2eff83", lang: "fr", badge: "FR • Climat", topic: "climate" },
     { title: "Sixième Science (20 Minutes)", feed: "https://feeds.acast.com/public/shows/sixieme-science", lang: "fr", badge: "FR • Sciences", topic: "science" },
-    { title: "Baleine sous gravillon", feed: "https://feeds.acast.com/public/shows/baleine-sous-gravillon", lang: "fr", badge: "FR • Vivant", topic: "nature" },
+    { title: "Baleine sous gravillon", feed: "https://feed.ausha.co/BNxwOTwv2gLX", lang: "fr", badge: "FR • Vivant", topic: "nature" },
     { title: "Sur les épaules de Darwin", feed: "https://radiofrance-podcast.net/podcast09/rss_11553.xml", lang: "fr", badge: "FR • Évolution", topic: "nature" },
 
     // --- Spanish (ES) ---
     { title: "Coffee Break: Señal y Ruido", feed: "https://feeds.ivoox.com/feed_fg_f1172991_filtro_1.xml", lang: "es", badge: "ES • Cosmos", topic: "space" },
     { title: "Materia Oscura", feed: "https://feeds.ivoox.com/feed_fg_f1772652_filtro_1.xml", lang: "es", badge: "ES • Ciencia", topic: "science" },
-    { title: "Planeta Océano", feed: "https://feeds.ivoox.com/feed_fg_f11132140_filtro_1.xml", lang: "es", badge: "ES • Océanos", topic: "nature" },
-    { title: "A Hombros de Gigantes (RNE)", feed: "https://api.rtve.es/api/programas/1850/audios.rss", lang: "es", badge: "ES • Divulgación", topic: "science" },
-    { title: "Catástrofe Ultravioleta", feed: "https://feeds.feedburner.com/catastrofeultravioleta", lang: "es", badge: "ES • Ciencia", topic: "science" },
+    { title: "Aparici en Órbita", feed: "https://feeds.ivoox.com/feed_fg_f1646895_filtro_1.xml", lang: "es", badge: "ES • Cosmos", topic: "space" },
+    { title: "A Hombros de Gigantes (RNE)", feed: "http://api.rtve.es/api/programas/1873/audios.rss", lang: "es", badge: "ES • Divulgación", topic: "science" },
+    { title: "Catástrofe Ultravioleta", feed: "https://www.omnycontent.com/d/playlist/554539c9-b3b2-431a-9f3a-ada4006d04a0/d422d26a-b8b3-4c1f-b507-b2e20117a99d/d1a34000-0d86-4257-b229-b2e20117a9b8/podcast.rss", lang: "es", badge: "ES • Ciencia", topic: "science" },
 
     // --- Multilingual Worldwide (IT / SV) ---
-    { title: "Radio3 Scienza (Rai)", feed: "https://www.raiplaysound.it/programmi/radio3scienza.xml", lang: "it", badge: "IT • Scienza", topic: "science" },
+    { title: "Ci vuole una scienza (Il Post)", feed: "https://feeds.megaphone.fm/IPS8073667277", lang: "it", badge: "IT • Scienza", topic: "science" },
     { title: "Vetenskapsradion Klotet (SR)", feed: "https://api.sr.se/api/rss/pod/3966", lang: "sv", badge: "SV • Miljö & Klimat", topic: "climate" }
   ];
 
@@ -349,6 +350,12 @@
         }
         openFeedDetail(feedUrl);
       };
+
+      // Make the entire card clickable (except the follow button)
+      chip.addEventListener('click', (e) => {
+        if (e.target.closest('.starter-chip-add')) return;
+        openPreview(e);
+      });
 
       const previewBtn = chip.querySelector('.starter-chip-preview-btn');
       if (previewBtn) previewBtn.addEventListener('click', openPreview);
@@ -487,6 +494,8 @@
     continueCount: document.getElementById('continue-count'),
     btnToggleContinue: document.getElementById('btn-toggle-continue'),
     continueToggleLabel: document.getElementById('continue-toggle-label'),
+    continueStickyBar: document.getElementById('continue-sticky-bar'),
+    btnContinueStickyCollapse: document.getElementById('btn-continue-sticky-collapse'),
     playedCount: document.getElementById('played-count'),
     downloadedCount: document.getElementById('downloaded-count'),
     offlineBadge: document.getElementById('offline-badge'),
@@ -504,6 +513,12 @@
     btnClearStorage: document.getElementById('btn-clear-storage'),
 
     addModal: document.getElementById('add-modal'),
+    addModalNav: document.getElementById('add-modal-nav'),
+    addModalBody: document.getElementById('add-modal-body'),
+    btnToggleEnlarge: document.getElementById('btn-toggle-enlarge'),
+    dirResultsTitle: document.getElementById('dir-results-title'),
+    dirStickyCollapseBar: document.getElementById('dir-sticky-collapse-bar'),
+    btnStickyCollapse: document.getElementById('btn-sticky-collapse'),
     podcastSearchQuery: document.getElementById('podcast-search-query'),
     btnSearchDirectory: document.getElementById('btn-search-directory'),
     searchDirectoryResults: document.getElementById('search-directory-results'),
@@ -559,6 +574,8 @@
     btnSpeedToggle: document.getElementById('btn-speed-toggle'),
     btnPlayerTranscript: document.getElementById('btn-player-transcript'),
     btnPlayerNotes: document.getElementById('btn-player-notes'),
+    btnPlayerShare: document.getElementById('btn-player-share'),
+    playerStatusBadges: document.getElementById('player-status-badges'),
     btnCollapsePlayer: document.getElementById('btn-collapse-player'),
     playerMini: document.getElementById('player-mini'),
     miniExpandZone: document.getElementById('mini-expand-zone'),
@@ -569,6 +586,9 @@
     miniIconPlay: document.querySelector('.mini-icon-play'),
     miniIconPause: document.querySelector('.mini-icon-pause'),
     miniIconSpinner: document.querySelector('.mini-icon-spinner'),
+    miniOpenQueue: document.getElementById('mini-open-queue'),
+    miniQueueDot: document.getElementById('mini-queue-dot'),
+    miniStatusBadges: document.getElementById('mini-status-badges'),
     miniToggle: document.getElementById('mini-toggle'),
     miniProgressFill: document.getElementById('mini-progress-fill'),
 
@@ -590,8 +610,42 @@
     toggleClassifier: document.getElementById('toggle-classifier'),
     toggleAutoSkip: document.getElementById('toggle-auto-skip'),
     toggleTranscript: document.getElementById('toggle-transcript'),
-    experimentalStatus: document.getElementById('experimental-status')
+    experimentalStatus: document.getElementById('experimental-status'),
+
+    // Top navigation back button
+    btnHeaderBack: document.getElementById('btn-header-back'),
+    btnHeaderBackLabel: document.getElementById('btn-header-back-label')
   };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Scroll-position memory for the episode timeline list.
+  // When the user opens a feed detail and then returns, the list scrolls
+  // back to where it was.
+  // ─────────────────────────────────────────────────────────────────────────
+  let _savedScrollTop = 0;
+  const _timelineListEl = document.getElementById('timeline-list');
+  if (_timelineListEl) {
+    _timelineListEl.addEventListener('scroll', () => {
+      _savedScrollTop = _timelineListEl.scrollTop;
+    }, { passive: true });
+  }
+
+  function _restoreTimelineScroll() {
+    if (_timelineListEl) {
+      // Use rAF so the list is already visible before we scroll
+      requestAnimationFrame(() => {
+        _timelineListEl.scrollTop = _savedScrollTop;
+      });
+    }
+  }
+
+  // Wire top nav back button → navigateBack
+  if (elements.btnHeaderBack) {
+    elements.btnHeaderBack.addEventListener('click', (e) => {
+      e.preventDefault();
+      navigateBack();
+    });
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // SECTION 4 · YouTube Player
@@ -681,6 +735,14 @@
     if (feedUrl) {
       state.activeFeedDetailUrl = feedUrl;
       if (elements.panelFeedDetail) elements.panelFeedDetail.classList.add('active');
+      if (elements.btnHeaderBack) {
+        elements.btnHeaderBack.classList.remove('hidden');
+        const prev = state.navHistory[state.navHistory.length - 1];
+        const prevName = prev?.tab ? (prev.tab.charAt(0).toUpperCase() + prev.tab.slice(1)) : 'Back';
+        if (elements.btnHeaderBackLabel) {
+          elements.btnHeaderBackLabel.textContent = prevName;
+        }
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
       const meta = state.feedMetadata[feedUrl] || {};
       if (elements.searchInput) {
@@ -690,6 +752,9 @@
     } else {
       state.activeFeedDetailUrl = null;
       if (elements.panelFeedDetail) elements.panelFeedDetail.classList.remove('active');
+      if (elements.btnHeaderBack) {
+        elements.btnHeaderBack.classList.add('hidden');
+      }
       const targetTab = tab || 'timeline';
       const tabEl = document.getElementById(`tab-${targetTab}`);
       if (tabEl) tabEl.classList.add('active');
@@ -704,6 +769,7 @@
       } else if (targetTab === 'timeline') {
         if (elements.searchInput) elements.searchInput.placeholder = 'Search loaded episodes...';
         renderTimeline();
+        _restoreTimelineScroll();
       } else if (targetTab === 'favorites') {
         if (elements.searchInput) elements.searchInput.placeholder = 'Search favorite episodes...';
         renderFavorites();
@@ -770,31 +836,60 @@
       }
       if (modalClosed) return;
 
-      // 2. Apply view from state or URL hash
+      // 2. Apply view from state, query params, or URL hash
       if (e.state && (e.state.tab !== undefined || e.state.feedUrl !== undefined)) {
         _applyView(e.state);
-      } else if (window.location.hash) {
-        const raw = window.location.hash.slice(1);
-        if (raw.startsWith('feed=')) {
-          _applyView({ tab: null, feedUrl: decodeURIComponent(raw.slice(5)) });
-        } else if (['timeline', 'feeds', 'favorites', 'downloads', 'settings'].includes(raw)) {
-          _applyView({ tab: raw, feedUrl: null });
+      } else {
+        const queryParams = new URLSearchParams(window.location.search);
+        const rawHash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
+        const hashParams = new URLSearchParams(rawHash);
+
+        const feedUrl = queryParams.get('feed') || hashParams.get('feed') || (rawHash.startsWith('feed=') ? decodeURIComponent(rawHash.slice(5).split('&')[0]) : null);
+        if (feedUrl) {
+          _applyView({ tab: null, feedUrl });
+        } else if (['timeline', 'feeds', 'favorites', 'downloads', 'settings'].includes(rawHash)) {
+          _applyView({ tab: rawHash, feedUrl: null });
         } else {
           _applyView({ tab: 'timeline', feedUrl: null });
         }
-      } else {
-        _applyView({ tab: 'timeline', feedUrl: null });
       }
     });
 
-    const hash = window.location.hash ? window.location.hash.slice(1) : '';
-    if (hash.startsWith('feed=')) {
-      const feedUrl = decodeURIComponent(hash.slice(5));
+    const queryParams = new URLSearchParams(window.location.search);
+    const rawHash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
+    const hashParams = new URLSearchParams(rawHash);
+
+    const feedUrl = queryParams.get('feed') || hashParams.get('feed') || (rawHash.startsWith('feed=') ? decodeURIComponent(rawHash.slice(5).split('&')[0]) : null);
+    const searchQuery = queryParams.get('q') || queryParams.get('search') || hashParams.get('search');
+    const isAdd = queryParams.has('add') || hashParams.has('add') || rawHash === 'add';
+
+    if (feedUrl) {
       _applyView({ tab: null, feedUrl });
-      window.history.replaceState({ tab: null, feedUrl }, '', '#' + hash);
-    } else if (['timeline', 'feeds', 'favorites', 'downloads', 'settings'].includes(hash)) {
-      _applyView({ tab: hash, feedUrl: null });
-      window.history.replaceState({ tab: hash, feedUrl: null }, '', '#' + hash);
+      window.history.replaceState({ tab: null, feedUrl }, '', '#' + (rawHash.startsWith('feed=') ? rawHash : 'feed=' + encodeURIComponent(feedUrl)));
+      const guid = queryParams.get('guid') || hashParams.get('guid') || queryParams.get('ep') || hashParams.get('ep');
+      if (guid) {
+        setTimeout(() => {
+          const targetEp = state.allEpisodes.find(e => e.guid === guid || e.title === guid);
+          if (targetEp) {
+            playEpisode(targetEp);
+          }
+        }, 800);
+      }
+    } else if (searchQuery) {
+      _applyView({ tab: 'timeline', feedUrl: null });
+      setTimeout(() => {
+        openAddModal();
+        if (elements.podcastSearchQuery) {
+          elements.podcastSearchQuery.value = searchQuery;
+          searchPodcastDirectory(searchQuery);
+        }
+      }, 100);
+    } else if (isAdd) {
+      _applyView({ tab: 'timeline', feedUrl: null });
+      setTimeout(openAddModal, 100);
+    } else if (['timeline', 'feeds', 'favorites', 'downloads', 'settings'].includes(rawHash)) {
+      _applyView({ tab: rawHash, feedUrl: null });
+      window.history.replaceState({ tab: rawHash, feedUrl: null }, '', '#' + rawHash);
     } else {
       window.history.replaceState({ tab: 'timeline', feedUrl: null }, '', '#timeline');
     }
@@ -894,29 +989,69 @@
   async function checkAuth() {
     if (state.sessionToken) {
       elements.authModal.classList.add('hidden');
-      updateSyncStatusUI('Authenticated via Magic Session (Cloud D1 Synced)');
+      updateSyncStatusUI('Authenticated via Magic Session (Cloud D1 Synced)', state.userEmail, true);
       syncFeedsWithD1();
       return;
     }
 
     try {
       const res = await fetch('/api/sync/feeds', { credentials: 'include' });
+      if (res.status === 401) {
+        elements.authModal.classList.add('hidden');
+        updateSyncStatusUI('Logged in as guest / local device storage', '', false);
+        if (state.feeds.length > 0) {
+          refreshAllFeeds();
+        } else {
+          renderTimeline();
+        }
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         elements.authModal.classList.add('hidden');
         state.userEmail = data.userEmail || '';
         updateSyncStatusUI('Authenticated via Session Cookie (Cloud D1 Synced)', state.userEmail, true);
-        state.feeds = Array.isArray(data.feeds) ? data.feeds.map(f => f.feed_url) : [];
-        saveFeedsToStorage();
+        if (Array.isArray(data.feeds) && data.feeds.length > 0) {
+          state.feeds = data.feeds.map(f => f.feed_url);
+          saveFeedsToStorage();
+        }
         await loadPlaybackPositionsFromD1();
         await syncFavoritesWithD1();
         await refreshAllFeeds();
         return;
+      } else {
+        console.warn('Sync server responded with', res.status);
+        elements.authModal.classList.add('hidden');
+        updateSyncStatusUI('Cloud sync temporarily unavailable — listening offline', state.userEmail, true);
+        if (!state.feeds || state.feeds.length === 0) {
+          loadFeedsFromStorage();
+        }
+        loadCacheFromStorage();
+        if (state.feeds.length > 0) {
+          refreshAllFeeds();
+        } else {
+          renderTimeline();
+        }
+        return;
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn('Auth check network error:', e);
+      elements.authModal.classList.add('hidden');
+      updateSyncStatusUI('Cloud sync temporarily unavailable — listening offline', state.userEmail, true);
+      if (!state.feeds || state.feeds.length === 0) {
+        loadFeedsFromStorage();
+      }
+      loadCacheFromStorage();
+      if (state.feeds.length > 0) {
+        refreshAllFeeds();
+      } else {
+        renderTimeline();
+      }
+      return;
+    }
 
     elements.authModal.classList.add('hidden');
-    updateSyncStatusUI('Logged in as guest / local device storage');
+    updateSyncStatusUI('Logged in as guest / local device storage', '', false);
     if (state.feeds.length > 0) {
       refreshAllFeeds();
     } else {
@@ -1013,7 +1148,12 @@
         body: JSON.stringify({ email, origin: window.location.origin })
       });
 
-      const data = await res.json();
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (e) {
+        data = { error: `Server error (${res.status}). Please try again in a moment.` };
+      }
       if (!res.ok || data.error) throw new Error(data.error || 'Failed to send link');
 
       const provider = getWebmailProvider(email);
@@ -1062,6 +1202,21 @@
         return;
       }
 
+      if (!res.ok) {
+        console.warn('D1 sync HTTP error:', res.status);
+        updateSyncStatusUI('Cloud sync temporarily unavailable — listening offline', state.userEmail, true);
+        if (!state.feeds || state.feeds.length === 0) {
+          loadFeedsFromStorage();
+        }
+        loadCacheFromStorage();
+        if (state.feeds && state.feeds.length > 0) {
+          refreshAllFeeds();
+        } else {
+          renderTimeline();
+        }
+        return;
+      }
+
       const data = await res.json();
       if (data.userEmail) {
         state.userEmail = data.userEmail;
@@ -1069,8 +1224,10 @@
       updateSyncStatusUI('Cloud D1 Synced', state.userEmail, true);
 
       const remoteFeeds = Array.isArray(data.feeds) ? data.feeds : [];
-      state.feeds = remoteFeeds.map(f => f.feed_url);
-      saveFeedsToStorage();
+      if (remoteFeeds.length > 0 || !state.feeds || state.feeds.length === 0) {
+        state.feeds = remoteFeeds.map(f => f.feed_url);
+        saveFeedsToStorage();
+      }
 
       await loadPlaybackPositionsFromD1();
       await syncFavoritesWithD1();
@@ -1078,6 +1235,16 @@
 
     } catch (err) {
       console.warn('D1 sync warning:', err);
+      updateSyncStatusUI('Cloud sync temporarily unavailable — listening offline', state.userEmail, true);
+      if (!state.feeds || state.feeds.length === 0) {
+        loadFeedsFromStorage();
+      }
+      loadCacheFromStorage();
+      if (state.feeds && state.feeds.length > 0) {
+        refreshAllFeeds();
+      } else {
+        renderTimeline();
+      }
     } finally {
       hideStatus();
     }
@@ -1352,6 +1519,7 @@
   }
 
   function updateQueueUI() {
+    updatePlayerStatusBadges();
     const count = (state.queue && Array.isArray(state.queue)) ? state.queue.length : 0;
     if (elements.queueBadge) {
       if (count > 0) {
@@ -1359,6 +1527,14 @@
         elements.queueBadge.classList.remove('hidden');
       } else {
         elements.queueBadge.classList.add('hidden');
+      }
+    }
+
+    if (elements.miniQueueDot) {
+      if (count > 0) {
+        elements.miniQueueDot.classList.remove('hidden');
+      } else {
+        elements.miniQueueDot.classList.add('hidden');
       }
     }
 
@@ -1651,16 +1827,118 @@
     });
   }
 
+  function updatePlayerStatusBadges() {
+    const current = state.currentEpisode;
+    const isDownloaded = current && !!state.downloadedEpisodes[current.guid];
+    const isFav = current && isEpisodeFavorited(current.guid);
+    const isQueued = current && isEpisodeQueued(current.guid);
+
+    const badgeContainers = [
+      elements.playerStatusBadges || document.getElementById('player-status-badges'),
+      elements.miniStatusBadges || document.getElementById('mini-status-badges')
+    ];
+
+    badgeContainers.forEach(container => {
+      if (!container) return;
+      const dlEl = container.querySelector('.badge-downloaded');
+      const favEl = container.querySelector('.badge-fav');
+      const queueEl = container.querySelector('.badge-queue');
+
+      if (dlEl) dlEl.classList.toggle('hidden', !isDownloaded);
+      if (favEl) favEl.classList.toggle('hidden', !isFav);
+      if (queueEl) queueEl.classList.toggle('hidden', !isQueued);
+    });
+  }
+
   function updatePlayerFavButton() {
     if (!elements.btnPlayerFav) return;
     const current = state.currentEpisode;
     if (!current) {
       elements.btnPlayerFav.classList.remove('is-favorited');
+      updatePlayerStatusBadges();
       return;
     }
     const isFav = isEpisodeFavorited(current.guid);
     elements.btnPlayerFav.classList.toggle('is-favorited', isFav);
     elements.btnPlayerFav.title = isFav ? 'Remove from favorites' : 'Add to favorites';
+    updatePlayerStatusBadges();
+  }
+
+  function showToast(message, duration = 2500) {
+    let toast = document.getElementById('app-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'app-toast';
+      toast.className = 'app-toast';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add('show');
+    clearTimeout(toast._timeout);
+    toast._timeout = setTimeout(() => {
+      toast.classList.remove('show');
+    }, duration);
+  }
+
+  async function shareContent({ title, text, url }) {
+    // 1. On mobile / Web Share supporting devices, open native OS share sheet (AirDrop, Messages, WhatsApp, etc.)
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: title || 'Anypod',
+          text: text || '',
+          url: url || window.location.href
+        });
+        return;
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+
+    // 2. Clipboard fallback (desktop browsers)
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+        showToast('Link copied to clipboard');
+        return;
+      }
+    } catch (err) {}
+
+    // 3. Prompt fallback if clipboard blocked
+    try {
+      window.prompt('Copy link:', url);
+    } catch (_) {}
+  }
+
+  function shareCurrentEpisode() {
+    const ep = state.currentEpisode;
+    if (!ep) {
+      showToast('No active episode to share');
+      return;
+    }
+    shareEpisode(ep);
+  }
+
+  function shareEpisode(ep) {
+    if (!ep) return;
+    const shareUrl = ep.feedUrl
+      ? `${window.location.origin}/?feed=${encodeURIComponent(ep.feedUrl)}&guid=${encodeURIComponent(ep.guid || '')}#feed=${encodeURIComponent(ep.feedUrl)}`
+      : (ep.audioUrl || window.location.href);
+    shareContent({
+      title: ep.title || 'Episode',
+      text: `Listen to "${ep.title}" from ${ep.podcastTitle || 'Podcast'} on Anypod`,
+      url: shareUrl
+    });
+  }
+
+  function shareFeed(feedUrl, title) {
+    if (!feedUrl) return;
+    const shareUrl = `${window.location.origin}/?feed=${encodeURIComponent(feedUrl)}#feed=${encodeURIComponent(feedUrl)}`;
+    shareContent({
+      title: title || 'Podcast',
+      text: `Listen to ${title || 'this podcast'} on Anypod`,
+      url: shareUrl
+    });
   }
 
   async function syncFavoritesWithD1() {
@@ -1778,6 +2056,7 @@
   }
 
   function updateDownloadedCountUI() {
+    updatePlayerStatusBadges();
     const list = Object.values(state.downloadedEpisodes || {});
     const count = list.length;
     if (elements.downloadedCount) {
@@ -2794,8 +3073,32 @@
   // SECTION 16 · Podcast Directory Search
   // Queries iTunes Search API, renders results with lazy infinite scroll.
   // searchPodcastDirectory — initiates search, sets up scroll listener.
-  // renderNextDirectoryBatch — appends next page of DIR_PAGE_SIZE results.
-  // ─────────────────────────────────────────────────────────────────────────
+  function setDirectoryEnlarged(enlarged) {
+    if (!elements.searchDirectoryResults) return;
+    if (enlarged) {
+      elements.searchDirectoryResults.classList.remove('dir-carousel-view');
+      elements.searchDirectoryResults.classList.add('is-enlarged');
+      if (elements.btnToggleEnlarge) {
+        elements.btnToggleEnlarge.classList.add('active');
+        const label = elements.btnToggleEnlarge.querySelector('.enlarge-label');
+        if (label) label.textContent = '⤡ Collapsed';
+      }
+      if (elements.dirStickyCollapseBar) {
+        elements.dirStickyCollapseBar.classList.remove('hidden');
+      }
+    } else {
+      elements.searchDirectoryResults.classList.remove('is-enlarged');
+      elements.searchDirectoryResults.classList.add('dir-carousel-view');
+      if (elements.btnToggleEnlarge) {
+        elements.btnToggleEnlarge.classList.remove('active');
+        const label = elements.btnToggleEnlarge.querySelector('.enlarge-label');
+        if (label) label.textContent = '⤢ Enlarge (5 per row)';
+      }
+      if (elements.dirStickyCollapseBar) {
+        elements.dirStickyCollapseBar.classList.add('hidden');
+      }
+    }
+  }
 
   async function searchPodcastDirectory(query, targetContainer = null) {
     const q = query.trim();
@@ -2860,11 +3163,23 @@
         return;
       }
 
+      if (elements.dirResultsTitle) {
+        elements.dirResultsTitle.textContent = `Podcasts (${results.length} found)`;
+      }
+
+      if (container === elements.searchDirectoryResults) {
+        if (!container.classList.contains('is-enlarged')) {
+          container.classList.add('dir-carousel-view');
+        }
+      }
+
       const listEl = document.createElement('div');
       listEl.className = 'dir-search-list';
-      listEl.style.display = 'flex';
-      listEl.style.flexDirection = 'column';
-      listEl.style.gap = '0.5rem';
+      if (container !== elements.searchDirectoryResults) {
+        listEl.style.display = 'flex';
+        listEl.style.flexDirection = 'column';
+        listEl.style.gap = '0.5rem';
+      }
       container.appendChild(listEl);
 
       container._dirSearch = {
@@ -2880,6 +3195,26 @@
         container.addEventListener('scroll', () => {
           if (container.scrollTop + container.clientHeight >= container.scrollHeight - 70) {
             renderNextDirectoryBatch(container);
+          }
+        }, { passive: true });
+      }
+
+      if (!listEl._hasHorizontalScroll) {
+        listEl._hasHorizontalScroll = true;
+        listEl.addEventListener('scroll', () => {
+          if (listEl.scrollLeft + listEl.clientWidth >= listEl.scrollWidth - 120) {
+            renderNextDirectoryBatch(container);
+          }
+        }, { passive: true });
+      }
+
+      if (elements.addModalBody && !elements.addModalBody._hasDirInfiniteScroll) {
+        elements.addModalBody._hasDirInfiniteScroll = true;
+        elements.addModalBody.addEventListener('scroll', () => {
+          if (container.classList.contains('is-enlarged')) {
+            if (elements.addModalBody.scrollTop + elements.addModalBody.clientHeight >= elements.addModalBody.scrollHeight - 200) {
+              renderNextDirectoryBatch(container);
+            }
           }
         }, { passive: true });
       }
@@ -2997,6 +3332,7 @@
 
     if (inProgressEps.length === 0 || state.filterMode === 'played') {
       elements.continueShelf.classList.add('hidden');
+      if (elements.continueStickyBar) elements.continueStickyBar.classList.add('hidden');
       return;
     }
 
@@ -3008,14 +3344,17 @@
     if (elements.btnToggleContinue && elements.continueToggleLabel) {
       if (inProgressEps.length <= capacity) {
         elements.btnToggleContinue.style.display = 'none';
+        if (elements.continueStickyBar) elements.continueStickyBar.classList.add('hidden');
       } else {
         elements.btnToggleContinue.style.display = 'inline-flex';
         if (state.continueCollapsed) {
           elements.continueToggleLabel.textContent = `Show all (${inProgressEps.length})`;
           elements.continueShelf.classList.remove('is-expanded');
+          if (elements.continueStickyBar) elements.continueStickyBar.classList.add('hidden');
         } else {
           elements.continueToggleLabel.textContent = 'Show less';
           elements.continueShelf.classList.add('is-expanded');
+          if (elements.continueStickyBar) elements.continueStickyBar.classList.remove('hidden');
         }
       }
     }
@@ -3718,6 +4057,9 @@
           <button class="btn-queue-ep ${isQueued ? 'is-queued' : ''}" title="${isQueued ? 'Remove from Up Next' : 'Add to Up Next'}">
             ${isQueued ? CARD_ICONS.QUEUE_ADDED : CARD_ICONS.QUEUE}
           </button>
+          <button class="btn-share-ep" title="Share Episode">
+            ${CARD_ICONS.SHARE}
+          </button>
           <button class="btn-mark-played ${isCompleted ? 'is-completed' : ''}" title="${isCompleted ? 'Mark as Unplayed' : 'Mark as Played'}">
             ${isCompleted ? CARD_ICONS.CHECK_FILLED : CARD_ICONS.CHECK}
           </button>
@@ -3789,6 +4131,14 @@
       e.stopPropagation();
       toggleEpisodeQueue(ep);
     });
+
+    const shareBtn = card.querySelector('.btn-share-ep');
+    if (shareBtn) {
+      shareBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        shareEpisode(ep);
+      });
+    }
 
     card.querySelector('.btn-mark-played').addEventListener('click', (e) => {
       e.stopPropagation();
@@ -4122,6 +4472,9 @@
         <div class="feed-detail-top-nav">
           <button class="btn-back-nav" id="btn-feed-back">${escapeHtml(backLabel)}</button>
           <div class="feed-detail-top-actions">
+            <button class="btn btn-secondary btn-sm" id="btn-share-feed" title="Share Podcast">
+              Share
+            </button>
             ${isSubbed ? `
               <button class="btn btn-secondary btn-sm btn-feed-mute ${isMuted ? 'is-muted' : ''}" id="btn-feed-mute" title="${isMuted ? 'Unmute: show episodes in timeline' : 'Mute: hide episodes from timeline'}">
                 <span>${isMuted ? 'Muted' : 'Mute'}</span>
@@ -4141,6 +4494,7 @@
             <div class="feed-detail-links">
               ${meta.link ? `<a href="${escapeHtml(meta.link)}" target="_blank" rel="noopener noreferrer" class="feed-link-badge">Website</a>` : ''}
               <button class="feed-link-badge" id="btn-copy-rss" title="Copy RSS Feed URL">Copy RSS</button>
+              <button class="feed-link-badge" id="btn-share-feed-link" title="Share Podcast">Share Feed</button>
               <span class="feed-link-badge" id="feed-episodes-badge" style="cursor: default;">${q ? `${episodes.length} / ${totalCount} episodes` : `${totalCount} episodes`}</span>
               ${isSubbed && isMuted ? `<span class="feed-link-badge feed-muted-badge" style="cursor: default;">Timeline Muted</span>` : ''}
             </div>
@@ -4151,6 +4505,20 @@
       header.querySelector('#btn-feed-back').addEventListener('click', () => {
         navigateBack();
       });
+
+      const shareFeedBtn = header.querySelector('#btn-share-feed');
+      if (shareFeedBtn) {
+        shareFeedBtn.addEventListener('click', () => {
+          shareFeed(feedUrl, meta.title);
+        });
+      }
+
+      const shareFeedLink = header.querySelector('#btn-share-feed-link');
+      if (shareFeedLink) {
+        shareFeedLink.addEventListener('click', () => {
+          shareFeed(feedUrl, meta.title);
+        });
+      }
 
       const muteBtn = header.querySelector('#btn-feed-mute');
       if (muteBtn) {
@@ -5588,6 +5956,70 @@
       });
     }
 
+    if (elements.btnContinueStickyCollapse) {
+      elements.btnContinueStickyCollapse.addEventListener('click', () => {
+        state.continueCollapsed = true;
+        renderContinueShelf();
+        if (elements.continueShelf) {
+          elements.continueShelf.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    }
+
+    if (elements.btnToggleEnlarge) {
+      elements.btnToggleEnlarge.addEventListener('click', () => {
+        const isEnlarged = elements.searchDirectoryResults && elements.searchDirectoryResults.classList.contains('is-enlarged');
+        setDirectoryEnlarged(!isEnlarged);
+      });
+    }
+
+    if (elements.btnStickyCollapse) {
+      elements.btnStickyCollapse.addEventListener('click', () => {
+        setDirectoryEnlarged(false);
+        if (elements.addModalBody) {
+          const searchSec = elements.addModalBody.querySelector('#add-section-search');
+          if (searchSec) {
+            elements.addModalBody.scrollTo({ top: searchSec.offsetTop - 10, behavior: 'smooth' });
+          }
+        }
+      });
+    }
+
+    if (elements.addModalNav && elements.addModalBody) {
+      const navLinks = elements.addModalNav.querySelectorAll('.modal-scroll-link');
+      navLinks.forEach(link => {
+        link.addEventListener('click', () => {
+          const targetId = link.getAttribute('data-target');
+          const targetEl = elements.addModalBody.querySelector(targetId);
+          if (targetEl) {
+            elements.addModalBody.scrollTo({
+              top: targetEl.offsetTop - 10,
+              behavior: 'smooth'
+            });
+          }
+          navLinks.forEach(l => l.classList.remove('active'));
+          link.classList.add('active');
+        });
+      });
+
+      elements.addModalBody.addEventListener('scroll', () => {
+        const sections = elements.addModalBody.querySelectorAll('.add-modal-section');
+        const scrollPos = elements.addModalBody.scrollTop + 60;
+        sections.forEach(sec => {
+          if (scrollPos >= sec.offsetTop && scrollPos < sec.offsetTop + sec.offsetHeight) {
+            const id = '#' + sec.id;
+            navLinks.forEach(l => {
+              if (l.getAttribute('data-target') === id) {
+                l.classList.add('active');
+              } else {
+                l.classList.remove('active');
+              }
+            });
+          }
+        });
+      }, { passive: true });
+    }
+
     elements.btnCloseAdd.addEventListener('click', closeAddModal);
     elements.btnCancelAdd.addEventListener('click', closeAddModal);
     elements.btnSubmitFeed.addEventListener('click', () => {
@@ -5636,6 +6068,12 @@
         if (elements.podcastSearchQuery) {
           elements.podcastSearchQuery.value = cat;
           searchPodcastDirectory(cat);
+        }
+        if (elements.addModalBody) {
+          const searchSec = elements.addModalBody.querySelector('#add-section-search');
+          if (searchSec) {
+            elements.addModalBody.scrollTo({ top: searchSec.offsetTop - 10, behavior: 'smooth' });
+          }
         }
       });
     });
@@ -5745,19 +6183,136 @@
       });
     }
 
+    function toggleCurrentPlayback() {
+      if (state.currentEpisode) {
+        toggleEpisodePlayback(state.currentEpisode);
+      } else if (state.filteredEpisodes && state.filteredEpisodes.length > 0) {
+        toggleEpisodePlayback(state.filteredEpisodes[0]);
+      } else if (state.allEpisodes && state.allEpisodes.length > 0) {
+        toggleEpisodePlayback(state.allEpisodes[0]);
+      }
+    }
+
+    function seekRelative(offset) {
+      if (state.activeEngine === 'audio' && elements.audio) {
+        const dur = elements.audio.duration || 0;
+        const cur = elements.audio.currentTime || 0;
+        elements.audio.currentTime = Math.max(0, Math.min(dur || Infinity, cur + offset));
+        updateProgress();
+        if (state.experimentalSettings.enableVisualizer) renderWaveformChart();
+      } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
+        const cur = state.ytPlayer.getCurrentTime();
+        state.ytPlayer.seekTo(Math.max(0, cur + offset), true);
+        updateProgress();
+        if (state.experimentalSettings.enableVisualizer) renderWaveformChart();
+      }
+    }
+
+    function adjustPlayerVolume(delta) {
+      if (elements.audio) {
+        const newVol = Math.max(0, Math.min(1, elements.audio.volume + delta));
+        elements.audio.volume = newVol;
+        showStatus(`Volume ${Math.round(newVol * 100)}%`);
+      }
+    }
+
+    function togglePlayerMute() {
+      if (elements.audio) {
+        elements.audio.muted = !elements.audio.muted;
+        showStatus(elements.audio.muted ? 'Muted' : 'Unmuted');
+      }
+    }
+
+    // Modern 2026 Player Keyboard Shortcuts (Spotify / Apple Podcasts / YouTube UX)
     document.addEventListener('keydown', (e) => {
+      // 1. Modals & Detail Navigation Escape
       if (e.key === 'Escape') {
         if (elements.showNotesModal && !elements.showNotesModal.classList.contains('hidden')) {
           closeShowNotes();
+          return;
         } else if (elements.queueModal && !elements.queueModal.classList.contains('hidden')) {
           closeQueueModal();
+          return;
         } else if (elements.sleepModal && !elements.sleepModal.classList.contains('hidden')) {
           closeSleepModal();
+          return;
         } else if (elements.addModal && !elements.addModal.classList.contains('hidden')) {
           closeAddModal();
+          return;
         } else if (elements.confirmModal && !elements.confirmModal.classList.contains('hidden')) {
           elements.confirmModal.classList.add('hidden');
+          return;
+        } else if (state.activeFeedDetailUrl) {
+          navigateBack();
+          return;
         }
+      }
+
+      // Ignore when user is actively typing in inputs or contenteditable areas
+      const target = e.target;
+      const tag = (target && target.tagName ? target.tagName : '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || (target && target.isContentEditable)) {
+        return;
+      }
+      // Ignore OS-level modifier combos (Cmd+C, Ctrl+V, Alt+Tab, etc.)
+      if (e.metaKey || e.ctrlKey || e.altKey) {
+        return;
+      }
+
+      // 2. Play / Pause: Space or 'k' (prevents page scrolling on Space)
+      if (e.code === 'Space' || e.key === ' ' || e.key === 'k' || e.key === 'K') {
+        e.preventDefault();
+        toggleCurrentPlayback();
+        return;
+      }
+
+      // 3. Skip 10s: ArrowLeft / ArrowRight or 'j' / 'l'
+      if (!e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'j' || e.key === 'J')) {
+        e.preventDefault();
+        seekRelative(-10);
+        return;
+      }
+      if (!e.shiftKey && (e.key === 'ArrowRight' || e.key === 'l' || e.key === 'L')) {
+        e.preventDefault();
+        seekRelative(10);
+        return;
+      }
+
+      // 4. Next / Previous Episode: Shift + ArrowRight / Shift + ArrowLeft, or 'n' / 'p'
+      if ((e.shiftKey && e.key === 'ArrowRight') || e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        skipToNextEpisode(false);
+        return;
+      }
+      if ((e.shiftKey && e.key === 'ArrowLeft') || e.key === 'p' || e.key === 'P') {
+        e.preventDefault();
+        if (state.activeEngine === 'audio' && elements.audio) {
+          elements.audio.currentTime = 0;
+        } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.seekTo) {
+          state.ytPlayer.seekTo(0, true);
+        }
+        updateProgress();
+        if (state.experimentalSettings.enableVisualizer) renderWaveformChart();
+        return;
+      }
+
+      // 5. Volume Control: ArrowUp / ArrowDown
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        adjustPlayerVolume(0.05);
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        adjustPlayerVolume(-0.05);
+        return;
+      }
+
+      // 6. Mute Toggle: 'm'
+      if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        togglePlayerMute();
+        return;
       }
     });
 
@@ -5850,6 +6405,27 @@
       }
     });
 
+    if (elements.btnPlayerShare) {
+      elements.btnPlayerShare.addEventListener('click', (e) => {
+        e.stopPropagation();
+        shareCurrentEpisode();
+      });
+    }
+
+    if (elements.miniOpenQueue) {
+      elements.miniOpenQueue.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openQueueModal();
+      });
+    }
+
+    if (elements.miniPlayerShare) {
+      elements.miniPlayerShare.addEventListener('click', (e) => {
+        e.stopPropagation();
+        shareCurrentEpisode();
+      });
+    }
+
     if (elements.btnCollapsePlayer) {
       elements.btnCollapsePlayer.addEventListener('click', () => {
         setPlayerCollapsed(true);
@@ -5911,6 +6487,7 @@
   }
 
   function closeAddModal() {
+    setDirectoryEnlarged(false);
     elements.podcastSearchQuery.value = '';
     elements.searchDirectoryResults.innerHTML = '';
     elements.feedUrlInput.value = '';
@@ -5918,7 +6495,17 @@
       elements.modalSubgenreChips.innerHTML = '';
       elements.modalSubgenreChips.classList.add('hidden');
     }
+    if (elements.dirResultsTitle) {
+      elements.dirResultsTitle.textContent = 'Podcasts';
+    }
     document.querySelectorAll('#modal-category-chips .category-chip').forEach(c => c.classList.remove('active'));
+    if (elements.addModalNav) {
+      const links = elements.addModalNav.querySelectorAll('.modal-scroll-link');
+      links.forEach((l, idx) => {
+        if (idx === 0) l.classList.add('active');
+        else l.classList.remove('active');
+      });
+    }
     if (window.history.state && window.history.state.modal) {
       window.history.back();
     } else if (elements.addModal) {
@@ -6051,7 +6638,7 @@
   // 6. Caches episode timeline analysis permanently in localStorage.
   // ─────────────────────────────────────────────────────────────────────────
 
-  const TIMELINE_BAR_COUNT = 140;
+  const TIMELINE_BAR_COUNT = 240;
 
   function loadExperimentalSettings() {
     try {
@@ -6547,61 +7134,45 @@
     const curPct = (totalDur > 0) ? Math.min(1, Math.max(0, curSec / totalDur)) : (state.episodeTimeline.progressPct || 0);
     const playheadX = curPct * w;
 
-    // 1. Soft illuminated capsule around played portion (matching screenshot)
-    if (playheadX > 6) {
-      ctx.save();
-      ctx.fillStyle = 'rgba(249, 115, 22, 0.12)';
-      ctx.strokeStyle = 'rgba(249, 115, 22, 0.28)';
-      ctx.lineWidth = 1;
-      const pillH = h - 6;
-      const pillW = Math.min(w, playheadX + 2);
-      const pillRadius = Math.min(pillH / 2, 8);
-      ctx.beginPath();
-      if (typeof ctx.roundRect === 'function') {
-        ctx.roundRect(0, 3, pillW, pillH, pillRadius);
-      } else {
-        ctx.rect(0, 3, pillW, pillH);
-      }
-      ctx.fill();
-      ctx.stroke();
-      ctx.restore();
-    }
-
     const barWidth = w / bars.length;
-    const gap = Math.max(1, Math.floor(barWidth * 0.28));
-    const drawWidth = Math.max(1.5, barWidth - gap);
+    const gap = 1.2;
+    const drawWidth = Math.max(1.2, barWidth - gap);
     const showClassifier = !!state.experimentalSettings.enableAudioClassifier;
+
+    // Detect light vs dark theme for contrast
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light' || 
+                   (!document.documentElement.getAttribute('data-theme') && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
 
     // Track active mode at playhead for UI pill dots
     let activeModeAtPlayhead = 'speech';
 
     for (let i = 0; i < bars.length; i++) {
       const b = bars[i];
-      const barH = Math.max(3, Math.round(b.height * (h - 8)));
+      const barH = Math.max(3, Math.round(b.height * (h - 6)));
       const x = i * barWidth + (gap / 2);
-      const y = h - barH; // Baseline rises up from the bottom!
+      const y = h - barH; // Baseline rises up from the bottom
 
       const isPlayed = (x + drawWidth * 0.5) <= playheadX;
       if (isPlayed) {
         activeModeAtPlayhead = b.type || 'speech';
       }
 
-      // Elegant, lighter spectrum color palette with depth:
-      // - Speech: Warm amber/gold glow, softer opacity for unplayed
-      // - Music: Subtle electric violet, lighter tint
+      // Elegant, high-clarity color palette:
+      // Always visible in both light & dark themes, whether Audio Classifier is on or off
       let color;
       if (showClassifier && b.type === 'music') {
-        color = isPlayed ? '#c084fc' : 'rgba(192, 132, 252, 0.28)';
+        color = isPlayed ? '#a855f7' : (isLight ? 'rgba(168, 85, 247, 0.35)' : 'rgba(168, 85, 247, 0.28)');
       } else if (showClassifier && b.type === 'speech') {
-        color = isPlayed ? '#fb923c' : 'rgba(251, 146, 60, 0.28)';
+        color = isPlayed ? '#f97316' : (isLight ? 'rgba(249, 115, 22, 0.35)' : 'rgba(249, 115, 22, 0.28)');
       } else {
-        color = isPlayed ? '#fb923c' : 'rgba(255, 255, 255, 0.22)';
+        // Standard waveform (Audio Classifier off or default)
+        color = isPlayed ? '#f97316' : (isLight ? 'rgba(0, 0, 0, 0.18)' : 'rgba(255, 255, 255, 0.22)');
       }
 
       ctx.fillStyle = color;
 
-      // Draw rounded pill bar (rounded top corners) with subtle shadow depth
-      const r = Math.min(drawWidth / 2, 2);
+      // Draw rounded pill bar (rounded top corners) with crisp rendering
+      const r = Math.min(drawWidth / 2, 1.5);
       if (typeof ctx.roundRect === 'function') {
         ctx.beginPath();
         ctx.roundRect(x, y, drawWidth, barH, [r, r, 0, 0]);

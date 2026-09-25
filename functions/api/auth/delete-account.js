@@ -49,9 +49,12 @@ export async function onRequest(context) {
       db.prepare('DELETE FROM users WHERE id = ?').bind(userId)
     ]);
 
+    const url = new URL(request.url);
+    const domainAttr = url.hostname.endsWith('anypod.org') ? '; Domain=.anypod.org' : '';
+
     // Clear session cookie
     const headers = new Headers(corsHeaders);
-    headers.set('Set-Cookie', 'podcast_session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT');
+    headers.set('Set-Cookie', `podcast_session=; HttpOnly; Secure; SameSite=Lax; Path=/${domainAttr}; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`);
 
     return new Response(JSON.stringify({ 
       success: true, 

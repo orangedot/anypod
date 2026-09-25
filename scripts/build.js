@@ -53,6 +53,16 @@ for (const file of staticFiles) {
   }
 }
 
+// 5. Copy scripts/ subdirectory (e.g. settings.js) into public/dist/scripts/
+const publicScriptsDir = path.join(publicDir, 'scripts');
+if (fs.existsSync(publicScriptsDir)) {
+  const distScriptsDir = path.join(distDir, 'scripts');
+  if (!fs.existsSync(distScriptsDir)) fs.mkdirSync(distScriptsDir, { recursive: true });
+  for (const file of fs.readdirSync(publicScriptsDir)) {
+    fs.copyFileSync(path.join(publicScriptsDir, file), path.join(distScriptsDir, file));
+  }
+}
+
 const originalJsSize = (fs.statSync(path.join(publicDir, 'app.js')).size / 1024).toFixed(1);
 const minJsSize = (fs.statSync(path.join(distDir, 'app.min.js')).size / 1024).toFixed(1);
 const originalCssSize = (fs.statSync(path.join(publicDir, 'style.css')).size / 1024).toFixed(1);
