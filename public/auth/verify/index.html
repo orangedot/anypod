@@ -75,9 +75,9 @@
 <body>
   <div class="card">
     <div class="icon">🔑</div>
-    <h1>Confirm Sign In</h1>
-    <p id="info-text">Click the button below to complete your authentication and open Anypod.</p>
-    <button class="btn" id="btn-confirm">Confirm Sign In</button>
+    <h1>confirm sign in</h1>
+    <p id="info-text">click the button below to complete your authentication and open anypod.</p>
+    <button class="btn" id="btn-confirm">confirm sign in</button>
     <div class="error-msg" id="error-box"></div>
   </div>
   <script>
@@ -92,14 +92,14 @@
         btn.style.display = 'none';
         infoText.style.display = 'none';
         errorBox.style.display = 'block';
-        errorBox.textContent = 'Invalid verification link. Token parameter is missing.';
+        errorBox.textContent = 'invalid verification link. token parameter is missing.';
         return;
       }
 
       async function doVerify() {
         btn.disabled = true;
-        btn.textContent = 'Signing you in...';
-        infoText.textContent = 'Verifying your login link and redirecting...';
+        btn.textContent = 'signing you in...';
+        infoText.textContent = 'verifying your login link and redirecting...';
         errorBox.style.display = 'none';
 
         try {
@@ -111,7 +111,7 @@
 
           const data = await res.json();
           if (!res.ok || !data.success) {
-            throw new Error(data.error || 'Verification failed');
+            throw new Error(data.error || 'verification failed');
           }
 
           if (data.sessionToken) {
@@ -122,8 +122,8 @@
           }
         } catch (err) {
           btn.disabled = false;
-          btn.textContent = 'Confirm Sign In';
-          infoText.textContent = 'Click the button below to complete your authentication and open Anypod.';
+          btn.textContent = 'confirm sign in';
+          infoText.textContent = 'click the button below to complete your authentication and open anypod.';
           errorBox.style.display = 'block';
           errorBox.textContent = err.message;
         }

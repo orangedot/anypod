@@ -127,6 +127,7 @@
     FEEDS: 'anypod_feeds',
     MUTED_FEEDS: 'anypod_muted_feeds',
     SESSION: 'anypod_session_token',
+    USER_EMAIL: 'anypod_user_email',
     CACHED_EPISODES: 'anypod_cached_episodes',
     CACHED_METADATA: 'anypod_cached_metadata',
     POSITIONS: 'anypod_playback_positions',
@@ -990,12 +991,13 @@
     } else {
       state.sessionToken = localStorage.getItem(STORAGE_KEYS.SESSION) || localStorage.getItem('podcast_pulse_session_token') || '';
     }
+    state.userEmail = localStorage.getItem(STORAGE_KEYS.USER_EMAIL) || '';
   }
 
   async function checkAuth() {
     if (state.sessionToken) {
       elements.authModal.classList.add('hidden');
-      updateSyncStatusUI('Authenticated via Magic Session (Cloud D1 Synced)', state.userEmail, true);
+      updateSyncStatusUI('authenticated via magic session (cloud d1 synced)', state.userEmail, true);
       syncFeedsWithD1();
       return;
     }
@@ -1004,7 +1006,7 @@
       const res = await fetch('/api/sync/feeds', { credentials: 'include' });
       if (res.status === 401) {
         elements.authModal.classList.add('hidden');
-        updateSyncStatusUI('Logged in as guest / local device storage', '', false);
+        updateSyncStatusUI('logged in as guest / local device storage', '', false);
         if (state.feeds.length > 0) {
           refreshAllFeeds();
         } else {
@@ -1016,7 +1018,10 @@
         const data = await res.json();
         elements.authModal.classList.add('hidden');
         state.userEmail = data.userEmail || '';
-        updateSyncStatusUI('Authenticated via Session Cookie (Cloud D1 Synced)', state.userEmail, true);
+        try {
+          if (state.userEmail) localStorage.setItem(STORAGE_KEYS.USER_EMAIL, state.userEmail);
+        } catch (_) {}
+        updateSyncStatusUI('authenticated via session cookie (cloud d1 synced)', state.userEmail, true);
         if (Array.isArray(data.feeds) && data.feeds.length > 0) {
           state.feeds = data.feeds.map(f => f.feed_url);
           saveFeedsToStorage();
@@ -1028,7 +1033,7 @@
       } else {
         console.warn('Sync server responded with', res.status);
         elements.authModal.classList.add('hidden');
-        updateSyncStatusUI('Cloud sync temporarily unavailable — listening offline', state.userEmail, true);
+        updateSyncStatusUI('cloud sync temporarily unavailable — listening offline', state.userEmail, !!state.sessionToken);
         if (!state.feeds || state.feeds.length === 0) {
           loadFeedsFromStorage();
         }
@@ -1043,7 +1048,7 @@
     } catch (e) {
       console.warn('Auth check network error:', e);
       elements.authModal.classList.add('hidden');
-      updateSyncStatusUI('Cloud sync temporarily unavailable — listening offline', state.userEmail, true);
+      updateSyncStatusUI('cloud sync temporarily unavailable — listening offline', state.userEmail, !!state.sessionToken);
       if (!state.feeds || state.feeds.length === 0) {
         loadFeedsFromStorage();
       }
@@ -1057,7 +1062,7 @@
     }
 
     elements.authModal.classList.add('hidden');
-    updateSyncStatusUI('Logged in as guest / local device storage', '', false);
+    updateSyncStatusUI('logged in as guest / local device storage', '', false);
     if (state.feeds.length > 0) {
       refreshAllFeeds();
     } else {
@@ -1067,7 +1072,7 @@
 
   function updateSyncStatusUI(statusText, email = '', isConnected = false) {
     if (elements.userSyncStatus) {
-      elements.userSyncStatus.textContent = statusText;
+      elements.userSyncStatus.textContent = (statusText || '').toLowerCase();
     }
     if (elements.statusIndicator) {
       if (isConnected) {
@@ -1077,10 +1082,10 @@
       }
     }
     if (elements.userEmailLabel) {
-      elements.userEmailLabel.textContent = email || (isConnected ? 'Logged In' : 'Guest Mode');
+      elements.userEmailLabel.textContent = (email || (isConnected ? 'logged in' : 'guest mode')).toLowerCase();
     }
     if (elements.btnAccountToggle) {
-      elements.btnAccountToggle.textContent = isConnected ? 'Sign Out' : 'Log In';
+      elements.btnAccountToggle.textContent = isConnected ? 'sign out' : 'log in';
     }
     const cardDelete = document.getElementById('card-delete-account');
     if (cardDelete) {
@@ -1194,23 +1199,31 @@
   // ─────────────────────────────────────────────────────────────────────────
 
   async function syncFeedsWithD1() {
-    showStatus('Syncing feeds & playback state with Cloud D1...');
+    showStatus('syncing feeds & playback state with cloud d1...');
     try {
       const headers = {};
       if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
 
-      const res = await fetch('/api/sync/feeds', { headers });
+      const res = await fetch('/api/sync/feeds', { headers, credentials: 'include' });
 
       if (res.status === 401) {
-        localStorage.removeItem(STORAGE_KEYS.SESSION);
-        state.sessionToken = '';
-        updateSyncStatusUI('Session Expired • Switched to Guest Mode', '', false);
+        console.warn('D1 sync returned 401. Preserving offline session & library.');
+        updateSyncStatusUI('cloud sync temporarily unavailable — listening offline', state.userEmail, !!state.sessionToken);
+        if (!state.feeds || state.feeds.length === 0) {
+          loadFeedsFromStorage();
+        }
+        loadCacheFromStorage();
+        if (state.feeds && state.feeds.length > 0) {
+          refreshAllFeeds();
+        } else {
+          renderTimeline();
+        }
         return;
       }
 
       if (!res.ok) {
         console.warn('D1 sync HTTP error:', res.status);
-        updateSyncStatusUI('Cloud sync temporarily unavailable — listening offline', state.userEmail, true);
+        updateSyncStatusUI('cloud sync temporarily unavailable — listening offline', state.userEmail, true);
         if (!state.feeds || state.feeds.length === 0) {
           loadFeedsFromStorage();
         }
@@ -1226,8 +1239,11 @@
       const data = await res.json();
       if (data.userEmail) {
         state.userEmail = data.userEmail;
+        try {
+          localStorage.setItem(STORAGE_KEYS.USER_EMAIL, data.userEmail);
+        } catch (_) {}
       }
-      updateSyncStatusUI('Cloud D1 Synced', state.userEmail, true);
+      updateSyncStatusUI('cloud d1 synced', state.userEmail, true);
 
       const remoteFeeds = Array.isArray(data.feeds) ? data.feeds : [];
       if (remoteFeeds.length > 0 || !state.feeds || state.feeds.length === 0) {
@@ -1241,7 +1257,7 @@
 
     } catch (err) {
       console.warn('D1 sync warning:', err);
-      updateSyncStatusUI('Cloud sync temporarily unavailable — listening offline', state.userEmail, true);
+      updateSyncStatusUI('cloud sync temporarily unavailable — listening offline', state.userEmail, true);
       if (!state.feeds || state.feeds.length === 0) {
         loadFeedsFromStorage();
       }
@@ -1263,6 +1279,7 @@
       await fetch('/api/sync/feeds', {
         method: 'POST',
         headers,
+        credentials: 'include',
         body: JSON.stringify({ feedUrl, title, artwork })
       });
     } catch (e) {}
@@ -1275,6 +1292,7 @@
       await fetch('/api/sync/feeds', {
         method: 'DELETE',
         headers,
+        credentials: 'include',
         body: JSON.stringify({ feedUrl })
       });
     } catch (e) {}
@@ -1306,7 +1324,7 @@
     try {
       const headers = {};
       if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
-      const res = await fetch('/api/sync/position', { headers });
+      const res = await fetch('/api/sync/position', { headers, credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         state.playbackPositions = data.positions || {};
@@ -1333,6 +1351,7 @@
       await fetch('/api/sync/position', {
         method: 'POST',
         headers,
+        credentials: 'include',
         body: JSON.stringify({ episodeGuid, positionSeconds, completed })
       });
     } catch (e) {}
@@ -1860,7 +1879,13 @@
 
       if (dlEl) dlEl.classList.toggle('hidden', !isDownloaded);
       if (favEl) favEl.classList.toggle('hidden', !isFav);
-      if (queueEl) queueEl.classList.toggle('hidden', !isQueued);
+      if (queueEl) {
+        if (container.id === 'mini-status-badges' || container.classList.contains('mini-status-badges')) {
+          queueEl.classList.add('hidden');
+        } else {
+          queueEl.classList.toggle('hidden', !isQueued);
+        }
+      }
     });
   }
 
@@ -5468,6 +5493,7 @@
     state.playbackStatus = isPlaying ? 'playing' : 'paused';
     syncPlaybackButtons();
     updatePlayerFavButton();
+    updateQueueUI();
   }
 
   function setPlayerCollapsed(collapsed, save = true) {
@@ -5848,6 +5874,7 @@
             });
           } catch (e) {}
           localStorage.removeItem(STORAGE_KEYS.SESSION);
+          localStorage.removeItem(STORAGE_KEYS.USER_EMAIL);
           localStorage.removeItem('podcast_pulse_session_token');
           localStorage.removeItem(STORAGE_KEYS.FEEDS);
           localStorage.removeItem(STORAGE_KEYS.MUTED_FEEDS);
@@ -5947,18 +5974,19 @@
               }
 
               localStorage.removeItem(STORAGE_KEYS.SESSION);
+              localStorage.removeItem(STORAGE_KEYS.USER_EMAIL);
               localStorage.removeItem('podcast_pulse_session_token');
               localStorage.removeItem('anypod_session_token');
               state.sessionToken = '';
               state.userEmail = '';
 
-              updateSyncStatusUI('Logged in as guest / local device storage', '', false);
-              showStatus('Cloud account and sync data permanently wiped.');
+              updateSyncStatusUI('logged in as guest / local device storage', '', false);
+              showStatus('cloud account and sync data permanently wiped.');
             } catch (err) {
-              showStatus('Failed to delete account: ' + err.message);
+              showStatus('failed to delete account: ' + err.message);
             } finally {
               btnDeleteAccount.disabled = false;
-              btnDeleteAccount.textContent = 'Delete Account & Wipe Cloud Data';
+              btnDeleteAccount.textContent = 'delete account & wipe cloud data';
             }
           }
         });
@@ -6862,6 +6890,9 @@
       }
     } catch (_) {}
     state.experimentalSettings.enableVisualizer = true;
+    if (state.experimentalSettings.enableAudioClassifier === undefined) {
+      state.experimentalSettings.enableAudioClassifier = true;
+    }
     syncExperimentalUI();
   }
 
@@ -7732,10 +7763,16 @@
 
     // Jump buttons
     if (elements.btnJumpSpeech) {
-      elements.btnJumpSpeech.addEventListener('click', () => jumpToNextSegment('speech'));
+      elements.btnJumpSpeech.addEventListener('click', (e) => {
+        e.stopPropagation();
+        jumpToNextSegment('speech');
+      });
     }
     if (elements.btnJumpMusic) {
-      elements.btnJumpMusic.addEventListener('click', () => jumpToNextSegment('music'));
+      elements.btnJumpMusic.addEventListener('click', (e) => {
+        e.stopPropagation();
+        jumpToNextSegment('music');
+      });
     }
 
     // Resize observer / window resize for responsive canvas

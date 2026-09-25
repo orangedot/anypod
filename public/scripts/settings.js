@@ -16,10 +16,10 @@
   // Only set defaults if this is a fresh install (no first-launch marker).
   if (!localStorage.getItem(FIRST_LAUNCH_KEY)) {
     var defaults = {
-      enableVisualizer: false,
-      enableAudioClassifier: false,
+      enableVisualizer: true,
+      enableAudioClassifier: true,
       autoSkipSpeech: false,
-      enableTranscript: false
+      enableTranscript: true
     };
     localStorage.setItem(EXP_KEY, JSON.stringify(defaults));
     localStorage.setItem(FIRST_LAUNCH_KEY, 'true');

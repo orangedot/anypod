@@ -7,27 +7,58 @@ export async function hashToken(token) {
 }
 
 export async function getUserFromRequest(request, env) {
+  if (!env || !env.DB) return null;
+
+  const candidateTokens = [];
+
+  // 1. Header token (from client localStorage)
+  const headerToken = request.headers.get('X-Session-Token');
+  if (headerToken && typeof headerToken === 'string') {
+    const trimmed = headerToken.trim();
+    if (trimmed) candidateTokens.push(trimmed);
+  }
+
+  // 2. Cookie token(s)
   const cookieHeader = request.headers.get('Cookie') || '';
-  let rawSessionToken = null;
-  const cookiePairs = cookieHeader.split(';');
-  for (const pair of cookiePairs) {
-    const [k, ...v] = pair.trim().split('=');
-    if (k === 'podcast_session') {
-      rawSessionToken = v.join('=');
-      break;
+  if (cookieHeader) {
+    const cookiePairs = cookieHeader.split(';');
+    for (const pair of cookiePairs) {
+      const [k, ...v] = pair.trim().split('=');
+      if (k === 'podcast_session') {
+        const val = v.join('=').trim();
+        if (val && !candidateTokens.includes(val)) {
+          candidateTokens.push(val);
+        }
+      }
     }
   }
-  if (!rawSessionToken) {
-    rawSessionToken = request.headers.get('X-Session-Token');
+
+  // 3. Authorization Bearer header fallback
+  const authHeader = request.headers.get('Authorization') || '';
+  if (authHeader.startsWith('Bearer ')) {
+    const bToken = authHeader.slice(7).trim();
+    if (bToken && !candidateTokens.includes(bToken)) {
+      candidateTokens.push(bToken);
+    }
   }
-  if (!rawSessionToken || !env.DB) return null;
-  const sessionHash = await hashToken(rawSessionToken);
+
+  if (candidateTokens.length === 0) return null;
+
   const now = Math.floor(Date.now() / 1000);
-  const row = await env.DB.prepare(
-    'SELECT u.id, u.email FROM user_sessions s JOIN users u ON s.user_id = u.id WHERE s.session_hash = ? AND s.expires_at > ?'
-  ).bind(sessionHash, now).first();
-  if (!row) return null;
-  return { id: row.id, email: row.email };
+  for (const token of candidateTokens) {
+    try {
+      const sessionHash = await hashToken(token);
+      const row = await env.DB.prepare(
+        'SELECT u.id, u.email FROM user_sessions s JOIN users u ON s.user_id = u.id WHERE s.session_hash = ? AND s.expires_at > ?'
+      ).bind(sessionHash, now).first();
+      if (row) {
+        return { id: row.id, email: row.email };
+      }
+    } catch (_) {
+      // Continue trying next candidate token
+    }
+  }
+  return null;
 }
 
 export function isValidExternalUrl(urlString) {

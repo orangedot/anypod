@@ -1,7 +1,7 @@
 {
-  "name": "Anypod - Private Podcast Player",
+  "name": "Anypod — Private Podcast Player",
   "short_name": "Anypod",
-  "description": "Personal private podcast player and RSS feed aggregator with offline playback.",
+  "description": "Free, open-source podcast player. No account. No ads. No tracking. Works offline.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#121214",
