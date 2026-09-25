@@ -448,6 +448,92 @@ input::placeholder,
   text-transform: none;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   MODERN MINIMALIST LOWERCASE UI TYPOGRAPHY
+   Applied across all UI chrome (navigation, buttons, badges, chips, labels,
+   shelf titles, modal chrome, search inputs, and status indicators)
+   while preserving natural casing for user podcast/episode titles & notes.
+   ───────────────────────────────────────────────────────────────────────── */
+.nav-tab,
+.tab-badge,
+.btn,
+.btn-shelf-toggle,
+.btn-back-nav,
+.btn-continue-sticky-collapse,
+.btn-pill-action,
+.feed-link-badge,
+.category-chip,
+.subgenre-chip,
+.badge,
+.shelf-title,
+.shelf-header-group,
+.dir-section-title,
+.search-dir-status,
+.modal-header h2,
+.modal-card h2,
+.modal-body p,
+.add-modal-section label,
+.filter-chip,
+.status-pill,
+.user-status-pill,
+.user-pill-details,
+.dock-sort-label,
+.dock-sort-select,
+.sort-select,
+.legend-btn,
+.legend-label,
+.timeline-legend,
+.waveform-time-label,
+.time-label,
+.btn-playback-rate,
+.playback-speed-btn,
+.empty-state h3,
+.empty-state p,
+.empty-state-btn,
+.quick-add-input-wrap input,
+.quick-add-input-wrap input::placeholder,
+.search-bar input,
+.search-bar input::placeholder,
+.header-search input,
+.header-search input::placeholder,
+.app-brand h1,
+.app-brand span,
+.status-banner,
+.toast,
+.timer-btn,
+.view-title,
+.settings-group-title,
+.settings-item-label,
+.settings-item-desc,
+.episode-meta .date-line,
+.episode-meta .time-line,
+.notes-toggle-btn,
+.btn-theme,
+.theme-option,
+.confirm-title,
+.confirm-msg,
+.sleep-status-text,
+input::placeholder,
+textarea::placeholder {
+  text-transform: lowercase;
+}
+
+/* Preserve natural casing for podcast & episode titles, authors, and show notes */
+.episode-title,
+.feed-detail-title,
+.feed-detail-author,
+.feed-detail-desc,
+.feed-card-title,
+.feed-card-author,
+.track-title,
+.modal-notes-title,
+.modal-notes-body,
+.show-notes-content,
+.search-result-title,
+.search-result-author {
+  text-transform: none !important;
+}
+
 
 html,
 body {
@@ -2571,7 +2657,7 @@ mark.search-highlight {
 }
 
 .btn-theme {
-  text-transform: capitalize;
+  text-transform: lowercase;
   padding: 0.5rem 1.25rem;
   font-size: 0.85rem;
   border-radius: var(--radius-full);
