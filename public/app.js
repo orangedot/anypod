@@ -4472,9 +4472,6 @@
         <div class="feed-detail-top-nav">
           <button class="btn-back-nav" id="btn-feed-back">${escapeHtml(backLabel)}</button>
           <div class="feed-detail-top-actions">
-            <button class="btn btn-secondary btn-sm" id="btn-share-feed" title="Share Podcast">
-              Share
-            </button>
             ${isSubbed ? `
               <button class="btn btn-secondary btn-sm btn-feed-mute ${isMuted ? 'is-muted' : ''}" id="btn-feed-mute" title="${isMuted ? 'Unmute: show episodes in timeline' : 'Mute: hide episodes from timeline'}">
                 <span>${isMuted ? 'Muted' : 'Mute'}</span>
@@ -4505,13 +4502,6 @@
       header.querySelector('#btn-feed-back').addEventListener('click', () => {
         navigateBack();
       });
-
-      const shareFeedBtn = header.querySelector('#btn-share-feed');
-      if (shareFeedBtn) {
-        shareFeedBtn.addEventListener('click', () => {
-          shareFeed(feedUrl, meta.title);
-        });
-      }
 
       const shareFeedLink = header.querySelector('#btn-share-feed-link');
       if (shareFeedLink) {
