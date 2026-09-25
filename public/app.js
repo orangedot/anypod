@@ -1881,7 +1881,17 @@
   }
 
   async function shareContent({ title, text, url }) {
-    // 1. On mobile / Web Share supporting devices, open native OS share sheet (AirDrop, Messages, WhatsApp, etc.)
+    // 1. ALWAYS copy URL directly to clipboard first so the user has it immediately
+    let copied = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+        copied = true;
+        showToast('Link copied to clipboard');
+      }
+    } catch (_) {}
+
+    // 2. On mobile / Web Share supporting devices, also open native OS share sheet (AirDrop, Messages, WhatsApp, etc.)
     if (navigator.share) {
       try {
         await navigator.share({
@@ -1895,19 +1905,12 @@
       }
     }
 
-    // 2. Clipboard fallback (desktop browsers)
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(url);
-        showToast('Link copied to clipboard');
-        return;
-      }
-    } catch (err) {}
-
-    // 3. Prompt fallback if clipboard blocked
-    try {
-      window.prompt('Copy link:', url);
-    } catch (_) {}
+    // 3. Fallback prompt if clipboard was blocked
+    if (!copied) {
+      try {
+        window.prompt('Copy link:', url);
+      } catch (_) {}
+    }
   }
 
   function shareCurrentEpisode() {
@@ -4490,8 +4493,9 @@
             ${meta.description ? `<div class="feed-detail-desc">${escapeHtml(meta.description)}</div>` : ''}
             <div class="feed-detail-links">
               ${meta.link ? `<a href="${escapeHtml(meta.link)}" target="_blank" rel="noopener noreferrer" class="feed-link-badge">Website</a>` : ''}
-              <button class="feed-link-badge" id="btn-copy-rss" title="Copy RSS Feed URL">Copy RSS</button>
+              <button class="feed-link-badge" id="btn-copy-link" title="Copy Podcast Link to Clipboard">Copy Link</button>
               <button class="feed-link-badge" id="btn-share-feed-link" title="Share Podcast">Share Feed</button>
+              <button class="feed-link-badge" id="btn-copy-rss" title="Copy RSS Feed URL">Copy RSS</button>
               <span class="feed-link-badge" id="feed-episodes-badge" style="cursor: default;">${q ? `${episodes.length} / ${totalCount} episodes` : `${totalCount} episodes`}</span>
               ${isSubbed && isMuted ? `<span class="feed-link-badge feed-muted-badge" style="cursor: default;">Timeline Muted</span>` : ''}
             </div>
@@ -4502,6 +4506,23 @@
       header.querySelector('#btn-feed-back').addEventListener('click', () => {
         navigateBack();
       });
+
+      const copyLinkBtn = header.querySelector('#btn-copy-link');
+      if (copyLinkBtn) {
+        copyLinkBtn.addEventListener('click', async () => {
+          const shareUrl = `${window.location.origin}/?feed=${encodeURIComponent(feedUrl)}#feed=${encodeURIComponent(feedUrl)}`;
+          try {
+            await navigator.clipboard.writeText(shareUrl);
+            copyLinkBtn.textContent = 'Copied!';
+            showToast('Podcast link copied to clipboard');
+            setTimeout(() => {
+              if (copyLinkBtn) copyLinkBtn.textContent = 'Copy Link';
+            }, 2000);
+          } catch (_) {
+            window.prompt('Copy podcast link:', shareUrl);
+          }
+        });
+      }
 
       const shareFeedLink = header.querySelector('#btn-share-feed-link');
       if (shareFeedLink) {
@@ -7138,9 +7159,9 @@
 
     for (let i = 0; i < bars.length; i++) {
       const b = bars[i];
-      const barH = Math.max(3, Math.round(b.height * (h - 6)));
+      const barH = Math.max(3, Math.round(b.height * (h - 2)));
       const x = i * barWidth + (gap / 2);
-      const y = h - barH; // Baseline rises up from the bottom
+      const y = h - barH; // Baseline rises directly from the bottom edge (0 space to player controls)
 
       const isPlayed = (x + drawWidth * 0.5) <= playheadX;
       if (isPlayed) {
