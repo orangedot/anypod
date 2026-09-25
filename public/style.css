@@ -2611,6 +2611,88 @@ mark.search-highlight {
   margin-bottom: 1.5rem;
 }
 
+/* Modal Search Box & Input Styling */
+.modal-search-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  width: 100%;
+}
+
+.modal-search-input-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-full);
+  padding: 0.45rem 0.85rem;
+  transition: all 0.2s ease;
+  min-height: 42px;
+  box-sizing: border-box;
+}
+
+.modal-search-input-wrap:focus-within {
+  border-color: var(--border-focus);
+  background: var(--bg-card-hover, var(--bg-card));
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.15);
+}
+
+.modal-search-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.modal-search-input-wrap input {
+  flex: 1;
+  min-width: 0;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.88rem;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.btn-modal-search-submit {
+  flex-shrink: 0;
+  height: 42px;
+  padding: 0 1.25rem;
+  border-radius: var(--radius-full);
+  font-size: 0.84rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-rss-box {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  width: 100%;
+}
+
+.add-modal-divider {
+  border: none;
+  border-top: 1px solid var(--border-light);
+  margin: 1.5rem 0 1.25rem 0;
+}
+
+.add-modal-rss-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.01em;
+}
+
 /* ───────────────────────────────────────────────────────────
    Directory Results Toolbar & Enlarge Toggle
    ─────────────────────────────────────────────────────────── */
@@ -4083,12 +4165,9 @@ body.has-active-episode.has-mini-player .player-mini {
 .modal-category-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
-  max-height: 82px;
-  overflow-y: auto;
-  padding: 0.2rem 0.1rem;
-  margin-bottom: 0.5rem;
-  scrollbar-width: thin;
+  gap: 0.45rem;
+  padding: 0.2rem 0;
+  margin-bottom: 0.85rem;
 }
 
 .category-chip {
@@ -4860,6 +4939,92 @@ body.has-active-episode.has-mini-player .player-mini {
     max-width: 95%;
     margin: 0 auto;
     box-sizing: border-box;
+  }
+
+  /* Full-Screen Edge-to-Edge Add Podcast Modal on Mobile */
+  #add-modal {
+    padding: 0 !important;
+    background: var(--bg-primary) !important;
+  }
+
+  #add-modal .modal-card,
+  #add-modal .add-modal-card {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    max-width: 100vw !important;
+    max-height: 100dvh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: var(--bg-primary) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  #add-modal .modal-header {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-light);
+    background: var(--bg-card);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  #add-modal .modal-header h2 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+  }
+
+  #add-modal .add-modal-scrollable-body {
+    flex: 1;
+    min-height: 0;
+    max-height: none !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding: 1rem 1rem calc(5.2rem + env(safe-area-inset-bottom, 0px)) 1rem !important;
+    order: 1;
+  }
+
+  #add-modal .modal-scroll-nav {
+    order: 2;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    gap: 0.35rem;
+    padding: 0.5rem 0.75rem calc(0.5rem + env(safe-area-inset-bottom, 0px)) 0.75rem;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border-light);
+    border-bottom: none;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.35);
+  }
+
+  #add-modal .modal-scroll-link {
+    flex: 1;
+    text-align: center;
+    padding: 0.45rem 0.35rem;
+    font-size: 0.78rem;
+    font-weight: 550;
+    border-radius: var(--radius-full);
+    white-space: nowrap;
+  }
+
+  #add-modal .dir-sticky-collapse-bar {
+    bottom: calc(4.6rem + env(safe-area-inset-bottom, 0px));
   }
 
   .auth-modal-card {

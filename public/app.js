@@ -231,15 +231,15 @@
   // Helper to build curated science starter suggestions HTML
   function buildStarterSuggestionsHTML(activeFilter = 'all') {
     const filters = [
-      { id: 'all', label: 'All (50)' },
-      { id: 'en', label: 'English (25)' },
-      { id: 'de', label: 'Deutsch (12)' },
-      { id: 'fr', label: 'Français (6)' },
-      { id: 'es', label: 'Español (5)' },
-      { id: 'other', label: 'Global / Other (2)' },
-      { id: 'climate', label: '🌱 Climate & Planet' },
-      { id: 'science', label: '🔬 Science' },
-      { id: 'space', label: '🚀 Space' }
+      { id: 'all', label: 'all (50)' },
+      { id: 'en', label: 'english (25)' },
+      { id: 'de', label: 'deutsch (12)' },
+      { id: 'fr', label: 'français (6)' },
+      { id: 'es', label: 'español (5)' },
+      { id: 'other', label: 'global / other (2)' },
+      { id: 'climate', label: '🌱 climate & planet' },
+      { id: 'science', label: '🔬 science' },
+      { id: 'space', label: '🚀 space' }
     ];
 
     const filterPillsHTML = filters.map(f => `
@@ -261,17 +261,17 @@
         <div class="starter-show-card" data-feed="${escapeHtml(item.feed)}" data-title="${escapeHtml(item.title)}">
           <div class="starter-show-card-top">
             <span class="starter-show-badge">${escapeHtml(item.badge)}</span>
-            <button type="button" class="starter-chip-add ${isSubbed ? 'subscribed' : ''}" ${isSubbed ? 'disabled' : ''} title="${isSubbed ? 'Subscribed' : 'Follow show'}">
-              ${isSubbed ? '✓ Followed' : '+ Follow'}
+            <button type="button" class="starter-chip-add ${isSubbed ? 'subscribed' : ''}" ${isSubbed ? 'disabled' : ''} title="${isSubbed ? 'subscribed' : 'follow show'}">
+              ${isSubbed ? '✓ followed' : '+ follow'}
             </button>
           </div>
           <div class="starter-show-info">
             <div class="starter-show-name" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
           </div>
           <div class="starter-show-actions">
-            <button type="button" class="starter-chip-preview-btn" title="View episodes &amp; prelisten">
+            <button type="button" class="starter-chip-preview-btn" title="view episodes &amp; prelisten">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
-              <span>Prelisten</span>
+              <span>prelisten</span>
             </button>
           </div>
         </div>
@@ -281,8 +281,8 @@
     return `
       <div class="starter-suggestions-section">
         <div class="starter-suggestions-header">
-          <div class="starter-suggestions-title">Discover Curated Shows Worldwide</div>
-          <div class="starter-suggestions-sub">Science, Planet &amp; Climate • 50 Curated Worldwide Audio Shows</div>
+          <div class="starter-suggestions-title">discover curated shows worldwide</div>
+          <div class="starter-suggestions-sub">science, planet &amp; climate • 50 curated worldwide audio shows</div>
         </div>
         <div class="starter-filters-row">
           ${filterPillsHTML}
@@ -525,6 +525,7 @@
     dirStickyCollapseBar: document.getElementById('dir-sticky-collapse-bar'),
     btnStickyCollapse: document.getElementById('btn-sticky-collapse'),
     podcastSearchQuery: document.getElementById('podcast-search-query'),
+    btnClearModalSearch: document.getElementById('btn-clear-modal-search'),
     btnSearchDirectory: document.getElementById('btn-search-directory'),
     searchDirectoryResults: document.getElementById('search-directory-results'),
     modalSubgenreChips: document.getElementById('modal-subgenre-chips'),
@@ -3097,7 +3098,7 @@
       if (elements.btnToggleEnlarge) {
         elements.btnToggleEnlarge.classList.add('active');
         const label = elements.btnToggleEnlarge.querySelector('.enlarge-label');
-        if (label) label.textContent = '⤡ Collapsed';
+        if (label) label.textContent = '⤡ collapse to row';
       }
       if (elements.dirStickyCollapseBar) {
         elements.dirStickyCollapseBar.classList.remove('hidden');
@@ -3108,7 +3109,7 @@
       if (elements.btnToggleEnlarge) {
         elements.btnToggleEnlarge.classList.remove('active');
         const label = elements.btnToggleEnlarge.querySelector('.enlarge-label');
-        if (label) label.textContent = '⤢ Enlarge (5 per row)';
+        if (label) label.textContent = '⤢ enlarge (5 per row)';
       }
       if (elements.dirStickyCollapseBar) {
         elements.dirStickyCollapseBar.classList.add('hidden');
@@ -3131,7 +3132,7 @@
       <div style="padding: 0.75rem 0.25rem;">
         <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.75rem;">
           <svg class="spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"></path></svg>
-          Searching podcasts for "${escapeHtml(q)}"...
+          searching podcasts for "${escapeHtml(q)}"...
         </div>
         <div class="skeleton-card" style="margin-bottom: 0.5rem;"><div class="skeleton-art"></div><div class="skeleton-lines"><div class="skeleton-line" style="width: 40%;"></div><div class="skeleton-line" style="width: 70%;"></div></div></div>
         <div class="skeleton-card"><div class="skeleton-art"></div><div class="skeleton-lines"><div class="skeleton-line" style="width: 35%;"></div><div class="skeleton-line" style="width: 60%;"></div></div></div>
@@ -3172,15 +3173,15 @@
       if (results.length === 0) {
         container.innerHTML = `
           <div style="padding: 1.5rem 1rem; text-align: center; color: var(--text-muted); background: rgba(0, 0, 0, 0.03); border: 1px solid var(--border-light); border-radius: var(--radius-sm);">
-            <p style="font-weight: 500; color: var(--text-primary); margin-bottom: 0.25rem;">No podcasts found</p>
-            <p style="font-size: 0.82rem;">No matching shows found for "${escapeHtml(q)}". Try searching a broader term, or paste an RSS feed URL directly below.</p>
+            <p style="font-weight: 500; color: var(--text-primary); margin-bottom: 0.25rem;">no podcasts found</p>
+            <p style="font-size: 0.82rem;">no matching shows found for "${escapeHtml(q)}". try searching a broader term, or paste an rss feed url directly below.</p>
           </div>
         `;
         return;
       }
 
       if (elements.dirResultsTitle) {
-        elements.dirResultsTitle.textContent = `Podcasts (${results.length} found)`;
+        elements.dirResultsTitle.textContent = `podcasts (${results.length} found)`;
       }
 
       if (container === elements.searchDirectoryResults) {
@@ -3440,6 +3441,9 @@
       });
     }
 
+    document.getElementById('btn-empty-open-add')?.addEventListener('click', () => {
+      openAddModal();
+    });
     document.getElementById('btn-empty-opml-trigger')?.addEventListener('click', () => {
       elements.opmlFileInput?.click();
     });
@@ -3462,7 +3466,7 @@
         chip.addEventListener('click', () => {
           const cat = chip.dataset.category;
           quickInput.value = cat;
-          if (quickSubmit) quickSubmit.textContent = 'Search';
+          if (quickSubmit) quickSubmit.textContent = 'search';
           searchPodcastDirectory(cat, quickResults);
         });
       });
@@ -3490,49 +3494,50 @@
           <div class="empty-icon-wrap">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
           </div>
-          <h3>No podcasts added yet</h3>
-          <p>Search by podcast name, paste any RSS feed URL, or import your existing library.</p>
+          <h3>no podcasts added yet</h3>
+          <p>search by podcast name, explore curated topics, paste any rss feed url, or import your opml library.</p>
           <div class="empty-quick-add">
             <form id="empty-quick-form" class="quick-add-form" action="javascript:void(0);">
               <div class="quick-add-input-wrap">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="quick-add-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                <input type="text" id="empty-quick-input" placeholder="Search podcast or paste RSS URL..." autocomplete="off">
-                <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-empty-quick-submit">Add</button>
+                <input type="text" id="empty-quick-input" placeholder="search podcast or paste rss url..." autocomplete="off">
+                <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-empty-quick-submit">search / add</button>
               </div>
             </form>
             <div class="dir-filters-row">
               <div class="empty-category-chips" id="empty-category-chips">
-                <button type="button" class="category-chip" data-category="Science">Science</button>
-                <button type="button" class="category-chip" data-category="Climate">Climate &amp; Planet</button>
-                <button type="button" class="category-chip" data-category="Earth Nature">Earth &amp; Nature</button>
-                <button type="button" class="category-chip" data-category="Space Astronomy">Space &amp; Astronomy</button>
-                <button type="button" class="category-chip" data-category="Oceans Marine">Oceans &amp; Marine</button>
-                <button type="button" class="category-chip" data-category="Physics Quantum">Physics &amp; Quantum</button>
-                <button type="button" class="category-chip" data-category="Neuroscience Mind">Neuroscience &amp; Mind</button>
-                <button type="button" class="category-chip" data-category="Biology Genetics">Biology &amp; Genetics</button>
-                <button type="button" class="category-chip" data-category="Clean Energy">Clean Tech &amp; Energy</button>
-                <button type="button" class="category-chip" data-category="Ecology Forests">Ecology &amp; Forests</button>
-                <button type="button" class="category-chip" data-category="Weather Atmosphere">Weather &amp; Atmosphere</button>
-                <button type="button" class="category-chip" data-category="Paleontology Fossils">Paleontology &amp; Fossils</button>
-                <button type="button" class="category-chip" data-category="Medicine Health">Medicine &amp; Health</button>
-                <button type="button" class="category-chip" data-category="AI Tech">Artificial Intelligence</button>
-                <button type="button" class="category-chip" data-category="History Science">History of Science</button>
-                <button type="button" class="category-chip" data-category="Archaeology Ancient">Archaeology &amp; Ancient</button>
-                <button type="button" class="category-chip" data-category="Math Logic">Math &amp; Logic</button>
-                <button type="button" class="category-chip" data-category="Agriculture Food">Agriculture &amp; Food</button>
-                <button type="button" class="category-chip" data-category="Tech Robotics">Technology &amp; Robots</button>
-                <button type="button" class="category-chip" data-category="Wildlife Zoology">Wildlife &amp; Zoology</button>
-                <button type="button" class="category-chip" data-category="Chemistry Materials">Chemistry &amp; Materials</button>
-                <button type="button" class="category-chip" data-category="Philosophy Science">Philosophy of Science</button>
-                <button type="button" class="category-chip" data-category="Wissen DE">Wissen (DE)</button>
-                <button type="button" class="category-chip" data-category="Sciences FR">Sciences &amp; Climat (FR)</button>
-                <button type="button" class="category-chip" data-category="Ciencia ES">Ciencia y Naturaleza (ES)</button>
+                <button type="button" class="category-chip" data-category="Science">science</button>
+                <button type="button" class="category-chip" data-category="Climate">climate &amp; planet</button>
+                <button type="button" class="category-chip" data-category="Earth Nature">earth &amp; nature</button>
+                <button type="button" class="category-chip" data-category="Space Astronomy">space &amp; astronomy</button>
+                <button type="button" class="category-chip" data-category="Oceans Marine">oceans &amp; marine</button>
+                <button type="button" class="category-chip" data-category="Physics Quantum">physics &amp; quantum</button>
+                <button type="button" class="category-chip" data-category="Neuroscience Mind">neuroscience &amp; mind</button>
+                <button type="button" class="category-chip" data-category="Biology Genetics">biology &amp; genetics</button>
+                <button type="button" class="category-chip" data-category="Clean Energy">clean tech &amp; energy</button>
+                <button type="button" class="category-chip" data-category="Ecology Forests">ecology &amp; forests</button>
+                <button type="button" class="category-chip" data-category="Weather Atmosphere">weather &amp; atmosphere</button>
+                <button type="button" class="category-chip" data-category="Paleontology Fossils">paleontology &amp; fossils</button>
+                <button type="button" class="category-chip" data-category="Medicine Health">medicine &amp; health</button>
+                <button type="button" class="category-chip" data-category="AI Tech">artificial intelligence</button>
+                <button type="button" class="category-chip" data-category="History Science">history of science</button>
+                <button type="button" class="category-chip" data-category="Archaeology Ancient">archaeology &amp; ancient</button>
+                <button type="button" class="category-chip" data-category="Math Logic">math &amp; logic</button>
+                <button type="button" class="category-chip" data-category="Agriculture Food">agriculture &amp; food</button>
+                <button type="button" class="category-chip" data-category="Tech Robotics">technology &amp; robots</button>
+                <button type="button" class="category-chip" data-category="Wildlife Zoology">wildlife &amp; zoology</button>
+                <button type="button" class="category-chip" data-category="Chemistry Materials">chemistry &amp; materials</button>
+                <button type="button" class="category-chip" data-category="Philosophy Science">philosophy of science</button>
+                <button type="button" class="category-chip" data-category="Wissen DE">wissen (de)</button>
+                <button type="button" class="category-chip" data-category="Sciences FR">sciences &amp; climat (fr)</button>
+                <button type="button" class="category-chip" data-category="Ciencia ES">ciencia y naturaleza (es)</button>
               </div>
             </div>
             <div id="empty-quick-results" class="quick-results-container"></div>
           </div>
           <div class="empty-actions">
-            <button class="btn btn-secondary" id="btn-empty-opml-trigger">Import OPML File</button>
+            <button class="btn btn-primary" id="btn-empty-open-add">find or add podcasts</button>
+            <button class="btn btn-secondary" id="btn-empty-opml-trigger">import opml file</button>
           </div>
           ${buildStarterSuggestionsHTML('all')}
         </div>
@@ -4244,6 +4249,9 @@
       });
     });
 
+    document.getElementById('btn-feeds-empty-open-add')?.addEventListener('click', () => {
+      openAddModal();
+    });
     document.getElementById('btn-feeds-empty-opml')?.addEventListener('click', () => {
       elements.opmlFileInput?.click();
     });
@@ -4255,14 +4263,14 @@
   }
 
   const FEED_CATEGORIES = [
-    { id: 'all', label: 'All Podcasts', match: () => true },
-    { id: 'audio', label: 'Audio', match: (url) => !url.includes('youtube.com') && !url.includes('youtu.be') },
-    { id: 'video', label: 'Video / YouTube', match: (url) => url.includes('youtube.com') || url.includes('youtu.be') },
-    { id: 'news', label: 'News', match: (url, meta) => /news|nachrichten|politik|zeit|hintergrund|berichte|report|tagesschau|bbc|spiegel|echo/i.test(((meta.title || '') + ' ' + (meta.description || ''))) },
-    { id: 'science', label: 'Science', match: (url, meta) => /science|forschung|wissen|spektrum|nature|nasa|physik|biology|climate|klima|space|planet/i.test(((meta.title || '') + ' ' + (meta.description || ''))) },
-    { id: 'doc', label: 'Docs', match: (url, meta) => /doc|doku|story|geschichten|history|investigative|feature|crime|leben/i.test(((meta.title || '') + ' ' + (meta.description || ''))) },
-    { id: 'music', label: 'Music', match: (url, meta) => /music|techno|dj|sound|mix|beats|song|dance/i.test(((meta.title || '') + ' ' + (meta.description || ''))) },
-    { id: 'tech', label: 'Tech & AI', match: (url, meta) => /tech|technology|software|ai|computer|digital|code|gadget/i.test(((meta.title || '') + ' ' + (meta.description || ''))) }
+    { id: 'all', label: 'all podcasts', match: () => true },
+    { id: 'audio', label: 'audio', match: (url) => !url.includes('youtube.com') && !url.includes('youtu.be') },
+    { id: 'video', label: 'video / youtube', match: (url) => url.includes('youtube.com') || url.includes('youtu.be') },
+    { id: 'news', label: 'news', match: (url, meta) => /news|nachrichten|politik|zeit|hintergrund|berichte|report|tagesschau|bbc|spiegel|echo/i.test(((meta.title || '') + ' ' + (meta.description || ''))) },
+    { id: 'science', label: 'science', match: (url, meta) => /science|forschung|wissen|spektrum|nature|nasa|physik|biology|climate|klima|space|planet/i.test(((meta.title || '') + ' ' + (meta.description || ''))) },
+    { id: 'doc', label: 'docs', match: (url, meta) => /doc|doku|story|geschichten|history|investigative|feature|crime|leben/i.test(((meta.title || '') + ' ' + (meta.description || ''))) },
+    { id: 'music', label: 'music', match: (url, meta) => /music|techno|dj|sound|mix|beats|song|dance/i.test(((meta.title || '') + ' ' + (meta.description || ''))) },
+    { id: 'tech', label: 'tech & ai', match: (url, meta) => /tech|technology|software|ai|computer|digital|code|gadget/i.test(((meta.title || '') + ' ' + (meta.description || ''))) }
   ];
 
   function renderFeedsFilterChips() {
@@ -4309,49 +4317,50 @@
               <circle cx="5" cy="19" r="1"></circle>
             </svg>
           </div>
-          <h3>Your podcast library is empty</h3>
-          <p>Search any podcast by name, paste an RSS feed URL, or import an OPML backup to start listening.</p>
+          <h3>your podcast library is empty</h3>
+          <p>search shows, explore curated topics, or import an opml library.</p>
           <div class="empty-quick-add">
             <form id="feeds-empty-quick-form" class="quick-add-form" action="javascript:void(0);">
               <div class="quick-add-input-wrap">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="quick-add-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                <input type="text" id="feeds-empty-quick-input" placeholder="Search podcast name or paste RSS URL..." autocomplete="off">
-                <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-feeds-empty-quick-submit">Add</button>
+                <input type="text" id="feeds-empty-quick-input" placeholder="search podcast name or paste rss url..." autocomplete="off">
+                <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-feeds-empty-quick-submit">search / add</button>
               </div>
             </form>
             <div class="dir-filters-row">
               <div class="empty-category-chips" id="feeds-empty-category-chips">
-                <button type="button" class="category-chip" data-category="Science">Science</button>
-                <button type="button" class="category-chip" data-category="Climate">Climate &amp; Planet</button>
-                <button type="button" class="category-chip" data-category="Earth Nature">Earth &amp; Nature</button>
-                <button type="button" class="category-chip" data-category="Space Astronomy">Space &amp; Astronomy</button>
-                <button type="button" class="category-chip" data-category="Oceans Marine">Oceans &amp; Marine</button>
-                <button type="button" class="category-chip" data-category="Physics Quantum">Physics &amp; Quantum</button>
-                <button type="button" class="category-chip" data-category="Neuroscience Mind">Neuroscience &amp; Mind</button>
-                <button type="button" class="category-chip" data-category="Biology Genetics">Biology &amp; Genetics</button>
-                <button type="button" class="category-chip" data-category="Clean Energy">Clean Tech &amp; Energy</button>
-                <button type="button" class="category-chip" data-category="Ecology Forests">Ecology &amp; Forests</button>
-                <button type="button" class="category-chip" data-category="Weather Atmosphere">Weather &amp; Atmosphere</button>
-                <button type="button" class="category-chip" data-category="Paleontology Fossils">Paleontology &amp; Fossils</button>
-                <button type="button" class="category-chip" data-category="Medicine Health">Medicine &amp; Health</button>
-                <button type="button" class="category-chip" data-category="AI Tech">Artificial Intelligence</button>
-                <button type="button" class="category-chip" data-category="History Science">History of Science</button>
-                <button type="button" class="category-chip" data-category="Archaeology Ancient">Archaeology &amp; Ancient</button>
-                <button type="button" class="category-chip" data-category="Math Logic">Math &amp; Logic</button>
-                <button type="button" class="category-chip" data-category="Agriculture Food">Agriculture &amp; Food</button>
-                <button type="button" class="category-chip" data-category="Tech Robotics">Technology &amp; Robots</button>
-                <button type="button" class="category-chip" data-category="Wildlife Zoology">Wildlife &amp; Zoology</button>
-                <button type="button" class="category-chip" data-category="Chemistry Materials">Chemistry &amp; Materials</button>
-                <button type="button" class="category-chip" data-category="Philosophy Science">Philosophy of Science</button>
-                <button type="button" class="category-chip" data-category="Wissen DE">Wissen (DE)</button>
-                <button type="button" class="category-chip" data-category="Sciences FR">Sciences &amp; Climat (FR)</button>
-                <button type="button" class="category-chip" data-category="Ciencia ES">Ciencia y Naturaleza (ES)</button>
+                <button type="button" class="category-chip" data-category="Science">science</button>
+                <button type="button" class="category-chip" data-category="Climate">climate &amp; planet</button>
+                <button type="button" class="category-chip" data-category="Earth Nature">earth &amp; nature</button>
+                <button type="button" class="category-chip" data-category="Space Astronomy">space &amp; astronomy</button>
+                <button type="button" class="category-chip" data-category="Oceans Marine">oceans &amp; marine</button>
+                <button type="button" class="category-chip" data-category="Physics Quantum">physics &amp; quantum</button>
+                <button type="button" class="category-chip" data-category="Neuroscience Mind">neuroscience &amp; mind</button>
+                <button type="button" class="category-chip" data-category="Biology Genetics">biology &amp; genetics</button>
+                <button type="button" class="category-chip" data-category="Clean Energy">clean tech &amp; energy</button>
+                <button type="button" class="category-chip" data-category="Ecology Forests">ecology &amp; forests</button>
+                <button type="button" class="category-chip" data-category="Weather Atmosphere">weather &amp; atmosphere</button>
+                <button type="button" class="category-chip" data-category="Paleontology Fossils">paleontology &amp; fossils</button>
+                <button type="button" class="category-chip" data-category="Medicine Health">medicine &amp; health</button>
+                <button type="button" class="category-chip" data-category="AI Tech">artificial intelligence</button>
+                <button type="button" class="category-chip" data-category="History Science">history of science</button>
+                <button type="button" class="category-chip" data-category="Archaeology Ancient">archaeology &amp; ancient</button>
+                <button type="button" class="category-chip" data-category="Math Logic">math &amp; logic</button>
+                <button type="button" class="category-chip" data-category="Agriculture Food">agriculture &amp; food</button>
+                <button type="button" class="category-chip" data-category="Tech Robotics">technology &amp; robots</button>
+                <button type="button" class="category-chip" data-category="Wildlife Zoology">wildlife &amp; zoology</button>
+                <button type="button" class="category-chip" data-category="Chemistry Materials">chemistry &amp; materials</button>
+                <button type="button" class="category-chip" data-category="Philosophy Science">philosophy of science</button>
+                <button type="button" class="category-chip" data-category="Wissen DE">wissen (de)</button>
+                <button type="button" class="category-chip" data-category="Sciences FR">sciences &amp; climat (fr)</button>
+                <button type="button" class="category-chip" data-category="Ciencia ES">ciencia y naturaleza (es)</button>
               </div>
             </div>
             <div id="feeds-empty-quick-results" class="quick-results-container"></div>
           </div>
           <div class="empty-actions">
-            <button class="btn btn-secondary" id="btn-feeds-empty-opml">Import OPML File</button>
+            <button class="btn btn-primary" id="btn-feeds-empty-open-add">find or add podcasts</button>
+            <button class="btn btn-secondary" id="btn-feeds-empty-opml">import opml file</button>
           </div>
           ${buildStarterSuggestionsHTML('all')}
         </div>
@@ -6139,6 +6148,11 @@
           }
           navLinks.forEach(l => l.classList.remove('active'));
           link.classList.add('active');
+          if (targetId === '#add-section-search' && elements.podcastSearchQuery) {
+            setTimeout(() => elements.podcastSearchQuery.focus(), 250);
+          } else if (targetId === '#add-section-rss' && elements.feedUrlInput) {
+            setTimeout(() => elements.feedUrlInput.focus(), 250);
+          }
         });
       });
 
@@ -6160,13 +6174,46 @@
       }, { passive: true });
     }
 
+    if (elements.btnClearModalSearch && elements.podcastSearchQuery) {
+      elements.podcastSearchQuery.addEventListener('input', () => {
+        elements.btnClearModalSearch.classList.toggle('hidden', !elements.podcastSearchQuery.value.trim());
+      });
+      elements.btnClearModalSearch.addEventListener('click', () => {
+        elements.podcastSearchQuery.value = '';
+        elements.btnClearModalSearch.classList.add('hidden');
+        if (elements.searchDirectoryResults) {
+          elements.searchDirectoryResults.innerHTML = buildStarterSuggestionsHTML('all');
+          wireStarterSuggestionsEvents(elements.searchDirectoryResults);
+        }
+        if (elements.dirResultsTitle) {
+          elements.dirResultsTitle.textContent = 'podcasts';
+        }
+        elements.podcastSearchQuery.focus();
+      });
+      elements.podcastSearchQuery.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          elements.podcastSearchQuery.value = '';
+          elements.btnClearModalSearch.classList.add('hidden');
+          if (elements.searchDirectoryResults) {
+            elements.searchDirectoryResults.innerHTML = buildStarterSuggestionsHTML('all');
+            wireStarterSuggestionsEvents(elements.searchDirectoryResults);
+          }
+          if (elements.dirResultsTitle) {
+            elements.dirResultsTitle.textContent = 'podcasts';
+          }
+        }
+      });
+    }
+
     elements.btnCloseAdd.addEventListener('click', closeAddModal);
-    elements.btnCancelAdd.addEventListener('click', closeAddModal);
+    if (elements.btnCancelAdd) {
+      elements.btnCancelAdd.addEventListener('click', closeAddModal);
+    }
     elements.btnSubmitFeed.addEventListener('click', () => {
       if (elements.feedUrlInput.value) {
         addFeed(elements.feedUrlInput.value);
         const origText = elements.btnSubmitFeed.textContent;
-        elements.btnSubmitFeed.textContent = 'Subscribed!';
+        elements.btnSubmitFeed.textContent = 'subscribed!';
         setTimeout(() => {
           elements.btnSubmitFeed.textContent = origText;
         }, 2000);
@@ -6178,7 +6225,7 @@
         if (elements.feedUrlInput.value) {
           addFeed(elements.feedUrlInput.value);
           const origText = elements.btnSubmitFeed.textContent;
-          elements.btnSubmitFeed.textContent = 'Subscribed!';
+          elements.btnSubmitFeed.textContent = 'subscribed!';
           setTimeout(() => {
             elements.btnSubmitFeed.textContent = origText;
           }, 2000);
@@ -6207,6 +6254,7 @@
         renderSubgenreChips(cat, elements.modalSubgenreChips);
         if (elements.podcastSearchQuery) {
           elements.podcastSearchQuery.value = cat;
+          if (elements.btnClearModalSearch) elements.btnClearModalSearch.classList.remove('hidden');
           searchPodcastDirectory(cat);
         }
         if (elements.addModalBody) {
@@ -6214,6 +6262,13 @@
           if (searchSec) {
             elements.addModalBody.scrollTo({ top: searchSec.offsetTop - 10, behavior: 'smooth' });
           }
+        }
+        if (elements.addModalNav) {
+          const links = elements.addModalNav.querySelectorAll('.modal-scroll-link');
+          links.forEach(l => {
+            if (l.getAttribute('data-target') === '#add-section-search') l.classList.add('active');
+            else l.classList.remove('active');
+          });
         }
       });
     });
@@ -6618,7 +6673,19 @@
 
   function openAddModal() {
     elements.addModal.classList.remove('hidden');
-    elements.podcastSearchQuery.focus();
+    if (elements.addModalBody) {
+      elements.addModalBody.scrollTop = 0;
+    }
+    if (elements.addModalNav) {
+      const links = elements.addModalNav.querySelectorAll('.modal-scroll-link');
+      links.forEach((l, idx) => {
+        if (idx === 0) l.classList.add('active');
+        else l.classList.remove('active');
+      });
+    }
+    if (window.innerWidth > 768 && elements.podcastSearchQuery) {
+      elements.podcastSearchQuery.focus();
+    }
     if (!elements.podcastSearchQuery.value.trim() && elements.searchDirectoryResults) {
       elements.searchDirectoryResults.innerHTML = buildStarterSuggestionsHTML('all');
       wireStarterSuggestionsEvents(elements.searchDirectoryResults);
@@ -6629,6 +6696,9 @@
   function closeAddModal() {
     setDirectoryEnlarged(false);
     elements.podcastSearchQuery.value = '';
+    if (elements.btnClearModalSearch) {
+      elements.btnClearModalSearch.classList.add('hidden');
+    }
     elements.searchDirectoryResults.innerHTML = '';
     elements.feedUrlInput.value = '';
     if (elements.modalSubgenreChips) {
@@ -6636,7 +6706,7 @@
       elements.modalSubgenreChips.classList.add('hidden');
     }
     if (elements.dirResultsTitle) {
-      elements.dirResultsTitle.textContent = 'Podcasts';
+      elements.dirResultsTitle.textContent = 'podcasts';
     }
     document.querySelectorAll('#modal-category-chips .category-chip').forEach(c => c.classList.remove('active'));
     if (elements.addModalNav) {
