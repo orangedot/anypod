@@ -1021,6 +1021,22 @@
         return;
       }
       if (res.ok) {
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          console.warn('Sync server returned non-JSON response:', contentType);
+          elements.authModal.classList.add('hidden');
+          updateSyncStatusUI('cloud sync temporarily unavailable — listening offline', state.userEmail, !!state.sessionToken);
+          if (!state.feeds || state.feeds.length === 0) {
+            loadFeedsFromStorage();
+          }
+          loadCacheFromStorage();
+          if (state.feeds.length > 0) {
+            refreshAllFeeds();
+          } else {
+            renderTimeline();
+          }
+          return;
+        }
         const data = await res.json();
         elements.authModal.classList.add('hidden');
         state.userEmail = data.userEmail || '';
