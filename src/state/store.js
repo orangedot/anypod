@@ -65,6 +65,11 @@ export const state = {
   _lastDrawnWaveformBarIndex: -1
 };
 
+// Visibility change listener to keep state.isTabActive updated
+document.addEventListener('visibilitychange', () => {
+  state.isTabActive = !document.hidden;
+});
+
 export const elements = {};
 
 /**
@@ -124,7 +129,8 @@ export function initElementsCache() {
     btnOpenSettings: get('btn-open-settings'),
     btnPlayerFav: get('btn-player-fav'),
 
-    searchInput: get('search-input'),
+    omnibar: get('omnibar'),
+    searchInput: get('omnibar') || get('search-input'),
     searchBarWrap: get('search-bar-wrap'),
     btnClearSearch: get('btn-clear-search'),
     sortOrderSelect: get('sort-order'),

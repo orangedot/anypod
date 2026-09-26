@@ -1,4 +1,5 @@
 import { hashToken, timingSafeEqual } from '../utils.js';
+import { verifyToken } from '../verifyToken.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -54,7 +55,7 @@ export async function onRequest(context) {
         'SELECT user_id, token_hash, used, expires_at FROM auth_tokens WHERE token_hash = ?'
       ).bind(tokenHash).first();
 
-      if (existingToken && existingToken.token_hash && timingSafeEqual(existingToken.token_hash, tokenHash)) {
+      if (existingToken && existingToken.token_hash && (await verifyToken(token, existingToken.token_hash))) {
         if (existingToken.expires_at > Math.floor(Date.now() / 1000)) {
           userId = existingToken.user_id;
         }

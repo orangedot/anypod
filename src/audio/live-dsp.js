@@ -26,14 +26,22 @@ export function initLiveDspGraph() {
     if (!AudioCtx) return;
     liveAudioCtx = new AudioCtx();
 
-    liveAudioSource = liveAudioCtx.createMediaElementSource(elements.audio);
+    // Ensure CORS works; fallback to direct playback if it fails
+    elements.audio.crossOrigin = "anonymous";
+    try {
+      liveAudioSource = liveAudioCtx.createMediaElementSource(elements.audio);
+    } catch (e) {
+      console.warn('[anypod] CORS media source error, bypassing Web Audio graph:', e);
+      liveAudioSource = null; // fallback: no Web Audio processing
+    }
+
     liveCompressor = liveAudioCtx.createDynamicsCompressor();
     liveGainNode = liveAudioCtx.createGain();
     liveAnalyser = liveAudioCtx.createAnalyser();
-    liveAnalyser.fftSize = 256;
+    liveAnalyser.fftSize = 512;
     liveTimeData = new Float32Array(liveAnalyser.fftSize);
 
-    // Studio Spoken-Word Voice Compressor curve
+    // Voice boost parameters (studio spoken‑word)
     liveCompressor.threshold.setValueAtTime(-24, liveAudioCtx.currentTime);
     liveCompressor.knee.setValueAtTime(30, liveAudioCtx.currentTime);
     liveCompressor.ratio.setValueAtTime(12, liveAudioCtx.currentTime);

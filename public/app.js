@@ -487,7 +487,8 @@
     btnOpenSettings: document.getElementById('btn-open-settings'),
     btnPlayerFav: document.getElementById('btn-player-fav'),
 
-    searchInput: document.getElementById('search-input'),
+    omnibar: document.getElementById('omnibar'),
+    searchInput: document.getElementById('omnibar') || document.getElementById('search-input'),
     searchBarWrap: document.getElementById('search-bar-wrap'),
     btnClearSearch: document.getElementById('btn-clear-search'),
     sortOrderSelect: document.getElementById('sort-order'),
@@ -758,8 +759,8 @@
       }
       window.scrollTo({ top: 0, behavior: 'smooth' });
       const meta = state.feedMetadata[feedUrl] || {};
-      if (elements.searchInput) {
-        elements.searchInput.placeholder = `Search in ${meta.title || 'podcast'}...`;
+      if (elements.omnibar) {
+        elements.omnibar.placeholder = `Search in ${meta.title || 'podcast'}...`;
       }
       renderFeedDetail(feedUrl);
     } else {
@@ -777,20 +778,20 @@
         elements.btnOpenSettings.classList.add('is-active');
       }
       if (targetTab === 'feeds') {
-        if (elements.searchInput) elements.searchInput.placeholder = 'Search subscribed podcasts...';
+        if (elements.omnibar) elements.omnibar.placeholder = 'Search subscribed podcasts...';
         renderFeedsGrid();
       } else if (targetTab === 'timeline') {
-        if (elements.searchInput) elements.searchInput.placeholder = 'Search loaded episodes...';
+        if (elements.omnibar) elements.omnibar.placeholder = 'Search loaded episodes...';
         renderTimeline();
         _restoreTimelineScroll();
       } else if (targetTab === 'favorites') {
-        if (elements.searchInput) elements.searchInput.placeholder = 'Search favorite episodes...';
+        if (elements.omnibar) elements.omnibar.placeholder = 'Search favorite episodes...';
         renderFavorites();
       } else if (targetTab === 'downloads') {
-        if (elements.searchInput) elements.searchInput.placeholder = 'Search downloaded episodes...';
+        if (elements.omnibar) elements.omnibar.placeholder = 'Search downloaded episodes...';
         updateDownloadedCountUI();
       } else if (targetTab === 'settings') {
-        if (elements.searchInput) elements.searchInput.placeholder = 'Search episodes...';
+        if (elements.omnibar) elements.omnibar.placeholder = 'Search episodes...';
       }
     }
     updateDockVisibility();
@@ -4349,6 +4350,7 @@
       });
     }
 
+    state._activeCardCache = card;
     return card;
   }
 
@@ -5075,7 +5077,14 @@
       navigator.mediaSession.setActionHandler('seekforward', () => {
         if (state.activeEngine === 'audio' && audio.duration) audio.currentTime = Math.min(audio.duration, audio.currentTime + 15);
       });
-      navigator.mediaSession.setActionHandler('nexttrack', () => onEpisodeEnded());
+      navigator.mediaSession.setActionHandler('previoustrack', () => {
+        if (state.activeEngine === 'audio') audio.currentTime = Math.max(0, audio.currentTime - 15);
+        window.dispatchEvent(new CustomEvent('anypod:prevTrack'));
+      });
+      navigator.mediaSession.setActionHandler('nexttrack', () => {
+        window.dispatchEvent(new CustomEvent('anypod:nextTrack'));
+        onEpisodeEnded();
+      });
     }
   }
 
@@ -5853,9 +5862,40 @@
   // addFeed, promptRemoveFeed, purgeOrphanedDownloads, removeFeed
   // ─────────────────────────────────────────────────────────────────────────
 
+  const ALLOWED_FEED_PORTS = new Set([80, 443, 8080, 8443]);
+  function isValidExternalUrl(urlStr) {
+    if (!urlStr || typeof urlStr !== 'string') return false;
+    try {
+      const parsed = new URL(urlStr.trim());
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+      const host = parsed.hostname.toLowerCase();
+      if (!host || host === 'localhost' || host.endsWith('.local') || host.endsWith('.internal') || host.endsWith('.lan')) return false;
+      if (host === '127.0.0.1' || host === '::1' || host === '0.0.0.0') return false;
+      const ipv4Match = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+      if (ipv4Match) {
+        if ([ipv4Match[1], ipv4Match[2], ipv4Match[3], ipv4Match[4]].some(s => s.length > 1 && s.startsWith('0'))) return false;
+        const octets = [Number(ipv4Match[1]), Number(ipv4Match[2]), Number(ipv4Match[3]), Number(ipv4Match[4])];
+        if (octets.some(o => o < 0 || o > 255)) return false;
+        if (octets[0] === 127 || octets[0] === 0 || octets[0] === 10) return false;
+        if (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) return false;
+        if (octets[0] === 192 && octets[1] === 168) return false;
+        if (octets[0] === 169 && octets[1] === 254) return false;
+        if (octets[0] === 100 && octets[1] >= 64 && octets[1] <= 127) return false;
+      }
+      const port = parsed.port ? parseInt(parsed.port, 10) : (parsed.protocol === 'https:' ? 443 : 80);
+      return ALLOWED_FEED_PORTS.has(port);
+    } catch (_) {
+      return false;
+    }
+  }
+
   async function addFeed(url, title = '', artwork = '') {
     const cleanUrl = url.trim();
     if (!cleanUrl) return false;
+    if (!isValidExternalUrl(cleanUrl)) {
+      showStatus('Invalid feed URL. Allowed ports: 80, 443, 8080, 8443.');
+      return false;
+    }
 
     if (!state.feeds.includes(cleanUrl)) {
       state.feeds.push(cleanUrl);
@@ -6277,32 +6317,16 @@
       });
     }
 
-    elements.searchInput.addEventListener('input', (e) => {
-      state.searchQuery = e.target.value;
-      const hasText = !!e.target.value.trim();
-      if (elements.btnClearSearch) {
-        elements.btnClearSearch.classList.toggle('hidden', !hasText);
-      }
-      if (elements.searchBarWrap) {
-        elements.searchBarWrap.classList.toggle('has-text', hasText);
-      }
-      processAndSortEpisodes();
-      renderTimeline();
-      renderFeedsGrid();
-      if (state.activeFeedDetailUrl) {
-        renderFeedDetail(state.activeFeedDetailUrl);
-      }
-      renderOfflineStorageSettings();
-    });
-
-    if (elements.btnClearSearch) {
-      elements.btnClearSearch.addEventListener('click', (e) => {
-        e.stopPropagation();
-        elements.searchInput.value = '';
-        state.searchQuery = '';
-        elements.btnClearSearch.classList.add('hidden');
+    const omnibarEl = elements.omnibar || elements.searchInput;
+    if (omnibarEl) {
+      omnibarEl.addEventListener('input', (e) => {
+        state.searchQuery = e.target.value;
+        const hasText = !!e.target.value.trim();
+        if (elements.btnClearSearch) {
+          elements.btnClearSearch.classList.toggle('hidden', !hasText);
+        }
         if (elements.searchBarWrap) {
-          elements.searchBarWrap.classList.remove('has-text');
+          elements.searchBarWrap.classList.toggle('has-text', hasText);
         }
         processAndSortEpisodes();
         renderTimeline();
@@ -6311,25 +6335,44 @@
           renderFeedDetail(state.activeFeedDetailUrl);
         }
         renderOfflineStorageSettings();
-        elements.searchInput.focus();
       });
-    }
 
-    elements.searchInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        if (elements.searchInput.value) {
-          elements.btnClearSearch?.click();
-        } else {
-          elements.searchInput.blur();
-        }
+      if (elements.btnClearSearch) {
+        elements.btnClearSearch.addEventListener('click', (e) => {
+          e.stopPropagation();
+          omnibarEl.value = '';
+          state.searchQuery = '';
+          elements.btnClearSearch.classList.add('hidden');
+          if (elements.searchBarWrap) {
+            elements.searchBarWrap.classList.remove('has-text');
+          }
+          processAndSortEpisodes();
+          renderTimeline();
+          renderFeedsGrid();
+          if (state.activeFeedDetailUrl) {
+            renderFeedDetail(state.activeFeedDetailUrl);
+          }
+          renderOfflineStorageSettings();
+          omnibarEl.focus();
+        });
       }
-    });
 
-    if (elements.searchBarWrap) {
-      elements.searchBarWrap.addEventListener('click', (e) => {
-        if (e.target.closest('#btn-clear-search')) return;
-        elements.searchInput.focus();
+      omnibarEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          if (omnibarEl.value) {
+            elements.btnClearSearch?.click();
+          } else {
+            omnibarEl.blur();
+          }
+        }
       });
+
+      if (elements.searchBarWrap) {
+        elements.searchBarWrap.addEventListener('click', (e) => {
+          if (e.target.closest('#btn-clear-search')) return;
+          omnibarEl.focus();
+        });
+      }
     }
 
     elements.sortOrderSelect.addEventListener('change', (e) => {
@@ -6457,7 +6500,12 @@
     }
     elements.btnSubmitFeed.addEventListener('click', () => {
       if (elements.feedUrlInput.value) {
-        addFeed(elements.feedUrlInput.value);
+        const val = elements.feedUrlInput.value.trim();
+        if (!isValidExternalUrl(val)) {
+          showStatus('Invalid feed URL. Allowed ports: 80, 443, 8080, 8443.');
+          return;
+        }
+        addFeed(val);
         const origText = elements.btnSubmitFeed.textContent;
         elements.btnSubmitFeed.textContent = 'subscribed!';
         setTimeout(() => {
@@ -6469,7 +6517,12 @@
       if (e.key === 'Enter') {
         e.preventDefault();
         if (elements.feedUrlInput.value) {
-          addFeed(elements.feedUrlInput.value);
+          const val = elements.feedUrlInput.value.trim();
+          if (!isValidExternalUrl(val)) {
+            showStatus('Invalid feed URL. Allowed ports: 80, 443, 8080, 8443.');
+            return;
+          }
+          addFeed(val);
           const origText = elements.btnSubmitFeed.textContent;
           elements.btnSubmitFeed.textContent = 'subscribed!';
           setTimeout(() => {
