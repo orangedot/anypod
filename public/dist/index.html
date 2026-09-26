@@ -26,7 +26,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.min.css?v=1790425657174">
+  <link rel="stylesheet" href="style.min.css?v=1790425862849">
 </head>
 <body>
   <!-- Cloud Sync & Magic Auth Modal -->
@@ -316,6 +316,32 @@
               </div>
               <div class="toggle-switch">
                 <input type="checkbox" id="toggle-auto-skip" role="switch">
+                <span class="toggle-track"></span>
+              </div>
+            </label>
+          </div>
+
+          <div class="experimental-row">
+            <label class="experimental-toggle-label" for="toggle-volume-boost">
+              <div>
+                <strong>dynamic voice boost</strong>
+                <span>level spoken-word volume and lift quiet voices via dynamic audio compression</span>
+              </div>
+              <div class="toggle-switch">
+                <input type="checkbox" id="toggle-volume-boost" role="switch">
+                <span class="toggle-track"></span>
+              </div>
+            </label>
+          </div>
+
+          <div class="experimental-row">
+            <label class="experimental-toggle-label" for="toggle-silence-skip">
+              <div>
+                <strong>skip silence</strong>
+                <span>accelerate silent pauses longer than 350ms to 3.0x speed during spoken playback</span>
+              </div>
+              <div class="toggle-switch">
+                <input type="checkbox" id="toggle-silence-skip" role="switch">
                 <span class="toggle-track"></span>
               </div>
             </label>
@@ -726,6 +752,6 @@
   <script src="https://www.youtube.com/iframe_api"></script>
   <!-- Experimental defaults – must load before app.js -->
   <script src="scripts/settings.js?v=20260925b"></script>
-  <script src="app.min.js?v=1790425657174"></script>
+  <script src="app.min.js?v=1790425862849"></script>
 </body>
 </html>

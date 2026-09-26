@@ -415,7 +415,9 @@
       enableVisualizer: true,
       enableAudioClassifier: true,
       autoSkipSpeech: false,
-      enableTranscript: true
+      enableTranscript: true,
+      enableVolumeBoost: false,
+      enableSilenceSkip: false
     },
     episodeTimeline: {
       guid: null,
@@ -618,6 +620,8 @@
     toggleVisualizer: document.getElementById('toggle-visualizer'),
     toggleClassifier: document.getElementById('toggle-classifier'),
     toggleAutoSkip: document.getElementById('toggle-auto-skip'),
+    toggleVolumeBoost: document.getElementById('toggle-volume-boost'),
+    toggleSilenceSkip: document.getElementById('toggle-silence-skip'),
     toggleTranscript: document.getElementById('toggle-transcript'),
     experimentalStatus: document.getElementById('experimental-status'),
 
@@ -5078,7 +5082,13 @@
 
   function playCurrentEngine() {
     if (state.activeEngine === 'audio') {
-      elements.audio.play();
+      if (state.experimentalSettings.enableVolumeBoost || state.experimentalSettings.enableSilenceSkip) {
+        initLiveDspGraph();
+      }
+      if (liveAudioCtx && liveAudioCtx.state === 'suspended') {
+        liveAudioCtx.resume().catch(() => {});
+      }
+      elements.audio.play().catch(() => {});
     } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
       state.ytPlayer.playVideo();
     }
@@ -7077,6 +7087,8 @@
         const parsed = JSON.parse(raw);
         if (parsed.enableAudioClassifier === undefined) parsed.enableAudioClassifier = true;
         if (parsed.enableTranscript === undefined) parsed.enableTranscript = true;
+        if (parsed.enableVolumeBoost === undefined) parsed.enableVolumeBoost = false;
+        if (parsed.enableSilenceSkip === undefined) parsed.enableSilenceSkip = false;
         parsed.enableVisualizer = true; // Timeline spectrum waveform is standard player default
         Object.assign(state.experimentalSettings, parsed);
       }
@@ -7103,6 +7115,8 @@
     if (elements.toggleVisualizer) elements.toggleVisualizer.checked = isVis;
     if (elements.toggleClassifier) elements.toggleClassifier.checked = isClass;
     if (elements.toggleAutoSkip) elements.toggleAutoSkip.checked = !!es.autoSkipSpeech;
+    if (elements.toggleVolumeBoost) elements.toggleVolumeBoost.checked = !!es.enableVolumeBoost;
+    if (elements.toggleSilenceSkip) elements.toggleSilenceSkip.checked = !!es.enableSilenceSkip;
     if (elements.toggleTranscript) elements.toggleTranscript.checked = isTrans;
 
     if (elements.btnPlayerTranscript) {
@@ -7169,6 +7183,22 @@
         saveExperimentalSettings();
       });
     }
+    if (elements.toggleVolumeBoost) {
+      elements.toggleVolumeBoost.addEventListener('change', () => {
+        state.experimentalSettings.enableVolumeBoost = elements.toggleVolumeBoost.checked;
+        saveExperimentalSettings();
+        initLiveDspGraph();
+        updateDspRouting();
+      });
+    }
+    if (elements.toggleSilenceSkip) {
+      elements.toggleSilenceSkip.addEventListener('change', () => {
+        state.experimentalSettings.enableSilenceSkip = elements.toggleSilenceSkip.checked;
+        saveExperimentalSettings();
+        initLiveDspGraph();
+        updateDspRouting();
+      });
+    }
     if (elements.toggleTranscript) {
       elements.toggleTranscript.addEventListener('change', () => {
         state.experimentalSettings.enableTranscript = elements.toggleTranscript.checked;
@@ -7176,6 +7206,121 @@
         syncExperimentalUI();
       });
     }
+  }
+
+  // ── Live Spoken-Word DSP Engine ─────────────────────────────────────────
+  // Connects AudioContext with DynamicsCompressorNode (Volume Boost) and
+  // AnalyserNode (Silence Skipping). Throttles analysis when tab is backgrounded.
+
+  let liveAudioCtx = null;
+  let liveAudioSource = null;
+  let liveCompressor = null;
+  let liveGainNode = null;
+  let liveAnalyser = null;
+  let liveTimeData = null;
+  let liveDspInterval = null;
+  let silenceDurationMs = 0;
+  let isAcceleratingSilence = false;
+
+  function initLiveDspGraph() {
+    if (liveAudioCtx || !elements.audio) return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      liveAudioCtx = new AudioCtx();
+
+      liveAudioSource = liveAudioCtx.createMediaElementSource(elements.audio);
+      liveCompressor = liveAudioCtx.createDynamicsCompressor();
+      liveGainNode = liveAudioCtx.createGain();
+      liveAnalyser = liveAudioCtx.createAnalyser();
+      liveAnalyser.fftSize = 256;
+      liveTimeData = new Float32Array(liveAnalyser.fftSize);
+
+      // Studio Spoken-Word Voice Compressor curve
+      liveCompressor.threshold.setValueAtTime(-24, liveAudioCtx.currentTime);
+      liveCompressor.knee.setValueAtTime(30, liveAudioCtx.currentTime);
+      liveCompressor.ratio.setValueAtTime(12, liveAudioCtx.currentTime);
+      liveCompressor.attack.setValueAtTime(0.003, liveAudioCtx.currentTime);
+      liveCompressor.release.setValueAtTime(0.25, liveAudioCtx.currentTime);
+
+      updateDspRouting();
+      startSilenceDetectionLoop();
+    } catch (err) {
+      console.warn('[anypod] live audio DSP init error:', err);
+    }
+  }
+
+  function updateDspRouting() {
+    if (!liveAudioCtx || !liveAudioSource) return;
+    try {
+      if (liveAudioCtx.state === 'suspended') {
+        liveAudioCtx.resume().catch(() => {});
+      }
+
+      try { liveAudioSource.disconnect(); } catch (_) {}
+      try { liveCompressor.disconnect(); } catch (_) {}
+      try { liveGainNode.disconnect(); } catch (_) {}
+      try { liveAnalyser.disconnect(); } catch (_) {}
+
+      const isBoost = !!state.experimentalSettings.enableVolumeBoost;
+
+      if (isBoost) {
+        liveGainNode.gain.setValueAtTime(1.35, liveAudioCtx.currentTime);
+        liveAudioSource.connect(liveCompressor);
+        liveCompressor.connect(liveGainNode);
+        liveGainNode.connect(liveAnalyser);
+      } else {
+        liveAudioSource.connect(liveAnalyser);
+      }
+      liveAnalyser.connect(liveAudioCtx.destination);
+    } catch (err) {
+      console.warn('[anypod] DSP routing error:', err);
+    }
+  }
+
+  function startSilenceDetectionLoop() {
+    if (liveDspInterval) clearInterval(liveDspInterval);
+    liveDspInterval = setInterval(() => {
+      // Battery & background throttle: skip analysis if tab is inactive or not playing
+      if (!state.isTabActive || state.playbackStatus !== 'playing' || state.activeEngine !== 'audio') {
+        if (isAcceleratingSilence && elements.audio) {
+          elements.audio.playbackRate = state.playbackSpeed || 1.0;
+          isAcceleratingSilence = false;
+        }
+        return;
+      }
+
+      if (!state.experimentalSettings.enableSilenceSkip || !liveAnalyser || !liveTimeData) {
+        if (isAcceleratingSilence && elements.audio) {
+          elements.audio.playbackRate = state.playbackSpeed || 1.0;
+          isAcceleratingSilence = false;
+        }
+        return;
+      }
+
+      liveAnalyser.getFloatTimeDomainData(liveTimeData);
+      let sum = 0;
+      for (let i = 0; i < liveTimeData.length; i++) {
+        sum += liveTimeData[i] * liveTimeData[i];
+      }
+      const rms = Math.sqrt(sum / liveTimeData.length);
+
+      if (rms < 0.015) {
+        silenceDurationMs += 100;
+        if (silenceDurationMs >= 350) {
+          if (!isAcceleratingSilence && elements.audio) {
+            isAcceleratingSilence = true;
+            elements.audio.playbackRate = 3.0;
+          }
+        }
+      } else {
+        silenceDurationMs = 0;
+        if (isAcceleratingSilence && elements.audio) {
+          isAcceleratingSilence = false;
+          elements.audio.playbackRate = state.playbackSpeed || 1.0;
+        }
+      }
+    }, 100);
   }
 
   // ── Baseline Waveform Generator ─────────────────────────────────────────
