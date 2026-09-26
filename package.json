@@ -11,6 +11,7 @@
     "dev:prod": "npm run build && wrangler pages dev public/dist --port 8788",
     "dev:init-db": "mkdir -p .wrangler/state/v3/d1/miniflare-D1DatabaseObject && sqlite3 .wrangler/state/v3/d1/miniflare-D1DatabaseObject/1d2c6f471d53ebbab1505a69a966ce3e563bc9428255f6f61ad83474526c0fe6.sqlite < schema.sql",
     "deploy": "node scripts/verify-deploy.js && npm run build && wrangler pages deploy public --project-name anypod --commit-dirty=true",
+    "deploy:staging": "node scripts/verify-deploy.js && npm run build && wrangler pages deploy public --project-name anypod --branch staging --commit-dirty=true",
     "test:feeds": "node scripts/check_curated_feeds.js",
     "screenshots": "node scripts/capture_screenshots.js"
   },
