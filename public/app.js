@@ -1301,23 +1301,115 @@
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // SECTION 8.5 · IndexedDB Asynchronous Storage Layer
+  // Non-blocking asynchronous storage for large datasets (episodes cache & positions)
+  // preventing main-thread UI stalls and 5MB localStorage limits.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const IDB_CONFIG = {
+    name: 'anypod_storage_db',
+    version: 1,
+    store: 'keyval'
+  };
+
+  let _idbPromise = null;
+  function getIdbInstance() {
+    if (!_idbPromise) {
+      _idbPromise = new Promise((resolve) => {
+        if (typeof indexedDB === 'undefined') {
+          return resolve(null);
+        }
+        try {
+          const req = indexedDB.open(IDB_CONFIG.name, IDB_CONFIG.version);
+          req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(IDB_CONFIG.store)) {
+              db.createObjectStore(IDB_CONFIG.store);
+            }
+          };
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => resolve(null);
+        } catch (_) {
+          resolve(null);
+        }
+      });
+    }
+    return _idbPromise;
+  }
+
+  async function idbGet(key) {
+    try {
+      const db = await getIdbInstance();
+      if (!db) {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : null;
+      }
+      return new Promise((resolve) => {
+        const tx = db.transaction(IDB_CONFIG.store, 'readonly');
+        const store = tx.objectStore(IDB_CONFIG.store);
+        const req = store.get(key);
+        req.onsuccess = () => resolve(req.result !== undefined ? req.result : null);
+        req.onerror = () => resolve(null);
+      });
+    } catch (_) {
+      try {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : null;
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
+  async function idbSet(key, value) {
+    try {
+      const db = await getIdbInstance();
+      if (!db) {
+        localStorage.setItem(key, JSON.stringify(value));
+        return;
+      }
+      return new Promise((resolve) => {
+        const tx = db.transaction(IDB_CONFIG.store, 'readwrite');
+        const store = tx.objectStore(IDB_CONFIG.store);
+        store.put(value, key);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => {
+          try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
+          resolve(false);
+        };
+      });
+    } catch (_) {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // SECTION 9 · Playback Position Sync
   // state.playbackPositions: { [guid]: { position, completed, lastListenedAt } }
-  // Saved locally every 8 s and immediately on pause/skip/completion.
-  // Also synced to/from Cloudflare D1 via /api/sync/position.
+  // Saved asynchronously to IndexedDB and synced to/from Cloudflare D1 via /api/sync/position.
   // ─────────────────────────────────────────────────────────────────────────
 
   function savePositionsToStorage() {
     try {
-      localStorage.setItem(STORAGE_KEYS.POSITIONS, JSON.stringify(state.playbackPositions));
+      idbSet(STORAGE_KEYS.POSITIONS, state.playbackPositions);
     } catch (e) {}
   }
 
-  function loadPositionsFromStorage() {
+  async function loadPositionsFromStorage() {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.POSITIONS);
-      if (saved) {
-        state.playbackPositions = JSON.parse(saved);
+      let saved = await idbGet(STORAGE_KEYS.POSITIONS);
+      if (!saved) {
+        const raw = localStorage.getItem(STORAGE_KEYS.POSITIONS) || localStorage.getItem('podcast_pulse_positions');
+        if (raw) {
+          saved = JSON.parse(raw);
+          idbSet(STORAGE_KEYS.POSITIONS, saved);
+          try { localStorage.removeItem(STORAGE_KEYS.POSITIONS); } catch (_) {}
+        }
+      }
+      if (saved && typeof saved === 'object') {
+        state.playbackPositions = saved;
+        renderContinueShelf();
+        updateFilterBadges();
       }
     } catch (e) {}
   }
@@ -1443,15 +1535,39 @@
     }
   }
 
-  function loadCacheFromStorage() {
+  async function loadCacheFromStorage() {
     try {
-      const cachedEps = localStorage.getItem(STORAGE_KEYS.CACHED_EPISODES);
-      const cachedMeta = localStorage.getItem(STORAGE_KEYS.CACHED_METADATA);
-      if (cachedEps) {
-        state.allEpisodes = JSON.parse(cachedEps);
+      // 1. Asynchronously retrieve from IndexedDB (non-blocking)
+      let cachedEps = await idbGet(STORAGE_KEYS.CACHED_EPISODES);
+      let cachedMeta = await idbGet(STORAGE_KEYS.CACHED_METADATA);
+
+      // 2. Migration fallback from synchronous localStorage
+      if (!cachedEps) {
+        const rawLegacyEps = localStorage.getItem(STORAGE_KEYS.CACHED_EPISODES);
+        if (rawLegacyEps) {
+          try {
+            cachedEps = JSON.parse(rawLegacyEps);
+            idbSet(STORAGE_KEYS.CACHED_EPISODES, cachedEps);
+            try { localStorage.removeItem(STORAGE_KEYS.CACHED_EPISODES); } catch (_) {}
+          } catch (_) {}
+        }
       }
-      if (cachedMeta) {
-        state.feedMetadata = JSON.parse(cachedMeta);
+      if (!cachedMeta) {
+        const rawLegacyMeta = localStorage.getItem(STORAGE_KEYS.CACHED_METADATA);
+        if (rawLegacyMeta) {
+          try {
+            cachedMeta = JSON.parse(rawLegacyMeta);
+            idbSet(STORAGE_KEYS.CACHED_METADATA, cachedMeta);
+            try { localStorage.removeItem(STORAGE_KEYS.CACHED_METADATA); } catch (_) {}
+          } catch (_) {}
+        }
+      }
+
+      if (cachedEps && Array.isArray(cachedEps)) {
+        state.allEpisodes = cachedEps;
+      }
+      if (cachedMeta && typeof cachedMeta === 'object') {
+        state.feedMetadata = cachedMeta;
       }
       if (state.allEpisodes && state.allEpisodes.length > 0) {
         processAndSortEpisodes();
@@ -1459,19 +1575,23 @@
         renderContinueShelf();
         renderFeedsGrid();
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn('[anypod] loadCacheFromStorage error:', e);
+    }
   }
 
   function saveCacheToStorage() {
     try {
       if (state.allEpisodes && state.allEpisodes.length > 0) {
         const trimmed = state.allEpisodes.slice(0, 2000);
-        localStorage.setItem(STORAGE_KEYS.CACHED_EPISODES, JSON.stringify(trimmed));
+        idbSet(STORAGE_KEYS.CACHED_EPISODES, trimmed);
       }
       if (state.feedMetadata) {
-        localStorage.setItem(STORAGE_KEYS.CACHED_METADATA, JSON.stringify(state.feedMetadata));
+        idbSet(STORAGE_KEYS.CACHED_METADATA, state.feedMetadata);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn('[anypod] saveCacheToStorage error:', e);
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
