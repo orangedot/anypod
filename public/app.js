@@ -427,7 +427,9 @@
       isProbing: false,
       progressPct: 0
     },
-    showRemainingTime: true
+    showRemainingTime: true,
+    isTabActive: typeof document !== 'undefined' ? !document.hidden : true,
+    _activeCardCache: null
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -2035,6 +2037,7 @@
   }
 
   function renderFavorites() {
+    state._activeCardCache = null;
     if (!elements.favoritesEpisodesList) return;
     let list = [...(state.favorites || [])];
     const q = (state.searchQuery || '').trim().toLowerCase();
@@ -3509,6 +3512,7 @@
   // ─────────────────────────────────────────────────────────────────────────
 
   function renderTimeline() {
+    state._activeCardCache = null;
     updateDockVisibility();
     const container = elements.timelineList;
     container.innerHTML = '';
@@ -3603,6 +3607,7 @@
   let sentinelObserver = null;
 
   function appendTimelineBatch() {
+    state._activeCardCache = null;
     const container = elements.timelineList;
     if (!container) return;
 
@@ -4564,6 +4569,7 @@
   const previewLoadingSet = new Set();
 
   function renderFeedDetail(feedUrl) {
+    state._activeCardCache = null;
     const isSubbed = state.feeds.includes(feedUrl);
     const isMuted = isFeedMuted(feedUrl);
     const meta = state.feedMetadata[feedUrl] || {};
@@ -5156,6 +5162,25 @@
       total = state.ytPlayer.getDuration() || 0;
     }
 
+    // 1. Process background-safe non-DOM logic (e.g. sleep timer fadeout)
+    if (state.sleepTimer.active && state.sleepTimer.fadeout && state.sleepTimer.endTime) {
+      const remainingSec = Math.max(0, (state.sleepTimer.endTime - Date.now()) / 1000);
+      if (remainingSec <= 30 && remainingSec > 0) {
+        if (state.activeEngine === 'audio') {
+          elements.audio.volume = Math.max(0, (remainingSec / 30) * state.sleepTimer.initialVolume);
+        } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
+          try {
+            state.ytPlayer.setVolume(Math.round(Math.max(0, (remainingSec / 30) * state.sleepTimer.initialVolume * 100)));
+          } catch (_) {}
+        }
+      }
+    }
+
+    // 2. Battery & Background Playback: Skip all DOM, style, and canvas redraws if tab is inactive/display locked
+    if (!state.isTabActive) {
+      return;
+    }
+
     if (elements.currentTimeLabel) {
       elements.currentTimeLabel.textContent = formatTime(current);
     }
@@ -5214,55 +5239,82 @@
       }
 
       if (state.currentEpisode) {
-        const activeCards = document.querySelectorAll(`.episode-card[data-guid="${CSS.escape(state.currentEpisode.guid)}"]`);
-        activeCards.forEach(card => {
-          let track = card.querySelector('.ep-progress-track');
-          let fill = card.querySelector('.ep-progress-fill');
-          if (!track && current > 2) {
-            track = document.createElement('div');
-            track.className = 'ep-progress-track';
-            track.title = 'Click or scrub to resume at any point';
-            fill = document.createElement('div');
-            fill.className = 'ep-progress-fill';
-            track.appendChild(fill);
-            const footer = card.querySelector('.episode-footer');
+        // Fast cached card reference lookup to eliminate repeated querySelectorAll layout thrashing
+        if (!state._activeCardCache || state._activeCardCache.guid !== state.currentEpisode.guid) {
+          const matchedCards = document.querySelectorAll(`.episode-card[data-guid="${CSS.escape(state.currentEpisode.guid)}"]`);
+          const items = [];
+          matchedCards.forEach(card => {
+            let track = card.querySelector('.ep-progress-track');
+            let fill = card.querySelector('.ep-progress-fill');
+            if (!track && current > 2) {
+              track = document.createElement('div');
+              track.className = 'ep-progress-track';
+              track.title = 'click or scrub to resume at any point';
+              fill = document.createElement('div');
+              fill.className = 'ep-progress-fill';
+              track.appendChild(fill);
+              const footer = card.querySelector('.episode-footer');
+              if (footer) {
+                card.insertBefore(track, footer);
+                setupProgressTrackInteractivity(track, card, state.currentEpisode);
+              }
+            }
+            let resumeBadge = card.querySelector('.ep-resume-time');
+            if (!resumeBadge && current > 2) {
+              const meta = card.querySelector('.episode-meta');
+              if (meta) {
+                resumeBadge = document.createElement('span');
+                resumeBadge.className = 'ep-resume-time';
+                resumeBadge.title = 'click to resume playback';
+                meta.appendChild(resumeBadge);
+                resumeBadge.addEventListener('click', (e) => {
+                  e.stopPropagation();
+                  toggleEpisodePlayback(state.currentEpisode);
+                });
+              }
+            }
+            items.push({ card, track, fill, resumeBadge });
+          });
+          state._activeCardCache = { guid: state.currentEpisode.guid, items };
+        }
+
+        const pctWidth = `${Math.min(100, Math.max(1, pct))}%`;
+        const resumeText = `• resumes at ${formatTime(current)}`;
+
+        state._activeCardCache.items.forEach(item => {
+          if (!item.track && current > 2) {
+            item.track = document.createElement('div');
+            item.track.className = 'ep-progress-track';
+            item.track.title = 'click or scrub to resume at any point';
+            item.fill = document.createElement('div');
+            item.fill.className = 'ep-progress-fill';
+            item.track.appendChild(item.fill);
+            const footer = item.card.querySelector('.episode-footer');
             if (footer) {
-              card.insertBefore(track, footer);
-              setupProgressTrackInteractivity(track, card, state.currentEpisode);
+              item.card.insertBefore(item.track, footer);
+              setupProgressTrackInteractivity(item.track, item.card, state.currentEpisode);
             }
           }
-          if (fill) {
-            fill.style.width = `${Math.min(100, Math.max(1, pct))}%`;
+          if (item.fill) {
+            item.fill.style.width = pctWidth;
           }
-          let resumeBadge = card.querySelector('.ep-resume-time');
-          if (!resumeBadge && current > 2) {
-            const meta = card.querySelector('.episode-meta');
+          if (!item.resumeBadge && current > 2) {
+            const meta = item.card.querySelector('.episode-meta');
             if (meta) {
-              resumeBadge = document.createElement('span');
-              resumeBadge.className = 'ep-resume-time';
-              resumeBadge.title = 'Click to resume playback';
-              meta.appendChild(resumeBadge);
-              resumeBadge.addEventListener('click', (e) => {
+              item.resumeBadge = document.createElement('span');
+              item.resumeBadge.className = 'ep-resume-time';
+              item.resumeBadge.title = 'click to resume playback';
+              meta.appendChild(item.resumeBadge);
+              item.resumeBadge.addEventListener('click', (e) => {
                 e.stopPropagation();
                 toggleEpisodePlayback(state.currentEpisode);
               });
             }
           }
-          if (resumeBadge) {
-            resumeBadge.textContent = `• Resumes at ${formatTime(current)}`;
+          if (item.resumeBadge) {
+            item.resumeBadge.textContent = resumeText;
           }
         });
-      }
-    }
-
-    if (state.sleepTimer.active && state.sleepTimer.fadeout && state.sleepTimer.endTime) {
-      const remainingSec = Math.max(0, (state.sleepTimer.endTime - Date.now()) / 1000);
-      if (remainingSec <= 30 && remainingSec > 0) {
-        if (state.activeEngine === 'audio') {
-          elements.audio.volume = Math.max(0, (remainingSec / 30) * state.sleepTimer.initialVolume);
-        } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
-          state.ytPlayer.setVolume(Math.max(0, (remainingSec / 30) * 100));
-        }
       }
     }
   }
@@ -5408,6 +5460,15 @@
     const isPlaying = state.playbackStatus === 'playing';
     const isLoading = state.playbackStatus === 'loading';
 
+    // Synchronize native MediaSession playbackState for lockscreen & background persistence
+    if ('mediaSession' in navigator) {
+      if (isPlaying) {
+        navigator.mediaSession.playbackState = 'playing';
+      } else if (state.playbackStatus === 'paused' || state.playbackStatus === 'idle') {
+        navigator.mediaSession.playbackState = 'paused';
+      }
+    }
+
     if (elements.iconPlay && elements.iconPause && elements.iconSpinner) {
       if (isLoading) {
         elements.iconPlay.classList.add('hidden');
@@ -5449,18 +5510,18 @@
         card.classList.add('playing');
         if (isLoading) {
           btn.innerHTML = CARD_ICONS.SPINNER;
-          btn.title = 'Loading...';
+          btn.title = 'loading...';
         } else if (isPlaying) {
           btn.innerHTML = CARD_ICONS.PAUSE;
-          btn.title = 'Pause';
+          btn.title = 'pause';
         } else {
           btn.innerHTML = CARD_ICONS.PLAY;
-          btn.title = 'Play';
+          btn.title = 'play';
         }
       } else {
         card.classList.remove('playing');
         btn.innerHTML = CARD_ICONS.PLAY;
-        btn.title = 'Play';
+        btn.title = 'play';
       }
     });
 
@@ -5819,6 +5880,17 @@
   // ─────────────────────────────────────────────────────────────────────────
 
   function setupEventListeners() {
+    // Page Visibility API: pause unnecessary DOM & canvas redraws when screen locked / tab backgrounded
+    document.addEventListener('visibilitychange', () => {
+      state.isTabActive = !document.hidden;
+      if (state.isTabActive) {
+        updateProgress();
+        if (state.experimentalSettings.enableVisualizer) {
+          renderWaveformChart();
+        }
+      }
+    });
+
     if (elements.magicAuthForm) {
       elements.magicAuthForm.addEventListener('submit', (e) => {
         e.preventDefault();
