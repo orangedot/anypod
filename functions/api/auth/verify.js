@@ -1,4 +1,4 @@
-import { hashToken } from '../utils.js';
+import { hashToken, timingSafeEqual } from '../utils.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -51,11 +51,13 @@ export async function onRequest(context) {
       userId = updateResult.results[0].user_id;
     } else {
       const existingToken = await db.prepare(
-        'SELECT user_id, used, expires_at FROM auth_tokens WHERE token_hash = ?'
+        'SELECT user_id, token_hash, used, expires_at FROM auth_tokens WHERE token_hash = ?'
       ).bind(tokenHash).first();
 
-      if (existingToken && existingToken.expires_at > Math.floor(Date.now() / 1000)) {
-        userId = existingToken.user_id;
+      if (existingToken && existingToken.token_hash && timingSafeEqual(existingToken.token_hash, tokenHash)) {
+        if (existingToken.expires_at > Math.floor(Date.now() / 1000)) {
+          userId = existingToken.user_id;
+        }
       }
     }
 

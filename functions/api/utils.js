@@ -49,9 +49,9 @@ export async function getUserFromRequest(request, env) {
     try {
       const sessionHash = await hashToken(token);
       const row = await env.DB.prepare(
-        'SELECT u.id, u.email FROM user_sessions s JOIN users u ON s.user_id = u.id WHERE s.session_hash = ? AND s.expires_at > ?'
+        'SELECT u.id, u.email, s.session_hash FROM user_sessions s JOIN users u ON s.user_id = u.id WHERE s.session_hash = ? AND s.expires_at > ?'
       ).bind(sessionHash, now).first();
-      if (row) {
+      if (row && row.session_hash && timingSafeEqual(row.session_hash, sessionHash)) {
         return { id: row.id, email: row.email };
       }
     } catch (_) {
@@ -59,6 +59,15 @@ export async function getUserFromRequest(request, env) {
     }
   }
   return null;
+}
+
+export function timingSafeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const encoder = new TextEncoder();
+  const aBuf = encoder.encode(a);
+  const bBuf = encoder.encode(b);
+  if (aBuf.byteLength !== bBuf.byteLength) return false;
+  return crypto.subtle.timingSafeEqual(aBuf, bBuf);
 }
 
 export function isValidExternalUrl(urlString) {
@@ -79,6 +88,10 @@ export function isValidExternalUrl(urlString) {
     }
     const ipv4Match = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
     if (ipv4Match) {
+      // Disallow octal notation / leading zeros in octets (e.g. 0177.0.0.1)
+      if ([ipv4Match[1], ipv4Match[2], ipv4Match[3], ipv4Match[4]].some(s => s.length > 1 && s.startsWith('0'))) {
+        return false;
+      }
       const octets = [Number(ipv4Match[1]), Number(ipv4Match[2]), Number(ipv4Match[3]), Number(ipv4Match[4])];
       if (octets.some(o => o < 0 || o > 255)) return false;
       if (octets[0] === 127 || octets[0] === 0 || octets[0] === 10) return false;
