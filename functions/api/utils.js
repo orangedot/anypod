@@ -18,13 +18,13 @@ export async function getUserFromRequest(request, env) {
     if (trimmed) candidateTokens.push(trimmed);
   }
 
-  // 2. Cookie token(s)
+  // 2. Cookie token(s) (podcast_session or gPodder sessionid)
   const cookieHeader = request.headers.get('Cookie') || '';
   if (cookieHeader) {
     const cookiePairs = cookieHeader.split(';');
     for (const pair of cookiePairs) {
       const [k, ...v] = pair.trim().split('=');
-      if (k === 'podcast_session') {
+      if (k === 'podcast_session' || k === 'sessionid') {
         const val = v.join('=').trim();
         if (val && !candidateTokens.includes(val)) {
           candidateTokens.push(val);
@@ -33,13 +33,24 @@ export async function getUserFromRequest(request, env) {
     }
   }
 
-  // 3. Authorization Bearer header fallback
+  // 3. Authorization Bearer or Basic header fallback
   const authHeader = request.headers.get('Authorization') || '';
   if (authHeader.startsWith('Bearer ')) {
     const bToken = authHeader.slice(7).trim();
     if (bToken && !candidateTokens.includes(bToken)) {
       candidateTokens.push(bToken);
     }
+  } else if (authHeader.startsWith('Basic ')) {
+    try {
+      const decoded = atob(authHeader.slice(6).trim());
+      const colonIdx = decoded.indexOf(':');
+      if (colonIdx !== -1) {
+        const pass = decoded.slice(colonIdx + 1).trim();
+        if (pass && !candidateTokens.includes(pass)) {
+          candidateTokens.push(pass);
+        }
+      }
+    } catch (_) {}
   }
 
   if (candidateTokens.length === 0) return null;
