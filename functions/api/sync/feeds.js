@@ -20,6 +20,10 @@ export async function onRequest(context) {
 
   const user = await getUserFromRequest(request, env);
   if (!user) {
+    const isCheck = new URL(request.url).searchParams.has('check');
+    if (isCheck) {
+      return new Response(JSON.stringify({ authenticated: false, feeds: [] }), { headers: corsHeaders, status: 200 });
+    }
     return new Response(JSON.stringify({ error: 'Unauthorized: Session required' }), { headers: corsHeaders, status: 401 });
   }
 

@@ -26,7 +26,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.min.css?v=1790453198924">
+  <link rel="stylesheet" href="style.min.css?v=1790453752500">
 </head>
 <body>
   <!-- Cloud Sync & Magic Auth Modal -->
@@ -42,7 +42,7 @@
       </div>
 
       <!-- Magic Link Email Form -->
-      <form id="magic-auth-form" action="javascript:void(0);">
+      <form id="magic-auth-form">
         <div class="auth-input-group">
           <label for="magic-email-input" class="auth-input-label">your email address</label>
           <div class="auth-input-wrapper">
@@ -159,7 +159,7 @@
             <h3>no podcasts added yet</h3>
             <p>search by podcast name, explore curated topics, paste any rss feed url, or import your opml library.</p>
             <div class="empty-quick-add">
-              <form id="empty-quick-form" class="quick-add-form" action="javascript:void(0);">
+              <form id="empty-quick-form" class="quick-add-form">
                 <div class="quick-add-input-wrap">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="quick-add-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                   <input type="text" id="empty-quick-input" placeholder="search podcast or paste rss url..." autocomplete="off">
@@ -618,7 +618,7 @@
 
       <div class="player-main-controls-row">
         <div class="player-track-info">
-          <img id="player-artwork" src="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%2318181b%22/%3E%3C/svg%3E" alt="episode artwork" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%2318181b%22/%3E%3C/svg%3E';">
+          <img id="player-artwork" src="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%2318181b%22/%3E%3C/svg%3E" alt="episode artwork">
           <div class="track-text">
             <div class="track-title" id="player-title">select an episode to play</div>
             <div class="track-podcast" id="player-podcast">anypod</div>
@@ -711,7 +711,7 @@
     <footer class="player-mini" id="player-mini" aria-label="mini player">
       <div class="mini-progress-bar"><div class="mini-progress-fill" id="mini-progress-fill"></div></div>
       <div class="mini-track-info" id="mini-expand-zone" role="button" tabindex="0" title="tap to expand player" aria-label="tap to expand player">
-        <img id="mini-artwork" src="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%2318181b%22/%3E%3C/svg%3E" alt="episode artwork" class="mini-artwork" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%2318181b%22/%3E%3C/svg%3E';">
+        <img id="mini-artwork" src="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%2318181b%22/%3E%3C/svg%3E" alt="episode artwork" class="mini-artwork">
         <div class="mini-text">
           <div class="mini-title" id="mini-title">select an episode to play</div>
           <div class="mini-podcast" id="mini-podcast">anypod</div>
@@ -753,6 +753,6 @@
   <script src="https://www.youtube.com/iframe_api"></script>
   <!-- Experimental defaults – must load before app.js -->
   <script src="scripts/settings.js?v=20260925b"></script>
-  <script src="app.min.js?v=1790453198924"></script>
+  <script src="app.min.js?v=1790453752500"></script>
 </body>
 </html>

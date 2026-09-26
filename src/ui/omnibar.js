@@ -3,7 +3,7 @@
  * @description Unified Omnibar Search & Quick-Add handler.
  * Supports:
  *  - 0ms local filtering of subscribed shows & downloaded episodes
- *  - Debounced (350ms) global podcast directory discovery via /api/search-directory
+ *  - Debounced (450ms) global podcast directory discovery via /api/search-directory
  *  - Direct RSS/XML paste detection with instant subscribe button
  *  - Keyboard shortcut Cmd/Ctrl + K
  */
@@ -12,6 +12,7 @@ import { state } from '../state/store.js';
 import { elements } from './dom.js';
 
 let directoryDebounceTimer = null;
+let directoryAbortController = null;
 
 /**
  * Initializes the unified omnibar search and dropdown interactions.
@@ -143,7 +144,7 @@ function renderOmnibarResults(query, dropdown, { onSubscribe, onSelectEpisode } 
       item.className = 'omnibar-item';
       item.innerHTML = `
         <div class="omnibar-item-left">
-          <img src="${meta.artwork || ''}" class="omnibar-item-artwork" onerror="this.style.display='none'">
+          <img src="${meta.artwork || ''}" class="omnibar-item-artwork">
           <div class="omnibar-item-info">
             <div class="omnibar-item-title">${meta.title || feedUrl}</div>
             <div class="omnibar-item-subtitle">Subscribed Podcast</div>
@@ -159,7 +160,7 @@ function renderOmnibarResults(query, dropdown, { onSubscribe, onSelectEpisode } 
       item.className = 'omnibar-item';
       item.innerHTML = `
         <div class="omnibar-item-left">
-          <img src="${ep.artworkUrl || ''}" class="omnibar-item-artwork" onerror="this.style.display='none'">
+          <img src="${ep.artworkUrl || ''}" class="omnibar-item-artwork">
           <div class="omnibar-item-info">
             <div class="omnibar-item-title">${ep.title}</div>
             <div class="omnibar-item-subtitle">${ep.podcastTitle}</div>
@@ -174,7 +175,7 @@ function renderOmnibarResults(query, dropdown, { onSubscribe, onSelectEpisode } 
     });
   }
 
-  // 3. Section: Discover New Shows (Debounced 350ms)
+  // 3. Section: Discover New Shows (Debounced 450ms)
   if (query.length >= 2) {
     const discTitle = document.createElement('div');
     discTitle.className = 'omnibar-section-title';
@@ -188,8 +189,15 @@ function renderOmnibarResults(query, dropdown, { onSubscribe, onSelectEpisode } 
 
     if (directoryDebounceTimer) clearTimeout(directoryDebounceTimer);
     directoryDebounceTimer = setTimeout(async () => {
+      if (directoryAbortController) {
+        directoryAbortController.abort();
+      }
+      directoryAbortController = new AbortController();
+
       try {
-        const res = await fetch(`/api/search-directory?term=${encodeURIComponent(query)}&limit=10`);
+        const res = await fetch(`/api/search-directory?term=${encodeURIComponent(query)}&limit=8`, {
+          signal: directoryAbortController.signal
+        });
         if (!res.ok) throw new Error('Search failed');
         const data = await res.json();
         const results = (data.results || []).filter(r => r.feedUrl);
@@ -206,7 +214,7 @@ function renderOmnibarResults(query, dropdown, { onSubscribe, onSelectEpisode } 
           item.className = 'omnibar-item';
           item.innerHTML = `
             <div class="omnibar-item-left">
-              <img src="${pod.artworkUrl100 || pod.artworkUrl60 || ''}" class="omnibar-item-artwork" onerror="this.style.display='none'">
+              <img src="${pod.artworkUrl100 || pod.artworkUrl60 || ''}" class="omnibar-item-artwork">
               <div class="omnibar-item-info">
                 <div class="omnibar-item-title">${pod.collectionName || pod.trackName}</div>
                 <div class="omnibar-item-subtitle">${pod.artistName || 'Podcast'}</div>
@@ -227,8 +235,10 @@ function renderOmnibarResults(query, dropdown, { onSubscribe, onSelectEpisode } 
           discContainer.appendChild(item);
         });
       } catch (err) {
-        discContainer.innerHTML = '<div style="padding: 0.5rem; font-size: 0.78rem; opacity: 0.6;">Unable to load directory results.</div>';
+        if (err.name !== 'AbortError') {
+          discContainer.innerHTML = '<div style="padding: 0.5rem; font-size: 0.78rem; opacity: 0.6;">Unable to load directory results.</div>';
+        }
       }
-    }, 350);
+    }, 450);
   }
 }
