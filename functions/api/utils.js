@@ -117,6 +117,11 @@ export function isValidExternalUrl(urlString) {
         return false;
       }
     }
+    const port = parsed.port ? parseInt(parsed.port, 10) : (parsed.protocol === 'https:' ? 443 : 80);
+    const allowedPorts = new Set([80, 443, 8080, 8443]);
+    if (!allowedPorts.has(port)) {
+      return false;
+    }
     return true;
   } catch (e) {
     return false;

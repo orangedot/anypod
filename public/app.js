@@ -5317,7 +5317,17 @@
       total = state.ytPlayer.getDuration() || 0;
     }
 
-    // 1. Process background-safe non-DOM logic (e.g. sleep timer fadeout)
+    // 1. Process background-safe non-DOM logic (e.g. sleep timer fadeout & MediaSession position state)
+    if ('mediaSession' in navigator && typeof navigator.mediaSession.setPositionState === 'function' && total > 0 && isFinite(total) && isFinite(current)) {
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: total,
+          playbackRate: (state.activeEngine === 'audio' && elements.audio ? elements.audio.playbackRate : (state.playbackSpeed || 1.0)),
+          position: Math.min(Math.max(0, current), total)
+        });
+      } catch (_) {}
+    }
+
     if (state.sleepTimer.active && state.sleepTimer.fadeout && state.sleepTimer.endTime) {
       const remainingSec = Math.max(0, (state.sleepTimer.endTime - Date.now()) / 1000);
       if (remainingSec <= 30 && remainingSec > 0) {
@@ -6318,6 +6328,159 @@
     }
 
     const omnibarEl = elements.omnibar || elements.searchInput;
+    const omnibarDropdown = document.getElementById('omnibar-dropdown');
+    let omnibarDirectoryDebounce = null;
+
+    const renderOmnibarDropdown = (query) => {
+      if (!omnibarDropdown) return;
+      const q = query.trim();
+      if (!q) {
+        omnibarDropdown.classList.add('hidden');
+        omnibarDropdown.innerHTML = '';
+        return;
+      }
+
+      omnibarDropdown.innerHTML = '';
+      omnibarDropdown.classList.remove('hidden');
+
+      const lowerQuery = q.toLowerCase();
+      const isFeedUrl = lowerQuery.startsWith('http://') || lowerQuery.startsWith('https://') || lowerQuery.endsWith('.xml') || lowerQuery.endsWith('.rss');
+
+      if (isFeedUrl) {
+        const actionBtn = document.createElement('button');
+        actionBtn.type = 'button';
+        actionBtn.className = 'omnibar-action-btn';
+        actionBtn.innerHTML = `
+          <span>➕ Subscribe directly to this feed</span>
+          <span style="opacity: 0.7; font-size: 0.75rem;">RSS / XML</span>
+        `;
+        actionBtn.addEventListener('click', async () => {
+          await addFeed(q);
+          omnibarDropdown.classList.add('hidden');
+          omnibarEl.value = '';
+          state.searchQuery = '';
+          processAndSortEpisodes();
+          renderTimeline();
+          renderFeedsGrid();
+        });
+        omnibarDropdown.appendChild(actionBtn);
+        return;
+      }
+
+      // Section: In Your Library
+      const localFeeds = (state.feeds || []).filter(url => {
+        const meta = state.feedMetadata[url] || {};
+        return (meta.title && meta.title.toLowerCase().includes(lowerQuery)) || url.toLowerCase().includes(lowerQuery);
+      });
+
+      const localEpisodes = (state.allEpisodes || []).filter(ep => {
+        return (ep.title && ep.title.toLowerCase().includes(lowerQuery)) ||
+               (ep.podcastTitle && ep.podcastTitle.toLowerCase().includes(lowerQuery));
+      }).slice(0, 5);
+
+      if (localFeeds.length > 0 || localEpisodes.length > 0) {
+        const libTitle = document.createElement('div');
+        libTitle.className = 'omnibar-section-title';
+        libTitle.textContent = 'In Your Library';
+        omnibarDropdown.appendChild(libTitle);
+
+        localFeeds.forEach(feedUrl => {
+          const meta = state.feedMetadata[feedUrl] || {};
+          const item = document.createElement('div');
+          item.className = 'omnibar-item';
+          item.innerHTML = `
+            <div class="omnibar-item-left">
+              <img src="${meta.artwork || ''}" class="omnibar-item-artwork" onerror="this.style.display='none'">
+              <div class="omnibar-item-info">
+                <div class="omnibar-item-title">${escapeHtml(meta.title || feedUrl)}</div>
+                <div class="omnibar-item-subtitle">Subscribed Podcast</div>
+              </div>
+            </div>
+          `;
+          item.addEventListener('click', () => {
+            navigateTo('feeds');
+            openFeedDetail(feedUrl);
+            omnibarDropdown.classList.add('hidden');
+          });
+          omnibarDropdown.appendChild(item);
+        });
+
+        localEpisodes.forEach(ep => {
+          const item = document.createElement('div');
+          item.className = 'omnibar-item';
+          item.innerHTML = `
+            <div class="omnibar-item-left">
+              <img src="${ep.artworkUrl || ''}" class="omnibar-item-artwork" onerror="this.style.display='none'">
+              <div class="omnibar-item-info">
+                <div class="omnibar-item-title">${escapeHtml(ep.title)}</div>
+                <div class="omnibar-item-subtitle">${escapeHtml(ep.podcastTitle)}</div>
+              </div>
+            </div>
+          `;
+          item.addEventListener('click', () => {
+            toggleEpisodePlayback(ep);
+            omnibarDropdown.classList.add('hidden');
+          });
+          omnibarDropdown.appendChild(item);
+        });
+      }
+
+      // Section: Discover New Shows
+      if (q.length >= 2) {
+        const discTitle = document.createElement('div');
+        discTitle.className = 'omnibar-section-title';
+        discTitle.textContent = 'Discover New Shows';
+        omnibarDropdown.appendChild(discTitle);
+
+        const discContainer = document.createElement('div');
+        discContainer.innerHTML = '<div style="padding: 0.5rem; font-size: 0.78rem; opacity: 0.6;">Searching directory...</div>';
+        omnibarDropdown.appendChild(discContainer);
+
+        if (omnibarDirectoryDebounce) clearTimeout(omnibarDirectoryDebounce);
+        omnibarDirectoryDebounce = setTimeout(async () => {
+          try {
+            const res = await fetch(`/api/search-directory?term=${encodeURIComponent(q)}&limit=8`);
+            if (!res.ok) throw new Error('Search failed');
+            const data = await res.json();
+            const results = (data.results || []).filter(r => r.feedUrl);
+            discContainer.innerHTML = '';
+            if (results.length === 0) {
+              discContainer.innerHTML = '<div style="padding: 0.5rem; font-size: 0.78rem; opacity: 0.6;">No directory matches found.</div>';
+              return;
+            }
+            results.slice(0, 5).forEach(pod => {
+              const isSubscribed = (state.feeds || []).includes(pod.feedUrl);
+              const item = document.createElement('div');
+              item.className = 'omnibar-item';
+              item.innerHTML = `
+                <div class="omnibar-item-left">
+                  <img src="${pod.artworkUrl100 || pod.artworkUrl60 || ''}" class="omnibar-item-artwork" onerror="this.style.display='none'">
+                  <div class="omnibar-item-info">
+                    <div class="omnibar-item-title">${escapeHtml(pod.collectionName || pod.trackName)}</div>
+                    <div class="omnibar-item-subtitle">${escapeHtml(pod.artistName || 'Podcast')}</div>
+                  </div>
+                </div>
+                <button type="button" class="omnibar-follow-btn" ${isSubscribed ? 'disabled' : ''}>
+                  ${isSubscribed ? 'Subscribed' : '+ Follow'}
+                </button>
+              `;
+              const followBtn = item.querySelector('.omnibar-follow-btn');
+              followBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                followBtn.disabled = true;
+                followBtn.textContent = 'Adding...';
+                await addFeed(pod.feedUrl, pod.collectionName, pod.artworkUrl100);
+                followBtn.textContent = 'Subscribed';
+              });
+              discContainer.appendChild(item);
+            });
+          } catch (_) {
+            discContainer.innerHTML = '<div style="padding: 0.5rem; font-size: 0.78rem; opacity: 0.6;">Unable to load directory results.</div>';
+          }
+        }, 350);
+      }
+    };
+
     if (omnibarEl) {
       omnibarEl.addEventListener('input', (e) => {
         state.searchQuery = e.target.value;
@@ -6335,6 +6498,7 @@
           renderFeedDetail(state.activeFeedDetailUrl);
         }
         renderOfflineStorageSettings();
+        renderOmnibarDropdown(e.target.value);
       });
 
       if (elements.btnClearSearch) {
@@ -6346,6 +6510,7 @@
           if (elements.searchBarWrap) {
             elements.searchBarWrap.classList.remove('has-text');
           }
+          if (omnibarDropdown) omnibarDropdown.classList.add('hidden');
           processAndSortEpisodes();
           renderTimeline();
           renderFeedsGrid();
@@ -6359,11 +6524,21 @@
 
       omnibarEl.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
+          if (omnibarDropdown && !omnibarDropdown.classList.contains('hidden')) {
+            omnibarDropdown.classList.add('hidden');
+            return;
+          }
           if (omnibarEl.value) {
             elements.btnClearSearch?.click();
           } else {
             omnibarEl.blur();
           }
+        }
+      });
+
+      document.addEventListener('click', (e) => {
+        if (omnibarDropdown && !omnibarDropdown.contains(e.target) && e.target !== omnibarEl) {
+          omnibarDropdown.classList.add('hidden');
         }
       });
 
@@ -6719,6 +6894,17 @@
 
     // Modern 2026 Player Keyboard Shortcuts (Spotify / Apple Podcasts / YouTube UX)
     document.addEventListener('keydown', (e) => {
+      // 0. Global Omnibar Focus Shortcut (Cmd/Ctrl + K)
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        const omnibar = elements.omnibar || elements.searchInput;
+        if (omnibar) {
+          omnibar.focus();
+          omnibar.select();
+        }
+        return;
+      }
+
       // 1. Modals & Detail Navigation Escape
       if (e.key === 'Escape') {
         if (elements.showNotesModal && !elements.showNotesModal.classList.contains('hidden')) {
@@ -7298,11 +7484,23 @@
       if (!AudioCtx) return;
       liveAudioCtx = new AudioCtx();
 
-      liveAudioSource = liveAudioCtx.createMediaElementSource(elements.audio);
+      if (liveAudioCtx.state === 'suspended') {
+        liveAudioCtx.resume().catch(() => {});
+      }
+
+      elements.audio.crossOrigin = "anonymous";
+      try {
+        liveAudioSource = liveAudioCtx.createMediaElementSource(elements.audio);
+      } catch (e) {
+        console.warn('[anypod] CORS media source error, bypassing Web Audio graph:', e);
+        liveAudioSource = null;
+        return;
+      }
+
       liveCompressor = liveAudioCtx.createDynamicsCompressor();
       liveGainNode = liveAudioCtx.createGain();
       liveAnalyser = liveAudioCtx.createAnalyser();
-      liveAnalyser.fftSize = 256;
+      liveAnalyser.fftSize = 512;
       liveTimeData = new Float32Array(liveAnalyser.fftSize);
 
       // Studio Spoken-Word Voice Compressor curve
@@ -7347,6 +7545,11 @@
     }
   }
 
+  function setVoiceBoost(enabled) {
+    state.experimentalSettings.enableVolumeBoost = !!enabled;
+    updateDspRouting();
+  }
+
   function startSilenceDetectionLoop() {
     if (liveDspInterval) clearInterval(liveDspInterval);
     liveDspInterval = setInterval(() => {
@@ -7379,7 +7582,7 @@
         if (silenceDurationMs >= 350) {
           if (!isAcceleratingSilence && elements.audio) {
             isAcceleratingSilence = true;
-            elements.audio.playbackRate = 3.0;
+            elements.audio.playbackRate = 2.5;
           }
         }
       } else {

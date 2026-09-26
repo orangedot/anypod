@@ -86,7 +86,7 @@
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
-          <input type="text" id="omnibar" placeholder="search podcasts…" aria-label="Search podcasts" autocomplete="off">
+          <input type="text" id="omnibar" placeholder="Search episodes, podcasts, or paste RSS URL... (⌘K)" aria-label="Search episodes, podcasts, or paste RSS URL" autocomplete="off">
           <button type="button" class="btn-clear-search hidden" id="btn-clear-search" title="clear search" aria-label="clear search">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -94,6 +94,7 @@
             </svg>
           </button>
         </div>
+        <div class="omnibar-dropdown hidden" id="omnibar-dropdown"></div>
       </div>
 
       <nav class="nav-tabs" aria-label="main navigation">

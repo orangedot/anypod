@@ -18,6 +18,7 @@ let isAcceleratingSilence = false;
 
 /**
  * Initializes the live Web Audio graph connected to the HTMLMediaElement.
+ * Must be called or resumed on the first user gesture.
  */
 export function initLiveDspGraph() {
   if (liveAudioCtx || !elements.audio) return;
@@ -26,13 +27,19 @@ export function initLiveDspGraph() {
     if (!AudioCtx) return;
     liveAudioCtx = new AudioCtx();
 
+    // Synchronously resume if in user gesture
+    if (liveAudioCtx.state === 'suspended') {
+      liveAudioCtx.resume().catch(() => {});
+    }
+
     // Ensure CORS works; fallback to direct playback if it fails
     elements.audio.crossOrigin = "anonymous";
     try {
       liveAudioSource = liveAudioCtx.createMediaElementSource(elements.audio);
     } catch (e) {
       console.warn('[anypod] CORS media source error, bypassing Web Audio graph:', e);
-      liveAudioSource = null; // fallback: no Web Audio processing
+      liveAudioSource = null; // fallback: hardware output directly via element
+      return;
     }
 
     liveCompressor = liveAudioCtx.createDynamicsCompressor();
@@ -87,6 +94,15 @@ export function updateDspRouting() {
 }
 
 /**
+ * Dynamically switches voice boost compressor routing on/off.
+ * @param {boolean} enabled
+ */
+export function setVoiceBoost(enabled) {
+  state.experimentalSettings.enableVolumeBoost = !!enabled;
+  updateDspRouting();
+}
+
+/**
  * Resumes suspended AudioContext on user gesture.
  */
 export function resumeLiveDsp() {
@@ -125,12 +141,13 @@ export function startSilenceDetectionLoop() {
     }
     const rms = Math.sqrt(sum / liveTimeData.length);
 
+    // Silence detection: RMS < 0.015 for >350ms
     if (rms < 0.015) {
       silenceDurationMs += 100;
       if (silenceDurationMs >= 350) {
         if (!isAcceleratingSilence && elements.audio) {
           isAcceleratingSilence = true;
-          elements.audio.playbackRate = 3.0;
+          elements.audio.playbackRate = 2.5;
         }
       }
     } else {
