@@ -116,17 +116,11 @@
           </div>
         </div>
         <div class="search-discover-preview hidden" id="search-discover-preview">
-          <div class="discover-preview-header">
-            <span class="discover-preview-tag">podcast discover preview</span>
-            <button type="button" class="discover-preview-more-btn" id="btn-discover-see-all">
-              see all in discover →
-            </button>
-          </div>
           <div class="discover-preview-scroll" id="discover-preview-scroll">
-            <!-- 3 live search results render here -->
+            <!-- 5 podcast cards + trailing 'see all in discover' button render here -->
           </div>
         </div>
-        
+
         <!-- Settings gear icon -->
         <button class="btn-icon btn-header-settings" id="btn-open-settings" title="settings" aria-label="open settings">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -151,21 +145,16 @@
         <div class="status-banner hidden" id="status-banner"></div>
         <div class="continue-shelf hidden" id="continue-shelf">
           <div class="shelf-grid" id="continue-grid"></div>
-          <div class="shelf-header">
-            <div class="shelf-header-group">
-              <span class="shelf-title">continue listening</span>
-              <button class="btn-shelf-toggle" id="btn-toggle-continue" aria-label="toggle continue shelf">
-                <span id="continue-toggle-label">show all</span>
-                <svg class="chevron-icon" id="continue-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-              </button>
-            </div>
-          </div>
-          <div class="continue-sticky-bar hidden" id="continue-sticky-bar">
-            <button type="button" class="btn-continue-sticky-collapse" id="btn-continue-sticky-collapse">
-              <span>show less continue listening</span>
+          
+          <!-- Unified toggle pill wrapper -->
+          <div class="continue-toggle-wrap">
+            <button class="btn-shelf-toggle" id="btn-toggle-continue" aria-label="toggle continue shelf">
+              <span id="continue-toggle-label">show all</span>
+              <svg class="chevron-icon" id="continue-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
             </button>
           </div>
         </div>
+
         <div class="episode-list" id="timeline-list"></div>
       </section>
 

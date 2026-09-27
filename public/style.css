@@ -800,23 +800,11 @@ body.has-active-episode .app-container {
   font-weight: 500;
 }
 
-.continue-shelf {
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  padding: 0;
-  margin-top: 1.5rem;
-  margin-bottom: 2rem;
-}
 
-[data-theme="light"] .continue-shelf,
-:root:not([data-theme="dark"]) .continue-shelf {
-  background: transparent;
-}
 
-.continue-sticky-bar {
+/*.continue-sticky-bar {
   position: sticky;
-  bottom: 44px;
+  bottom: 0px;
   left: 0;
   right: 0;
   display: flex;
@@ -827,7 +815,60 @@ body.has-active-episode .app-container {
   padding-bottom: 0.5rem;
 }
 body.has-active-episode .continue-sticky-bar {
-  bottom: 94px;
+  bottom: 54px;
+}*/
+/* Container that holds the toggle pill */
+.continue-toggle-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 1rem 0;
+  transition: all 0.2s ease;
+}
+
+.continue-shelf {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin-top: 1.5rem;
+  margin-bottom: 2rem;
+}
+.continue-shelf {
+    padding: 0;
+    margin-bottom: 1.5rem;
+  }
+
+[data-theme="light"] .continue-shelf,
+:root:not([data-theme="dark"]) .continue-shelf {
+  background: transparent;
+}
+
+.continue-shelf.is-expanded .continue-toggle-wrap {
+  position: sticky;
+  bottom: 15px; /* Above the player bar */
+  left: 0;
+  right: 0;
+  z-index: 80;
+  pointer-events: none; /* Let clicks pass through empty sides */
+  display: flex;
+  justify-content: center;
+}
+body.has-active-episode .continue-shelf.is-expanded .continue-toggle-wrap {
+  bottom: 65px;
+}
+
+/* Ensure the button inside is clickable and has elevation while sticky */
+.continue-shelf.is-expanded .continue-toggle-wrap #btn-toggle-continue {
+  pointer-events: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  background: var(--bg-card);
+  border: 1px solid var(--border-focus);
+}
+
+@media (max-width: 768px) {
+  .continue-shelf.is-expanded .continue-toggle-wrap {
+    bottom: 120px; /* Clearance on mobile */
+  }
 }
 
 .continue-sticky-bar.hidden {
@@ -1202,18 +1243,15 @@ body.has-active-episode .continue-sticky-bar {
 /* Container for the live preview strip */
 .search-discover-preview {
   position: absolute;
-  top: calc(100% + 6px);
+  top: 100%;
   left: 0;
   right: 0;
   background: var(--bg-card);
   border: 1px solid var(--border-default);
   border-radius: 12px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
-  padding: 0.6rem 0.75rem;
+  padding: 0rem 0.5rem;
   z-index: 10000;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
   backdrop-filter: blur(12px);
 }
 
@@ -1221,87 +1259,60 @@ body.has-active-episode .continue-sticky-bar {
   display: none !important;
 }
 
-/* Header row with "see all" link */
-.discover-preview-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.75rem;
-}
-
-.discover-preview-tag {
-  color: var(--text-muted);
-  text-transform: uppercase;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  font-size: 0.7rem;
-}
-
-.discover-preview-more-btn {
-  background: none;
-  border: none;
-  color: var(--accent-orange, #f97316);
-  font-weight: 600;
-  cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 4px;
-  font-size: 0.75rem;
-}
-
-.discover-preview-more-btn:hover {
-  text-decoration: underline;
-}
-
-/* Horizontal scroll row for the 3 cards */
+/* Horizontal scroll strip */
 .discover-preview-scroll {
   display: flex;
+  align-items: center;
   gap: 0.5rem;
   overflow-x: auto;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 2px;
+  padding: 2px 1px;
 }
 
 .discover-preview-scroll::-webkit-scrollbar {
   display: none;
 }
 
-/* Individual preview card */
+/* 5 compact preview cards */
 .discover-preview-item {
-  flex: 0 0 160px;
+  flex: 0 0 250px;
+  max-width: 250px;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
   background: var(--bg-subtle, rgba(255, 255, 255, 0.04));
-  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
-  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  padding: 0.35rem 0.45rem;
   border-radius: 8px;
   cursor: pointer;
-  text-align: left;
+  box-sizing: border-box;
   transition: background 0.15s ease, transform 0.15s ease;
 }
 
 .discover-preview-item:hover {
   background: var(--bg-hover, rgba(255, 255, 255, 0.08));
-  transform: translateY(-1px);
 }
 
 .discover-preview-item img {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
+  width: 60px;
+  height: 60px;
+  border-radius: 3px;
   object-fit: cover;
   flex-shrink: 0;
 }
 
+/* Constrained text container so titles never stretch or overflow */
 .discover-preview-item-info {
+  flex: 1 1 auto;
+  min-width: 0; /* Critical for ellipsis truncation inside flex */
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
 .discover-preview-title {
-  font-size: 0.75rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
@@ -1310,11 +1321,65 @@ body.has-active-episode .continue-sticky-bar {
 }
 
 .discover-preview-artist {
-  font-size: 0.68rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Inline "+" save button */
+.discover-preview-add-btn {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--border-default);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.discover-preview-add-btn:hover:not(:disabled) {
+  background: var(--primary, #f97316);
+  color: #fff;
+  border-color: var(--primary, #f97316);
+}
+
+.discover-preview-add-btn.is-subbed {
+  border-color: transparent;
+  color: #22c55e;
+  cursor: default;
+  font-size: 0.8rem;
+}
+
+/* Trailing "see all in discover →" button styled as last card */
+.discover-preview-see-all-card {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  background: transparent;
+  border: 1px dashed var(--border-default);
+  border-radius: 8px;
+  color: var(--primary, #f97316);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.discover-preview-see-all-card:hover {
+  background: rgba(249, 115, 22, 0.1);
 }
 
 select {
@@ -3439,7 +3504,7 @@ mark.search-highlight {
   position: fixed;
   bottom: calc(6px + env(safe-area-inset-bottom, 0px));
   right: 0.75rem;
-  z-index: 90;
+  z-index: 30;
   transition: bottom 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 
   display: flex;
@@ -3670,9 +3735,14 @@ body.has-active-episode.has-mini-player .bottom-action-dock {
   .search-discover-preview {
     position: fixed;
     top: 56px;
-    left: 12px;
-    right: 12px;
+    left: 10px;
+    right: 10px;
     width: auto;
+  }
+
+  .discover-preview-item {
+    flex: 0 0 145px;
+    max-width: 145px;
   }
 }
 
@@ -4921,11 +4991,6 @@ body.has-active-episode.has-mini-player .player-mini {
 
   .feed-info p {
     font-size: 0.68rem;
-  }
-
-  .continue-shelf {
-    padding: 0;
-    margin-bottom: 1.5rem;
   }
 
   .bottom-action-dock {

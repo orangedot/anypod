@@ -503,8 +503,6 @@
     continueCount: document.getElementById('continue-count'),
     btnToggleContinue: document.getElementById('btn-toggle-continue'),
     continueToggleLabel: document.getElementById('continue-toggle-label'),
-    continueStickyBar: document.getElementById('continue-sticky-bar'),
-    btnContinueStickyCollapse: document.getElementById('btn-continue-sticky-collapse'),
     playedCount: document.getElementById('played-count'),
     downloadedCount: document.getElementById('downloaded-count'),
     offlineBadge: document.getElementById('offline-badge'),
@@ -3405,7 +3403,6 @@
 
     if (inProgressEps.length === 0 || state.filterMode === 'played') {
       elements.continueShelf.classList.add('hidden');
-      if (elements.continueStickyBar) elements.continueStickyBar.classList.add('hidden');
       return;
     }
 
@@ -3417,17 +3414,15 @@
     if (elements.btnToggleContinue && elements.continueToggleLabel) {
       if (inProgressEps.length <= capacity) {
         elements.btnToggleContinue.style.display = 'none';
-        if (elements.continueStickyBar) elements.continueStickyBar.classList.add('hidden');
+        elements.continueShelf.classList.remove('is-expanded');
       } else {
         elements.btnToggleContinue.style.display = 'inline-flex';
         if (state.continueCollapsed) {
-          elements.continueToggleLabel.textContent = `Show all (${inProgressEps.length})`;
+          elements.continueToggleLabel.textContent = `show all (${inProgressEps.length})`;
           elements.continueShelf.classList.remove('is-expanded');
-          if (elements.continueStickyBar) elements.continueStickyBar.classList.add('hidden');
         } else {
-          elements.continueToggleLabel.textContent = 'Show less';
+          elements.continueToggleLabel.textContent = 'show less';
           elements.continueShelf.classList.add('is-expanded');
-          if (elements.continueStickyBar) elements.continueStickyBar.classList.remove('hidden');
         }
       }
     }
@@ -6292,59 +6287,15 @@ function setPlayerCollapsed(collapsed, save = true) {
       renderOfflineStorageSettings();
     });
 
-    // In setupEventListeners:
+    // ───────────────────────────────────────────────────────────────────────
+    // Search Discover Live Preview (5 items + trailing 'see all' card)
+    // ───────────────────────────────────────────────────────────────────────
     let discoverSearchTimer = null;
     const previewContainer = document.getElementById('search-discover-preview');
     const previewScroll = document.getElementById('discover-preview-scroll');
-    const btnSeeAll = document.getElementById('btn-discover-see-all');
 
-    elements.searchInput?.addEventListener('input', (e) => {
-      const q = e.target.value.trim();
-      clearTimeout(discoverSearchTimer);
-
-      if (q.length < 2) {
-        previewContainer?.classList.add('hidden');
-        return;
-      }
-
-      discoverSearchTimer = setTimeout(async () => {
-        try {
-          const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=podcast&entity=podcast&limit=3`);
-          if (!res.ok) return;
-          const data = await res.json();
-          if (!data.results || data.results.length === 0) {
-            previewContainer?.classList.add('hidden');
-            return;
-          }
-
-          if (previewScroll) {
-            previewScroll.innerHTML = data.results.map(pod => `
-              <div class="discover-preview-item" data-feed-url="${encodeURIComponent(pod.feedUrl || '')}">
-                <img src="${pod.artworkUrl60 || pod.artworkUrl100 || ''}" alt="" onerror="this.src=FALLBACK_ARTWORK">
-                <div class="discover-preview-item-info">
-                  <span class="discover-preview-title">${escapeHtml(pod.collectionName || 'Unknown')}</span>
-                  <span class="discover-preview-artist">${escapeHtml(pod.artistName || '')}</span>
-                </div>
-              </div>
-            `).join('');
-
-            previewScroll.querySelectorAll('.discover-preview-item').forEach(item => {
-              item.addEventListener('click', () => {
-                const feedUrl = decodeURIComponent(item.dataset.feedUrl);
-                if (feedUrl) openFeedDetail(feedUrl);
-              });
-            });
-          }
-
-          previewContainer?.classList.remove('hidden');
-        } catch (_) {}
-      }, 300);
-    });
-
-    btnSeeAll?.addEventListener('click', () => {
-      const q = elements.searchInput?.value.trim() || '';
-
-      // 1. Clear general top search bar and state
+    // Helper: completely close & reset header search
+    function dismissHeaderSearch() {
       if (elements.searchInput) {
         elements.searchInput.value = '';
         elements.searchInput.blur();
@@ -6352,26 +6303,161 @@ function setPlayerCollapsed(collapsed, save = true) {
       state.searchQuery = '';
       if (elements.btnClearSearch) elements.btnClearSearch.classList.add('hidden');
       if (elements.searchBarWrap) elements.searchBarWrap.classList.remove('has-text');
-      previewContainer?.classList.add('hidden');
+      if (previewContainer) previewContainer.classList.add('hidden');
+    }
 
-      // 2. Switch to Discover tab & scroll to the top
-      navigateTo('discover');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    elements.searchInput?.addEventListener('input', (e) => {
+      const q = e.target.value.trim();
+      clearTimeout(discoverSearchTimer);
 
-      // 3. Populate Discover search & trigger results
-      const discInput = document.getElementById('empty-quick-input');
-      if (discInput && q) {
-        discInput.value = q;
-        const quickResults = document.getElementById('empty-quick-results');
-        if (quickResults) searchPodcastDirectory(q, quickResults);
+      if (q.length < 2) {
+        if (previewContainer) previewContainer.classList.add('hidden');
+        return;
       }
+
+      discoverSearchTimer = setTimeout(async () => {
+        try {
+          // Fetch 5 matching shows
+          const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=podcast&entity=podcast&limit=5`);
+          if (!res.ok) return;
+          const data = await res.json();
+          if (!data.results || data.results.length === 0) {
+            if (previewContainer) previewContainer.classList.add('hidden');
+            return;
+          }
+
+          if (previewScroll) {
+            // 1. Five podcast cards with inline '+' save button
+            const cardsHtml = data.results.map(pod => {
+              const feedUrl = pod.feedUrl || '';
+              const isSubbed = state.feeds.includes(feedUrl);
+              const title = pod.collectionName || 'Unknown';
+              const artist = pod.artistName || '';
+              const artwork = pod.artworkUrl60 || pod.artworkUrl100 || '';
+
+              return `
+                <div class="discover-preview-item" data-feed-url="${encodeURIComponent(feedUrl)}" data-title="${escapeHtml(title)}" data-artwork="${escapeHtml(artwork)}">
+                  <img src="${artwork}" alt="" onerror="this.src=FALLBACK_ARTWORK">
+                  <div class="discover-preview-item-info">
+                    <span class="discover-preview-title">${escapeHtml(title)}</span>
+                    <span class="discover-preview-artist">${escapeHtml(artist)}</span>
+                  </div>
+                  <button type="button" class="discover-preview-add-btn ${isSubbed ? 'is-subbed' : ''}" title="${isSubbed ? 'Subscribed' : 'Save podcast'}" ${isSubbed ? 'disabled' : ''}>
+                    ${isSubbed ? '✓' : '+'}
+                  </button>
+                </div>
+              `;
+            }).join('');
+
+            // 2. Trailing 'see all in discover →' card in the same row
+            const seeAllHtml = `
+              <button type="button" class="discover-preview-see-all-card" id="btn-discover-see-all">
+                <span>see all in discover</span>
+                <span style="font-size: 1.1rem; line-height: 1;">→</span>
+              </button>
+            `;
+
+            previewScroll.innerHTML = cardsHtml + seeAllHtml;
+
+            // Clicking any card closes search & opens feed detail
+            previewScroll.querySelectorAll('.discover-preview-item').forEach(item => {
+              item.addEventListener('click', (ev) => {
+                if (ev.target.closest('.discover-preview-add-btn')) return;
+                const feedUrl = decodeURIComponent(item.dataset.feedUrl);
+                if (feedUrl) {
+                  dismissHeaderSearch();
+                  if (!state.feedMetadata[feedUrl]) {
+                    state.feedMetadata[feedUrl] = {
+                      title: item.dataset.title || '',
+                      author: '',
+                      artwork: item.dataset.artwork || ''
+                    };
+                  }
+                  openFeedDetail(feedUrl);
+                }
+              });
+            });
+
+            // Inline '+' / '✓' button
+            previewScroll.querySelectorAll('.discover-preview-add-btn').forEach(btn => {
+              btn.addEventListener('click', async (ev) => {
+                ev.stopPropagation();
+                const parent = btn.closest('.discover-preview-item');
+                const feedUrl = decodeURIComponent(parent.dataset.feedUrl);
+                const title = parent.dataset.title || '';
+                const artwork = parent.dataset.artwork || '';
+
+                if (feedUrl && !state.feeds.includes(feedUrl)) {
+                  btn.textContent = '...';
+                  await addFeed(feedUrl, title, artwork);
+                  btn.textContent = '✓';
+                  btn.classList.add('is-subbed');
+                  btn.disabled = true;
+                }
+              });
+            });
+
+            // Clicking trailing 'see all in discover' closes search & navigates to discover tab
+            const btnSeeAllEl = document.getElementById('btn-discover-see-all');
+            btnSeeAllEl?.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              const term = q;
+              dismissHeaderSearch();
+              navigateTo('discover');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+
+              const discInput = document.getElementById('empty-quick-input');
+              if (discInput && term) {
+                discInput.value = term;
+                const quickResults = document.getElementById('empty-quick-results');
+                if (quickResults) searchPodcastDirectory(term, quickResults);
+              }
+            });
+          }
+
+          if (previewContainer) previewContainer.classList.remove('hidden');
+        } catch (_) {}
+      }, 300);
     });
 
+    // Clicking anywhere outside closes the preview
     document.addEventListener('click', (e) => {
       if (!e.target.closest('#header-search') && previewContainer) {
         previewContainer.classList.add('hidden');
       }
     });
+
+    // btnSeeAll?.addEventListener('click', () => {
+    //   const q = elements.searchInput?.value.trim() || '';
+
+    //   // 1. Clear general top search bar and state
+    //   if (elements.searchInput) {
+    //     elements.searchInput.value = '';
+    //     elements.searchInput.blur();
+    //   }
+    //   state.searchQuery = '';
+    //   if (elements.btnClearSearch) elements.btnClearSearch.classList.add('hidden');
+    //   if (elements.searchBarWrap) elements.searchBarWrap.classList.remove('has-text');
+    //   previewContainer?.classList.add('hidden');
+
+    //   // 2. Switch to Discover tab & scroll to the top
+    //   navigateTo('discover');
+    //   window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    //   // 3. Populate Discover search & trigger results
+    //   const discInput = document.getElementById('empty-quick-input');
+    //   if (discInput && q) {
+    //     discInput.value = q;
+    //     const quickResults = document.getElementById('empty-quick-results');
+    //     if (quickResults) searchPodcastDirectory(q, quickResults);
+    //   }
+    // });
+
+    // document.addEventListener('click', (e) => {
+    //   if (!e.target.closest('#header-search') && previewContainer) {
+    //     previewContainer.classList.add('hidden');
+    //   }
+    // });
 
     if (elements.btnClearSearch) {
       elements.btnClearSearch.addEventListener('click', (e) => {
@@ -6424,20 +6510,26 @@ function setPlayerCollapsed(collapsed, save = true) {
 
     if (elements.btnToggleContinue) {
       elements.btnToggleContinue.addEventListener('click', () => {
+        const wasExpanded = !state.continueCollapsed;
         state.continueCollapsed = !state.continueCollapsed;
         renderContinueShelf();
-      });
-    }
 
-    if (elements.btnContinueStickyCollapse) {
-      elements.btnContinueStickyCollapse.addEventListener('click', () => {
-        state.continueCollapsed = true;
-        renderContinueShelf();
-        if (elements.continueShelf) {
+        // If user collapsed it from the bottom, scroll back to the top of the shelf
+        if (wasExpanded && elements.continueShelf) {
           elements.continueShelf.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       });
     }
+
+    // if (elements.btnContinueStickyCollapse) {
+    //   elements.btnContinueStickyCollapse.addEventListener('click', () => {
+    //     state.continueCollapsed = true;
+    //     renderContinueShelf();
+    //     if (elements.continueShelf) {
+    //       elements.continueShelf.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    //     }
+    //   });
+    // }
 
     if (elements.btnToggleEnlarge) {
       elements.btnToggleEnlarge.addEventListener('click', () => {
@@ -6988,7 +7080,7 @@ function setPlayerCollapsed(collapsed, save = true) {
       lastScrollY = currentScrollY;
 
       // Ignore if user didn't actively scroll DOWN by at least 30px
-      if (delta <= 30) return;
+      if (delta <= 25) return;
 
       if (scrollCollapseTimer) return;
       scrollCollapseTimer = setTimeout(() => {
@@ -7002,8 +7094,8 @@ function setPlayerCollapsed(collapsed, save = true) {
         } 
 
         if (document.body.classList.contains('has-active-episode')) {
-          if (window.scrollY > 300 && !document.body.classList.contains('has-mini-player')) {
-            console.log('[Anypod Debug] Threshold 300 exceeded! Minimizing player.');
+          if (window.scrollY > 200 && !document.body.classList.contains('has-mini-player')) {
+            console.log('[Anypod Debug] Threshold 200 exceeded! Minimizing player.');
             setPlayerCollapsed(true, false);
           }
         }

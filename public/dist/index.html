@@ -26,7 +26,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.min.css?v=1790523565823">
+  <link rel="stylesheet" href="style.min.css?v=1790530250471">
 </head>
 <body>
   <!-- Cloud Sync & Magic Auth Modal -->
@@ -116,17 +116,11 @@
           </div>
         </div>
         <div class="search-discover-preview hidden" id="search-discover-preview">
-          <div class="discover-preview-header">
-            <span class="discover-preview-tag">podcast discover preview</span>
-            <button type="button" class="discover-preview-more-btn" id="btn-discover-see-all">
-              see all in discover →
-            </button>
-          </div>
           <div class="discover-preview-scroll" id="discover-preview-scroll">
-            <!-- 3 live search results render here -->
+            <!-- 5 podcast cards + trailing 'see all in discover' button render here -->
           </div>
         </div>
-        
+
         <!-- Settings gear icon -->
         <button class="btn-icon btn-header-settings" id="btn-open-settings" title="settings" aria-label="open settings">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -160,12 +154,12 @@
               </button>
             </div>
           </div>
-          <div class="continue-sticky-bar hidden" id="continue-sticky-bar">
+          <!-- <div class="continue-sticky-bar hidden" id="continue-sticky-bar">
             <button type="button" class="btn-continue-sticky-collapse" id="btn-continue-sticky-collapse">
               <span>show less continue listening</span>
             </button>
           </div>
-        </div>
+        </div> -->
         <div class="episode-list" id="timeline-list"></div>
       </section>
 
@@ -539,7 +533,7 @@
         <option value="duration-asc">shortest first</option>
         <option value="duration-desc">longest first</option>
       </select>
-      <button class="btn btn-secondary btn-sm btn-dock-refresh" id="btn-refresh-all" title="refresh all feeds">refresh</button>
+      <!-- <button class="btn btn-secondary btn-sm btn-dock-refresh" id="btn-refresh-all" title="refresh all feeds">refresh</button> -->
     </aside>
 
     <!-- Sticky Audio Player Footer -->
@@ -695,6 +689,6 @@
   <script src="https://www.youtube.com/iframe_api"></script>
   <!-- Experimental defaults – must load before app.js -->
   <script src="scripts/settings.js?v=20260925b"></script>
-  <script src="app.min.js?v=1790523565823"></script>
+  <script src="app.min.js?v=1790530250471"></script>
 </body>
 </html>
