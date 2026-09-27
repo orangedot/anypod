@@ -26,7 +26,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.min.css?v=1790530250471">
+  <link rel="stylesheet" href="style.min.css?v=1790550181039">
 </head>
 <body>
   <!-- Cloud Sync & Magic Auth Modal -->
@@ -145,21 +145,16 @@
         <div class="status-banner hidden" id="status-banner"></div>
         <div class="continue-shelf hidden" id="continue-shelf">
           <div class="shelf-grid" id="continue-grid"></div>
-          <div class="shelf-header">
-            <div class="shelf-header-group">
-              <span class="shelf-title">continue listening</span>
-              <button class="btn-shelf-toggle" id="btn-toggle-continue" aria-label="toggle continue shelf">
-                <span id="continue-toggle-label">show all</span>
-                <svg class="chevron-icon" id="continue-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-              </button>
-            </div>
-          </div>
-          <!-- <div class="continue-sticky-bar hidden" id="continue-sticky-bar">
-            <button type="button" class="btn-continue-sticky-collapse" id="btn-continue-sticky-collapse">
-              <span>show less continue listening</span>
+          
+          <!-- Unified toggle pill wrapper -->
+          <div class="continue-toggle-wrap">
+            <button class="btn-shelf-toggle" id="btn-toggle-continue" aria-label="toggle continue shelf">
+              <span id="continue-toggle-label">show all</span>
+              <svg class="chevron-icon" id="continue-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
             </button>
           </div>
-        </div> -->
+        </div>
+
         <div class="episode-list" id="timeline-list"></div>
       </section>
 
@@ -481,21 +476,41 @@
 
     <div class="modal-overlay hidden" id="show-notes-modal">
       <div class="modal-card show-notes-modal-card">
+        <button class="btn-apple-close" id="btn-close-notes" aria-label="Close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+
+        <img class="show-notes-art" id="show-notes-art" src="" alt="" loading="lazy">
         <div class="modal-header">
           <div class="show-notes-header-wrap">
-            <span class="show-notes-podcast-tag" id="show-notes-podcast-title">podcast name</span>
+            <button type="button" class="show-notes-podcast-link" id="show-notes-podcast-title">
+              <span>podcast title</span>
+              <span class="podcast-link-arrow">→</span>
+            </button>
             <h2 class="show-notes-episode-title" id="show-notes-episode-title">episode title</h2>
             <div class="show-notes-meta" id="show-notes-meta"></div>
+            <!-- Prominent Apple-style Play / Resume Button -->
+            <div class="show-notes-actions">
+              <button type="button" class="show-notes-play-btn" id="btn-notes-play">
+                <span class="notes-play-icon" id="notes-play-icon">
+                  <!-- Default Play icon -->
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
+                </span>
+                <span class="notes-play-label" id="notes-play-label">Play Episode</span>
+              </button>
+            </div>
           </div>
-          <button class="btn-close" id="btn-close-notes" aria-label="close show notes">&times;</button>
         </div>
-        <div class="modal-tabs show-notes-tabs">
+        <!-- <div class="modal-tabs show-notes-tabs">
           <button class="modal-tab-btn active" id="tab-btn-notes" type="button">show notes</button>
           <button class="modal-tab-btn" id="tab-btn-transcript" type="button">
             <span>transcript</span>
             <span class="transcript-source-pill hidden" id="transcript-source-pill">rss</span>
           </button>
-        </div>
+        </div> -->
         <div class="modal-body show-notes-modal-body">
           <div class="show-notes-content" id="show-notes-content"></div>
           <div class="show-transcript-content hidden" id="show-transcript-content">
@@ -689,6 +704,6 @@
   <script src="https://www.youtube.com/iframe_api"></script>
   <!-- Experimental defaults – must load before app.js -->
   <script src="scripts/settings.js?v=20260925b"></script>
-  <script src="app.min.js?v=1790530250471"></script>
+  <script src="app.min.js?v=1790550181039"></script>
 </body>
 </html>

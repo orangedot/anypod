@@ -228,6 +228,43 @@
     { title: "Ci vuole una scienza (Il Post)", feed: "https://feeds.megaphone.fm/IPS8073667277", lang: "it", badge: "IT • Scienza", topic: "science" },
     { title: "Vetenskapsradion Klotet (SR)", feed: "https://api.sr.se/api/rss/pod/3966", lang: "sv", badge: "SV • Miljö & Klimat", topic: "climate" }
   ];
+  
+  const _curatedArtworkCache = {};
+
+  async function loadCuratedArtworks(container) {
+    if (!container) return;
+    const cards = container.querySelectorAll('.starter-show-card');
+
+    for (const card of cards) {
+      const feedUrl = card.dataset.feed;
+      const title = card.dataset.title;
+      const img = card.querySelector('.feed-art');
+      if (!img || !feedUrl) continue;
+
+      // 1. Return from existing state or memory cache
+      if (state.feedMetadata[feedUrl]?.artwork) {
+        img.src = state.feedMetadata[feedUrl].artwork;
+        continue;
+      }
+      if (_curatedArtworkCache[feedUrl]) {
+        img.src = _curatedArtworkCache[feedUrl];
+        continue;
+      }
+
+      // 2. Fetch fresh high-res artwork from iTunes
+      try {
+        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=podcast&entity=podcast&limit=1`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.results && data.results[0]?.artworkUrl600) {
+            const artUrl = data.results[0].artworkUrl600;
+            _curatedArtworkCache[feedUrl] = artUrl;
+            img.src = artUrl;
+          }
+        }
+      } catch (_) {}
+    }
+  }
 
   // Helper to build curated science starter suggestions HTML
   function buildStarterSuggestionsHTML(activeFilter = 'all') {
@@ -258,22 +295,21 @@
 
     const chipsHTML = filtered.map(item => {
       const isSubbed = state.feeds.includes(item.feed);
+      const art = state.feedMetadata[item.feed]?.artwork || _curatedArtworkCache[item.feed] || FALLBACK_ARTWORK;
+
       return `
-        <div class="starter-show-card" data-feed="${escapeHtml(item.feed)}" data-title="${escapeHtml(item.title)}">
-          <div class="starter-show-card-top">
-            <span class="starter-show-badge">${escapeHtml(item.badge)}</span>
-            <button type="button" class="starter-chip-add ${isSubbed ? 'subscribed' : ''}" ${isSubbed ? 'disabled' : ''} title="${isSubbed ? 'subscribed' : 'follow show'}">
-              ${isSubbed ? '✓ followed' : '+ follow'}
-            </button>
-          </div>
-          <div class="starter-show-info">
-            <div class="starter-show-name" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
-          </div>
-          <div class="starter-show-actions">
-            <button type="button" class="starter-chip-preview-btn" title="view episodes &amp; prelisten">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
-              <span>prelisten</span>
-            </button>
+        <div class="feed-card starter-show-card" data-feed="${escapeHtml(item.feed)}" data-title="${escapeHtml(item.title)}">
+          <div class="feed-header">
+            <img class="feed-art" src="${art}" alt="" loading="lazy" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+            <div class="feed-info">
+              <h4>${escapeHtml(item.title)}</h4>
+              <p>${escapeHtml(item.badge)}</p>
+            </div>
+            <div class="feed-header-actions">
+              <button type="button" class="btn ${isSubbed ? 'btn-secondary' : 'btn-primary'} btn-sm starter-chip-add ${isSubbed ? 'subscribed' : ''}" ${isSubbed ? 'disabled' : ''}>
+                ${isSubbed ? '✓ followed' : '+ follow'}
+              </button>
+            </div>
           </div>
         </div>
       `;
@@ -298,8 +334,8 @@
   function wireStarterSuggestionsEvents(container) {
     if (!container) return;
 
-    const filterPills = container.querySelectorAll('.starter-filter-pill');
-    filterPills.forEach(pill => {
+    // Filter pills
+    container.querySelectorAll('.starter-filter-pill').forEach(pill => {
       pill.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -308,19 +344,19 @@
         if (section) {
           const newWrapper = document.createElement('div');
           newWrapper.innerHTML = buildStarterSuggestionsHTML(filter);
-          const newSection = newWrapper.firstElementChild;
-          section.replaceWith(newSection);
+          section.replaceWith(newWrapper.firstElementChild);
           wireStarterSuggestionsEvents(container);
         }
       });
     });
 
-    const chips = container.querySelectorAll('.starter-show-card, .starter-suggestion-chip');
-    chips.forEach(chip => {
-      const feedUrl = chip.dataset.feed;
+    // Feed cards
+    container.querySelectorAll('.starter-show-card').forEach(card => {
+      const feedUrl = card.dataset.feed;
       if (!feedUrl) return;
 
-      const addBtn = chip.querySelector('.starter-chip-add');
+      // '+ follow' button
+      const addBtn = card.querySelector('.starter-chip-add');
       if (addBtn) {
         addBtn.addEventListener('click', async (e) => {
           e.preventDefault();
@@ -331,39 +367,30 @@
           }
           addBtn.textContent = 'Adding...';
           try {
-            await addFeed(feedUrl, chip.dataset.title || '');
-            addBtn.textContent = 'Subscribed';
-            addBtn.classList.add('subscribed');
+            await addFeed(feedUrl, card.dataset.title || '');
+            addBtn.textContent = '✓ followed';
+            addBtn.classList.remove('btn-primary');
+            addBtn.classList.add('btn-secondary');
             addBtn.disabled = true;
             showStatus('Subscribed! Added to your library');
           } catch (err) {
             console.error('Error adding feed:', err);
-            addBtn.textContent = '+ Follow';
+            addBtn.textContent = '+ follow';
           }
         });
       }
 
-      const openPreview = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
+      // Card body click -> Open Feed Detail preview
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.starter-chip-add')) return;
         if (elements.addModal && !elements.addModal.classList.contains('hidden')) {
           closeAddModal();
         }
         openFeedDetail(feedUrl);
-      };
-
-      // Make the entire card clickable (except the follow button)
-      chip.addEventListener('click', (e) => {
-        if (e.target.closest('.starter-chip-add')) return;
-        openPreview(e);
       });
-
-      const previewBtn = chip.querySelector('.starter-chip-preview-btn');
-      if (previewBtn) previewBtn.addEventListener('click', openPreview);
-
-      const nameEl = chip.querySelector('.starter-show-name, .starter-chip-name');
-      if (nameEl) nameEl.addEventListener('click', openPreview);
     });
+
+    loadCuratedArtworks(container);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -554,9 +581,13 @@
 
     showNotesModal: document.getElementById('show-notes-modal'),
     btnCloseNotes: document.getElementById('btn-close-notes'),
+    showNotesArt: document.getElementById('show-notes-art'),
     showNotesPodcastTitle: document.getElementById('show-notes-podcast-title'),
     showNotesEpisodeTitle: document.getElementById('show-notes-episode-title'),
     showNotesMeta: document.getElementById('show-notes-meta'),
+    btnNotesPlay: document.getElementById('btn-notes-play'),
+    notesPlayIcon: document.getElementById('notes-play-icon'),
+    notesPlayLabel: document.getElementById('notes-play-label'),
     showNotesContent: document.getElementById('show-notes-content'),
     tabBtnNotes: document.getElementById('tab-btn-notes'),
     tabBtnTranscript: document.getElementById('tab-btn-transcript'),
@@ -653,6 +684,42 @@
       e.preventDefault();
       navigateBack();
     });
+  }
+
+  function syncShowNotesPlayButton(ep) {
+    if (!elements.btnNotesPlay || !ep) return;
+
+    const isCurrent = state.currentEpisode && state.currentEpisode.guid === ep.guid;
+    const isPlaying = isCurrent && state.playbackStatus === 'playing';
+    const isLoading = isCurrent && state.playbackStatus === 'loading';
+
+    const savedPos = state.playbackPositions[ep.guid];
+    const hasProgress = savedPos && !savedPos.completed && savedPos.position > 2;
+
+    if (elements.notesPlayIcon) {
+      if (isLoading) {
+        elements.notesPlayIcon.innerHTML = CARD_ICONS.SPINNER;
+      } else if (isPlaying) {
+        elements.notesPlayIcon.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`;
+      } else {
+        elements.notesPlayIcon.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>`;
+      }
+    }
+
+    if (elements.notesPlayLabel) {
+      if (isLoading) {
+        elements.notesPlayLabel.textContent = 'Loading...';
+      } else if (isPlaying) {
+        elements.notesPlayLabel.textContent = 'Pause';
+      } else if (hasProgress) {
+        elements.notesPlayLabel.textContent = `Resume (${formatTime(savedPos.position)})`;
+      } else {
+        const dur = ep.duration ? formatEpisodeDuration(ep.duration) : '';
+        elements.notesPlayLabel.textContent = dur ? `Play (${dur})` : 'Play Episode';
+      }
+    }
+
+    elements.btnNotesPlay.classList.toggle('is-playing', isPlaying);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -2583,7 +2650,7 @@
   }
 
   function processAndSortEpisodes() {
-    console.log('[Anypod Debug] processAndSortEpisodes running. FilterMode:', state.filterMode);
+    //console.log('[Anypod Debug] processAndSortEpisodes running. FilterMode:', state.filterMode);
     let list = [...state.allEpisodes];
 
     if (!state.searchQuery && state.mutedFeeds && state.mutedFeeds.length > 0) {
@@ -3554,132 +3621,11 @@
   // wireEmptyStateEvents — wires up the onboarding empty state UI.
   // ─────────────────────────────────────────────────────────────────────────
 
-  // function renderTimeline() {
-  //   updateDockVisibility();
-  //   const container = elements.timelineList;
-    
-
-  //   if (state.feeds.length === 0) {
-  //     container.innerHTML = `
-  //       <div class="empty-state onboarding-card">
-  //         <div class="empty-icon-wrap">
-  //           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-  //         </div>
-  //         <h3>no podcasts added yet</h3>
-  //         <p>search by podcast name, explore curated topics, paste any rss feed url, or import your opml library.</p>
-  //         <div class="empty-quick-add">
-  //           <form id="empty-quick-form" class="quick-add-form" action="javascript:void(0);">
-  //             <div class="quick-add-input-wrap">
-  //               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="quick-add-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-  //               <input type="text" id="empty-quick-input" placeholder="search podcast or paste rss url..." autocomplete="off">
-  //               <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-empty-quick-submit">search / add</button>
-  //             </div>
-  //           </form>
-  //           <div class="dir-filters-row">
-  //             <div class="empty-category-chips" id="empty-category-chips">
-  //               <button type="button" class="category-chip" data-category="Science">science</button>
-  //               <button type="button" class="category-chip" data-category="Climate">climate &amp; planet</button>
-  //               <button type="button" class="category-chip" data-category="Earth Nature">earth &amp; nature</button>
-  //               <button type="button" class="category-chip" data-category="Space Astronomy">space &amp; astronomy</button>
-  //               <button type="button" class="category-chip" data-category="Oceans Marine">oceans &amp; marine</button>
-  //               <button type="button" class="category-chip" data-category="Physics Quantum">physics &amp; quantum</button>
-  //               <button type="button" class="category-chip" data-category="Neuroscience Mind">neuroscience &amp; mind</button>
-  //               <button type="button" class="category-chip" data-category="Biology Genetics">biology &amp; genetics</button>
-  //               <button type="button" class="category-chip" data-category="Clean Energy">clean tech &amp; energy</button>
-  //               <button type="button" class="category-chip" data-category="Ecology Forests">ecology &amp; forests</button>
-  //               <button type="button" class="category-chip" data-category="Weather Atmosphere">weather &amp; atmosphere</button>
-  //               <button type="button" class="category-chip" data-category="Paleontology Fossils">paleontology &amp; fossils</button>
-  //               <button type="button" class="category-chip" data-category="Medicine Health">medicine &amp; health</button>
-  //               <button type="button" class="category-chip" data-category="AI Tech">artificial intelligence</button>
-  //               <button type="button" class="category-chip" data-category="History Science">history of science</button>
-  //               <button type="button" class="category-chip" data-category="Archaeology Ancient">archaeology &amp; ancient</button>
-  //               <button type="button" class="category-chip" data-category="Math Logic">math &amp; logic</button>
-  //               <button type="button" class="category-chip" data-category="Agriculture Food">agriculture &amp; food</button>
-  //               <button type="button" class="category-chip" data-category="Tech Robotics">technology &amp; robots</button>
-  //               <button type="button" class="category-chip" data-category="Wildlife Zoology">wildlife &amp; zoology</button>
-  //               <button type="button" class="category-chip" data-category="Chemistry Materials">chemistry &amp; materials</button>
-  //               <button type="button" class="category-chip" data-category="Philosophy Science">philosophy of science</button>
-  //               <button type="button" class="category-chip" data-category="Wissen DE">wissen (de)</button>
-  //               <button type="button" class="category-chip" data-category="Sciences FR">sciences &amp; climat (fr)</button>
-  //               <button type="button" class="category-chip" data-category="Ciencia ES">ciencia y naturaleza (es)</button>
-  //             </div>
-  //           </div>
-  //           <div id="empty-quick-results" class="quick-results-container"></div>
-  //         </div>
-  //         <div class="empty-actions">
-  //           <button class="btn btn-primary" id="btn-empty-open-add">find or add podcasts</button>
-  //           <button class="btn btn-secondary" id="btn-empty-opml-trigger">import opml file</button>
-  //         </div>
-  //         ${buildStarterSuggestionsHTML('all')}
-  //       </div>
-  //     `;
-  //     wireEmptyStateEvents();
-  //     return;
-  //   }
-
-  //   if (state.filteredEpisodes.length === 0) {
-  //     let emptyTitle = 'No episodes found';
-  //     let emptyMsg = 'Try clearing your search query or refreshing your feeds.';
-  //     if (state.filterMode === 'played') {
-  //       emptyTitle = 'No played episodes';
-  //       emptyMsg = 'Episodes you finish or mark as played will appear here.';
-  //     } else if (state.filterMode === 'continue') {
-  //       emptyTitle = 'No episodes in progress';
-  //       emptyMsg = 'Episodes you start listening to will appear here.';
-  //     } else if (state.filterMode === 'unplayed') {
-  //       emptyTitle = 'All caught up';
-  //       emptyMsg = 'You have listened to all episodes.';
-  //     } else if (state.filterMode === 'downloaded') {
-  //       emptyTitle = 'No downloaded episodes';
-  //       emptyMsg = 'Episodes you download for offline listening will appear here.';
-  //     }
-  //     container.innerHTML = `
-  //       <div class="empty-state">
-  //         <h3>${emptyTitle}</h3>
-  //         <p>${emptyMsg}</p>
-  //       </div>
-  //     `;
-  //     return;
-  //   }
-
-  //   container.innerHTML = '';
-  //   state.timelinePage = 1;
-  //   appendTimelineBatch();
-  // }
-
-  // let sentinelObserver = null;
-
-  // function appendTimelineBatch() {
-  //   const container = elements.timelineList;
-  //   if (!container) return;
-
-  //   const existingSentinel = document.getElementById('timeline-sentinel');
-  //   if (existingSentinel) existingSentinel.remove();
-
-  //   const start = (state.timelinePage - 1) * state.pageSize;
-  //   const end = state.timelinePage * state.pageSize;
-  //   const batch = state.filteredEpisodes.slice(start, end);
-
-  //   const frag = document.createDocumentFragment();
-  //   batch.forEach(ep => {
-  //     frag.appendChild(createEpisodeCard(ep));
-  //   });
-  //   container.appendChild(frag);
-
-  //   if (end < state.filteredEpisodes.length) {
-  //     const sentinel = document.createElement('div');
-  //     sentinel.id = 'timeline-sentinel';
-  //     sentinel.className = 'timeline-sentinel';
-  //     container.appendChild(sentinel);
-  //     setupSentinelObserver(sentinel);
-  //   }
-  // }
-
   function renderTimeline(preserveScroll = false) {
-    console.log('[Anypod Debug] renderTimeline called. preserveScroll:', preserveScroll, {
-      scrollTopBeforeRender: elements.timelineList?.scrollTop,
-      stack: new Error().stack.split('\n')[2] // Shows what triggered the render!
-    });
+    // console.log('[Anypod Debug] renderTimeline called. preserveScroll:', preserveScroll, {
+    //   scrollTopBeforeRender: elements.timelineList?.scrollTop,
+    //   stack: new Error().stack.split('\n')[2] // Shows what triggered the render!
+    // });
 
     updateDockVisibility();
     const container = elements.timelineList;
@@ -3814,6 +3760,7 @@
   function toggleMarkPlayed(ep) {
     const current = state.playbackPositions[ep.guid];
     const isCompleted = current && (current.completed === 1 || current.completed === true);
+
     if (isCompleted) {
       savePlaybackPositionToD1(ep.guid, 0, false);
     } else {
@@ -4009,20 +3956,63 @@
     const ep = targetEp || state.currentEpisode;
     if (!ep || !elements.showNotesModal) return;
 
-    if (elements.showNotesPodcastTitle) {
-      elements.showNotesPodcastTitle.textContent = ep.podcastTitle || 'Podcast';
+    // 1. Artwork
+    if (elements.showNotesArtwork || elements.showNotesArt) {
+      const artEl = elements.showNotesArtwork || elements.showNotesArt;
+      artEl.src = ep.artwork || FALLBACK_ARTWORK;
+      artEl.onerror = () => {
+        artEl.onerror = null;
+        artEl.src = FALLBACK_ARTWORK;
+      };
     }
+
+    // 2. Clickable Podcast Feed Name (larger & links to full show detail)
+    if (elements.showNotesPodcastTitle) {
+      elements.showNotesPodcastTitle.innerHTML = `
+        <span>${escapeHtml(ep.podcastTitle || 'Podcast')}</span>
+        <span class="podcast-link-arrow">→</span>
+      `;
+      elements.showNotesPodcastTitle.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        closeShowNotes();
+        if (ep.feedUrl) {
+          openFeedDetail(ep.feedUrl);
+        }
+      };
+    }
+
+    // 3. Episode Title
     if (elements.showNotesEpisodeTitle) {
       elements.showNotesEpisodeTitle.textContent = ep.title || 'Untitled Episode';
     }
+
+    // 4. Centered Rich Meta: Relative Date • Exact Date • Duration • Resume info
     if (elements.showNotesMeta) {
-      const dStr = ep.timestamp ? formatHumanRelativeDate(ep.timestamp) : (ep.pubDate || '');
+      const dateInput = ep.timestamp || ep.pubDate;
+      const relDate = dateInput ? formatHumanRelativeDate(dateInput) : '';
+      const fullDate = dateInput ? new Date(dateInput).toLocaleDateString(undefined, { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      }) : '';
       const dur = ep.duration ? formatEpisodeDuration(ep.duration) : '';
-      elements.showNotesMeta.innerHTML = [
-        dStr ? `<span>${escapeHtml(dStr)}</span>` : '',
-        dur ? `<span class="show-notes-duration">${escapeHtml(dur)}</span>` : ''
-      ].filter(Boolean).join(' • ');
+      
+      const savedPos = state.playbackPositions[ep.guid];
+      const hasProgress = savedPos && !savedPos.completed && savedPos.position > 2;
+      const resumeStr = hasProgress ? `resumes at ${formatTime(savedPos.position)}` : '';
+
+      const parts = [
+        relDate ? `<span class="meta-rel-date">${escapeHtml(relDate)}</span>` : '',
+        fullDate ? `<span class="meta-full-date">${escapeHtml(fullDate)}</span>` : '',
+        dur ? `<span class="meta-dur">${escapeHtml(dur)}</span>` : '',
+        resumeStr ? `<span class="meta-resume" style="color: var(--primary, #f97316);">${escapeHtml(resumeStr)}</span>` : ''
+      ].filter(Boolean);
+
+      elements.showNotesMeta.innerHTML = parts.join('<span class="meta-sep">•</span>');
     }
+
+    // 5. Notes Content
     if (elements.showNotesContent) {
       const rawContent = ep.content || ep.description || '';
       elements.showNotesContent.innerHTML = formatShowNotesHtml(rawContent);
@@ -4034,17 +4024,24 @@
           if (isNaN(sec)) return;
           if (state.currentEpisode && state.currentEpisode.guid === ep.guid) {
             seekToExactTime(sec);
-            if (state.playbackStatus !== 'playing') {
-              resumeCurrentEngine();
-            }
+            if (state.playbackStatus !== 'playing') resumeCurrentEngine();
           } else {
             playEpisode(ep);
-            setTimeout(() => {
-              seekToExactTime(sec);
-            }, 300);
+            setTimeout(() => seekToExactTime(sec), 300);
           }
         });
       });
+    }
+
+    // Wire main popup Play button
+    if (elements.btnNotesPlay) {
+      syncShowNotesPlayButton(ep);
+      elements.btnNotesPlay.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleEpisodePlayback(ep);
+        syncShowNotesPlayButton(ep);
+      };
     }
 
     switchShowNotesTab(defaultTab);
@@ -5165,10 +5162,10 @@
   }
 
   function playEpisode(episode, overrideStartTime) {
-    console.log('[Anypod Debug] playEpisode clicked for:', episode.title, {
-      scrollTopBefore: elements.timelineList?.scrollTop,
-      filterMode: state.filterMode
-    });
+    // console.log('[Anypod Debug] playEpisode clicked for:', episode.title, {
+    //   scrollTopBefore: elements.timelineList?.scrollTop,
+    //   filterMode: state.filterMode
+    // });
 
     state.currentEpisode = episode;
     state.playbackStatus = 'loading';
@@ -5628,6 +5625,7 @@
       }
     }
 
+
     if (elements.miniIconPlay && elements.miniIconPause && elements.miniIconSpinner) {
       if (isLoading) {
         elements.miniIconPlay.classList.add('hidden');
@@ -5642,6 +5640,10 @@
         elements.miniIconPause.classList.add('hidden');
         elements.miniIconSpinner.classList.add('hidden');
       }
+    }
+
+    if (elements.showNotesModal && !elements.showNotesModal.classList.contains('hidden') && state.currentEpisode) {
+      syncShowNotesPlayButton(state.currentEpisode);
     }
 
     const cards = document.querySelectorAll('.episode-card');
@@ -5704,13 +5706,13 @@
   }
 function setPlayerCollapsed(collapsed, save = true) {
     if (collapsed) {
-      console.log('[Anypod Debug] Player MINIMIZED (collapsed = true). Triggered by:', new Error().stack);
+      // console.log('[Anypod Debug] Player MINIMIZED (collapsed = true). Triggered by:', new Error().stack);
       document.body.classList.add('has-mini-player');
       document.body.classList.remove('has-full-player');
       if (elements.btnCollapsePlayer) elements.btnCollapsePlayer.setAttribute('aria-expanded', 'false');
       if (elements.miniToggle) elements.miniToggle.setAttribute('aria-expanded', 'false');
     } else {
-      console.log('[Anypod Debug] Player EXPANDED (collapsed = false).');
+      // console.log('[Anypod Debug] Player EXPANDED (collapsed = false).');
       // Cooldown timer to prevent background reflows from immediately re-collapsing
       state._lastPlayerExpandTime = Date.now();
       document.body.classList.remove('has-mini-player');
@@ -7085,17 +7087,17 @@ function setPlayerCollapsed(collapsed, save = true) {
       if (scrollCollapseTimer) return;
       scrollCollapseTimer = setTimeout(() => {
         scrollCollapseTimer = null;
-        console.log('[Anypod Debug] Scroll event fired. current window.scrollY:', window.scrollY);
+        // console.log('[Anypod Debug] Scroll event fired. current window.scrollY:', window.scrollY);
         
         // Skip if player was expanded less than 2.5s ago
         if (Date.now() - (state._lastPlayerExpandTime || 0) < 2500){
-          console.log('[Anypod Debug] _lastPlayerExpandTime');
+          // console.log('[Anypod Debug] _lastPlayerExpandTime');
           return;
         } 
 
         if (document.body.classList.contains('has-active-episode')) {
           if (window.scrollY > 200 && !document.body.classList.contains('has-mini-player')) {
-            console.log('[Anypod Debug] Threshold 200 exceeded! Minimizing player.');
+            // console.log('[Anypod Debug] Threshold 200 exceeded! Minimizing player.');
             setPlayerCollapsed(true, false);
           }
         }

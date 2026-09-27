@@ -3741,8 +3741,8 @@ body.has-active-episode.has-mini-player .bottom-action-dock {
   }
 
   .discover-preview-item {
-    flex: 0 0 145px;
-    max-width: 145px;
+    flex: 0 0 200px;
+    max-width: 200px;
   }
 }
 
@@ -5278,7 +5278,10 @@ body.has-active-episode.has-mini-player .player-mini {
   }
 
   .starter-suggestions-grid {
-    gap: 0.35rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
   }
 
   .starter-suggestion-chip {
@@ -5743,17 +5746,237 @@ body.has-active-episode.has-mini-player .player-mini {
 }
 
 .show-notes-modal-card {
-  max-width: 620px;
-  width: 92%;
-  max-height: 85vh;
+  max-height: 90vh;
+  min-width: 640px;
+  overflow-y: auto !important;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
+  position: relative;
+  border-radius: 24px;
+  background: var(--bg-card, #1c1c1e);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  padding: 1.5rem 1.75rem 2rem 1.75rem;
+  scrollbar-width: thin;
+}
+
+.btn-apple-close {
+  position: absolute;
+  top: 1.1rem;
+  right: 1.1rem;
+  z-index: 20;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(120, 120, 128, 0.2);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+  padding: 0;
+}
+
+.btn-apple-close:hover {
+  background: rgba(120, 120, 128, 0.35);
+  transform: scale(1.05);
+}
+
+.btn-apple-close:active {
+  transform: scale(0.95);
+}
+
+.show-notes-modal-card .show-notes-modal-body,
+.show-notes-modal-card .modal-body {
+  padding: 0px;
+  overflow-y: visible !important;
+  max-height: none !important;
+  flex: none !important;
+  padding-top: 0;
+}
+
+#show-notes-art,
+.show-notes-art {
+  display: block;
+  margin: 0.5rem auto 1.25rem auto;
+  width: 340px;
+  height: 340px;
+  max-width: 80%;
+  object-fit: cover;
+  border-radius: 20px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* 3. Keep the close button neatly pinned in the top-right corner while scrolling */
+.show-notes-modal-card .btn-apple-close,
+.show-notes-modal-card .btn-close-notes,
+.show-notes-modal-card .btn-close {
+  position: sticky;
+  top: 0.75rem;          /* Sticks 12px from the top edge during scroll */
+  align-self: flex-end;  /* Pushes it all the way to the right side */
+  margin-right: -0.25rem;/* Aligns nicely with the padding edge */
+  margin-bottom: -32px;  /* Pulls subsequent artwork up so it overlaps nicely */
+  z-index: 100;          /* Stays above artwork, titles, and show notes text */
+  
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: 50%;
+  
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  /* Frosted translucent glass background so text under it remains subtle */
+  background: rgba(120, 120, 128, 0.35);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-primary, #ffffff);
+  
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.show-notes-modal-card .btn-apple-close:hover,
+.show-notes-modal-card .btn-close-notes:hover {
+  background: rgba(120, 120, 128, 0.55);
+  transform: scale(1.06);
+}
+
+.show-notes-modal-card .btn-apple-close:active,
+.show-notes-modal-card .btn-close-notes:active {
+  transform: scale(0.94);
 }
 
 .show-notes-header-wrap {
-  flex: 1;
-  min-width: 0;
-  padding-right: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 1.25rem;
+  padding: 0 0.5rem;
+  max-width: 60%;
+  margin: 0 auto;
+}
+
+/* Bigger Feed Link Button */
+.show-notes-podcast-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  border: none;
+  color: var(--primary, #f97316);
+  font-size: 1.05rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 8px;
+  transition: background 0.15s ease, opacity 0.15s ease;
+  margin-bottom: 0.35rem;
+}
+
+.show-notes-podcast-link:hover {
+  background: rgba(249, 115, 22, 0.1);
+  opacity: 0.9;
+}
+
+.podcast-link-arrow {
+  font-size: 1.1rem;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+
+.show-notes-podcast-link:hover .podcast-link-arrow {
+  transform: translateX(2px);
+}
+
+.show-notes-modal-card .show-notes-tabs {
+  justify-content: center; /* Centers the 'show notes / transcript' tabs */
+  margin-top: 1rem;
+}
+/* Container below metadata */
+.show-notes-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 1rem 0 0.25rem 0;
+  width: 100%;
+}
+
+/* Apple Podcasts prominent action pill button */
+.show-notes-play-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  background: var(--primary, #f97316);
+  color: #fff;
+  border: none;
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 0.65rem 1.6rem;
+  border-radius: 9999px; /* full rounded pill */
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(249, 115, 22, 0.35);
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+}
+
+.show-notes-play-btn:hover {
+  background: #ea580c;
+  transform: scale(1.02);
+  box-shadow: 0 6px 20px rgba(249, 115, 22, 0.45);
+}
+
+.show-notes-play-btn:active {
+  transform: scale(0.97);
+}
+
+/* Pause state appearance */
+.show-notes-play-btn.is-playing {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.15));
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.show-notes-play-btn.is-playing:hover {
+  background: var(--bg-card);
+}
+
+.notes-play-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+/* Mobile Responsiveness */
+@media (max-width: 640px) {
+  #show-notes-art,
+  .show-notes-art {
+    width: 300px;
+    height: 300px;
+  }
+
+  .show-notes-play-btn {
+    font-size: 0.88rem;
+    padding: 0.55rem 1.35rem;
+  }
+
+  .show-notes-modal-card .show-notes-modal-body,
+  .show-notes-modal-card .modal-body {
+    padding: 0 20px;
+  }
 }
 
 .show-notes-podcast-tag {
@@ -5771,15 +5994,21 @@ body.has-active-episode.has-mini-player .player-mini {
   font-weight: 600;
   color: var(--text-primary);
   line-height: 1.35;
-  margin-bottom: 0.35rem;
+  margin: 0 0 0.5rem 0;
 }
 
 .show-notes-meta {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.6rem;
+  justify-content: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.meta-sep {
+  opacity: 0.4;
+  font-size: 0.75rem;
 }
 
 .show-notes-modal-body {
