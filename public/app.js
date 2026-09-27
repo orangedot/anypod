@@ -414,6 +414,7 @@
     experimentalSettings: {
       enableVisualizer: true,
       enableAudioClassifier: true,
+      showJumpButtons: true,
       autoSkipSpeech: false,
       enableTranscript: true
     },
@@ -489,8 +490,8 @@
     searchBarWrap: document.getElementById('search-bar-wrap'),
     btnClearSearch: document.getElementById('btn-clear-search'),
     sortOrderSelect: document.getElementById('sort-order'),
-    btnOpenAddModal: document.getElementById('btn-open-add-modal'),
-    btnRefreshAll: document.getElementById('btn-refresh-all'),
+    // btnOpenAddModal: document.getElementById('btn-open-add-modal'),
+    // btnRefreshAll: document.getElementById('btn-refresh-all'),
     statusBanner: document.getElementById('status-banner'),
 
     timelineList: document.getElementById('timeline-list'),
@@ -787,6 +788,7 @@
         updateDownloadedCountUI();
       } else if (targetTab === 'discover') {
         if (elements.searchInput) elements.searchInput.placeholder = 'Search directory or paste URL...';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         renderDiscover();
       } else if (targetTab === 'settings') {
         if (elements.searchInput) elements.searchInput.placeholder = 'Search episodes...';
@@ -1004,6 +1006,18 @@
       elements.authModal.classList.add('hidden');
       updateSyncStatusUI('authenticated via magic session (cloud d1 synced)', state.userEmail, true);
       syncFeedsWithD1();
+      return;
+    }
+
+    // Skip network round-trip entirely in guest mode (prevents 401 console logs)
+    if (!state.sessionToken) {
+      elements.authModal.classList.add('hidden');
+      updateSyncStatusUI('logged in as guest / local device storage', '', false);
+      if (state.feeds.length > 0) {
+        refreshAllFeeds();
+      } else {
+        renderTimeline();
+      }
       return;
     }
 
@@ -1350,6 +1364,10 @@
     savePositionsToStorage();
     renderContinueShelf();
     updateFilterBadges();
+
+    // If in guest mode, exit early so we never fire an unauthorized request
+    if (!state.sessionToken) return;
+
     try {
       const headers = { 'Content-Type': 'application/json' };
       if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
@@ -2567,6 +2585,7 @@
   }
 
   function processAndSortEpisodes() {
+    console.log('[Anypod Debug] processAndSortEpisodes running. FilterMode:', state.filterMode);
     let list = [...state.allEpisodes];
 
     if (!state.searchQuery && state.mutedFeeds && state.mutedFeeds.length > 0) {
@@ -2600,6 +2619,9 @@
     } else if (state.filterMode === 'unplayed') {
       list = list.filter(ep => {
         const pos = state.playbackPositions[ep.guid];
+        const isCurrent = currentGuid && ep.guid === currentGuid;
+        // Keep episode in unplayed list if it's currently active or unplayed
+        if (isCurrent) return true;
         // Keep active episode in list so it doesn't vanish on click
         return !pos || (!pos.completed);
       });
@@ -3279,48 +3301,52 @@
 
     nextBatch.forEach(item => {
       const isSubbed = state.feeds.includes(item.feedUrl);
-      const relDate = item.releaseDate ? formatCompactDate(item.releaseDate) : '';
+      const artwork = item.artworkUrl600 || item.artworkUrl100 || FALLBACK_ARTWORK;
+      const title = item.collectionName || item.trackName || 'Untitled Podcast';
+      const author = item.artistName || '';
+      const genre = item.primaryGenreName ? ` • ${item.primaryGenreName}` : '';
+      const epCount = item.trackCount ? `${item.trackCount} episodes` : 'Podcast';
 
       const card = document.createElement('div');
-      card.className = 'dir-search-card';
-      card.style.cursor = 'pointer';
+      card.className = 'feed-card';
 
       card.innerHTML = `
-        <img src="${item.artworkUrl100 || item.artworkUrl600}" alt="" class="dir-search-art" loading="lazy">
-        <div class="dir-search-info">
-          <div class="dir-search-title">${escapeHtml(item.collectionName || item.trackName)}</div>
-          <div class="dir-search-artist">${escapeHtml(item.artistName || '')}</div>
-          <div class="dir-search-tags">
-            ${item.primaryGenreName ? `<span class="dir-tag-genre">${escapeHtml(item.primaryGenreName)}</span>` : ''}
-            ${item.trackCount ? `<span class="dir-tag-meta">${item.trackCount} eps</span>` : ''}
-            ${relDate ? `<span class="dir-tag-meta">• ${relDate}</span>` : ''}
+        <div class="feed-header">
+          <img class="feed-art" src="${artwork}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+          <div class="feed-info">
+            <h4>${escapeHtml(title)}</h4>
+            <p>${escapeHtml(epCount)}${escapeHtml(genre)}</p>
+          </div>
+          <div class="feed-header-actions">
+            <button class="btn ${isSubbed ? 'btn-secondary' : 'btn-primary'} btn-sm btn-sub-dir" ${isSubbed ? 'disabled' : ''}>
+              ${isSubbed ? '✓ followed' : '+ follow'}
+            </button>
           </div>
         </div>
-        <button class="btn ${isSubbed ? 'btn-secondary' : 'btn-primary'} btn-sm btn-sub-dir" style="flex-shrink: 0;" ${isSubbed ? 'disabled' : ''}>
-          ${isSubbed ? 'Subscribed' : '+ Add'}
-        </button>
+        ${author ? `<p class="feed-card-desc">${escapeHtml(author)}</p>` : ''}
       `;
 
-      card.addEventListener('click', () => {
-        if (elements.addModal && !elements.addModal.classList.contains('hidden')) {
-          closeAddModal();
-        }
+      // Clicking anywhere opens feed detail
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.btn-sub-dir')) return;
         if (!state.feedMetadata[item.feedUrl]) {
           state.feedMetadata[item.feedUrl] = {
-            title: item.collectionName || item.trackName,
-            author: item.artistName || '',
-            artwork: item.artworkUrl600 || item.artworkUrl100
+            title,
+            author,
+            artwork
           };
         }
         openFeedDetail(item.feedUrl);
       });
 
-      if (!isSubbed) {
-        const subBtn = card.querySelector('.btn-sub-dir');
-        subBtn.addEventListener('click', (e) => {
+      // Follow / subscribe button
+      const subBtn = card.querySelector('.btn-sub-dir');
+      if (subBtn && !isSubbed) {
+        subBtn.addEventListener('click', async (e) => {
           e.stopPropagation();
-          addFeed(item.feedUrl, item.collectionName || item.trackName, item.artworkUrl600 || item.artworkUrl100);
-          subBtn.textContent = 'Subscribed';
+          subBtn.textContent = 'adding...';
+          await addFeed(item.feedUrl, title, artwork);
+          subBtn.textContent = '✓ followed';
           subBtn.classList.remove('btn-primary');
           subBtn.classList.add('btn-secondary');
           subBtn.disabled = true;
@@ -3424,62 +3450,43 @@
     if (!container) return;
 
     container.innerHTML = `
-      <div class="empty-state onboarding-card">
-        <div class="empty-icon-wrap">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
-          </svg>
-        </div>
-        <h3>discover & add podcasts</h3>
-        <p>search by podcast name, explore curated topics, paste any rss feed url, or import your opml library.</p>
-        <div class="empty-quick-add">
+      <div class="discover-view-wrap">
+        <!-- Clean Search & Direct RSS Add -->
+        <div class="discover-search-box">
           <form id="empty-quick-form" class="quick-add-form" action="javascript:void(0);">
             <div class="quick-add-input-wrap">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="quick-add-icon">
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
-              <input type="text" id="empty-quick-input" placeholder="search podcast or paste rss url..." autocomplete="off">
+              <input type="text" id="empty-quick-input" placeholder="search podcast name or paste rss feed url..." autocomplete="off">
               <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-empty-quick-submit">search / add</button>
             </div>
           </form>
-          <div class="dir-filters-row">
-            <div class="empty-category-chips" id="empty-category-chips">
-              <button type="button" class="category-chip" data-category="Science">science</button>
-              <button type="button" class="category-chip" data-category="Climate">climate &amp; planet</button>
-              <button type="button" class="category-chip" data-category="Earth Nature">earth &amp; nature</button>
-              <button type="button" class="category-chip" data-category="Space Astronomy">space &amp; astronomy</button>
-              <button type="button" class="category-chip" data-category="Oceans Marine">oceans &amp; marine</button>
-              <button type="button" class="category-chip" data-category="Physics Quantum">physics &amp; quantum</button>
-              <button type="button" class="category-chip" data-category="Neuroscience Mind">neuroscience &amp; mind</button>
-              <button type="button" class="category-chip" data-category="Biology Genetics">biology &amp; genetics</button>
-              <button type="button" class="category-chip" data-category="Clean Energy">clean tech &amp; energy</button>
-              <button type="button" class="category-chip" data-category="Ecology Forests">ecology &amp; forests</button>
-              <button type="button" class="category-chip" data-category="Weather Atmosphere">weather &amp; atmosphere</button>
-              <button type="button" class="category-chip" data-category="Paleontology Fossils">paleontology &amp; fossils</button>
-              <button type="button" class="category-chip" data-category="Medicine Health">medicine &amp; health</button>
-              <button type="button" class="category-chip" data-category="AI Tech">artificial intelligence</button>
-              <button type="button" class="category-chip" data-category="History Science">history of science</button>
-              <button type="button" class="category-chip" data-category="Archaeology Ancient">archaeology &amp; ancient</button>
-              <button type="button" class="category-chip" data-category="Math Logic">math &amp; logic</button>
-              <button type="button" class="category-chip" data-category="Agriculture Food">agriculture &amp; food</button>
-              <button type="button" class="category-chip" data-category="Tech Robotics">technology &amp; robots</button>
-              <button type="button" class="category-chip" data-category="Wildlife Zoology">wildlife &amp; zoology</button>
-              <button type="button" class="category-chip" data-category="Chemistry Materials">chemistry &amp; materials</button>
-              <button type="button" class="category-chip" data-category="Philosophy Science">philosophy of science</button>
-              <button type="button" class="category-chip" data-category="Wissen DE">wissen (de)</button>
-              <button type="button" class="category-chip" data-category="Sciences FR">sciences &amp; climat (fr)</button>
-              <button type="button" class="category-chip" data-category="Ciencia ES">ciencia y naturaleza (es)</button>
-            </div>
+          <div class="empty-category-chips" id="empty-category-chips">
+            <button type="button" class="category-chip" data-category="Science">science</button>
+            <button type="button" class="category-chip" data-category="Climate">climate &amp; planet</button>
+            <button type="button" class="category-chip" data-category="Earth Nature">earth &amp; nature</button>
+            <button type="button" class="category-chip" data-category="Space Astronomy">space &amp; astronomy</button>
+            <button type="button" class="category-chip" data-category="Oceans Marine">oceans &amp; marine</button>
+            <button type="button" class="category-chip" data-category="Physics Quantum">physics &amp; quantum</button>
+            <button type="button" class="category-chip" data-category="Neuroscience Mind">neuroscience &amp; mind</button>
+            <button type="button" class="category-chip" data-category="Biology Genetics">biology &amp; genetics</button>
+            <button type="button" class="category-chip" data-category="Clean Energy">clean tech &amp; energy</button>
+            <button type="button" class="category-chip" data-category="AI Tech">artificial intelligence</button>
+            <button type="button" class="category-chip" data-category="History Science">history of science</button>
+            <button type="button" class="category-chip" data-category="Wissen DE">wissen (de)</button>
           </div>
           <div id="empty-quick-results" class="quick-results-container"></div>
         </div>
-        <div class="empty-actions">
-          <button class="btn btn-primary" id="btn-empty-open-add">find or add podcasts</button>
-          <button class="btn btn-secondary" id="btn-empty-opml-trigger">import opml file</button>
-        </div>
+
+        <!-- Curated 50 Worldwide Shows -->
         ${buildStarterSuggestionsHTML('all')}
+
+        <!-- OPML import helper footer -->
+        <div class="discover-opml-footer">
+          <button class="btn btn-secondary btn-sm" id="btn-empty-opml-trigger">import opml file</button>
+        </div>
       </div>
     `;
 
@@ -3674,6 +3681,11 @@
   // }
 
   function renderTimeline(preserveScroll = false) {
+    console.log('[Anypod Debug] renderTimeline called. preserveScroll:', preserveScroll, {
+      scrollTopBeforeRender: elements.timelineList?.scrollTop,
+      stack: new Error().stack.split('\n')[2] // Shows what triggered the render!
+    });
+
     updateDockVisibility();
     const container = elements.timelineList;
     if (!container) return;
@@ -3724,7 +3736,7 @@
       `;
 
       container.querySelector('#btn-goto-discover')?.addEventListener('click', () => navigateTo('discover'));
-      container.querySelector('#btn-timeline-open-add')?.addEventListener('click', openAddModal);
+      // container.querySelector('#btn-timeline-open-add')?.addEventListener('click', openAddModal);
       return;
     }
 
@@ -3756,6 +3768,34 @@
     state.timelinePage = 1;
     appendTimelineBatch();
   }
+
+  function appendTimelineBatch() {
+    const container = elements.timelineList;
+    if (!container) return;
+
+    const existingSentinel = document.getElementById('timeline-sentinel');
+    if (existingSentinel) existingSentinel.remove();
+
+    const start = (state.timelinePage - 1) * state.pageSize;
+    const end = state.timelinePage * state.pageSize;
+    const batch = state.filteredEpisodes.slice(start, end);
+
+    const frag = document.createDocumentFragment();
+    batch.forEach(ep => {
+      frag.appendChild(createEpisodeCard(ep));
+    });
+    container.appendChild(frag);
+
+    if (end < state.filteredEpisodes.length) {
+      const sentinel = document.createElement('div');
+      sentinel.id = 'timeline-sentinel';
+      sentinel.className = 'timeline-sentinel';
+      container.appendChild(sentinel);
+      setupSentinelObserver(sentinel);
+    }
+  }
+
+  let sentinelObserver = null;
 
   function setupSentinelObserver(sentinel) {
     if (sentinelObserver) sentinelObserver.disconnect();
@@ -4997,6 +5037,21 @@
     elements.seekBar.addEventListener('input', handleSeekBarChange);
     elements.seekBar.addEventListener('change', handleSeekBarChange);
 
+    const miniProgBar = document.querySelector('.mini-progress-bar');
+    if (miniProgBar) {
+      miniProgBar.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const rect = miniProgBar.getBoundingClientRect();
+        const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        if (state.activeEngine === 'audio' && elements.audio.duration) {
+          elements.audio.currentTime = pct * elements.audio.duration;
+        } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getDuration) {
+          state.ytPlayer.seekTo(pct * state.ytPlayer.getDuration(), true);
+        }
+        updateProgress();
+      });
+    }
+
     setInterval(() => {
       if (state.currentEpisode && isEnginePlaying()) {
         let currentPos = 0;
@@ -5115,6 +5170,11 @@
   }
 
   function playEpisode(episode, overrideStartTime) {
+    console.log('[Anypod Debug] playEpisode clicked for:', episode.title, {
+      scrollTopBefore: elements.timelineList?.scrollTop,
+      filterMode: state.filterMode
+    });
+
     state.currentEpisode = episode;
     state.playbackStatus = 'loading';
     syncPlaybackButtons();
@@ -5323,6 +5383,26 @@
         state._lastDrawnWaveformBarIndex = curBarIdx;
         if (state.experimentalSettings.enableVisualizer) {
           renderWaveformChart();
+        }
+      }
+
+      if (state.experimentalSettings.autoSkipSpeech && isEnginePlaying()) {
+        const segments = state.episodeTimeline.segments || [];
+        const currentSegment = segments.find(s => current >= s.start && current < s.end);
+
+        if (currentSegment && currentSegment.type === 'speech') {
+          if (!state._autoSkipTimer) {
+            state._autoSkipTimer = setTimeout(() => {
+              if (state.experimentalSettings.autoSkipSpeech && isEnginePlaying()) {
+                jumpToNextSegment('music');
+                showToast('⚡ skipped talk section');
+              }
+              state._autoSkipTimer = null;
+            }, 1500);
+          }
+        } else if (state._autoSkipTimer) {
+          clearTimeout(state._autoSkipTimer);
+          state._autoSkipTimer = null;
         }
       }
 
@@ -5574,7 +5654,10 @@
       const guid = card.dataset.guid;
       const btn = card.querySelector('.btn-play-ep');
       if (!btn) return;
-      if (state.currentEpisode && state.currentEpisode.guid === guid) {
+
+      const isThisActive = state.currentEpisode && state.currentEpisode.guid === guid && state.playbackStatus !== 'idle';
+      
+      if (isThisActive) {
         card.classList.add('playing');
         if (isLoading) {
           btn.innerHTML = CARD_ICONS.SPINNER;
@@ -5624,14 +5707,17 @@
     updatePlayerFavButton();
     updateQueueUI();
   }
-
-  function setPlayerCollapsed(collapsed, save = true) {
+function setPlayerCollapsed(collapsed, save = true) {
     if (collapsed) {
+      console.log('[Anypod Debug] Player MINIMIZED (collapsed = true). Triggered by:', new Error().stack);
       document.body.classList.add('has-mini-player');
       document.body.classList.remove('has-full-player');
       if (elements.btnCollapsePlayer) elements.btnCollapsePlayer.setAttribute('aria-expanded', 'false');
       if (elements.miniToggle) elements.miniToggle.setAttribute('aria-expanded', 'false');
     } else {
+      console.log('[Anypod Debug] Player EXPANDED (collapsed = false).');
+      // Cooldown timer to prevent background reflows from immediately re-collapsing
+      state._lastPlayerExpandTime = Date.now();
       document.body.classList.remove('has-mini-player');
       document.body.classList.add('has-full-player');
       if (elements.btnCollapsePlayer) elements.btnCollapsePlayer.setAttribute('aria-expanded', 'true');
@@ -6206,6 +6292,87 @@
       renderOfflineStorageSettings();
     });
 
+    // In setupEventListeners:
+    let discoverSearchTimer = null;
+    const previewContainer = document.getElementById('search-discover-preview');
+    const previewScroll = document.getElementById('discover-preview-scroll');
+    const btnSeeAll = document.getElementById('btn-discover-see-all');
+
+    elements.searchInput?.addEventListener('input', (e) => {
+      const q = e.target.value.trim();
+      clearTimeout(discoverSearchTimer);
+
+      if (q.length < 2) {
+        previewContainer?.classList.add('hidden');
+        return;
+      }
+
+      discoverSearchTimer = setTimeout(async () => {
+        try {
+          const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=podcast&entity=podcast&limit=3`);
+          if (!res.ok) return;
+          const data = await res.json();
+          if (!data.results || data.results.length === 0) {
+            previewContainer?.classList.add('hidden');
+            return;
+          }
+
+          if (previewScroll) {
+            previewScroll.innerHTML = data.results.map(pod => `
+              <div class="discover-preview-item" data-feed-url="${encodeURIComponent(pod.feedUrl || '')}">
+                <img src="${pod.artworkUrl60 || pod.artworkUrl100 || ''}" alt="" onerror="this.src=FALLBACK_ARTWORK">
+                <div class="discover-preview-item-info">
+                  <span class="discover-preview-title">${escapeHtml(pod.collectionName || 'Unknown')}</span>
+                  <span class="discover-preview-artist">${escapeHtml(pod.artistName || '')}</span>
+                </div>
+              </div>
+            `).join('');
+
+            previewScroll.querySelectorAll('.discover-preview-item').forEach(item => {
+              item.addEventListener('click', () => {
+                const feedUrl = decodeURIComponent(item.dataset.feedUrl);
+                if (feedUrl) openFeedDetail(feedUrl);
+              });
+            });
+          }
+
+          previewContainer?.classList.remove('hidden');
+        } catch (_) {}
+      }, 300);
+    });
+
+    btnSeeAll?.addEventListener('click', () => {
+      const q = elements.searchInput?.value.trim() || '';
+
+      // 1. Clear general top search bar and state
+      if (elements.searchInput) {
+        elements.searchInput.value = '';
+        elements.searchInput.blur();
+      }
+      state.searchQuery = '';
+      if (elements.btnClearSearch) elements.btnClearSearch.classList.add('hidden');
+      if (elements.searchBarWrap) elements.searchBarWrap.classList.remove('has-text');
+      previewContainer?.classList.add('hidden');
+
+      // 2. Switch to Discover tab & scroll to the top
+      navigateTo('discover');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      // 3. Populate Discover search & trigger results
+      const discInput = document.getElementById('empty-quick-input');
+      if (discInput && q) {
+        discInput.value = q;
+        const quickResults = document.getElementById('empty-quick-results');
+        if (quickResults) searchPodcastDirectory(q, quickResults);
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#header-search') && previewContainer) {
+        previewContainer.classList.add('hidden');
+      }
+    });
+
     if (elements.btnClearSearch) {
       elements.btnClearSearch.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -6252,8 +6419,8 @@
       }
     });
 
-    elements.btnOpenAddModal.addEventListener('click', openAddModal);
-    elements.btnRefreshAll.addEventListener('click', refreshAllFeeds);
+    // elements.btnOpenAddModal.addEventListener('click', openAddModal);
+    // elements.btnRefreshAll.addEventListener('click', refreshAllFeeds);
 
     if (elements.btnToggleContinue) {
       elements.btnToggleContinue.addEventListener('click', () => {
@@ -6812,17 +6979,35 @@
       });
     }
 
+    let lastScrollY = window.scrollY;
     let scrollCollapseTimer = null;
+
     window.addEventListener('scroll', () => {
+      const currentScrollY = window.scrollY;
+      const delta = currentScrollY - lastScrollY;
+      lastScrollY = currentScrollY;
+
+      // Ignore if user didn't actively scroll DOWN by at least 30px
+      if (delta <= 30) return;
+
       if (scrollCollapseTimer) return;
       scrollCollapseTimer = setTimeout(() => {
         scrollCollapseTimer = null;
+        console.log('[Anypod Debug] Scroll event fired. current window.scrollY:', window.scrollY);
+        
+        // Skip if player was expanded less than 2.5s ago
+        if (Date.now() - (state._lastPlayerExpandTime || 0) < 2500){
+          console.log('[Anypod Debug] _lastPlayerExpandTime');
+          return;
+        } 
+
         if (document.body.classList.contains('has-active-episode')) {
-          if (window.scrollY > 200 && !document.body.classList.contains('has-mini-player')) {
+          if (window.scrollY > 300 && !document.body.classList.contains('has-mini-player')) {
+            console.log('[Anypod Debug] Threshold 300 exceeded! Minimizing player.');
             setPlayerCollapsed(true, false);
           }
         }
-      }, 100);
+      }, 120);
     }, { passive: true });
 
     wireEmptyStateEvents();
@@ -7012,10 +7197,18 @@
       const raw = localStorage.getItem(STORAGE_KEYS.EXPERIMENTAL);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed.enableAudioClassifier === undefined) parsed.enableAudioClassifier = true;
-        if (parsed.enableTranscript === undefined) parsed.enableTranscript = true;
-        parsed.enableVisualizer = true; // Timeline spectrum waveform is standard player default
-        Object.assign(state.experimentalSettings, parsed);
+        if (parsed.showJumpButtons !== undefined) {
+          state.experimentalSettings.showJumpButtons = parsed.showJumpButtons;
+        }
+        if (parsed.autoSkipSpeech !== undefined){
+          state.experimentalSettings.autoSkipSpeech = parsed.autoSkipSpeech;
+        }
+        if (parsed.enableAudioClassifier !== undefined) {
+          state.experimentalSettings.enableAudioClassifier = parsed.enableAudioClassifier;
+        }
+        if (parsed.enableTranscript !== undefined) {
+          state.experimentalSettings.enableTranscript = parsed.enableTranscript;
+        }
       }
     } catch (_) {}
     state.experimentalSettings.enableVisualizer = true;
@@ -7033,10 +7226,14 @@
 
   function syncExperimentalUI() {
     const es = state.experimentalSettings;
+    const showButtons = es.showJumpButtons !== false;
     const isVis = !!es.enableVisualizer;
     const isClass = !!es.enableAudioClassifier;
     const isTrans = es.enableTranscript !== false;
+    const isAutoSkip = !!es.autoSkipSpeech;
 
+    const toggleJump = document.getElementById('toggle-jump-buttons');
+    if (toggleJump) toggleJump.checked = showButtons;
     if (elements.toggleVisualizer) elements.toggleVisualizer.checked = isVis;
     if (elements.toggleClassifier) elements.toggleClassifier.checked = isClass;
     if (elements.toggleAutoSkip) elements.toggleAutoSkip.checked = !!es.autoSkipSpeech;
@@ -7064,8 +7261,16 @@
     if (elements.seekBar) {
       elements.seekBar.style.display = 'block';
     }
+
     if (elements.timelineLegend) {
-      elements.timelineLegend.style.display = isClass ? 'inline-flex' : 'none';
+      elements.timelineLegend.classList.toggle('hidden', !showButtons);
+    }
+
+    if (elements.btnJumpSpeech) {
+      elements.btnJumpSpeech.classList.toggle('auto-skip-active', isAutoSkip);
+    }
+    if (elements.btnJumpMusic) {
+      elements.btnJumpMusic.classList.toggle('auto-skip-active', isAutoSkip);
     }
 
     if (isVis) {
@@ -7074,6 +7279,14 @@
   }
 
   function setupExperimentalSettings() {
+    const toggleJump = document.getElementById('toggle-jump-buttons');
+    if (toggleJump) {
+      toggleJump.addEventListener('change', () => {
+        state.experimentalSettings.showJumpButtons = toggleJump.checked;
+        saveExperimentalSettings();
+        syncExperimentalUI();
+      });
+    }
     if (elements.toggleVisualizer) {
       elements.toggleVisualizer.addEventListener('change', () => {
         state.experimentalSettings.enableVisualizer = elements.toggleVisualizer.checked;
@@ -7890,19 +8103,46 @@
       }
     });
 
-    // Jump buttons
-    if (elements.btnJumpSpeech) {
-      elements.btnJumpSpeech.addEventListener('click', (e) => {
+    function wireDoubleTapJumpButton(btn, targetType) {
+      if (!btn) return;
+      let clickTimer = null;
+      let lastTapTime = 0;
+
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
         e.stopPropagation();
-        jumpToNextSegment('speech');
+
+        const now = Date.now();
+        const diff = now - lastTapTime;
+
+        if (diff > 0 && diff < 280) {
+          // Double Tap detected: cancel single-tap jump and toggle auto-skip
+          clearTimeout(clickTimer);
+          clickTimer = null;
+          lastTapTime = 0;
+
+          state.experimentalSettings.autoSkipSpeech = !state.experimentalSettings.autoSkipSpeech;
+          saveExperimentalSettings();
+          syncExperimentalUI();
+
+          const active = state.experimentalSettings.autoSkipSpeech;
+          showToast(active ? '⚡ auto-skip talk enabled' : 'auto-skip talk disabled');
+          return;
+        }
+
+        // Potential single tap: wait 280ms before firing jump
+        lastTapTime = now;
+        clearTimeout(clickTimer);
+        clickTimer = setTimeout(() => {
+          jumpToNextSegment(targetType);
+          clickTimer = null;
+          lastTapTime = 0;
+        }, 280);
       });
     }
-    if (elements.btnJumpMusic) {
-      elements.btnJumpMusic.addEventListener('click', (e) => {
-        e.stopPropagation();
-        jumpToNextSegment('music');
-      });
-    }
+
+    wireDoubleTapJumpButton(elements.btnJumpSpeech, 'speech');
+    wireDoubleTapJumpButton(elements.btnJumpMusic, 'music');
 
     // Resize observer / window resize for responsive canvas
     window.addEventListener('resize', () => {

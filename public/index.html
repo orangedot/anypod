@@ -80,22 +80,6 @@
         <div id="offline-badge" class="offline-badge hidden">offline</div>
       </div>
 
-      <div class="header-search" id="header-search">
-        <div class="search-bar" id="search-bar-wrap">
-          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          <input type="text" id="search-input" placeholder="search loaded episodes..." aria-label="search episodes" autocomplete="off">
-          <button type="button" class="btn-clear-search hidden" id="btn-clear-search" title="clear search" aria-label="clear search">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
-        </div>
-      </div>
-
       <nav class="nav-tabs" aria-label="main navigation">
         <button class="nav-tab active" data-tab="timeline" id="tab-timeline">timeline</button>
         <button class="nav-tab" data-tab="feeds" id="tab-feeds">
@@ -113,10 +97,36 @@
       </nav>
 
       <div class="header-actions">
-        <button class="btn btn-primary btn-header-add" id="btn-open-add-modal" title="add podcast feed">
+        <!-- <button class="btn btn-primary btn-header-add" id="btn-open-add-modal" title="add podcast feed">
           <span>+ add podcast</span>
-        </button>
-
+        </button> -->
+        <div class="header-search" id="header-search">
+          <div class="search-bar" id="search-bar-wrap">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="search-input" placeholder="search loaded episodes..." aria-label="search episodes" autocomplete="off">
+            <button type="button" class="btn-clear-search hidden" id="btn-clear-search" title="clear search" aria-label="clear search">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="search-discover-preview hidden" id="search-discover-preview">
+          <div class="discover-preview-header">
+            <span class="discover-preview-tag">podcast discover preview</span>
+            <button type="button" class="discover-preview-more-btn" id="btn-discover-see-all">
+              see all in discover →
+            </button>
+          </div>
+          <div class="discover-preview-scroll" id="discover-preview-scroll">
+            <!-- 3 live search results render here -->
+          </div>
+        </div>
+        
         <!-- Settings gear icon -->
         <button class="btn-icon btn-header-settings" id="btn-open-settings" title="settings" aria-label="open settings">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -152,8 +162,7 @@
           </div>
           <div class="continue-sticky-bar hidden" id="continue-sticky-bar">
             <button type="button" class="btn-continue-sticky-collapse" id="btn-continue-sticky-collapse">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"/></svg>
-              <span>⤡ show less (collapse continue)</span>
+              <span>show less continue listening</span>
             </button>
           </div>
         </div>
@@ -268,14 +277,14 @@
             </label>
           </div>
 
-          <div class="experimental-row" id="row-auto-skip">
-            <label class="experimental-toggle-label" for="toggle-auto-skip">
+          <div class="experimental-row">
+            <label class="experimental-toggle-label" for="toggle-jump-buttons">
               <div>
-                <strong>auto-skip speech in music feeds</strong>
-                <span>skip forward 30s when speech is detected for >8s</span>
+                <strong>speech &amp; music player buttons</strong>
+                <span>display talk &amp; music jump buttons in the player bar</span>
               </div>
               <div class="toggle-switch">
-                <input type="checkbox" id="toggle-auto-skip" role="switch">
+                <input type="checkbox" id="toggle-jump-buttons" checked>
                 <span class="toggle-track"></span>
               </div>
             </label>
@@ -530,7 +539,7 @@
         <option value="duration-asc">shortest first</option>
         <option value="duration-desc">longest first</option>
       </select>
-      <button class="btn btn-secondary btn-sm btn-dock-refresh" id="btn-refresh-all" title="refresh all feeds">refresh</button>
+      <!-- <button class="btn btn-secondary btn-sm btn-dock-refresh" id="btn-refresh-all" title="refresh all feeds">refresh</button> -->
     </aside>
 
     <!-- Sticky Audio Player Footer -->
