@@ -466,11 +466,13 @@
     tabTimeline: document.getElementById('tab-timeline'),
     tabFavorites: document.getElementById('tab-favorites'),
     tabDownloads: document.getElementById('tab-downloads'),
+    tabDiscover: document.getElementById('tab-discover'),
     tabSettings: document.getElementById('tab-settings'),
     panelFeeds: document.getElementById('panel-feeds'),
     panelTimeline: document.getElementById('panel-timeline'),
     panelFavorites: document.getElementById('panel-favorites'),
     panelDownloads: document.getElementById('panel-downloads'),
+    panelDiscover: document.getElementById('panel-discover'),
     panelFeedDetail: document.getElementById('panel-feed-detail'),
     feedDetailHeader: document.getElementById('feed-detail-header'),
     feedDetailEpisodes: document.getElementById('feed-detail-episodes'),
@@ -783,6 +785,9 @@
       } else if (targetTab === 'downloads') {
         if (elements.searchInput) elements.searchInput.placeholder = 'Search downloaded episodes...';
         updateDownloadedCountUI();
+      } else if (targetTab === 'discover') {
+        if (elements.searchInput) elements.searchInput.placeholder = 'Search directory or paste URL...';
+        renderDiscover();
       } else if (targetTab === 'settings') {
         if (elements.searchInput) elements.searchInput.placeholder = 'Search episodes...';
       }
@@ -854,7 +859,7 @@
         const feedUrl = queryParams.get('feed') || hashParams.get('feed') || (rawHash.startsWith('feed=') ? decodeURIComponent(rawHash.slice(5).split('&')[0]) : null);
         if (feedUrl) {
           _applyView({ tab: null, feedUrl });
-        } else if (['timeline', 'feeds', 'favorites', 'downloads', 'settings'].includes(rawHash)) {
+        } else if (['timeline', 'feeds', 'favorites', 'downloads', 'discover', 'settings'].includes(rawHash)) {
           _applyView({ tab: rawHash, feedUrl: null });
         } else {
           _applyView({ tab: 'timeline', feedUrl: null });
@@ -894,7 +899,7 @@
     } else if (isAdd) {
       _applyView({ tab: 'timeline', feedUrl: null });
       setTimeout(openAddModal, 100);
-    } else if (['timeline', 'feeds', 'favorites', 'downloads', 'settings'].includes(rawHash)) {
+    } else if (['timeline', 'feeds', 'favorites', 'downloads', 'discover', 'settings'].includes(rawHash)) {
       _applyView({ tab: rawHash, feedUrl: null });
       window.history.replaceState({ tab: rawHash, feedUrl: null }, '', '#' + rawHash);
     } else {
@@ -2336,7 +2341,8 @@
       saveCacheToStorage();
       updateFeedCountUI();
       renderContinueShelf();
-      renderTimeline();
+      //renderTimeline();
+      renderTimeline(true);
       renderFeedsGrid();
       return;
     }
@@ -2594,9 +2600,8 @@
     } else if (state.filterMode === 'unplayed') {
       list = list.filter(ep => {
         const pos = state.playbackPositions[ep.guid];
-        const isCurrent = currentGuid && ep.guid === currentGuid;
-        if (isCurrent) return false;
-        return !pos || (!pos.completed && (!pos.position || pos.position <= 2));
+        // Keep active episode in list so it doesn't vanish on click
+        return !pos || (!pos.completed);
       });
     } else if (state.filterMode === 'played') {
       list = list.filter(ep => {
@@ -3414,37 +3419,94 @@
     });
   }
 
+  function renderDiscover() {
+    const container = document.getElementById('discover-content-container');
+    if (!container) return;
+
+    container.innerHTML = `
+      <div class="empty-state onboarding-card">
+        <div class="empty-icon-wrap">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+          </svg>
+        </div>
+        <h3>discover & add podcasts</h3>
+        <p>search by podcast name, explore curated topics, paste any rss feed url, or import your opml library.</p>
+        <div class="empty-quick-add">
+          <form id="empty-quick-form" class="quick-add-form" action="javascript:void(0);">
+            <div class="quick-add-input-wrap">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="quick-add-icon">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="empty-quick-input" placeholder="search podcast or paste rss url..." autocomplete="off">
+              <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-empty-quick-submit">search / add</button>
+            </div>
+          </form>
+          <div class="dir-filters-row">
+            <div class="empty-category-chips" id="empty-category-chips">
+              <button type="button" class="category-chip" data-category="Science">science</button>
+              <button type="button" class="category-chip" data-category="Climate">climate &amp; planet</button>
+              <button type="button" class="category-chip" data-category="Earth Nature">earth &amp; nature</button>
+              <button type="button" class="category-chip" data-category="Space Astronomy">space &amp; astronomy</button>
+              <button type="button" class="category-chip" data-category="Oceans Marine">oceans &amp; marine</button>
+              <button type="button" class="category-chip" data-category="Physics Quantum">physics &amp; quantum</button>
+              <button type="button" class="category-chip" data-category="Neuroscience Mind">neuroscience &amp; mind</button>
+              <button type="button" class="category-chip" data-category="Biology Genetics">biology &amp; genetics</button>
+              <button type="button" class="category-chip" data-category="Clean Energy">clean tech &amp; energy</button>
+              <button type="button" class="category-chip" data-category="Ecology Forests">ecology &amp; forests</button>
+              <button type="button" class="category-chip" data-category="Weather Atmosphere">weather &amp; atmosphere</button>
+              <button type="button" class="category-chip" data-category="Paleontology Fossils">paleontology &amp; fossils</button>
+              <button type="button" class="category-chip" data-category="Medicine Health">medicine &amp; health</button>
+              <button type="button" class="category-chip" data-category="AI Tech">artificial intelligence</button>
+              <button type="button" class="category-chip" data-category="History Science">history of science</button>
+              <button type="button" class="category-chip" data-category="Archaeology Ancient">archaeology &amp; ancient</button>
+              <button type="button" class="category-chip" data-category="Math Logic">math &amp; logic</button>
+              <button type="button" class="category-chip" data-category="Agriculture Food">agriculture &amp; food</button>
+              <button type="button" class="category-chip" data-category="Tech Robotics">technology &amp; robots</button>
+              <button type="button" class="category-chip" data-category="Wildlife Zoology">wildlife &amp; zoology</button>
+              <button type="button" class="category-chip" data-category="Chemistry Materials">chemistry &amp; materials</button>
+              <button type="button" class="category-chip" data-category="Philosophy Science">philosophy of science</button>
+              <button type="button" class="category-chip" data-category="Wissen DE">wissen (de)</button>
+              <button type="button" class="category-chip" data-category="Sciences FR">sciences &amp; climat (fr)</button>
+              <button type="button" class="category-chip" data-category="Ciencia ES">ciencia y naturaleza (es)</button>
+            </div>
+          </div>
+          <div id="empty-quick-results" class="quick-results-container"></div>
+        </div>
+        <div class="empty-actions">
+          <button class="btn btn-primary" id="btn-empty-open-add">find or add podcasts</button>
+          <button class="btn btn-secondary" id="btn-empty-opml-trigger">import opml file</button>
+        </div>
+        ${buildStarterSuggestionsHTML('all')}
+      </div>
+    `;
+
+    wireEmptyStateEvents(container);
+  }
+
   let emptySearchDebounceTimer = null;
 
-  function wireEmptyStateEvents() {
-    const quickForm = document.getElementById('empty-quick-form');
-    const quickInput = document.getElementById('empty-quick-input');
-    const quickSubmit = document.getElementById('btn-empty-quick-submit');
-    const quickResults = document.getElementById('empty-quick-results');
+  function wireEmptyStateEvents(targetRoot = document) {
+    const quickForm = targetRoot.querySelector('#empty-quick-form');
+    const quickInput = targetRoot.querySelector('#empty-quick-input');
+    const quickSubmit = targetRoot.querySelector('#btn-empty-quick-submit');
+    const quickResults = targetRoot.querySelector('#empty-quick-results');
 
     if (quickInput && quickForm) {
       quickInput.addEventListener('input', () => {
         const val = quickInput.value.trim();
         if (quickSubmit) {
-          if (val.startsWith('http://') || val.startsWith('https://')) {
-            quickSubmit.textContent = 'Add Feed';
-          } else {
-            quickSubmit.textContent = 'Search';
-          }
+          quickSubmit.textContent = (val.startsWith('http://') || val.startsWith('https://')) ? 'Add Feed' : 'Search';
         }
         if (emptySearchDebounceTimer) clearTimeout(emptySearchDebounceTimer);
-        if (!val) {
-          if (quickResults) quickResults.innerHTML = '';
-          return;
-        }
-        if (val.startsWith('http://') || val.startsWith('https://')) {
+        if (!val || val.startsWith('http://') || val.startsWith('https://')) {
           if (quickResults) quickResults.innerHTML = '';
           return;
         }
         emptySearchDebounceTimer = setTimeout(() => {
-          if (quickResults) {
-            searchPodcastDirectory(val, quickResults);
-          }
+          if (quickResults) searchPodcastDirectory(val, quickResults);
         }, 350);
       });
 
@@ -3459,33 +3521,15 @@
           if (quickResults) quickResults.innerHTML = '';
         } else {
           if (emptySearchDebounceTimer) clearTimeout(emptySearchDebounceTimer);
-          if (quickResults) {
-            searchPodcastDirectory(val, quickResults);
-          }
+          if (quickResults) searchPodcastDirectory(val, quickResults);
         }
       });
     }
 
-    document.getElementById('btn-empty-open-add')?.addEventListener('click', () => {
-      openAddModal();
-    });
-    document.getElementById('btn-empty-opml-trigger')?.addEventListener('click', () => {
-      elements.opmlFileInput?.click();
-    });
-    document.getElementById('btn-empty-defaults-trigger')?.addEventListener('click', () => {
-      elements.btnLoadDefaults?.click();
-    });
-    document.getElementById('btn-empty-goto-settings')?.addEventListener('click', () => {
-      const settingsTab = document.getElementById('tab-settings');
-      const settingsPanel = document.getElementById('panel-settings');
-      elements.tabs.forEach(t => t.classList.remove('active'));
-      elements.panels.forEach(p => p.classList.remove('active'));
-      if (settingsTab) settingsTab.classList.add('active');
-      if (settingsPanel) settingsPanel.classList.add('active');
-      updateDockVisibility();
-    });
+    targetRoot.querySelector('#btn-empty-open-add')?.addEventListener('click', openAddModal);
+    targetRoot.querySelector('#btn-empty-opml-trigger')?.addEventListener('click', () => elements.opmlFileInput?.click());
 
-    const emptyCatChips = elements.timelineList?.querySelectorAll('#empty-category-chips .category-chip');
+    const emptyCatChips = targetRoot.querySelectorAll('#empty-category-chips .category-chip');
     if (emptyCatChips && quickInput && quickResults) {
       emptyCatChips.forEach(chip => {
         chip.addEventListener('click', () => {
@@ -3497,7 +3541,7 @@
       });
     }
 
-    wireStarterSuggestionsEvents(elements.timelineList);
+    wireStarterSuggestionsEvents(targetRoot);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -3508,66 +3552,179 @@
   // wireEmptyStateEvents — wires up the onboarding empty state UI.
   // ─────────────────────────────────────────────────────────────────────────
 
-  function renderTimeline() {
+  // function renderTimeline() {
+  //   updateDockVisibility();
+  //   const container = elements.timelineList;
+    
+
+  //   if (state.feeds.length === 0) {
+  //     container.innerHTML = `
+  //       <div class="empty-state onboarding-card">
+  //         <div class="empty-icon-wrap">
+  //           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+  //         </div>
+  //         <h3>no podcasts added yet</h3>
+  //         <p>search by podcast name, explore curated topics, paste any rss feed url, or import your opml library.</p>
+  //         <div class="empty-quick-add">
+  //           <form id="empty-quick-form" class="quick-add-form" action="javascript:void(0);">
+  //             <div class="quick-add-input-wrap">
+  //               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="quick-add-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+  //               <input type="text" id="empty-quick-input" placeholder="search podcast or paste rss url..." autocomplete="off">
+  //               <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-empty-quick-submit">search / add</button>
+  //             </div>
+  //           </form>
+  //           <div class="dir-filters-row">
+  //             <div class="empty-category-chips" id="empty-category-chips">
+  //               <button type="button" class="category-chip" data-category="Science">science</button>
+  //               <button type="button" class="category-chip" data-category="Climate">climate &amp; planet</button>
+  //               <button type="button" class="category-chip" data-category="Earth Nature">earth &amp; nature</button>
+  //               <button type="button" class="category-chip" data-category="Space Astronomy">space &amp; astronomy</button>
+  //               <button type="button" class="category-chip" data-category="Oceans Marine">oceans &amp; marine</button>
+  //               <button type="button" class="category-chip" data-category="Physics Quantum">physics &amp; quantum</button>
+  //               <button type="button" class="category-chip" data-category="Neuroscience Mind">neuroscience &amp; mind</button>
+  //               <button type="button" class="category-chip" data-category="Biology Genetics">biology &amp; genetics</button>
+  //               <button type="button" class="category-chip" data-category="Clean Energy">clean tech &amp; energy</button>
+  //               <button type="button" class="category-chip" data-category="Ecology Forests">ecology &amp; forests</button>
+  //               <button type="button" class="category-chip" data-category="Weather Atmosphere">weather &amp; atmosphere</button>
+  //               <button type="button" class="category-chip" data-category="Paleontology Fossils">paleontology &amp; fossils</button>
+  //               <button type="button" class="category-chip" data-category="Medicine Health">medicine &amp; health</button>
+  //               <button type="button" class="category-chip" data-category="AI Tech">artificial intelligence</button>
+  //               <button type="button" class="category-chip" data-category="History Science">history of science</button>
+  //               <button type="button" class="category-chip" data-category="Archaeology Ancient">archaeology &amp; ancient</button>
+  //               <button type="button" class="category-chip" data-category="Math Logic">math &amp; logic</button>
+  //               <button type="button" class="category-chip" data-category="Agriculture Food">agriculture &amp; food</button>
+  //               <button type="button" class="category-chip" data-category="Tech Robotics">technology &amp; robots</button>
+  //               <button type="button" class="category-chip" data-category="Wildlife Zoology">wildlife &amp; zoology</button>
+  //               <button type="button" class="category-chip" data-category="Chemistry Materials">chemistry &amp; materials</button>
+  //               <button type="button" class="category-chip" data-category="Philosophy Science">philosophy of science</button>
+  //               <button type="button" class="category-chip" data-category="Wissen DE">wissen (de)</button>
+  //               <button type="button" class="category-chip" data-category="Sciences FR">sciences &amp; climat (fr)</button>
+  //               <button type="button" class="category-chip" data-category="Ciencia ES">ciencia y naturaleza (es)</button>
+  //             </div>
+  //           </div>
+  //           <div id="empty-quick-results" class="quick-results-container"></div>
+  //         </div>
+  //         <div class="empty-actions">
+  //           <button class="btn btn-primary" id="btn-empty-open-add">find or add podcasts</button>
+  //           <button class="btn btn-secondary" id="btn-empty-opml-trigger">import opml file</button>
+  //         </div>
+  //         ${buildStarterSuggestionsHTML('all')}
+  //       </div>
+  //     `;
+  //     wireEmptyStateEvents();
+  //     return;
+  //   }
+
+  //   if (state.filteredEpisodes.length === 0) {
+  //     let emptyTitle = 'No episodes found';
+  //     let emptyMsg = 'Try clearing your search query or refreshing your feeds.';
+  //     if (state.filterMode === 'played') {
+  //       emptyTitle = 'No played episodes';
+  //       emptyMsg = 'Episodes you finish or mark as played will appear here.';
+  //     } else if (state.filterMode === 'continue') {
+  //       emptyTitle = 'No episodes in progress';
+  //       emptyMsg = 'Episodes you start listening to will appear here.';
+  //     } else if (state.filterMode === 'unplayed') {
+  //       emptyTitle = 'All caught up';
+  //       emptyMsg = 'You have listened to all episodes.';
+  //     } else if (state.filterMode === 'downloaded') {
+  //       emptyTitle = 'No downloaded episodes';
+  //       emptyMsg = 'Episodes you download for offline listening will appear here.';
+  //     }
+  //     container.innerHTML = `
+  //       <div class="empty-state">
+  //         <h3>${emptyTitle}</h3>
+  //         <p>${emptyMsg}</p>
+  //       </div>
+  //     `;
+  //     return;
+  //   }
+
+  //   container.innerHTML = '';
+  //   state.timelinePage = 1;
+  //   appendTimelineBatch();
+  // }
+
+  // let sentinelObserver = null;
+
+  // function appendTimelineBatch() {
+  //   const container = elements.timelineList;
+  //   if (!container) return;
+
+  //   const existingSentinel = document.getElementById('timeline-sentinel');
+  //   if (existingSentinel) existingSentinel.remove();
+
+  //   const start = (state.timelinePage - 1) * state.pageSize;
+  //   const end = state.timelinePage * state.pageSize;
+  //   const batch = state.filteredEpisodes.slice(start, end);
+
+  //   const frag = document.createDocumentFragment();
+  //   batch.forEach(ep => {
+  //     frag.appendChild(createEpisodeCard(ep));
+  //   });
+  //   container.appendChild(frag);
+
+  //   if (end < state.filteredEpisodes.length) {
+  //     const sentinel = document.createElement('div');
+  //     sentinel.id = 'timeline-sentinel';
+  //     sentinel.className = 'timeline-sentinel';
+  //     container.appendChild(sentinel);
+  //     setupSentinelObserver(sentinel);
+  //   }
+  // }
+
+  function renderTimeline(preserveScroll = false) {
     updateDockVisibility();
     const container = elements.timelineList;
+    if (!container) return;
+
+    if (preserveScroll && state.timelinePage > 1) {
+      const prevScroll = container.scrollTop;
+      const existingSentinel = document.getElementById('timeline-sentinel');
+      if (existingSentinel) existingSentinel.remove();
+      container.innerHTML = '';
+
+      const total = state.timelinePage * state.pageSize;
+      const batch = state.filteredEpisodes.slice(0, total);
+      const frag = document.createDocumentFragment();
+      batch.forEach(ep => frag.appendChild(createEpisodeCard(ep)));
+      container.appendChild(frag);
+
+      if (total < state.filteredEpisodes.length) {
+        const sentinel = document.createElement('div');
+        sentinel.id = 'timeline-sentinel';
+        sentinel.className = 'timeline-sentinel';
+        container.appendChild(sentinel);
+        setupSentinelObserver(sentinel);
+      }
+      container.scrollTop = prevScroll;
+      return;
+    }
+
     container.innerHTML = '';
 
     if (state.feeds.length === 0) {
       container.innerHTML = `
-        <div class="empty-state onboarding-card">
+        <div class="empty-state">
           <div class="empty-icon-wrap">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+              <line x1="12" y1="19" x2="12" y2="23"></line>
+              <line x1="8" y1="23" x2="16" y2="23"></line>
+            </svg>
           </div>
           <h3>no podcasts added yet</h3>
-          <p>search by podcast name, explore curated topics, paste any rss feed url, or import your opml library.</p>
-          <div class="empty-quick-add">
-            <form id="empty-quick-form" class="quick-add-form" action="javascript:void(0);">
-              <div class="quick-add-input-wrap">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="quick-add-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                <input type="text" id="empty-quick-input" placeholder="search podcast or paste rss url..." autocomplete="off">
-                <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-empty-quick-submit">search / add</button>
-              </div>
-            </form>
-            <div class="dir-filters-row">
-              <div class="empty-category-chips" id="empty-category-chips">
-                <button type="button" class="category-chip" data-category="Science">science</button>
-                <button type="button" class="category-chip" data-category="Climate">climate &amp; planet</button>
-                <button type="button" class="category-chip" data-category="Earth Nature">earth &amp; nature</button>
-                <button type="button" class="category-chip" data-category="Space Astronomy">space &amp; astronomy</button>
-                <button type="button" class="category-chip" data-category="Oceans Marine">oceans &amp; marine</button>
-                <button type="button" class="category-chip" data-category="Physics Quantum">physics &amp; quantum</button>
-                <button type="button" class="category-chip" data-category="Neuroscience Mind">neuroscience &amp; mind</button>
-                <button type="button" class="category-chip" data-category="Biology Genetics">biology &amp; genetics</button>
-                <button type="button" class="category-chip" data-category="Clean Energy">clean tech &amp; energy</button>
-                <button type="button" class="category-chip" data-category="Ecology Forests">ecology &amp; forests</button>
-                <button type="button" class="category-chip" data-category="Weather Atmosphere">weather &amp; atmosphere</button>
-                <button type="button" class="category-chip" data-category="Paleontology Fossils">paleontology &amp; fossils</button>
-                <button type="button" class="category-chip" data-category="Medicine Health">medicine &amp; health</button>
-                <button type="button" class="category-chip" data-category="AI Tech">artificial intelligence</button>
-                <button type="button" class="category-chip" data-category="History Science">history of science</button>
-                <button type="button" class="category-chip" data-category="Archaeology Ancient">archaeology &amp; ancient</button>
-                <button type="button" class="category-chip" data-category="Math Logic">math &amp; logic</button>
-                <button type="button" class="category-chip" data-category="Agriculture Food">agriculture &amp; food</button>
-                <button type="button" class="category-chip" data-category="Tech Robotics">technology &amp; robots</button>
-                <button type="button" class="category-chip" data-category="Wildlife Zoology">wildlife &amp; zoology</button>
-                <button type="button" class="category-chip" data-category="Chemistry Materials">chemistry &amp; materials</button>
-                <button type="button" class="category-chip" data-category="Philosophy Science">philosophy of science</button>
-                <button type="button" class="category-chip" data-category="Wissen DE">wissen (de)</button>
-                <button type="button" class="category-chip" data-category="Sciences FR">sciences &amp; climat (fr)</button>
-                <button type="button" class="category-chip" data-category="Ciencia ES">ciencia y naturaleza (es)</button>
-              </div>
-            </div>
-            <div id="empty-quick-results" class="quick-results-container"></div>
+          <p>browse curated shows, search by topic, or import an opml file.</p>
+          <div class="empty-actions" style="margin-top: 1.25rem;">
+            <button class="btn btn-primary" id="btn-goto-discover">explore discover tab</button>
+            <button class="btn btn-secondary" id="btn-timeline-open-add">+ add feed url</button>
           </div>
-          <div class="empty-actions">
-            <button class="btn btn-primary" id="btn-empty-open-add">find or add podcasts</button>
-            <button class="btn btn-secondary" id="btn-empty-opml-trigger">import opml file</button>
-          </div>
-          ${buildStarterSuggestionsHTML('all')}
         </div>
       `;
-      wireEmptyStateEvents();
+
+      container.querySelector('#btn-goto-discover')?.addEventListener('click', () => navigateTo('discover'));
+      container.querySelector('#btn-timeline-open-add')?.addEventListener('click', openAddModal);
       return;
     }
 
@@ -3598,34 +3755,6 @@
 
     state.timelinePage = 1;
     appendTimelineBatch();
-  }
-
-  let sentinelObserver = null;
-
-  function appendTimelineBatch() {
-    const container = elements.timelineList;
-    if (!container) return;
-
-    const existingSentinel = document.getElementById('timeline-sentinel');
-    if (existingSentinel) existingSentinel.remove();
-
-    const start = (state.timelinePage - 1) * state.pageSize;
-    const end = state.timelinePage * state.pageSize;
-    const batch = state.filteredEpisodes.slice(start, end);
-
-    const frag = document.createDocumentFragment();
-    batch.forEach(ep => {
-      frag.appendChild(createEpisodeCard(ep));
-    });
-    container.appendChild(frag);
-
-    if (end < state.filteredEpisodes.length) {
-      const sentinel = document.createElement('div');
-      sentinel.id = 'timeline-sentinel';
-      sentinel.className = 'timeline-sentinel';
-      container.appendChild(sentinel);
-      setupSentinelObserver(sentinel);
-    }
   }
 
   function setupSentinelObserver(sentinel) {
@@ -5019,10 +5148,10 @@
     renderContinueShelf();
     updateFilterBadges();
 
-    if (state.filterMode === 'unplayed' || state.filterMode === 'continue') {
-      processAndSortEpisodes();
-      renderTimeline();
-    }
+    // if (state.filterMode === 'unplayed' || state.filterMode === 'continue') {
+    //   processAndSortEpisodes();
+    //   renderTimeline();
+    // }
 
     if (episode.isYouTube || episode.videoId || episode.playlistId) {
       state.activeEngine = 'youtube';
@@ -7800,5 +7929,9 @@
     });
   }
 
-  document.addEventListener('DOMContentLoaded', init);
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 })();

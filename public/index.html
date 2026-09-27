@@ -98,9 +98,16 @@
 
       <nav class="nav-tabs" aria-label="main navigation">
         <button class="nav-tab active" data-tab="timeline" id="tab-timeline">timeline</button>
-        <button class="nav-tab" data-tab="feeds" id="tab-feeds"><span>feeds</span><span class="tab-badge" id="feed-count">0</span></button>
-        <button class="nav-tab" data-tab="favorites" id="tab-favorites"><span>favorites</span><span class="tab-badge" id="favorites-tab-count"></span></button>
-        <button class="nav-tab" data-tab="downloads" id="tab-downloads"><span>downloads</span><span class="tab-badge" id="downloads-tab-count"></span></button>
+        <button class="nav-tab" data-tab="feeds" id="tab-feeds">
+          <span>feeds</span><span class="tab-badge" id="feed-count">0</span>
+        </button>
+        <button class="nav-tab" data-tab="favorites" id="tab-favorites">
+          <span>favorites</span><span class="tab-badge" id="favorites-tab-count"></span>
+        </button>
+        <button class="nav-tab" data-tab="downloads" id="tab-downloads">
+          <span>downloads</span><span class="tab-badge" id="downloads-tab-count"></span>
+        </button>
+        <button class="nav-tab" data-tab="discover" id="tab-discover">discover</button>
         <!-- Settings tab hidden from nav, triggered by gear icon in header -->
         <button class="nav-tab" data-tab="settings" id="tab-settings" style="display:none;" aria-hidden="true">settings</button>
       </nav>
@@ -150,58 +157,7 @@
             </button>
           </div>
         </div>
-        <div class="episode-list" id="timeline-list">
-          <div class="empty-state onboarding-card">
-            <div class="empty-icon-wrap">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-            </div>
-            <h3>no podcasts added yet</h3>
-            <p>search by podcast name, explore curated topics, paste any rss feed url, or import your opml library.</p>
-            <div class="empty-quick-add">
-              <form id="empty-quick-form" class="quick-add-form" action="javascript:void(0);">
-                <div class="quick-add-input-wrap">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="quick-add-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                  <input type="text" id="empty-quick-input" placeholder="search podcast or paste rss url..." autocomplete="off">
-                  <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-empty-quick-submit">search / add</button>
-                </div>
-              </form>
-              <div class="dir-filters-row">
-                <div class="empty-category-chips" id="empty-category-chips">
-                  <button type="button" class="category-chip" data-category="Science">science</button>
-                  <button type="button" class="category-chip" data-category="Climate">climate &amp; planet</button>
-                  <button type="button" class="category-chip" data-category="Earth Nature">earth &amp; nature</button>
-                  <button type="button" class="category-chip" data-category="Space Astronomy">space &amp; astronomy</button>
-                  <button type="button" class="category-chip" data-category="Oceans Marine">oceans &amp; marine</button>
-                  <button type="button" class="category-chip" data-category="Physics Quantum">physics &amp; quantum</button>
-                  <button type="button" class="category-chip" data-category="Neuroscience Mind">neuroscience &amp; mind</button>
-                  <button type="button" class="category-chip" data-category="Biology Genetics">biology &amp; genetics</button>
-                  <button type="button" class="category-chip" data-category="Clean Energy">clean tech &amp; energy</button>
-                  <button type="button" class="category-chip" data-category="Ecology Forests">ecology &amp; forests</button>
-                  <button type="button" class="category-chip" data-category="Weather Atmosphere">weather &amp; atmosphere</button>
-                  <button type="button" class="category-chip" data-category="Paleontology Fossils">paleontology &amp; fossils</button>
-                  <button type="button" class="category-chip" data-category="Medicine Health">medicine &amp; health</button>
-                  <button type="button" class="category-chip" data-category="AI Tech">artificial intelligence</button>
-                  <button type="button" class="category-chip" data-category="History Science">history of science</button>
-                  <button type="button" class="category-chip" data-category="Archaeology Ancient">archaeology &amp; ancient</button>
-                  <button type="button" class="category-chip" data-category="Math Logic">math &amp; logic</button>
-                  <button type="button" class="category-chip" data-category="Agriculture Food">agriculture &amp; food</button>
-                  <button type="button" class="category-chip" data-category="Tech Robotics">technology &amp; robots</button>
-                  <button type="button" class="category-chip" data-category="Wildlife Zoology">wildlife &amp; zoology</button>
-                  <button type="button" class="category-chip" data-category="Chemistry Materials">chemistry &amp; materials</button>
-                  <button type="button" class="category-chip" data-category="Philosophy Science">philosophy of science</button>
-                  <button type="button" class="category-chip" data-category="Wissen DE">wissen (de)</button>
-                  <button type="button" class="category-chip" data-category="Sciences FR">sciences &amp; climat (fr)</button>
-                  <button type="button" class="category-chip" data-category="Ciencia ES">ciencia y naturaleza (es)</button>
-                </div>
-              </div>
-              <div id="empty-quick-results" class="quick-results-container"></div>
-            </div>
-            <div class="empty-actions">
-              <button class="btn btn-primary" id="btn-empty-open-add">find or add podcasts</button>
-              <button class="btn btn-secondary" id="btn-empty-opml-trigger">import opml file</button>
-            </div>
-          </div>
-        </div>
+        <div class="episode-list" id="timeline-list"></div>
       </section>
 
       <!-- TAB 2: Subscribed Feeds -->
@@ -245,6 +201,10 @@
           </div>
         </div>
         <div class="episode-list" id="offline-episodes-list"></div>
+      </section>
+
+      <section class="tab-panel" id="panel-discover">
+        <div id="discover-content-container"></div>
       </section>
 
       <!-- TAB 4: Feed Detail View -->
