@@ -872,6 +872,13 @@
         elements.btnHeaderBack.classList.add('hidden');
       }
       const targetTab = tab || 'timeline';
+      const hasFeeds = state.feeds && state.feeds.length > 0;
+
+      // UX Improvement: If library is empty, redirect content tabs to Discover!
+      if (!hasFeeds && ['timeline', 'feeds', 'favorites', 'downloads'].includes(targetTab)) {
+        targetTab = 'discover';
+      }
+
       const tabEl = document.getElementById(`tab-${targetTab}`);
       if (tabEl) tabEl.classList.add('active');
       const panelEl = document.getElementById(`panel-${targetTab}`);
@@ -3686,8 +3693,20 @@
     const container = document.getElementById('discover-content-container');
     if (!container) return;
 
+    const hasFeeds = state.feeds && state.feeds.length > 0;
+
     container.innerHTML = `
       <div class="discover-view-wrap">
+        ${!hasFeeds ? `
+          <div class="welcome-onboard-banner" style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 12px; padding: 1.75rem; margin-bottom: 1.75rem; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+            <div style="font-size: 2rem; margin-bottom: 0.5rem;">🎧</div>
+            <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-primary);">Welcome to Anypod</h3>
+            <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.5; max-width: 600px; margin: 0 auto;">
+              No podcasts added yet. No ads, no tracking, no noise — zero clutter means total audio freedom. Explore our curated science &amp; climate shows below or search to add your first subscription!
+            </p>
+          </div>
+        ` : ''}
+        
         <!-- Clean Search & Direct RSS Add -->
         <div class="discover-search-box">
           <form id="empty-quick-form" class="quick-add-form" action="javascript:void(0);">
@@ -8651,7 +8670,7 @@ if (document.readyState === 'loading') {
       const styleLink = document.getElementById('app-style-link');
       if (styleLink) styleLink.media = 'all';
     });
-    
+
     document.addEventListener('DOMContentLoaded', init);
   } else {
     init();
