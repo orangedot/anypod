@@ -871,7 +871,7 @@
       if (elements.btnHeaderBack) {
         elements.btnHeaderBack.classList.add('hidden');
       }
-      const targetTab = tab || 'timeline';
+      let targetTab = tab || 'timeline';
       const hasFeeds = state.feeds && state.feeds.length > 0;
 
       // UX Improvement: If library is empty, redirect content tabs to Discover!
@@ -3706,7 +3706,7 @@
             </p>
           </div>
         ` : ''}
-        
+
         <!-- Clean Search & Direct RSS Add -->
         <div class="discover-search-box">
           <form id="empty-quick-form" class="quick-add-form" action="javascript:void(0);">
