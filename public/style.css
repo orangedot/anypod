@@ -2032,6 +2032,12 @@ mark.search-highlight {
   margin-bottom: 0.5rem;
   color: var(--text-primary);
 }
+.empty-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.35rem;
+}
 
 .empty-state p {
   color: var(--text-secondary);

@@ -3735,7 +3735,7 @@
               <line x1="8" y1="23" x2="16" y2="23"></line>
             </svg>
           </div>
-          <h3>no podcasts added yet</h3>
+          <div class="empty-title">no podcasts added yet</div>
           <p>browse curated shows, search by topic, or import an opml file.</p>
           <div class="empty-actions" style="margin-top: 1.25rem;">
             <button class="btn btn-primary" id="btn-goto-discover">explore discover tab</button>
