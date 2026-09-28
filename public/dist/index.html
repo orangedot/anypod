@@ -22,18 +22,16 @@
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="apple-touch-icon" href="/icon.svg">
 
-  <!-- Modern Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
-  <link rel="preload" href="https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2" as="font" type="font/woff2" crossorigin>
-
-  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <!-- Fonts & App Styles loaded non-blockingly via media="print" switch -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" media="print" id="google-fonts-link">
+  <link rel="stylesheet" href="style.min.css?v=1790633690076" media="print" id="app-style-link">
+  
   <noscript>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap">
+    <link rel="stylesheet" href="style.min.css?v=1790633690076">
   </noscript>
 
-  <link rel="stylesheet" href="style.min.css?v=1790632747385">
+  <link rel="stylesheet" href="style.min.css?v=1790633690076">
 </head>
 <body>
   <!-- Cloud Sync & Magic Auth Modal -->
@@ -708,10 +706,8 @@
 
   </div>
 
-  <!-- YouTube Iframe API -->
-  <!-- <script src="https://www.youtube.com/iframe_api"></script> -->
   <!-- Experimental defaults – must load before app.js -->
   <script src="scripts/settings.js?v=20260925b" defer></script>
-  <script src="app.min.js?v=1790632747385" defer></script>
+  <script src="app.min.js?v=1790633690076" defer></script>
 </body>
 </html>

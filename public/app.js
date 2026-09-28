@@ -8643,6 +8643,15 @@ function setPlayerCollapsed(collapsed, save = true) {
   }
 
 if (document.readyState === 'loading') {
+    // Programmatically activate non-blocking stylesheets (Zero CSP violations)
+    document.addEventListener('DOMContentLoaded', () => {
+      const fontLink = document.getElementById('google-fonts-link');
+      if (fontLink) fontLink.media = 'all';
+
+      const styleLink = document.getElementById('app-style-link');
+      if (styleLink) styleLink.media = 'all';
+    });
+    
     document.addEventListener('DOMContentLoaded', init);
   } else {
     init();
