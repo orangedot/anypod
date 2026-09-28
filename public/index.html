@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Anypod — Private Podcast Player. No account. No ads. No tracking.</title>
+  <title>anypod — private podcast player. no account. no ads. no tracking.</title>
   <meta name="description" content="Anypod is a free, open-source podcast player. No account required — search and listen instantly. Optional cloud sync, offline PWA, YouTube feeds, and auto-deletes your data after 50 days of inactivity.">
   <!-- Open Graph -->
+
   <meta property="og:title" content="Anypod — Private Podcast Player">
   <meta property="og:description" content="No account. No ads. No tracking. Open-source podcast PWA with offline playback and optional encrypted sync. Your data has an expiry date.">
   <meta property="og:url" content="https://anypod.org">
@@ -26,7 +27,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css?v=20260925_player_v5">
+  <!-- <link rel="preload" rel="stylesheet" href="style.css?v=20260925_player_v5" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript></noscript> -->
+  <link rel="stylesheet" href="/style.css?v=20260925_player_v5">
 </head>
 <body>
   <!-- Cloud Sync & Magic Auth Modal -->
@@ -703,7 +706,7 @@
   <!-- YouTube Iframe API -->
   <script src="https://www.youtube.com/iframe_api"></script>
   <!-- Experimental defaults – must load before app.js -->
-  <script src="scripts/settings.js?v=20260925b"></script>
-  <script src="app.js?v=20260925_player_v5"></script>
+  <script src="scripts/settings.js?v=20260925b" defer></script>
+  <script src="app.js?v=20260925_player_v5" defer></script>
 </body>
 </html>

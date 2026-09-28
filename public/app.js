@@ -659,6 +659,42 @@
 
   document.addEventListener('visibilitychange', () => {
     state.isTabActive = !document.hidden;
+
+    if (document.hidden) {
+      // Screen locked / backgrounded: kill the 80ms silence loop completely to conserve CPU
+      if (typeof liveDspInterval !== 'undefined' && liveDspInterval) {
+        clearInterval(liveDspInterval);
+        liveDspInterval = null;
+      }
+      if (typeof isAcceleratingSilence !== 'undefined' && isAcceleratingSilence && elements.audio) {
+        elements.audio.playbackRate = state.playbackSpeed || 1.0;
+        isAcceleratingSilence = false;
+      }
+    } else {
+      // Screen unlocked / foregrounded: restart silence skipping if active
+      if (state.experimentalSettings.enableSilenceSkip && isEnginePlaying()) {
+        if (typeof startLiveSilenceDetection === 'function') {
+          startLiveSilenceDetection();
+        }
+      }
+
+      // Re-sync UI with whatever episode auto-advanced in the background
+      processAndSortEpisodes();
+      renderTimeline(true);
+      renderContinueShelf();
+      updateFilterBadges();
+      syncPlaybackButtons();
+
+      if (state.activeFeedDetailUrl) {
+        renderFeedDetail(state.activeFeedDetailUrl);
+      }
+      if (state.currentEpisode) {
+        initOrLoadEpisodeTimeline(state.currentEpisode, state.episodeTimeline.duration);
+      }
+      if (state.experimentalSettings.enableVisualizer) {
+        renderWaveformChart();
+      }
+    }
   });
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1424,19 +1460,33 @@
     updateFilterBadges();
   }
 
+  let _lastCloudSyncTime = 0;
+
   async function savePlaybackPositionToD1(episodeGuid, positionSeconds, completed = false) {
     if (!episodeGuid) return;
+
+    // 1. Instant local storage update (instant crash-proofing, zero network)
     state.playbackPositions[episodeGuid] = {
       position: positionSeconds,
       completed: completed ? 1 : 0,
       lastListenedAt: Math.floor(Date.now() / 1000)
     };
     savePositionsToStorage();
-    renderContinueShelf();
-    updateFilterBadges();
 
-    // If in guest mode, exit early so we never fire an unauthorized request
+    // 2. Only update UI DOM when screen is visible
+    if (!document.hidden) {
+      renderContinueShelf();
+      updateFilterBadges();
+    }
+
     if (!state.sessionToken) return;
+
+    // 3. Throttle remote HTTP sync: only sync remote D1 once every 60s unless paused/completed
+    const now = Date.now();
+    if (!completed && (now - _lastCloudSyncTime < 60000)) {
+      return;
+    }
+    _lastCloudSyncTime = now;
 
     try {
       const headers = { 'Content-Type': 'application/json' };
@@ -1447,7 +1497,7 @@
         credentials: 'include',
         body: JSON.stringify({ episodeGuid, positionSeconds, completed })
       });
-    } catch (e) {}
+    } catch (_) {}
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -5111,7 +5161,6 @@
     if ('mediaSession' in navigator) {
       navigator.mediaSession.setActionHandler('play', () => playCurrentEngine());
       navigator.mediaSession.setActionHandler('pause', () => pauseCurrentEngine());
-      
       navigator.mediaSession.setActionHandler('seekbackward', (details) => {
         const skipTime = details.seekOffset || 15;
         if (state.activeEngine === 'audio' && elements.audio) {
@@ -5122,7 +5171,6 @@
         }
         updateProgress();
       });
-
       navigator.mediaSession.setActionHandler('seekforward', (details) => {
         const skipTime = details.seekOffset || 15;
         if (state.activeEngine === 'audio' && elements.audio && elements.audio.duration) {
@@ -5134,7 +5182,6 @@
         }
         updateProgress();
       });
-
       navigator.mediaSession.setActionHandler('previoustrack', () => {
         if (state.activeEngine === 'audio' && elements.audio) {
           elements.audio.currentTime = 0;
@@ -5143,18 +5190,15 @@
         }
         updateProgress();
       });
-
+      // Handles lock-screen / Bluetooth headphone next track button:
       navigator.mediaSession.setActionHandler('nexttrack', () => {
         onEpisodeEnded();
       });
-
-      // Bluetooth headphones & OS Lock-Screen Scrubber: seekto
       navigator.mediaSession.setActionHandler('seekto', (details) => {
         if (details.seekTime !== undefined && !isNaN(details.seekTime)) {
           seekToExactTime(details.seekTime);
         }
       });
-
       navigator.mediaSession.setActionHandler('stop', () => {
         pauseCurrentEngine();
         state.playbackStatus = 'idle';
@@ -5216,16 +5260,12 @@
   }
 
   function playEpisode(episode, overrideStartTime) {
-    // console.log('[Anypod Debug] playEpisode clicked for:', episode.title, {
-    //   scrollTopBefore: elements.timelineList?.scrollTop,
-    //   filterMode: state.filterMode
-    // });
-
     state.currentEpisode = episode;
     state.playbackStatus = 'loading';
     syncPlaybackButtons();
 
-    elements.audio.pause();
+    // ONLY stop YouTube if switching away from YouTube; 
+    // DO NOT call elements.audio.pause() here — it breaks mobile OS background playback continuation!
     if (state.ytPlayer && state.ytPlayer.stopVideo) {
       state.ytPlayer.stopVideo();
     }
@@ -5250,14 +5290,6 @@
       saveQueueToStorage();
       updateQueueUI();
     }
-
-    renderContinueShelf();
-    updateFilterBadges();
-
-    // if (state.filterMode === 'unplayed' || state.filterMode === 'continue') {
-    //   processAndSortEpisodes();
-    //   renderTimeline();
-    // }
 
     if (episode.isYouTube || episode.videoId || episode.playlistId) {
       state.activeEngine = 'youtube';
@@ -5327,27 +5359,36 @@
       if (window.location.protocol === 'https:' && streamUrl.startsWith('http://')) {
         streamUrl = `/api/audio-proxy?url=${encodeURIComponent(streamUrl)}`;
       }
+
+      state.pendingStartTime = startTime > 0 ? startTime : null;
       elements.audio.src = streamUrl;
       elements.audio.playbackRate = state.playbackSpeed;
-      state.pendingStartTime = startTime > 0 ? startTime : null;
+
       if (startTime > 0) {
         try {
           elements.audio.currentTime = startTime;
         } catch (_) {}
       }
-      elements.audio.play().catch(e => {
-        state.playbackStatus = 'paused';
-        syncPlaybackButtons();
-      });
+
+      const playPromise = elements.audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          state.playbackStatus = 'paused';
+          syncPlaybackButtons();
+        });
+      }
     }
 
-    elements.playerTitle.textContent = episode.title;
-    elements.playerPodcast.textContent = episode.podcastTitle;
-    elements.playerArtwork.src = episode.artwork || FALLBACK_ARTWORK;
-    elements.playerArtwork.onerror = () => {
-      elements.playerArtwork.onerror = null;
-      elements.playerArtwork.src = FALLBACK_ARTWORK;
-    };
+    // OS lock-screen metadata must update immediately
+    if (elements.playerTitle) elements.playerTitle.textContent = episode.title;
+    if (elements.playerPodcast) elements.playerPodcast.textContent = episode.podcastTitle;
+    if (elements.playerArtwork) {
+      elements.playerArtwork.src = episode.artwork || FALLBACK_ARTWORK;
+      elements.playerArtwork.onerror = () => {
+        elements.playerArtwork.onerror = null;
+        elements.playerArtwork.src = FALLBACK_ARTWORK;
+      };
+    }
 
     if (elements.miniTitle) elements.miniTitle.textContent = episode.title;
     if (elements.miniPodcast) elements.miniPodcast.textContent = episode.podcastTitle;
@@ -5380,12 +5421,18 @@
     }
     document.body.classList.add('has-active-episode');
     updatePlayerFavButton();
-
-    setPlayerCollapsed(false, false);
-    initOrLoadEpisodeTimeline(episode, (episode.duration ? parseDurationSeconds(episode.duration) : 0));
-
     syncPlaybackButtons();
+
+    // Guard: Skip canvas, timeline probing, and DOM layout reflows when the screen is locked/backgrounded
+    if (!document.hidden) {
+      renderContinueShelf();
+      updateFilterBadges();
+      setPlayerCollapsed(false, false);
+      initOrLoadEpisodeTimeline(episode, (episode.duration ? parseDurationSeconds(episode.duration) : 0));
+    }
   }
+
+  let _lastPositionStateUpdate = 0;
 
   function updateProgress() {
     let current = 0;
@@ -5397,6 +5444,39 @@
     } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
       current = state.ytPlayer.getCurrentTime() || 0;
       total = state.ytPlayer.getDuration() || 0;
+    }
+
+    // 1. Lock-screen MediaSession scrubber: throttled so OS doesn't receive redundant IPC spam
+    const now = Date.now();
+    if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession && total > 0) {
+      if (now - _lastPositionStateUpdate > 3000) {
+        _lastPositionStateUpdate = now;
+        const accelerating = typeof isAcceleratingSilence !== 'undefined' && isAcceleratingSilence;
+        try {
+          navigator.mediaSession.setPositionState({
+            duration: Math.max(0, total),
+            playbackRate: (accelerating ? 2.5 : (state.playbackSpeed || 1.0)),
+            position: Math.min(Math.max(0, current), total)
+          });
+        } catch (_) {}
+      }
+    }
+
+    // 2. Sleep timer volume fadeout (keeps working in background)
+    if (state.sleepTimer.active && state.sleepTimer.fadeout && state.sleepTimer.endTime) {
+      const remainingSec = Math.max(0, (state.sleepTimer.endTime - Date.now()) / 1000);
+      if (remainingSec <= 30 && remainingSec > 0) {
+        if (state.activeEngine === 'audio') {
+          elements.audio.volume = Math.max(0, (remainingSec / 30) * state.sleepTimer.initialVolume);
+        } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
+          state.ytPlayer.setVolume(Math.max(0, (remainingSec / 30) * 100));
+        }
+      }
+    }
+
+    // 3. BATTERY GUARD: If phone is locked or tab is hidden, skip all DOM layout queries & visual repaints
+    if (document.hidden || !state.isTabActive) {
+      return;
     }
 
     if (elements.currentTimeLabel) {
@@ -5436,7 +5516,7 @@
       
       if (state._lastDrawnWaveformBarIndex !== curBarIdx) {
         state._lastDrawnWaveformBarIndex = curBarIdx;
-        if (state.experimentalSettings.enableVisualizer && state.isTabActive && !document.hidden) {
+        if (state.experimentalSettings.enableVisualizer) {
           renderWaveformChart();
         }
       }
@@ -5518,28 +5598,6 @@
         });
       }
     }
-
-    if (state.sleepTimer.active && state.sleepTimer.fadeout && state.sleepTimer.endTime) {
-      const remainingSec = Math.max(0, (state.sleepTimer.endTime - Date.now()) / 1000);
-      if (remainingSec <= 30 && remainingSec > 0) {
-        if (state.activeEngine === 'audio') {
-          elements.audio.volume = Math.max(0, (remainingSec / 30) * state.sleepTimer.initialVolume);
-        } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
-          state.ytPlayer.setVolume(Math.max(0, (remainingSec / 30) * 100));
-        }
-      }
-    }
-
-    // Update OS Lock-Screen Scrubber Position State
-    if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession && total > 0) {
-      try {
-        navigator.mediaSession.setPositionState({
-          duration: Math.max(0, total),
-          playbackRate: (isAcceleratingSilence ? 2.5 : (state.playbackSpeed || 1.0)),
-          position: Math.min(Math.max(0, current), total)
-        });
-      } catch (_) {}
-    }
   }
 
   function updateDuration() {
@@ -5615,11 +5673,13 @@
 
     if (nextEp) {
       playEpisode(nextEp);
-      processAndSortEpisodes();
-      renderTimeline();
-      renderContinueShelf();
-      if (state.activeFeedDetailUrl) {
-        renderFeedDetail(state.activeFeedDetailUrl);
+      if (!document.hidden) {
+        processAndSortEpisodes();
+        renderTimeline();
+        renderContinueShelf();
+        if (state.activeFeedDetailUrl) {
+          renderFeedDetail(state.activeFeedDetailUrl);
+        }
       }
     } else {
       state.playbackStatus = 'idle';
