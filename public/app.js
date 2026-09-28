@@ -455,7 +455,8 @@
       isProbing: false,
       progressPct: 0
     },
-    showRemainingTime: true
+    showRemainingTime: true,
+    isTabActive: typeof document !== 'undefined' ? !document.hidden : true
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -653,8 +654,12 @@
 
     // Top navigation back button
     btnHeaderBack: document.getElementById('btn-header-back'),
-    btnHeaderBackLabel: document.getElementById('btn-header-back-label')
+    // btnHeaderBackLabel: document.getElementById('btn-header-back-label')
   };
+
+  document.addEventListener('visibilitychange', () => {
+    state.isTabActive = !document.hidden;
+  });
 
   // ─────────────────────────────────────────────────────────────────────────
   // Scroll-position memory for the episode timeline list.
@@ -679,12 +684,12 @@
   }
 
   // Wire top nav back button → navigateBack
-  if (elements.btnHeaderBack) {
-    elements.btnHeaderBack.addEventListener('click', (e) => {
-      e.preventDefault();
-      navigateBack();
-    });
-  }
+  // if (elements.btnHeaderBack) {
+  //   elements.btnHeaderBack.addEventListener('click', (e) => {
+  //     e.preventDefault();
+  //     navigateBack();
+  //   });
+  // }
 
   function syncShowNotesPlayButton(ep) {
     if (!elements.btnNotesPlay || !ep) return;
@@ -814,9 +819,9 @@
         elements.btnHeaderBack.classList.remove('hidden');
         const prev = state.navHistory[state.navHistory.length - 1];
         const prevName = prev?.tab ? (prev.tab.charAt(0).toUpperCase() + prev.tab.slice(1)) : 'Back';
-        if (elements.btnHeaderBackLabel) {
-          elements.btnHeaderBackLabel.textContent = prevName;
-        }
+        // if (elements.btnHeaderBackLabel) {
+        //   elements.btnHeaderBackLabel.textContent = prevName;
+        // }
       }
       window.scrollTo({ top: 0, behavior: 'smooth' });
       const meta = state.feedMetadata[feedUrl] || {};
@@ -3956,6 +3961,8 @@
     const ep = targetEp || state.currentEpisode;
     if (!ep || !elements.showNotesModal) return;
 
+    state.activeNotesEpisode = ep;
+
     // 1. Artwork
     if (elements.showNotesArtwork || elements.showNotesArt) {
       const artEl = elements.showNotesArtwork || elements.showNotesArt;
@@ -4050,6 +4057,8 @@
   }
 
   function closeShowNotes() {
+    state.activeNotesEpisode = null;
+
     if (window.history.state && window.history.state.modal) {
       window.history.back();
     } else if (elements.showNotesModal) {
@@ -5371,9 +5380,10 @@
 
       const barCount = (state.episodeTimeline.bars && state.episodeTimeline.bars.length) || 85;
       const curBarIdx = Math.floor(progressRatio * barCount);
+      
       if (state._lastDrawnWaveformBarIndex !== curBarIdx) {
         state._lastDrawnWaveformBarIndex = curBarIdx;
-        if (state.experimentalSettings.enableVisualizer) {
+        if (state.experimentalSettings.enableVisualizer && state.isTabActive && !document.hidden) {
           renderWaveformChart();
         }
       }
@@ -5642,8 +5652,11 @@
       }
     }
 
-    if (elements.showNotesModal && !elements.showNotesModal.classList.contains('hidden') && state.currentEpisode) {
-      syncShowNotesPlayButton(state.currentEpisode);
+    // if (elements.showNotesModal && !elements.showNotesModal.classList.contains('hidden') && state.currentEpisode) {
+    //   syncShowNotesPlayButton(state.currentEpisode);
+    // }
+    if (elements.showNotesModal && !elements.showNotesModal.classList.contains('hidden') && state.activeNotesEpisode) {
+      syncShowNotesPlayButton(state.activeNotesEpisode);
     }
 
     const cards = document.querySelectorAll('.episode-card');
@@ -7774,6 +7787,11 @@ function setPlayerCollapsed(collapsed, save = true) {
   }
 
   function renderWaveformChart() {
+    // Battery Guard: skip canvas calculations and repaints when tab/screen is inactive
+    if (!state.experimentalSettings.enableVisualizer || document.hidden || !state.isTabActive) {
+      return;
+    }
+
     if (!state.experimentalSettings.enableVisualizer) return;
     const canvas = elements.episodeWaveformCanvas;
     const wrap = elements.waveformTimelineWrap;
