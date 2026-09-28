@@ -300,7 +300,7 @@
       return `
         <div class="feed-card starter-show-card" data-feed="${escapeHtml(item.feed)}" data-title="${escapeHtml(item.title)}">
           <div class="feed-header">
-            <img class="feed-art" src="${art}" alt="" loading="lazy" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+            <img class="feed-art" src="${art}" alt="" loading="lazy">
             <div class="feed-info">
               <h4>${escapeHtml(item.title)}</h4>
               <p>${escapeHtml(item.badge)}</p>
@@ -1803,7 +1803,7 @@
         <div class="queue-now-playing-card">
           <div class="queue-now-playing-label">Now Playing</div>
           <div class="queue-now-playing-row">
-            <img class="queue-item-artwork" src="${cur.artwork || FALLBACK_ARTWORK}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+            <img class="queue-item-artwork" src="${cur.artwork || FALLBACK_ARTWORK}" alt="">
             <div class="queue-item-info">
               <div class="queue-item-title">${escapeHtml(cur.title)}</div>
               <div class="queue-item-meta">${cur.isYouTube ? 'YouTube' : escapeHtml(cur.podcastTitle)}</div>
@@ -1842,7 +1842,7 @@
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
           </span>
           <span class="queue-item-index">${idx + 1}</span>
-          <img class="queue-item-artwork" src="${ep.artwork || FALLBACK_ARTWORK}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+          <img class="queue-item-artwork" src="${ep.artwork || FALLBACK_ARTWORK}" alt="">
           <div class="queue-item-info">
             <div class="queue-item-title">${escapeHtml(ep.title)}</div>
             <div class="queue-item-meta">${escapeHtml(ep.podcastTitle)}${ep.duration ? ` • ${escapeHtml(ep.duration)}` : ''}</div>
@@ -1980,7 +1980,7 @@
         row.dataset.guid = ep.guid;
         row.innerHTML = `
           <span class="queue-item-index" style="color:var(--text-muted);">↳</span>
-          <img class="queue-item-artwork" src="${ep.artwork || FALLBACK_ARTWORK}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+          <img class="queue-item-artwork" src="${ep.artwork || FALLBACK_ARTWORK}" alt="">
           <div class="queue-item-info">
             <div class="queue-item-title">${escapeHtml(ep.title)}</div>
             <div class="queue-item-meta">${escapeHtml(ep.podcastTitle)}${ep.duration ? ` • ${escapeHtml(ep.duration)}` : ''}</div>
@@ -3552,7 +3552,7 @@
 
       card.innerHTML = `
         <div class="feed-header">
-          <img class="feed-art" src="${artwork}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+          <img class="feed-art" src="${artwork}" alt="">
           <div class="feed-info">
             <h4>${escapeHtml(title)}</h4>
             <p>${escapeHtml(epCount)}${escapeHtml(genre)}</p>
@@ -4422,7 +4422,7 @@
 
     card.innerHTML = `
       <div class="episode-card-top">
-        <img class="episode-artwork" src="${ep.artwork || FALLBACK_ARTWORK}" alt="" loading="lazy" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+        <img class="episode-artwork" src="${ep.artwork || FALLBACK_ARTWORK}" alt="" loading="lazy">
         <div class="episode-header-info">
           <div class="episode-podcast-name">${ep.isYouTube ? 'YouTube' : highlightText(ep.podcastTitle, state.searchQuery)}</div>
           <div class="episode-title">${highlightText(ep.title, state.searchQuery)}</div>
@@ -4847,7 +4847,7 @@
 
       card.innerHTML = `
         <div class="feed-header">
-          <img class="feed-art" src="${meta.artwork || FALLBACK_ARTWORK}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+          <img class="feed-art" src="${meta.artwork || FALLBACK_ARTWORK}" alt="">
           <div class="feed-info">
             <h4>${highlightText(meta.title || url, state.searchQuery)}</h4>
             <p>${meta.error ? `<span style="color: #ef4444;">${escapeHtml(meta.error)}</span>` : `${meta.episodesCount || feedEpisodes.length} episodes`}${isFeedMuted(url) ? ' • <span style="color: var(--danger); font-weight: 500;">Muted</span>' : ''}</p>
@@ -4949,7 +4949,7 @@
           </div>
         </div>
         <div class="feed-detail-main">
-          <img class="feed-detail-art" src="${meta.artwork || FALLBACK_ARTWORK}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+          <img class="feed-detail-art" src="${meta.artwork || FALLBACK_ARTWORK}" alt="">
           <div class="feed-detail-info">
             <div class="feed-detail-title">${escapeHtml(meta.title || 'Untitled Podcast')}</div>
             <div class="feed-detail-author">${escapeHtml(meta.author || '')}</div>
@@ -6554,6 +6554,15 @@ function setPlayerCollapsed(collapsed, save = true) {
           }
         });
       });
+
+      document.addEventListener('error', (e) => {
+        if (e.target && e.target.tagName === 'IMG') {
+          const img = e.target;
+          if (img.src !== FALLBACK_ARTWORK) {
+            img.src = FALLBACK_ARTWORK;
+          }
+        }
+      }, true);
     }
 
     if (elements.btnPrev15) {
@@ -6690,7 +6699,7 @@ function setPlayerCollapsed(collapsed, save = true) {
 
               return `
                 <div class="discover-preview-item" data-feed-url="${encodeURIComponent(feedUrl)}" data-title="${escapeHtml(title)}" data-artwork="${escapeHtml(artwork)}">
-                  <img src="${artwork}" alt="" onerror="this.src=FALLBACK_ARTWORK">
+                  <img src="${artwork}" alt="">
                   <div class="discover-preview-item-info">
                     <span class="discover-preview-title">${escapeHtml(title)}</span>
                     <span class="discover-preview-artist">${escapeHtml(artist)}</span>
