@@ -1452,7 +1452,17 @@
       const res = await fetch('/api/sync/position', { headers, credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
-        state.playbackPositions = data.positions || {};
+        const remotePositions = data.positions || {};
+
+        // Merge smartly: only let D1 overwrite if remote timestamp is newer
+        const merged = { ...state.playbackPositions };
+        for (const [guid, rPos] of Object.entries(remotePositions)) {
+          const lPos = merged[guid];
+          if (!lPos || (rPos.lastListenedAt || 0) >= (lPos.lastListenedAt || 0)) {
+            merged[guid] = rPos;
+          }
+        }
+        state.playbackPositions = merged;
         savePositionsToStorage();
       }
     } catch (e) {}
@@ -5058,6 +5068,10 @@
       if (state.activeEngine === 'audio') {
         state.playbackStatus = 'paused';
         syncPlaybackButtons();
+
+        if (state.currentEpisode && audio.currentTime > 2) {
+          savePlaybackPositionToD1(state.currentEpisode.guid, audio.currentTime, false);
+        }
       }
     });
     audio.addEventListener('error', () => {
@@ -5225,8 +5239,33 @@
   }
 
   function playCurrentEngine() {
-    if (state.activeEngine === 'audio') {
-      elements.audio.play();
+    if (state.activeEngine === 'audio' && elements.audio) {
+      // 1. Resume suspended Web Audio context if waking up from sleep
+      if (typeof liveAudioCtx !== 'undefined' && liveAudioCtx && liveAudioCtx.state === 'suspended') {
+        liveAudioCtx.resume().catch(() => {});
+      }
+
+      // 2. Play with stream auto-recovery
+      const playPromise = elements.audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(err => {
+          console.warn('[anypod] Playback interrupted on wakeup, recovering stream:', err);
+
+          // If the network socket dropped during sleep, reload the stream source
+          if (state.currentEpisode && elements.audio.networkState === HTMLMediaElement.NETWORK_NO_SOURCE) {
+            const currentPos = elements.audio.currentTime || 0;
+            state.pendingStartTime = currentPos > 0 ? currentPos : null;
+            elements.audio.load();
+            elements.audio.play().catch(() => {
+              state.playbackStatus = 'paused';
+              syncPlaybackButtons();
+            });
+          } else {
+            state.playbackStatus = 'paused';
+            syncPlaybackButtons();
+          }
+        });
+      }
     } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
       state.ytPlayer.playVideo();
     }
@@ -5242,7 +5281,7 @@
 
   function toggleEpisodePlayback(episode) {
     if (state.currentEpisode && state.currentEpisode.guid === episode.guid) {
-      if (state.playbackStatus === 'playing') {
+      if (state.playbackStatus === 'playing' || state.playbackStatus === 'loading') {        
         state.playbackStatus = 'paused';
         syncPlaybackButtons();
         pauseCurrentEngine();
@@ -5364,11 +5403,11 @@
       elements.audio.src = streamUrl;
       elements.audio.playbackRate = state.playbackSpeed;
 
-      if (startTime > 0) {
-        try {
-          elements.audio.currentTime = startTime;
-        } catch (_) {}
-      }
+      // if (startTime > 0) {
+      //   try {
+      //     elements.audio.currentTime = startTime;
+      //   } catch (_) {}
+      // }
 
       const playPromise = elements.audio.play();
       if (playPromise !== undefined) {
