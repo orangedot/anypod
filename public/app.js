@@ -5453,6 +5453,7 @@
           { src: episode.artwork, sizes: '512x512', type: 'image/png' }
         ] : []
       });
+      navigator.mediaSession.playbackState = 'playing';
     }
 
     if (elements.playerBar) {
@@ -5799,7 +5800,9 @@
     }
 
     if ('mediaSession' in navigator) {
-      navigator.mediaSession.playbackState = isPlaying ? 'playing' : (state.playbackStatus === 'paused' ? 'paused' : 'none');
+      navigator.mediaSession.playbackState = (isPlaying || isLoading) 
+        ? 'playing' 
+        : (state.playbackStatus === 'paused' ? 'paused' : 'none');
     }
 
     if (elements.miniIconPlay && elements.miniIconPause && elements.miniIconSpinner) {
