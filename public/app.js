@@ -3699,10 +3699,9 @@
       <div class="discover-view-wrap">
         ${!hasFeeds ? `
           <div class="welcome-onboard-banner" style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 12px; padding: 1.75rem; margin-bottom: 1.75rem; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
-            <div style="font-size: 2rem; margin-bottom: 0.5rem;">🎧</div>
-            <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-primary);">Welcome to Anypod</h3>
+            <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-primary);">welcome to ynypod</h3>
             <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.5; max-width: 600px; margin: 0 auto;">
-              No podcasts added yet. No ads, no tracking, no noise — zero clutter means total audio freedom. Explore our curated science &amp; climate shows below or search to add your first subscription!
+              no podcasts added yet. no extra ads, no tracking, no noise — zero clutter means total audio freedom. explore our curated science &amp; climate shows below or search to add your first subscription!
             </p>
           </div>
         ` : ''}
