@@ -3273,23 +3273,26 @@
       const countryParam = (state.directoryCountry && state.directoryCountry !== 'all') ? `&country=${encodeURIComponent(state.directoryCountry)}` : '';
       let data = null;
 
-      // 1. Try first-party API proxy (immune to client-side ad blockers & CORS blocks)
+      // 1. Try first-party API proxy (bypasses client ad-blockers)
       try {
-        const proxyRes = await fetch(`/api/search-directory?term=${encodeURIComponent(q)}${countryParam}&limit=100`);
+        const proxyRes = await fetch(`/api/search-directory?term=${encodeURIComponent(q)}${countryParam}&limit=50`);
         if (proxyRes.ok) {
           data = await proxyRes.json();
         }
       } catch (_) {}
 
-      // 2. Fallback to direct iTunes search if proxy was unavailable (e.g. local static server)
-      if (!data || !data.results) {
-        const directUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=podcast${countryParam}&limit=100`;
-        const directRes = await fetch(directUrl);
-        if (!directRes.ok) throw new Error('Search request failed (' + directRes.status + ')');
-        data = await directRes.json();
+      // 2. Fallback to direct browser fetch if proxy failed, was rate-limited, or returned 0 results
+      if (!data || !data.results || data.results.length === 0 || data.rateLimited) {
+        try {
+          const directUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=podcast${countryParam}&limit=50`;
+          const directRes = await fetch(directUrl);
+          if (directRes.ok) {
+            data = await directRes.json();
+          }
+        } catch (_) {}
       }
 
-      const results = (data.results || []).filter(item => Boolean(item.feedUrl));
+      const results = (data?.results || []).filter(item => Boolean(item.feedUrl));
       container.innerHTML = '';
 
       if (results.length === 0) {
@@ -5108,13 +5111,55 @@
     if ('mediaSession' in navigator) {
       navigator.mediaSession.setActionHandler('play', () => playCurrentEngine());
       navigator.mediaSession.setActionHandler('pause', () => pauseCurrentEngine());
-      navigator.mediaSession.setActionHandler('seekbackward', () => {
-        if (state.activeEngine === 'audio') audio.currentTime = Math.max(0, audio.currentTime - 15);
+      
+      navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+        const skipTime = details.seekOffset || 15;
+        if (state.activeEngine === 'audio' && elements.audio) {
+          elements.audio.currentTime = Math.max(0, elements.audio.currentTime - skipTime);
+        } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
+          const cur = state.ytPlayer.getCurrentTime();
+          state.ytPlayer.seekTo(Math.max(0, cur - skipTime), true);
+        }
+        updateProgress();
       });
-      navigator.mediaSession.setActionHandler('seekforward', () => {
-        if (state.activeEngine === 'audio' && audio.duration) audio.currentTime = Math.min(audio.duration, audio.currentTime + 15);
+
+      navigator.mediaSession.setActionHandler('seekforward', (details) => {
+        const skipTime = details.seekOffset || 15;
+        if (state.activeEngine === 'audio' && elements.audio && elements.audio.duration) {
+          elements.audio.currentTime = Math.min(elements.audio.duration, elements.audio.currentTime + skipTime);
+        } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
+          const cur = state.ytPlayer.getCurrentTime();
+          const dur = state.ytPlayer.getDuration();
+          state.ytPlayer.seekTo(Math.min(dur, cur + skipTime), true);
+        }
+        updateProgress();
       });
-      navigator.mediaSession.setActionHandler('nexttrack', () => onEpisodeEnded());
+
+      navigator.mediaSession.setActionHandler('previoustrack', () => {
+        if (state.activeEngine === 'audio' && elements.audio) {
+          elements.audio.currentTime = 0;
+        } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.seekTo) {
+          state.ytPlayer.seekTo(0, true);
+        }
+        updateProgress();
+      });
+
+      navigator.mediaSession.setActionHandler('nexttrack', () => {
+        onEpisodeEnded();
+      });
+
+      // Bluetooth headphones & OS Lock-Screen Scrubber: seekto
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (details.seekTime !== undefined && !isNaN(details.seekTime)) {
+          seekToExactTime(details.seekTime);
+        }
+      });
+
+      navigator.mediaSession.setActionHandler('stop', () => {
+        pauseCurrentEngine();
+        state.playbackStatus = 'idle';
+        syncPlaybackButtons();
+      });
     }
   }
 
@@ -5316,9 +5361,17 @@
 
     if ('mediaSession' in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
-        title: episode.title,
-        artist: episode.podcastTitle,
-        artwork: episode.artwork ? [{ src: episode.artwork, sizes: '512x512', type: 'image/png' }] : []
+        title: episode.title || 'Untitled Episode',
+        artist: episode.podcastTitle || 'Podcast',
+        album: episode.podcastTitle || 'Podcast',
+        artwork: episode.artwork ? [
+          { src: episode.artwork, sizes: '96x96', type: 'image/png' },
+          { src: episode.artwork, sizes: '128x128', type: 'image/png' },
+          { src: episode.artwork, sizes: '192x192', type: 'image/png' },
+          { src: episode.artwork, sizes: '256x256', type: 'image/png' },
+          { src: episode.artwork, sizes: '384x384', type: 'image/png' },
+          { src: episode.artwork, sizes: '512x512', type: 'image/png' }
+        ] : []
       });
     }
 
@@ -5475,6 +5528,17 @@
           state.ytPlayer.setVolume(Math.max(0, (remainingSec / 30) * 100));
         }
       }
+    }
+
+    // Update OS Lock-Screen Scrubber Position State
+    if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession && total > 0) {
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: Math.max(0, total),
+          playbackRate: (isAcceleratingSilence ? 2.5 : (state.playbackSpeed || 1.0)),
+          position: Math.min(Math.max(0, current), total)
+        });
+      } catch (_) {}
     }
   }
 
@@ -5635,6 +5699,9 @@
       }
     }
 
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : (state.playbackStatus === 'paused' ? 'paused' : 'none');
+    }
 
     if (elements.miniIconPlay && elements.miniIconPause && elements.miniIconSpinner) {
       if (isLoading) {
