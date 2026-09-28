@@ -10,6 +10,7 @@ const distDir = path.join(publicDir, 'dist');
 
 console.log('📦 Starting Anypod production build...');
 
+// Ensure clean dist directory
 if (!fs.existsSync(distDir)) {
   fs.mkdirSync(distDir, { recursive: true });
 }
@@ -38,28 +39,31 @@ await esbuild.build({
 // 3. Prepare production HTML in public/dist/index.html
 const rawHtml = fs.readFileSync(path.join(publicDir, 'index.html'), 'utf-8');
 const v = Date.now();
-const prodHtml = rawHtml
-  .replace(/href="style\.css(\?[^"]*)?"/, `href="style.min.css?v=${v}"`)
-  .replace(/src="app\.js(\?[^"]*)?"/, `src="app.min.js?v=${v}"`);
+
+let prodHtml = rawHtml
+  // Safely replace style.css (with or without leading slash, with or without query param)
+  .replace(/href="\/?style\.css(\?[^"]*)?"/g, `href="style.min.css?v=${v}"`)
+  // Safely replace app.js (with or without leading slash, with or without query param)
+  .replace(/src="\/?app\.js(\?[^"]*)?"/g, `src="app.min.js?v=${v}"`)
+  // Fix duplicate rel attributes if present
+  .replace(/rel="preload"\s+rel="stylesheet"/g, 'rel="preload"');
 
 fs.writeFileSync(path.join(distDir, 'index.html'), prodHtml, 'utf-8');
 
-// 4. Copy static assets to public/dist/
-const staticFiles = ['icon.svg', 'manifest.webmanifest', '_headers'];
-for (const file of staticFiles) {
-  const src = path.join(publicDir, file);
-  if (fs.existsSync(src)) {
-    fs.copyFileSync(src, path.join(distDir, file));
-  }
-}
+// 4. Auto-copy ALL root static files to dist/
+// (Automatically includes robots.txt, sw.js, _headers, manifest, icon.svg, llms.txt, etc.)
+const ignoredFiles = new Set(['index.html', 'app.js', 'style.css', 'dist', 'node_modules', '.git']);
 
-// 5. Copy scripts/ subdirectory (e.g. settings.js) into public/dist/scripts/
-const publicScriptsDir = path.join(publicDir, 'scripts');
-if (fs.existsSync(publicScriptsDir)) {
-  const distScriptsDir = path.join(distDir, 'scripts');
-  if (!fs.existsSync(distScriptsDir)) fs.mkdirSync(distScriptsDir, { recursive: true });
-  for (const file of fs.readdirSync(publicScriptsDir)) {
-    fs.copyFileSync(path.join(publicScriptsDir, file), path.join(distScriptsDir, file));
+for (const entry of fs.readdirSync(publicDir, { withFileTypes: true })) {
+  if (ignoredFiles.has(entry.name)) continue;
+
+  const srcPath = path.join(publicDir, entry.name);
+  const destPath = path.join(distDir, entry.name);
+
+  if (entry.isFile()) {
+    fs.copyFileSync(srcPath, destPath);
+  } else if (entry.isDirectory()) {
+    fs.cpSync(srcPath, destPath, { recursive: true });
   }
 }
 
@@ -70,5 +74,6 @@ const minCssSize = (fs.statSync(path.join(distDir, 'style.min.css')).size / 1024
 
 console.log(`✅ JS:   ${originalJsSize} KB  →  ${minJsSize} KB (public/dist/app.min.js)`);
 console.log(`✅ CSS:  ${originalCssSize} KB  →  ${minCssSize} KB (public/dist/style.min.css)`);
+console.log('✅ Static: Automatically copied all root assets & subdirectories to dist/');
 console.log('✅ HTML: Generated production public/dist/index.html');
 console.log('🎉 Production build complete!');

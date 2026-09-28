@@ -5564,19 +5564,35 @@ body.has-active-episode.has-mini-player .player-mini {
 }
 
 .queue-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 0.75rem;
-  padding-bottom: 0.25rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding: 0.4rem 0.25rem;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 0.5rem;
 }
 
-.queue-subhead {
-  font-size: 0.75rem;
-  text-transform: none;
-  letter-spacing: normal;
+.auto-queue-row {
+  opacity: 0.9;
+}
+
+.btn-queue-item-add {
+  background: transparent;
+  border: none;
   color: var(--text-muted);
-  font-weight: 500;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-queue-item-add:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 .btn-text-subtle {

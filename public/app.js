@@ -1751,9 +1751,52 @@
     }
   }
 
+  function getAutoQueueEpisodes(limit = 10) {
+    if (!state.currentEpisode) return [];
+    const currentGuid = state.currentEpisode.guid;
+    const queuedGuids = new Set((state.queue || []).map(ep => ep.guid));
+    queuedGuids.add(currentGuid);
+
+    let candidates = [];
+
+    if (state.filterMode === 'continue') {
+      const continueList = state.allEpisodes.filter(ep => {
+        const pos = state.playbackPositions[ep.guid];
+        return (!pos || !pos.completed) && (pos && pos.position > 2);
+      });
+      const idx = continueList.findIndex(e => e.guid === currentGuid);
+      if (idx !== -1) {
+        candidates = continueList.slice(idx + 1);
+      }
+    }
+
+    if (candidates.length < limit && state.filteredEpisodes.length > 0) {
+      const idx = state.filteredEpisodes.findIndex(e => e.guid === currentGuid);
+      if (idx !== -1) {
+        const after = state.filteredEpisodes.slice(idx + 1);
+        candidates.push(...after.filter(ep => !candidates.some(c => c.guid === ep.guid)));
+      }
+    }
+
+    if (candidates.length < limit && state.allEpisodes.length > 0) {
+      const allIdx = state.allEpisodes.findIndex(e => e.guid === currentGuid);
+      if (allIdx !== -1) {
+        const after = state.allEpisodes.slice(allIdx + 1);
+        candidates.push(...after.filter(ep => !candidates.some(c => c.guid === ep.guid)));
+      }
+    }
+
+    // Filter out already played or queued items
+    return candidates
+      .filter(ep => !queuedGuids.has(ep.guid))
+      .slice(0, limit);
+  }
+
+
   function renderQueueModalContent() {
     if (!elements.queueNowPlayingContainer || !elements.queueItemsContainer) return;
 
+    // 1. Now Playing Section
     if (state.currentEpisode) {
       const cur = state.currentEpisode;
       elements.queueNowPlayingContainer.innerHTML = `
@@ -1776,139 +1819,203 @@
     }
 
     elements.queueItemsContainer.innerHTML = '';
-    if (!state.queue || state.queue.length === 0) {
-      elements.queueItemsContainer.innerHTML = `
-        <div class="queue-empty-box">
-          <p>Your queue is empty</p>
-          <span>Click the queue icon on any episode to queue it up next.</span>
-        </div>
-      `;
-      return;
+
+    // 2. Manual User Queue
+    const hasManualQueue = state.queue && state.queue.length > 0;
+    let draggedIndex = null;
+    let cachedRowRects = new Map();
+
+    if (hasManualQueue) {
+      const manualHeader = document.createElement('div');
+      manualHeader.className = 'queue-section-header';
+      manualHeader.innerHTML = `<span>Up Next (${state.queue.length})</span>`;
+      elements.queueItemsContainer.appendChild(manualHeader);
+
+      state.queue.forEach((ep, idx) => {
+        const row = document.createElement('div');
+        row.className = 'queue-item-row';
+        row.dataset.guid = ep.guid;
+        row.dataset.index = idx;
+        row.draggable = true;
+        row.innerHTML = `
+          <span class="queue-drag-handle" title="Drag to reorder">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
+          </span>
+          <span class="queue-item-index">${idx + 1}</span>
+          <img class="queue-item-artwork" src="${ep.artwork || FALLBACK_ARTWORK}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+          <div class="queue-item-info">
+            <div class="queue-item-title">${escapeHtml(ep.title)}</div>
+            <div class="queue-item-meta">${escapeHtml(ep.podcastTitle)}${ep.duration ? ` • ${escapeHtml(ep.duration)}` : ''}</div>
+          </div>
+          <div class="queue-item-actions">
+            <button class="btn-queue-item-play" title="Play Now">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
+            </button>
+            <button class="btn-queue-item-remove" title="Remove from Queue">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+        `;
+
+        // Reflow-safe drag events: cache bounding box on dragstart/enter
+        row.addEventListener('dragstart', (e) => {
+          draggedIndex = idx;
+          cachedRowRects.clear();
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', String(idx));
+          setTimeout(() => row.classList.add('is-dragging'), 0);
+        });
+
+        row.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          let rect = cachedRowRects.get(row);
+          if (!rect) {
+            rect = row.getBoundingClientRect();
+            cachedRowRects.set(row, rect);
+          }
+          const midY = rect.top + rect.height / 2;
+          const isAbove = e.clientY < midY;
+          row.classList.toggle('drag-over-above', isAbove);
+          row.classList.toggle('drag-over-below', !isAbove);
+        });
+
+        row.addEventListener('dragleave', () => {
+          row.classList.remove('drag-over-above', 'drag-over-below');
+        });
+
+        row.addEventListener('drop', (e) => {
+          e.preventDefault();
+          row.classList.remove('drag-over-above', 'drag-over-below');
+          const fromIdx = draggedIndex !== null ? draggedIndex : parseInt(e.dataTransfer.getData('text/plain'), 10);
+          const toIdx = idx;
+
+          if (fromIdx !== null && !isNaN(fromIdx) && fromIdx !== toIdx) {
+            const item = state.queue.splice(fromIdx, 1)[0];
+            state.queue.splice(toIdx, 0, item);
+            saveQueueToStorage();
+            updateQueueUI();
+            renderQueueModalContent();
+          }
+        });
+
+        row.addEventListener('dragend', () => {
+          row.classList.remove('is-dragging', 'drag-over-above', 'drag-over-below');
+          draggedIndex = null;
+          cachedRowRects.clear();
+        });
+
+        // Touch handle drag-and-drop
+        const handle = row.querySelector('.queue-drag-handle');
+        if (handle) {
+          let touchCurrentRow = null;
+
+          handle.addEventListener('touchstart', () => {
+            draggedIndex = idx;
+            row.classList.add('is-dragging');
+          }, { passive: true });
+
+          handle.addEventListener('touchmove', (e) => {
+            const touchY = e.touches[0].clientY;
+            const target = document.elementFromPoint(e.touches[0].clientX, touchY);
+            const targetRow = target ? target.closest('.queue-item-row') : null;
+            if (targetRow && targetRow !== touchCurrentRow && targetRow !== row) {
+              if (touchCurrentRow) touchCurrentRow.classList.remove('drag-over-above');
+              touchCurrentRow = targetRow;
+              targetRow.classList.add('drag-over-above');
+            }
+          }, { passive: true });
+
+          handle.addEventListener('touchend', () => {
+            row.classList.remove('is-dragging');
+            if (touchCurrentRow && draggedIndex !== null) {
+              touchCurrentRow.classList.remove('drag-over-above');
+              const toIdx = parseInt(touchCurrentRow.dataset.index, 10);
+              if (!isNaN(toIdx) && toIdx !== draggedIndex) {
+                const item = state.queue.splice(draggedIndex, 1)[0];
+                state.queue.splice(toIdx, 0, item);
+                saveQueueToStorage();
+                updateQueueUI();
+                renderQueueModalContent();
+              }
+            }
+            draggedIndex = null;
+            touchCurrentRow = null;
+          });
+        }
+
+        row.querySelector('.btn-queue-item-play').addEventListener('click', (e) => {
+          e.stopPropagation();
+          removeFromQueue(ep.guid);
+          playEpisode(ep);
+        });
+
+        row.querySelector('.btn-queue-item-remove').addEventListener('click', (e) => {
+          e.stopPropagation();
+          removeFromQueue(ep.guid);
+        });
+
+        elements.queueItemsContainer.appendChild(row);
+      });
     }
 
-    let draggedIndex = null;
+    // 3. Auto-Play Queue ("Playing Next from Timeline")
+    const autoEpisodes = getAutoQueueEpisodes(8);
 
-    state.queue.forEach((ep, idx) => {
-      const row = document.createElement('div');
-      row.className = 'queue-item-row';
-      row.dataset.guid = ep.guid;
-      row.dataset.index = idx;
-      row.draggable = true;
-      row.innerHTML = `
-        <span class="queue-drag-handle" title="Drag to reorder">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
-        </span>
-        <span class="queue-item-index">${idx + 1}</span>
-        <img class="queue-item-artwork" src="${ep.artwork || FALLBACK_ARTWORK}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
-        <div class="queue-item-info">
-          <div class="queue-item-title">${escapeHtml(ep.title)}</div>
-          <div class="queue-item-meta">${escapeHtml(ep.podcastTitle)}${ep.duration ? ` • ${escapeHtml(ep.duration)}` : ''}</div>
-        </div>
-        <div class="queue-item-actions">
-          <button class="btn-queue-item-play" title="Play Now">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
-          </button>
-          <button class="btn-queue-item-remove" title="Remove from Queue">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-          </button>
+    if (autoEpisodes.length > 0) {
+      const autoHeader = document.createElement('div');
+      autoHeader.className = 'queue-section-header';
+      autoHeader.style.marginTop = hasManualQueue ? '1.25rem' : '0.25rem';
+      autoHeader.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+          <span>${hasManualQueue ? 'Followed by (Timeline)' : 'Up Next (Auto-play)'}</span>
+          <span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">automatic</span>
         </div>
       `;
+      elements.queueItemsContainer.appendChild(autoHeader);
 
-      row.addEventListener('dragstart', (e) => {
-        draggedIndex = idx;
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', String(idx));
-        setTimeout(() => row.classList.add('is-dragging'), 0);
-      });
+      autoEpisodes.forEach((ep) => {
+        const row = document.createElement('div');
+        row.className = 'queue-item-row auto-queue-row';
+        row.dataset.guid = ep.guid;
+        row.innerHTML = `
+          <span class="queue-item-index" style="color:var(--text-muted);">↳</span>
+          <img class="queue-item-artwork" src="${ep.artwork || FALLBACK_ARTWORK}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+          <div class="queue-item-info">
+            <div class="queue-item-title">${escapeHtml(ep.title)}</div>
+            <div class="queue-item-meta">${escapeHtml(ep.podcastTitle)}${ep.duration ? ` • ${escapeHtml(ep.duration)}` : ''}</div>
+          </div>
+          <div class="queue-item-actions">
+            <button class="btn-queue-item-add" title="Add to Up Next Queue">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+            <button class="btn-queue-item-play" title="Play Now">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
+            </button>
+          </div>
+        `;
 
-      row.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        const rect = row.getBoundingClientRect();
-        const midY = rect.top + rect.height / 2;
-        if (e.clientY < midY) {
-          row.classList.add('drag-over-above');
-          row.classList.remove('drag-over-below');
-        } else {
-          row.classList.add('drag-over-below');
-          row.classList.remove('drag-over-above');
-        }
-      });
-
-      row.addEventListener('dragleave', () => {
-        row.classList.remove('drag-over-above', 'drag-over-below');
-      });
-
-      row.addEventListener('drop', (e) => {
-        e.preventDefault();
-        row.classList.remove('drag-over-above', 'drag-over-below');
-        const fromIdx = draggedIndex !== null ? draggedIndex : parseInt(e.dataTransfer.getData('text/plain'), 10);
-        const toIdx = idx;
-
-        if (fromIdx !== null && !isNaN(fromIdx) && fromIdx !== toIdx) {
-          const item = state.queue.splice(fromIdx, 1)[0];
-          state.queue.splice(toIdx, 0, item);
-          saveQueueToStorage();
-          updateQueueUI();
-          renderQueueModalContent();
-        }
-      });
-
-      row.addEventListener('dragend', () => {
-        row.classList.remove('is-dragging', 'drag-over-above', 'drag-over-below');
-        draggedIndex = null;
-      });
-
-      const handle = row.querySelector('.queue-drag-handle');
-      if (handle) {
-        let touchCurrentRow = null;
-
-        handle.addEventListener('touchstart', () => {
-          draggedIndex = idx;
-          row.classList.add('is-dragging');
-        }, { passive: true });
-
-        handle.addEventListener('touchmove', (e) => {
-          const touchY = e.touches[0].clientY;
-          const target = document.elementFromPoint(e.touches[0].clientX, touchY);
-          const targetRow = target ? target.closest('.queue-item-row') : null;
-          document.querySelectorAll('.queue-item-row').forEach(r => r.classList.remove('drag-over-above', 'drag-over-below'));
-          if (targetRow && targetRow !== row) {
-            touchCurrentRow = targetRow;
-            targetRow.classList.add('drag-over-above');
-          }
-        }, { passive: true });
-
-        handle.addEventListener('touchend', () => {
-          row.classList.remove('is-dragging');
-          if (touchCurrentRow && draggedIndex !== null) {
-            const toIdx = parseInt(touchCurrentRow.dataset.index, 10);
-            if (!isNaN(toIdx) && toIdx !== draggedIndex) {
-              const item = state.queue.splice(draggedIndex, 1)[0];
-              state.queue.splice(toIdx, 0, item);
-              saveQueueToStorage();
-              updateQueueUI();
-              renderQueueModalContent();
-            }
-          }
-          document.querySelectorAll('.queue-item-row').forEach(r => r.classList.remove('drag-over-above', 'drag-over-below'));
-          draggedIndex = null;
+        // + button promotes auto-queue item into manual queue
+        row.querySelector('.btn-queue-item-add').addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleEpisodeQueue(ep);
         });
-      }
 
-      row.querySelector('.btn-queue-item-play').addEventListener('click', (e) => {
-        e.stopPropagation();
-        removeFromQueue(ep.guid);
-        playEpisode(ep);
+        row.querySelector('.btn-queue-item-play').addEventListener('click', (e) => {
+          e.stopPropagation();
+          playEpisode(ep);
+        });
+
+        elements.queueItemsContainer.appendChild(row);
       });
-
-      row.querySelector('.btn-queue-item-remove').addEventListener('click', (e) => {
-        e.stopPropagation();
-        removeFromQueue(ep.guid);
-      });
-
-      elements.queueItemsContainer.appendChild(row);
-    });
+    } else if (!hasManualQueue) {
+      elements.queueItemsContainer.innerHTML = `
+        <div class="queue-empty-box">
+          <p>Queue is empty</p>
+          <span>Subscribe to feeds or search episodes to start listening.</span>
+        </div>
+      `;
+    }
   }
 
   function openQueueModal() {
@@ -4132,11 +4239,12 @@
   function setupProgressTrackInteractivity(progressTrack, card, ep) {
     if (!progressTrack) return;
     let isDragging = false;
+    let trackRect = null;
 
     const handleScrub = (clientX, commit) => {
-      const rect = progressTrack.getBoundingClientRect();
-      if (rect.width <= 0) return;
-      const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      if (!trackRect) trackRect = progressTrack.getBoundingClientRect();
+      if (trackRect.width <= 0) return;
+      const ratio = Math.max(0, Math.min(1, (clientX - trackRect.left) / trackRect.width));
       const pct = Math.round(ratio * 100);
       const fillEl = progressTrack.querySelector('.ep-progress-fill');
       if (fillEl) fillEl.style.width = `${pct}%`;
@@ -4202,6 +4310,7 @@
     progressTrack.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
       isDragging = true;
+      trackRect = progressTrack.getBoundingClientRect();
       try { progressTrack.setPointerCapture(e.pointerId); } catch (_) {}
       handleScrub(e.clientX, false);
     });
@@ -4218,11 +4327,13 @@
       isDragging = false;
       try { progressTrack.releasePointerCapture(e.pointerId); } catch (_) {}
       handleScrub(e.clientX, true);
+      trackRect = null;
     });
 
     progressTrack.addEventListener('pointercancel', (e) => {
       if (!isDragging) return;
       isDragging = false;
+      trackRect = null;
       try { progressTrack.releasePointerCapture(e.pointerId); } catch (_) {}
     });
 
@@ -5109,11 +5220,46 @@
 
     const miniProgBar = document.querySelector('.mini-progress-bar');
     if (miniProgBar) {
+      let touchStartX = 0;
+      let touchStartY = 0;
+      let isTouchScrolling = false;
+
+      // Detect touch gesture intention: if finger moves > 8px in any direction, it's a scroll!
+      miniProgBar.addEventListener('touchstart', (e) => {
+        if (e.touches && e.touches[0]) {
+          touchStartX = e.touches[0].clientX;
+          touchStartY = e.touches[0].clientY;
+          isTouchScrolling = false;
+        }
+      }, { passive: true });
+
+      miniProgBar.addEventListener('touchmove', (e) => {
+        if (e.touches && e.touches[0]) {
+          const deltaX = Math.abs(e.touches[0].clientX - touchStartX);
+          const deltaY = Math.abs(e.touches[0].clientY - touchStartY);
+          if (deltaX > 8 || deltaY > 8) {
+            isTouchScrolling = true;
+          }
+        }
+      }, { passive: true });
+
       miniProgBar.addEventListener('click', (e) => {
         e.stopPropagation();
+
+        // 1. Guard against active page scroll or scroll-drag
+        if (isTouchScrolling || document.body.classList.contains('is-scrolling')) {
+          isTouchScrolling = false;
+          return;
+        }
+
+        // 2. Only scrub if an episode is actually loaded
+        if (!state.currentEpisode) return;
+
         const rect = miniProgBar.getBoundingClientRect();
+        if (rect.width <= 0) return;
         const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-        if (state.activeEngine === 'audio' && elements.audio.duration) {
+
+        if (state.activeEngine === 'audio' && elements.audio && elements.audio.duration) {
           elements.audio.currentTime = pct * elements.audio.duration;
         } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getDuration) {
           state.ytPlayer.seekTo(pct * state.ytPlayer.getDuration(), true);
@@ -7985,95 +8131,102 @@ function setPlayerCollapsed(collapsed, save = true) {
     }
 
     if (!state.experimentalSettings.enableVisualizer) return;
-    const canvas = elements.episodeWaveformCanvas;
-    const wrap = elements.waveformTimelineWrap;
-    if (!canvas || !wrap) return;
 
-    const rect = wrap.getBoundingClientRect();
-    const w = (rect.width > 0) ? rect.width : (wrap.offsetWidth > 0 ? wrap.offsetWidth : (window.innerWidth || 500));
-    const h = canvas.clientHeight || canvas.offsetHeight || 32;
-    const dpr = window.devicePixelRatio || 1;
+    requestAnimationFrame(() => {
+      const canvas = elements.episodeWaveformCanvas;
+      const wrap = elements.waveformTimelineWrap;
+      if (!canvas || !wrap) return;
 
-    canvas.width = Math.floor(w * dpr);
-    canvas.height = Math.floor(h * dpr);
+      const w = wrap.clientWidth || 500;
+      const h = canvas.clientHeight || 32;
+      const dpr = window.devicePixelRatio || 1;
 
-    const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, w, h);
+      const targetWidth = Math.floor(w * dpr);
+      const targetHeight = Math.floor(h * dpr);
 
-    const bars = state.episodeTimeline.bars;
-    if (!bars || bars.length === 0) return;
-
-    // Calculate current playhead progress
-    let curSec = 0;
-    let totalDur = state.episodeTimeline.duration || 0;
-    if (state.activeEngine === 'audio' && elements.audio) {
-      curSec = elements.audio.currentTime || 0;
-      if (!totalDur && elements.audio.duration && isFinite(elements.audio.duration)) {
-        totalDur = elements.audio.duration;
-      }
-    } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
-      curSec = state.ytPlayer.getCurrentTime() || 0;
-      if (!totalDur && state.ytPlayer.getDuration) {
-        totalDur = state.ytPlayer.getDuration();
-      }
-    }
-    const curPct = (totalDur > 0) ? Math.min(1, Math.max(0, curSec / totalDur)) : (state.episodeTimeline.progressPct || 0);
-    const playheadX = curPct * w;
-
-    const barWidth = w / bars.length;
-    const gap = 1.2;
-    const drawWidth = Math.max(1.2, barWidth - gap);
-    const showClassifier = !!state.experimentalSettings.enableAudioClassifier;
-
-    // Detect light vs dark theme for contrast
-    const isLight = document.documentElement.getAttribute('data-theme') === 'light' || 
-                   (!document.documentElement.getAttribute('data-theme') && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
-
-    // Track active mode at playhead for UI pill dots
-    let activeModeAtPlayhead = 'speech';
-
-    for (let i = 0; i < bars.length; i++) {
-      const b = bars[i];
-      const barH = Math.max(3, Math.round(b.height * (h - 2)));
-      const x = i * barWidth + (gap / 2);
-      const y = h - barH; // Baseline rises directly from the bottom edge (0 space to player controls)
-
-      const isPlayed = (x + drawWidth * 0.5) <= playheadX;
-      if (isPlayed) {
-        activeModeAtPlayhead = b.type || 'speech';
+      if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
       }
 
-      // Elegant, high-clarity color palette:
-      // Always visible in both light & dark themes, whether Audio Classifier is on or off
-      let color;
-      if (showClassifier && b.type === 'music') {
-        color = isPlayed ? '#a855f7' : (isLight ? 'rgba(168, 85, 247, 0.35)' : 'rgba(168, 85, 247, 0.28)');
-      } else if (showClassifier && b.type === 'speech') {
-        color = isPlayed ? '#f97316' : (isLight ? 'rgba(249, 115, 22, 0.35)' : 'rgba(249, 115, 22, 0.28)');
-      } else {
-        // Standard waveform (Audio Classifier off or default)
-        color = isPlayed ? '#f97316' : (isLight ? 'rgba(0, 0, 0, 0.18)' : 'rgba(255, 255, 255, 0.22)');
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+
+      const bars = state.episodeTimeline.bars;
+      if (!bars || bars.length === 0) return;
+
+      // Calculate current playhead progress
+      let curSec = 0;
+      let totalDur = state.episodeTimeline.duration || 0;
+      if (state.activeEngine === 'audio' && elements.audio) {
+        curSec = elements.audio.currentTime || 0;
+        if (!totalDur && elements.audio.duration && isFinite(elements.audio.duration)) {
+          totalDur = elements.audio.duration;
+        }
+      } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
+        curSec = state.ytPlayer.getCurrentTime() || 0;
+        if (!totalDur && state.ytPlayer.getDuration) {
+          totalDur = state.ytPlayer.getDuration();
+        }
+      }
+      const curPct = (totalDur > 0) ? Math.min(1, Math.max(0, curSec / totalDur)) : (state.episodeTimeline.progressPct || 0);
+      const playheadX = curPct * w;
+
+      const barWidth = w / bars.length;
+      const gap = 1.2;
+      const drawWidth = Math.max(1.2, barWidth - gap);
+      const showClassifier = !!state.experimentalSettings.enableAudioClassifier;
+
+      // Detect light vs dark theme for contrast
+      const isLight = document.documentElement.getAttribute('data-theme') === 'light' || 
+                     (!document.documentElement.getAttribute('data-theme') && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+
+      // Track active mode at playhead for UI pill dots
+      let activeModeAtPlayhead = 'speech';
+
+      for (let i = 0; i < bars.length; i++) {
+        const b = bars[i];
+        const barH = Math.max(3, Math.round(b.height * (h - 2)));
+        const x = i * barWidth + (gap / 2);
+        const y = h - barH; // Baseline rises directly from the bottom edge (0 space to player controls)
+
+        const isPlayed = (x + drawWidth * 0.5) <= playheadX;
+        if (isPlayed) {
+          activeModeAtPlayhead = b.type || 'speech';
+        }
+
+        // Elegant, high-clarity color palette:
+        // Always visible in both light & dark themes, whether Audio Classifier is on or off
+        let color;
+        if (showClassifier && b.type === 'music') {
+          color = isPlayed ? '#a855f7' : (isLight ? 'rgba(168, 85, 247, 0.35)' : 'rgba(168, 85, 247, 0.28)');
+        } else if (showClassifier && b.type === 'speech') {
+          color = isPlayed ? '#f97316' : (isLight ? 'rgba(249, 115, 22, 0.35)' : 'rgba(249, 115, 22, 0.28)');
+        } else {
+          // Standard waveform (Audio Classifier off or default)
+          color = isPlayed ? '#f97316' : (isLight ? 'rgba(0, 0, 0, 0.18)' : 'rgba(255, 255, 255, 0.22)');
+        }
+
+        ctx.fillStyle = color;
+
+        // Draw rounded pill bar (rounded top corners) with crisp rendering
+        const r = Math.min(drawWidth / 2, 1.5);
+        if (typeof ctx.roundRect === 'function') {
+          ctx.beginPath();
+          ctx.roundRect(x, y, drawWidth, barH, [r, r, 0, 0]);
+          ctx.fill();
+        } else {
+          ctx.fillRect(x, y, drawWidth, barH);
+        }
       }
 
-      ctx.fillStyle = color;
-
-      // Draw rounded pill bar (rounded top corners) with crisp rendering
-      const r = Math.min(drawWidth / 2, 1.5);
-      if (typeof ctx.roundRect === 'function') {
-        ctx.beginPath();
-        ctx.roundRect(x, y, drawWidth, barH, [r, r, 0, 0]);
-        ctx.fill();
-      } else {
-        ctx.fillRect(x, y, drawWidth, barH);
+      // Sync visual active mode indicator in control-buttons row
+      if (elements.btnJumpSpeech && elements.btnJumpMusic) {
+        elements.btnJumpSpeech.classList.toggle('is-active-mode', activeModeAtPlayhead === 'speech');
+        elements.btnJumpMusic.classList.toggle('is-active-mode', activeModeAtPlayhead === 'music');
       }
-    }
-
-    // Sync visual active mode indicator in control-buttons row
-    if (elements.btnJumpSpeech && elements.btnJumpMusic) {
-      elements.btnJumpSpeech.classList.toggle('is-active-mode', activeModeAtPlayhead === 'speech');
-      elements.btnJumpMusic.classList.toggle('is-active-mode', activeModeAtPlayhead === 'music');
-    }
+    });
   }
 
   // ── Background Audio Probing Engine ─────────────────────────────────────
@@ -8313,10 +8466,11 @@ function setPlayerCollapsed(collapsed, save = true) {
     if (!wrap) return;
 
     let isDragging = false;
+    let cachedWrapRect = null;
 
     const seekToPoint = (clientX) => {
-      const rect = wrap.getBoundingClientRect();
-      const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      if (!cachedWrapRect) cachedWrapRect = wrap.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (clientX - cachedWrapRect.left) / cachedWrapRect.width));
 
       let totalDur = 0;
       if (state.activeEngine === 'audio' && elements.audio.duration && isFinite(elements.audio.duration)) {
@@ -8345,24 +8499,25 @@ function setPlayerCollapsed(collapsed, save = true) {
     wrap.addEventListener('mousedown', (e) => {
       if (e.target && (e.target.id === 'total-duration' || e.target.id === 'current-time')) return;
       isDragging = true;
+      cachedWrapRect = wrap.getBoundingClientRect();
       seekToPoint(e.clientX);
     });
 
     window.addEventListener('mousemove', (e) => {
-      if (isDragging) {
-        seekToPoint(e.clientX);
-      }
+      if (isDragging) seekToPoint(e.clientX);
     });
 
     window.addEventListener('mouseup', () => {
       isDragging = false;
+      cachedWrapRect = null;
     });
 
-    // Touch events for mobile
+    // Touch events
     wrap.addEventListener('touchstart', (e) => {
       if (e.target && (e.target.id === 'total-duration' || e.target.id === 'current-time')) return;
       if (e.touches && e.touches[0]) {
         isDragging = true;
+        cachedWrapRect = wrap.getBoundingClientRect();
         seekToPoint(e.touches[0].clientX);
       }
     }, { passive: true });
@@ -8375,12 +8530,18 @@ function setPlayerCollapsed(collapsed, save = true) {
 
     wrap.addEventListener('touchend', () => {
       isDragging = false;
+      cachedWrapRect = null;
     });
 
-    // Hover tooltip with segment classification
+    // Hover tooltip: Cache bounding rect on enter, clear on leave
+    let hoverWrapRect = null;
+    wrap.addEventListener('mouseenter', () => {
+      hoverWrapRect = wrap.getBoundingClientRect();
+    });
+
     wrap.addEventListener('mousemove', (e) => {
-      const rect = wrap.getBoundingClientRect();
-      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      if (!hoverWrapRect) hoverWrapRect = wrap.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - hoverWrapRect.left) / hoverWrapRect.width));
 
       if (elements.waveformHoverCursor) {
         elements.waveformHoverCursor.style.left = `${pct * 100}%`;
@@ -8389,8 +8550,6 @@ function setPlayerCollapsed(collapsed, save = true) {
       if (elements.waveformTooltip) {
         const dur = state.episodeTimeline.duration || (elements.audio ? elements.audio.duration : 0) || 0;
         const hoverSec = pct * dur;
-
-        // Find segment type at hover point
         const segments = state.episodeTimeline.segments || [];
         const matchSeg = segments.find(s => hoverSec >= s.start && hoverSec <= s.end);
         const typeLabel = matchSeg ? (matchSeg.type === 'music' ? '🎵 Music' : '🎙️ Talk') : '';
@@ -8402,6 +8561,7 @@ function setPlayerCollapsed(collapsed, save = true) {
     });
 
     wrap.addEventListener('mouseleave', () => {
+      hoverWrapRect = null;
       if (elements.waveformTooltip) {
         elements.waveformTooltip.classList.add('hidden');
       }

@@ -25,11 +25,15 @@
   <!-- Modern Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet">
 
-  <!-- <link rel="preload" href="style.min.css?v=1790630055391" as="style" onload="this.onload=null;this.rel='stylesheet'">
-  <noscript></noscript> -->
-  <link rel="stylesheet" href="style.min.css?v=1790630055391">
+  <link rel="preload" href="https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2" as="font" type="font/woff2" crossorigin>
+
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap">
+  </noscript>
+
+  <link rel="stylesheet" href="style.min.css?v=1790632097002">
 </head>
 <body>
   <!-- Cloud Sync & Magic Auth Modal -->
@@ -643,7 +647,6 @@
           <button class="btn-icon" id="btn-player-share" title="share episode" aria-label="share episode">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
           </button>
-          <div class="player-episode-status-badges" id="player-status-badges" aria-label="episode status indicators">
           <div class="player-episode-status-badges" id="player-status-badges" role="group" aria-label="episode status indicators">
 
             <span class="status-badge badge-downloaded hidden" title="downloaded offline">
@@ -709,6 +712,6 @@
   <!-- <script src="https://www.youtube.com/iframe_api"></script> -->
   <!-- Experimental defaults – must load before app.js -->
   <script src="scripts/settings.js?v=20260925b" defer></script>
-  <script src="app.min.js?v=1790630055391" defer></script>
+  <script src="app.min.js?v=1790632097002" defer></script>
 </body>
 </html>
