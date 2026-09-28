@@ -5025,8 +5025,8 @@
     });
     audio.addEventListener('ended', () => {
       if (state.activeEngine === 'audio') {
-        state.playbackStatus = 'idle';
-        syncPlaybackButtons();
+        // state.playbackStatus = 'idle';
+        // syncPlaybackButtons();
         onEpisodeEnded();
       }
     });
@@ -5066,6 +5066,8 @@
     });
     audio.addEventListener('pause', () => {
       if (state.activeEngine === 'audio') {
+        if (state.playbackStatus === 'loading') return;
+
         state.playbackStatus = 'paused';
         syncPlaybackButtons();
 
@@ -5135,11 +5137,10 @@
     }, 8000);
 
     setInterval(() => {
-      if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
-        updateProgress();
+      if (state.activeEngine === 'youtube' && isEnginePlaying() && state.ytPlayer && state.ytPlayer.getCurrentTime) {        updateProgress();
         updateDuration();
       }
-    }, 500);
+    }, 1000);
 
     elements.btnPlayToggle.addEventListener('click', () => {
       if (!state.currentEpisode) {
@@ -5440,20 +5441,40 @@
     }
 
     if ('mediaSession' in navigator) {
+      let artworkList = [];
+      const artUrl = episode.artwork;
+      // Only supply valid remote URLs (iOS rejects data:image/svg+xml in lockscreen)
+      if (artUrl && (artUrl.startsWith('http://') || artUrl.startsWith('https://'))) {
+        artworkList = [
+          { src: artUrl, sizes: '96x96' },
+          { src: artUrl, sizes: '128x128' },
+          { src: artUrl, sizes: '192x192' },
+          { src: artUrl, sizes: '256x256' },
+          { src: artUrl, sizes: '384x384' },
+          { src: artUrl, sizes: '512x512' }
+        ];
+      }
+
       navigator.mediaSession.metadata = new MediaMetadata({
         title: episode.title || 'Untitled Episode',
         artist: episode.podcastTitle || 'Podcast',
         album: episode.podcastTitle || 'Podcast',
-        artwork: episode.artwork ? [
-          { src: episode.artwork, sizes: '96x96', type: 'image/png' },
-          { src: episode.artwork, sizes: '128x128', type: 'image/png' },
-          { src: episode.artwork, sizes: '192x192', type: 'image/png' },
-          { src: episode.artwork, sizes: '256x256', type: 'image/png' },
-          { src: episode.artwork, sizes: '384x384', type: 'image/png' },
-          { src: episode.artwork, sizes: '512x512', type: 'image/png' }
-        ] : []
+        artwork: artworkList
       });
       navigator.mediaSession.playbackState = 'playing';
+
+      // Prime OS scrubber immediately with new episode duration so it doesn't hold old progress
+      const initialDur = episode.duration ? parseDurationSeconds(episode.duration) : 0;
+      if ('setPositionState' in navigator.mediaSession && initialDur > 0) {
+        _lastPositionStateUpdate = Date.now();
+        try {
+          navigator.mediaSession.setPositionState({
+            duration: initialDur,
+            playbackRate: state.playbackSpeed || 1.0,
+            position: startTime || 0
+          });
+        } catch (_) {}
+      }
     }
 
     if (elements.playerBar) {
@@ -5664,7 +5685,9 @@
           }
         }
         if (state.episodeTimeline.guid !== state.currentEpisode.guid || !state.episodeTimeline.duration || state.episodeTimeline.duration <= 0) {
-          initOrLoadEpisodeTimeline(state.currentEpisode, dur);
+          if (!document.hidden && state.isTabActive) {
+            initOrLoadEpisodeTimeline(state.currentEpisode, dur);
+          }
         }
       }
     }
@@ -8438,13 +8461,13 @@ function setPlayerCollapsed(collapsed, save = true) {
 
     const audio = elements.audio;
     audio.addEventListener('loadedmetadata', () => {
-      if (audio.duration && state.currentEpisode) {
+      if (audio.duration && state.currentEpisode && !document.hidden && state.isTabActive) {
         initOrLoadEpisodeTimeline(state.currentEpisode, audio.duration);
       }
     });
 
     audio.addEventListener('durationchange', () => {
-      if (audio.duration && state.currentEpisode) {
+      if (audio.duration && state.currentEpisode && !document.hidden && state.isTabActive) {        
         initOrLoadEpisodeTimeline(state.currentEpisode, audio.duration);
       }
     });
