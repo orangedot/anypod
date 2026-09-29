@@ -51,12 +51,48 @@ self.addEventListener('fetch', (event) => {
     req.destination === 'audio';
 
   if (isAudioRequest) {
-    event.respondWith(handleAudioRequest(req));
+    // Only intercept if already saved in offline cache
+    event.respondWith(
+      caches.open(AUDIO_CACHE_NAME).then(async (cache) => {
+        const cachedResponse = await cache.match(req.url);
+        if (cachedResponse) {
+          return servePartialAudio(req, cachedResponse);
+        }
+        // Fallback: fetch natively without holding SW thread alive
+        return fetch(req);
+      })
+    );
     return;
   }
 
   event.respondWith(handleStaticRequest(req));
 });
+
+async function servePartialAudio(req, cachedResponse) {
+  const rangeHeader = req.headers.get('range');
+  if (!rangeHeader) {
+    return cachedResponse;
+  }
+
+  const buffer = await cachedResponse.arrayBuffer();
+  const total = buffer.byteLength;
+  const parts = rangeHeader.replace(/bytes=/, '').split('-');
+  const start = parseInt(parts[0], 10) || 0;
+  const end = parts[1] ? parseInt(parts[1], 10) : total - 1;
+  const boundedEnd = Math.min(end, total - 1);
+  const chunk = buffer.slice(start, boundedEnd + 1);
+
+  return new Response(chunk, {
+    status: 206,
+    statusText: 'Partial Content',
+    headers: {
+      'Content-Type': cachedResponse.headers.get('Content-Type') || 'audio/mpeg',
+      'Content-Range': `bytes ${start}-${boundedEnd}/${total}`,
+      'Content-Length': String(chunk.byteLength),
+      'Accept-Ranges': 'bytes'
+    }
+  });
+}
 
 async function handleAudioRequest(req) {
   const audioCache = await caches.open(AUDIO_CACHE_NAME);

@@ -757,6 +757,49 @@ body.has-active-episode .app-container {
   text-decoration: underline;
 }
 
+.btn-autoplay-toggle {
+  position: relative;
+  transition: color 0.2s, opacity 0.2s;
+  color: var(--text-muted);
+}
+
+.btn-autoplay-toggle.active {
+  color: var(--primary, #f97316);
+}
+
+.btn-autoplay-toggle .autoplay-dot {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: currentColor;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.btn-autoplay-toggle.active .autoplay-dot {
+  opacity: 1;
+}
+
+.queue-section-header.auto-queue-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--primary, #f97316);
+  font-weight: 600;
+}
+
+.queue-context-badge {
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(249, 115, 22, 0.12);
+  color: var(--primary, #f97316);
+}
+
 .filter-bar {
   display: flex;
   align-items: center;

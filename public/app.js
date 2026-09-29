@@ -135,7 +135,8 @@
     QUEUE: 'anypod_playback_queue',
     DOWNLOADS: 'anypod_downloads',
     FAVORITES: 'anypod_favorites',
-    EXPERIMENTAL: 'anypod_experimental_settings'
+    EXPERIMENTAL: 'anypod_experimental_settings',
+    AUTOPLAY: 'anypod_autoplay'
   };
 
   const CARD_ICONS = {
@@ -456,7 +457,14 @@
       progressPct: 0
     },
     showRemainingTime: true,
-    isTabActive: typeof document !== 'undefined' ? !document.hidden : true
+    isTabActive: typeof document !== 'undefined' ? !document.hidden : true,
+    autoplayEnabled: localStorage.getItem(STORAGE_KEYS.AUTOPLAY) !== 'false',
+    playbackContext: {
+      type: 'timeline',
+      id: '',
+      title: 'Timeline',
+      items: []
+    }
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -589,6 +597,7 @@
     btnNotesPlay: document.getElementById('btn-notes-play'),
     notesPlayIcon: document.getElementById('notes-play-icon'),
     notesPlayLabel: document.getElementById('notes-play-label'),
+    btnAutoplayToggle: document.getElementById('btn-autoplay-toggle'),
     showNotesContent: document.getElementById('show-notes-content'),
     tabBtnNotes: document.getElementById('tab-btn-notes'),
     tabBtnTranscript: document.getElementById('tab-btn-transcript'),
@@ -1092,6 +1101,7 @@
     updateQueueUI();
     updateDownloadedCountUI();
     updateDockVisibility();
+    updateAutoplayButtonUI();
     initServiceWorker();
     initNavigationRoute();
     checkAuth();
@@ -1773,44 +1783,55 @@
 
     let candidates = [];
 
-    if (state.filterMode === 'continue') {
+    // 1. Context-specific sequential queueing
+    if (state.playbackContext && Array.isArray(state.playbackContext.items) && state.playbackContext.items.length > 0) {
+      const ctxItems = state.playbackContext.items;
+      const curIdx = ctxItems.findIndex(e => e.guid === currentGuid);
+
+      if (curIdx !== -1 && curIdx + 1 < ctxItems.length) {
+        const after = ctxItems.slice(curIdx + 1);
+        candidates.push(...after.filter(ep => !queuedGuids.has(ep.guid)));
+      }
+    }
+
+    // 2. Fallback: Continue list if in continue mode
+    if (candidates.length < limit && state.filterMode === 'continue') {
       const continueList = state.allEpisodes.filter(ep => {
         const pos = state.playbackPositions[ep.guid];
         return (!pos || !pos.completed) && (pos && pos.position > 2);
       });
       const idx = continueList.findIndex(e => e.guid === currentGuid);
       if (idx !== -1) {
-        candidates = continueList.slice(idx + 1);
+        const after = continueList.slice(idx + 1);
+        candidates.push(...after.filter(ep => !queuedGuids.has(ep.guid) && !candidates.some(c => c.guid === ep.guid)));
       }
     }
 
+    // 3. Fallback: Filtered timeline list
     if (candidates.length < limit && state.filteredEpisodes.length > 0) {
       const idx = state.filteredEpisodes.findIndex(e => e.guid === currentGuid);
       if (idx !== -1) {
         const after = state.filteredEpisodes.slice(idx + 1);
-        candidates.push(...after.filter(ep => !candidates.some(c => c.guid === ep.guid)));
+        candidates.push(...after.filter(ep => !queuedGuids.has(ep.guid) && !candidates.some(c => c.guid === ep.guid)));
       }
     }
 
+    // 4. Fallback: Global episodes list
     if (candidates.length < limit && state.allEpisodes.length > 0) {
       const allIdx = state.allEpisodes.findIndex(e => e.guid === currentGuid);
       if (allIdx !== -1) {
         const after = state.allEpisodes.slice(allIdx + 1);
-        candidates.push(...after.filter(ep => !candidates.some(c => c.guid === ep.guid)));
+        candidates.push(...after.filter(ep => !queuedGuids.has(ep.guid) && !candidates.some(c => c.guid === ep.guid)));
       }
     }
 
-    // Filter out already played or queued items
-    return candidates
-      .filter(ep => !queuedGuids.has(ep.guid))
-      .slice(0, limit);
+    return candidates.slice(0, limit);
   }
 
 
   function renderQueueModalContent() {
     if (!elements.queueNowPlayingContainer || !elements.queueItemsContainer) return;
 
-    // 1. Now Playing Section
     if (state.currentEpisode) {
       const cur = state.currentEpisode;
       elements.queueNowPlayingContainer.innerHTML = `
@@ -1834,7 +1855,6 @@
 
     elements.queueItemsContainer.innerHTML = '';
 
-    // 2. Manual User Queue
     const hasManualQueue = state.queue && state.queue.length > 0;
     let draggedIndex = null;
     let cachedRowRects = new Map();
@@ -1871,7 +1891,6 @@
           </div>
         `;
 
-        // Reflow-safe drag events: cache bounding box on dragstart/enter
         row.addEventListener('dragstart', (e) => {
           draggedIndex = idx;
           cachedRowRects.clear();
@@ -1919,7 +1938,6 @@
           cachedRowRects.clear();
         });
 
-        // Touch handle drag-and-drop
         const handle = row.querySelector('.queue-drag-handle');
         if (handle) {
           let touchCurrentRow = null;
@@ -1961,7 +1979,7 @@
         row.querySelector('.btn-queue-item-play').addEventListener('click', (e) => {
           e.stopPropagation();
           removeFromQueue(ep.guid);
-          playEpisode(ep);
+          playEpisode(ep, null, state.playbackContext);
         });
 
         row.querySelector('.btn-queue-item-remove').addEventListener('click', (e) => {
@@ -1973,60 +1991,59 @@
       });
     }
 
-    // 3. Auto-Play Queue ("Playing Next from Timeline")
-    const autoEpisodes = getAutoQueueEpisodes(8);
+    if (state.autoplayEnabled) {
+      const autoEpisodes = getAutoQueueEpisodes(8);
 
-    if (autoEpisodes.length > 0) {
-      const autoHeader = document.createElement('div');
-      autoHeader.className = 'queue-section-header';
-      autoHeader.style.marginTop = hasManualQueue ? '1.25rem' : '0.25rem';
-      autoHeader.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
-          <span>${hasManualQueue ? 'Followed by (Timeline)' : 'Up Next (Auto-play)'}</span>
-          <span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">automatic</span>
-        </div>
-      `;
-      elements.queueItemsContainer.appendChild(autoHeader);
-
-      autoEpisodes.forEach((ep) => {
-        const row = document.createElement('div');
-        row.className = 'queue-item-row auto-queue-row';
-        row.dataset.guid = ep.guid;
-        row.innerHTML = `
-          <span class="queue-item-index" style="color:var(--text-muted);">↳</span>
-          <img class="queue-item-artwork" src="${ep.artwork || FALLBACK_ARTWORK}" alt="">
-          <div class="queue-item-info">
-            <div class="queue-item-title">${escapeHtml(ep.title)}</div>
-            <div class="queue-item-meta">${escapeHtml(ep.podcastTitle)}${ep.duration ? ` • ${escapeHtml(ep.duration)}` : ''}</div>
-          </div>
-          <div class="queue-item-actions">
-            <button class="btn-queue-item-add" title="Add to Up Next Queue">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            </button>
-            <button class="btn-queue-item-play" title="Play Now">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
-            </button>
-          </div>
+      if (autoEpisodes.length > 0) {
+        const ctxLabel = state.playbackContext?.title || 'Timeline';
+        const autoHeader = document.createElement('div');
+        autoHeader.className = 'queue-section-header auto-queue-header';
+        autoHeader.style.marginTop = hasManualQueue ? '1.25rem' : '0.25rem';
+        autoHeader.innerHTML = `
+          <span>Autoplay Next</span>
+          <span class="queue-context-badge">${escapeHtml(ctxLabel)}</span>
         `;
+        elements.queueItemsContainer.appendChild(autoHeader);
 
-        // + button promotes auto-queue item into manual queue
-        row.querySelector('.btn-queue-item-add').addEventListener('click', (e) => {
-          e.stopPropagation();
-          toggleEpisodeQueue(ep);
+        autoEpisodes.forEach((ep) => {
+          const row = document.createElement('div');
+          row.className = 'queue-item-row auto-queue-row';
+          row.dataset.guid = ep.guid;
+          row.innerHTML = `
+            <span class="queue-item-index" style="color:var(--text-muted);">↳</span>
+            <img class="queue-item-artwork" src="${ep.artwork || FALLBACK_ARTWORK}" alt="">
+            <div class="queue-item-info">
+              <div class="queue-item-title">${escapeHtml(ep.title)}</div>
+              <div class="queue-item-meta">${escapeHtml(ep.podcastTitle)}${ep.duration ? ` • ${escapeHtml(ep.duration)}` : ''}</div>
+            </div>
+            <div class="queue-item-actions">
+              <button class="btn-queue-item-add" title="Add to Up Next Queue">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              </button>
+              <button class="btn-queue-item-play" title="Play Now">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
+              </button>
+            </div>
+          `;
+
+          row.querySelector('.btn-queue-item-add').addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleEpisodeQueue(ep);
+          });
+
+          row.querySelector('.btn-queue-item-play').addEventListener('click', (e) => {
+            e.stopPropagation();
+            playEpisode(ep, null, state.playbackContext);
+          });
+
+          elements.queueItemsContainer.appendChild(row);
         });
-
-        row.querySelector('.btn-queue-item-play').addEventListener('click', (e) => {
-          e.stopPropagation();
-          playEpisode(ep);
-        });
-
-        elements.queueItemsContainer.appendChild(row);
-      });
+      }
     } else if (!hasManualQueue) {
       elements.queueItemsContainer.innerHTML = `
         <div class="queue-empty-box">
           <p>Queue is empty</p>
-          <span>Subscribe to feeds or search episodes to start listening.</span>
+          <span>Autoplay is paused. Toggle Autoplay in player controls to automatically stream next episodes.</span>
         </div>
       `;
     }
@@ -2332,7 +2349,7 @@
     list.forEach(item => {
       const matched = (state.allEpisodes || []).find(e => e.guid === item.guid);
       const ep = matched ? { ...matched, ...item } : { ...item };
-      const card = createEpisodeCard(ep);
+      const card = createEpisodeCard(ep, favContext);
       frag.appendChild(card);
     });
     elements.favoritesEpisodesList.appendChild(frag);
@@ -3682,10 +3699,15 @@
         }
       }
     }
-
     const visibleEps = state.continueCollapsed ? inProgressEps.slice(0, capacity) : inProgressEps;
+    const continueContext = {
+      type: 'continue',
+      id: 'continue',
+      title: 'Continue Listening',
+      items: inProgressEps
+    };
     visibleEps.forEach(ep => {
-      elements.continueGrid.appendChild(createEpisodeCard(ep));
+      elements.continueGrid.appendChild(createEpisodeCard(ep, continueContext));
     });
   }
 
@@ -3706,7 +3728,7 @@
       <div class="discover-view-wrap">
         ${!hasFeeds ? `
           <div class="welcome-onboard-banner" style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 12px; padding: 1.75rem; margin-bottom: 1.75rem; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
-            <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-primary);">welcome to ynypod</h3>
+            <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-primary);">welcome to anypod</h3>
             <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.5; max-width: 600px; margin: 0 auto;">
               no podcasts added yet. no extra ads, no tracking, no noise — zero clutter means total audio freedom. explore our curated science &amp; climate shows below or search to add your first subscription!
             </p>
@@ -3921,9 +3943,16 @@
     const end = state.timelinePage * state.pageSize;
     const batch = state.filteredEpisodes.slice(start, end);
 
+    const timelineContext = {
+      type: state.searchQuery ? 'search' : state.filterMode,
+      id: state.searchQuery || state.filterMode,
+      title: state.searchQuery ? `Search: "${state.searchQuery}"` : (state.filterMode === 'continue' ? 'Continue Listening' : 'Timeline'),
+      items: state.filteredEpisodes
+    };
+
     const frag = document.createDocumentFragment();
     batch.forEach(ep => {
-      frag.appendChild(createEpisodeCard(ep));
+      frag.appendChild(createEpisodeCard(ep, timelineContext));
     });
     container.appendChild(frag);
 
@@ -4261,7 +4290,7 @@
     }
   }
 
-  function setupProgressTrackInteractivity(progressTrack, card, ep) {
+  function setupProgressTrackInteractivity(progressTrack, card, ep, context = null) {
     if (!progressTrack) return;
     let isDragging = false;
     let trackRect = null;
@@ -4314,12 +4343,12 @@
               syncPlaybackButtons();
             }
           } else {
-            playEpisode(ep, targetTime);
+            playEpisode(ep, targetTime, context);
           }
         }
       } else if (commit) {
         if (!state.currentEpisode || state.currentEpisode.guid !== ep.guid) {
-          playEpisode(ep);
+          playEpisode(ep, null, context);
         } else if (state.activeEngine === 'audio' && elements.audio.paused) {
           elements.audio.play().catch(() => {});
           state.playbackStatus = 'playing';
@@ -4367,7 +4396,7 @@
     });
   }
 
-  function createEpisodeCard(ep) {
+  function createEpisodeCard(ep, context = null) {
     const isCurrentlyActive = state.currentEpisode && state.currentEpisode.guid === ep.guid;
     const isPlaying = isCurrentlyActive && state.playbackStatus === 'playing';
     const isLoading = isCurrentlyActive && state.playbackStatus === 'loading';
@@ -4539,7 +4568,7 @@
 
     card.querySelector('.btn-play-ep').addEventListener('click', (e) => {
       e.stopPropagation();
-      toggleEpisodePlayback(ep);
+      toggleEpisodePlayback(ep, context);
     });
 
     card.querySelector('.btn-queue-ep').addEventListener('click', (e) => {
@@ -4562,14 +4591,14 @@
 
     const progressTrack = card.querySelector('.ep-progress-track');
     if (progressTrack) {
-      setupProgressTrackInteractivity(progressTrack, card, ep);
+      setupProgressTrackInteractivity(progressTrack, card, ep, context);
     }
 
     const resumeBadge = card.querySelector('.ep-resume-time');
     if (resumeBadge) {
       resumeBadge.addEventListener('click', (e) => {
         e.stopPropagation();
-        toggleEpisodePlayback(ep);
+        toggleEpisodePlayback(ep, context);
       });
     }
 
@@ -4918,7 +4947,12 @@
         if (!ep) return;
         row.addEventListener('click', (e) => {
           e.stopPropagation();
-          toggleEpisodePlayback(ep);
+          toggleEpisodePlayback(ep, {
+            type: 'feed',
+            id: url,
+            title: meta.title || 'Podcast Show',
+            items: allForFeed
+          });
         });
       });
 
@@ -5118,9 +5152,16 @@
       return;
     }
 
+    const feedContext = {
+      type: 'feed',
+      id: feedUrl,
+      title: meta.title || 'Podcast Show',
+      items: episodes
+    };
+
     const frag = document.createDocumentFragment();
     episodes.forEach(ep => {
-      frag.appendChild(createEpisodeCard(ep));
+      frag.appendChild(createEpisodeCard(ep, feedContext));
     });
     list.appendChild(frag);
   }
@@ -5451,7 +5492,7 @@
     }
   }
 
-  function toggleEpisodePlayback(episode) {
+  function toggleEpisodePlayback(episode, context = null) {
     if (state.currentEpisode && state.currentEpisode.guid === episode.guid) {
       if (state.playbackStatus === 'playing' || state.playbackStatus === 'loading') {        
         state.playbackStatus = 'paused';
@@ -5466,17 +5507,31 @@
       state.currentEpisode = episode;
       state.playbackStatus = 'loading';
       syncPlaybackButtons();
-      playEpisode(episode);
+      playEpisode(episode, null, context);
     }
   }
 
-  function playEpisode(episode, overrideStartTime) {
+  function playEpisode(episode, overrideStartTime, context = null) {
     state.currentEpisode = episode;
     state.playbackStatus = 'loading';
     syncPlaybackButtons();
 
-    // ONLY stop YouTube if switching away from YouTube; 
-    // DO NOT call elements.audio.pause() here — it breaks mobile OS background playback continuation!
+    if (context && Array.isArray(context.items)) {
+      state.playbackContext = {
+        type: context.type || 'timeline',
+        id: context.id || '',
+        title: context.title || 'Timeline',
+        items: context.items
+      };
+    } else if (!state.playbackContext || !state.playbackContext.items || state.playbackContext.items.length === 0) {
+      state.playbackContext = {
+        type: state.searchQuery ? 'search' : state.filterMode,
+        id: '',
+        title: state.searchQuery ? `Search: "${state.searchQuery}"` : 'Timeline',
+        items: state.filteredEpisodes
+      };
+    }
+
     if (state.ytPlayer && state.ytPlayer.stopVideo) {
       state.ytPlayer.stopVideo();
     }
@@ -5575,12 +5630,6 @@
       elements.audio.src = streamUrl;
       elements.audio.playbackRate = state.playbackSpeed;
 
-      // if (startTime > 0) {
-      //   try {
-      //     elements.audio.currentTime = startTime;
-      //   } catch (_) {}
-      // }
-
       const playPromise = elements.audio.play();
       if (playPromise !== undefined) {
         playPromise.catch(() => {
@@ -5590,7 +5639,6 @@
       }
     }
 
-    // OS lock-screen metadata must update immediately
     if (elements.playerTitle) elements.playerTitle.textContent = episode.title;
     if (elements.playerPodcast) elements.playerPodcast.textContent = episode.podcastTitle;
     if (elements.playerArtwork) {
@@ -5614,7 +5662,6 @@
     if ('mediaSession' in navigator) {
       let artworkList = [];
       const artUrl = episode.artwork;
-      // Only supply valid remote URLs (iOS rejects data:image/svg+xml in lockscreen)
       if (artUrl && (artUrl.startsWith('http://') || artUrl.startsWith('https://'))) {
         artworkList = [
           { src: artUrl, sizes: '96x96' },
@@ -5634,7 +5681,6 @@
       });
       navigator.mediaSession.playbackState = 'playing';
 
-      // Prime OS scrubber immediately with new episode duration so it doesn't hold old progress
       const initialDur = episode.duration ? parseDurationSeconds(episode.duration) : 0;
       if ('setPositionState' in navigator.mediaSession && initialDur > 0) {
         _lastPositionStateUpdate = Date.now();
@@ -5654,8 +5700,8 @@
     document.body.classList.add('has-active-episode');
     updatePlayerFavButton();
     syncPlaybackButtons();
+    updateAutoplayButtonUI();
 
-    // Guard: Skip canvas, timeline probing, and DOM layout reflows when the screen is locked/backgrounded
     if (!document.hidden) {
       renderContinueShelf();
       updateFilterBadges();
@@ -5866,47 +5912,23 @@
 
   function playNextEpisode() {
     let nextEp = null;
-    const currentGuid = state.currentEpisode ? state.currentEpisode.guid : null;
 
+    // 1. Manual user queue always takes priority
     if (state.queue && state.queue.length > 0) {
       nextEp = state.queue.shift();
       saveQueueToStorage();
       updateQueueUI();
-    }
-
-    if (!nextEp && state.filterMode === 'continue') {
-      const continueList = state.allEpisodes.filter(ep => {
-        const pos = state.playbackPositions[ep.guid];
-        return (!pos || !pos.completed) && (pos && pos.position > 2);
-      });
-      const idx = continueList.findIndex(e => e.guid === currentGuid);
-      if (idx !== -1 && idx + 1 < continueList.length) {
-        nextEp = continueList[idx + 1];
-      } else if (continueList.length > 0) {
-        nextEp = continueList[0];
+    } else if (state.autoplayEnabled) {
+      // 2. Only pull auto-play candidate if autoplay is enabled
+      const autoList = getAutoQueueEpisodes(1);
+      if (autoList.length > 0) {
+        nextEp = autoList[0];
       }
     }
 
-    if (!nextEp && state.filteredEpisodes.length > 0) {
-      const idx = state.filteredEpisodes.findIndex(e => e.guid === currentGuid);
-      if (idx !== -1 && idx + 1 < state.filteredEpisodes.length) {
-        nextEp = state.filteredEpisodes[idx + 1];
-      } else if (idx === -1) {
-        nextEp = state.filteredEpisodes[0];
-      }
-    }
-
-    if (!nextEp) {
-      const allIdx = state.allEpisodes.findIndex(e => e.guid === currentGuid);
-      if (allIdx !== -1 && allIdx + 1 < state.allEpisodes.length) {
-        nextEp = state.allEpisodes[allIdx + 1];
-      } else if (state.allEpisodes.length > 0) {
-        nextEp = state.allEpisodes[0];
-      }
-    }
-
+    // 3. Play next or stop engine completely
     if (nextEp) {
-      playEpisode(nextEp);
+      playEpisode(nextEp, null, state.playbackContext);
       if (!document.hidden) {
         processAndSortEpisodes();
         renderTimeline();
@@ -5917,6 +5939,7 @@
       }
     } else {
       state.playbackStatus = 'idle';
+      pauseCurrentEngine();
       syncPlaybackButtons();
     }
   }
@@ -5972,6 +5995,17 @@
   // syncPlaybackButtons keeps play/pause icons, episode cards, and mini
   // player in sync with state.playbackStatus.
   // ─────────────────────────────────────────────────────────────────────────
+  function updateAutoplayButtonUI() {
+    const btn = elements.btnAutoplayToggle || document.getElementById('btn-autoplay-toggle');
+    if (!btn) return;
+
+    const isEnabled = state.autoplayEnabled === true;
+    btn.classList.toggle('active', isEnabled);
+    btn.setAttribute('aria-pressed', String(isEnabled));
+    btn.title = isEnabled
+      ? `Autoplay ON (${state.playbackContext?.title || 'Timeline'})`
+      : 'Autoplay OFF';
+  }
 
   function syncPlaybackButtons() {
     const isPlaying = state.playbackStatus === 'playing';
@@ -6925,6 +6959,33 @@ function setPlayerCollapsed(collapsed, save = true) {
       });
     }
 
+    if (elements.btnAutoplayToggle) {
+      const autoplayBtn = elements.btnAutoplayToggle || document.getElementById('btn-autoplay-toggle');
+      if (autoplayBtn) {
+        autoplayBtn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+
+          state.autoplayEnabled = !state.autoplayEnabled;
+          localStorage.setItem(STORAGE_KEYS.AUTOPLAY, state.autoplayEnabled ? 'true' : 'false');
+
+          updateAutoplayButtonUI();
+
+          showToast(state.autoplayEnabled 
+            ? `Autoplay ON (${state.playbackContext?.title || 'Timeline'})` 
+            : 'Autoplay OFF'
+          );
+
+          if (elements.queueModal && !elements.queueModal.classList.contains('hidden')) {
+            renderQueueModalContent();
+          }
+        };
+
+        updateAutoplayButtonUI();
+      }
+    }
+
+
     if (elements.btnStickyCollapse) {
       elements.btnStickyCollapse.addEventListener('click', () => {
         setDirectoryEnlarged(false);
@@ -7488,6 +7549,19 @@ function setPlayerCollapsed(collapsed, save = true) {
         }
       }, 120);
     }, { passive: true });
+
+    if (elements.btnAutoplayToggle) {
+      elements.btnAutoplayToggle.addEventListener('click', () => {
+        state.autoplayEnabled = !state.autoplayEnabled;
+        localStorage.setItem(STORAGE_KEYS.AUTOPLAY, String(state.autoplayEnabled));
+        updateAutoplayButtonUI();
+        showToast(state.autoplayEnabled ? `Autoplay enabled (${state.playbackContext?.title || 'Timeline'})` : 'Autoplay disabled');
+        if (elements.queueModal && !elements.queueModal.classList.contains('hidden')) {
+          renderQueueModalContent();
+        }
+      });
+      updateAutoplayButtonUI();
+    }
 
     wireEmptyStateEvents();
   }
