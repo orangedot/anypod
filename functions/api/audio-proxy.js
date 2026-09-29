@@ -54,7 +54,9 @@ export async function onRequest(context) {
       responseHeaders.set('accept-ranges', 'bytes');
     }
 
-    return new Response(upstreamResponse.body, {
+    const responseBody = request.method === 'HEAD' ? null : upstreamResponse.body;
+
+    return new Response(responseBody, {
       status: upstreamResponse.status,
       statusText: upstreamResponse.statusText,
       headers: responseHeaders

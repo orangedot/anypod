@@ -661,7 +661,16 @@
     state.isTabActive = !document.hidden;
 
     if (document.hidden) {
-      // Screen locked / backgrounded: kill the 80ms silence loop completely to conserve CPU
+      // Abort background probing immediately to save battery and satisfy OS watchdog
+      if (activeProbeAbortController) {
+        activeProbeAbortController.abort();
+        activeProbeAbortController = null;
+      }
+      state.episodeTimeline.isProbing = false;
+      if (elements.probeStatusPill) {
+        elements.probeStatusPill.classList.add('hidden');
+      }
+
       if (typeof liveDspInterval !== 'undefined' && liveDspInterval) {
         clearInterval(liveDspInterval);
         liveDspInterval = null;
@@ -671,14 +680,12 @@
         isAcceleratingSilence = false;
       }
     } else {
-      // Screen unlocked / foregrounded: restart silence skipping if active
       if (state.experimentalSettings.enableSilenceSkip && isEnginePlaying()) {
         if (typeof startLiveSilenceDetection === 'function') {
           startLiveSilenceDetection();
         }
       }
 
-      // Re-sync UI with whatever episode auto-advanced in the background
       processAndSortEpisodes();
       renderTimeline(true);
       renderContinueShelf();
@@ -8268,7 +8275,8 @@ function setPlayerCollapsed(collapsed, save = true) {
       if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
       return;
     }
-    if (!state.experimentalSettings.enableAudioClassifier) {
+    // Do not run background probes if classifier is disabled or screen is already hidden
+    if (!state.experimentalSettings.enableAudioClassifier || document.hidden || !state.isTabActive) {
       if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
       return;
     }
@@ -8285,19 +8293,22 @@ function setPlayerCollapsed(collapsed, save = true) {
       elements.probeStatusPill.classList.remove('hidden');
     }
 
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) {
+    // Use OfflineAudioContext: in-memory only, no OS audio channel lock
+    const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!OfflineCtx) {
       if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
+      state.episodeTimeline.isProbing = false;
       return;
     }
 
-    const audioCtx = new AudioCtx();
     const NUM_PROBES = 24;
     const CHUNK_SIZE = 49152; // 48 KB
+    let offlineCtx = null;
 
     try {
-      // Step 1: Probe HEAD for Content-Length to calculate byte positions
-      let totalBytes = duration * 16000; // default 128kbps estimate
+      offlineCtx = new OfflineCtx(1, 44100, 44100);
+
+      let totalBytes = duration * 16000;
       try {
         const headRes = await fetch(`/api/audio-proxy?url=${encodeURIComponent(episode.audioUrl)}`, {
           method: 'HEAD',
@@ -8312,7 +8323,8 @@ function setPlayerCollapsed(collapsed, save = true) {
       const barsPerProbe = Math.ceil(state.episodeTimeline.bars.length / NUM_PROBES);
 
       for (let p = 0; p < NUM_PROBES; p++) {
-        if (signal.aborted) break;
+        // Halt immediately if aborted, hidden, or tab goes inactive
+        if (signal.aborted || document.hidden || !state.isTabActive) break;
 
         const probePos = p / NUM_PROBES;
         const startByte = Math.max(0, Math.floor(probePos * (totalBytes - CHUNK_SIZE - 2048)));
@@ -8335,16 +8347,13 @@ function setPlayerCollapsed(collapsed, save = true) {
             let audioBuffer = null;
 
             try {
-              audioBuffer = await audioCtx.decodeAudioData(buf.slice(0));
-            } catch (_) {
-              // Raw MP3 byte slice missing sync header in WebKit; continue with heuristic
-            }
+              audioBuffer = await offlineCtx.decodeAudioData(buf.slice(0));
+            } catch (_) {}
 
             if (audioBuffer && audioBuffer.length > 0) {
               const channel = audioBuffer.getChannelData(0);
               const analysis = analyzePcmSnippet(channel, audioBuffer.sampleRate);
 
-              // Update corresponding timeline bars
               const startBarIdx = p * barsPerProbe;
               const endBarIdx = Math.min(state.episodeTimeline.bars.length, startBarIdx + barsPerProbe);
 
@@ -8361,14 +8370,11 @@ function setPlayerCollapsed(collapsed, save = true) {
           if (signal.aborted) return;
         }
 
-        // Brief delay so probe doesn't monopolize network bandwidth
         await new Promise(r => setTimeout(r, 60));
       }
 
-      // Finalize segments
       state.episodeTimeline.segments = deriveSegmentsFromBars(state.episodeTimeline.bars, duration);
 
-      // Save to localStorage cache
       try {
         localStorage.setItem('anypod_timeline_v3_' + episode.guid, JSON.stringify({
           bars: state.episodeTimeline.bars,
@@ -8376,7 +8382,6 @@ function setPlayerCollapsed(collapsed, save = true) {
         }));
       } catch (_) {}
 
-      // Seed community cache in D1 for all users
       saveTimelineToCommunityCache(episode, duration, state.episodeTimeline.bars, state.episodeTimeline.segments, 'probe');
 
       if (elements.probeStatusPill) {
@@ -8387,10 +8392,8 @@ function setPlayerCollapsed(collapsed, save = true) {
       }
 
     } catch (e) {
-      // Aborted or finished
     } finally {
       state.episodeTimeline.isProbing = false;
-      try { audioCtx.close(); } catch (_) {}
     }
   }
 
