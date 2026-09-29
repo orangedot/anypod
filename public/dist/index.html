@@ -24,14 +24,14 @@
 
   <!-- Fonts & App Styles loaded non-blockingly via media="print" switch -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" media="print" id="google-fonts-link">
-  <link rel="stylesheet" href="style.min.css?v=1790707485403" media="print" id="app-style-link">
+  <link rel="stylesheet" href="style.min.css?v=1790713452827" media="print" id="app-style-link">
   
   <noscript>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap">
-    <link rel="stylesheet" href="style.min.css?v=1790707485403">
+    <link rel="stylesheet" href="style.min.css?v=1790713452827">
   </noscript>
 
-  <link rel="stylesheet" href="style.min.css?v=1790707485403">
+  <link rel="stylesheet" href="style.min.css?v=1790713452827">
 </head>
 <body>
   <!-- Cloud Sync & Magic Auth Modal -->
@@ -634,6 +634,13 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
           </button>
           <button class="btn-pill" id="btn-speed-toggle" title="playback speed">1.0x</button>
+          <button type="button" class="btn-player-control btn-autoplay-toggle active" id="btn-autoplay-toggle" title="Autoplay: Next up from current view" aria-label="Toggle Autoplay" aria-pressed="true">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              <line x1="19" y1="5" x2="19" y2="19"></line>
+            </svg>
+            <span class="autoplay-dot"></span>
+          </button>
           <button class="btn-icon" id="btn-open-queue" title="up next queue">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h7"></path><path d="M18 15v6M15 18h6"></path></svg>
             <span class="badge hidden" id="queue-badge"></span>
@@ -708,6 +715,6 @@
 
   <!-- Experimental defaults – must load before app.js -->
   <script src="scripts/settings.js?v=20260925b" defer></script>
-  <script src="app.min.js?v=1790707485403" defer></script>
+  <script src="app.min.js?v=1790713452827" defer></script>
 </body>
 </html>

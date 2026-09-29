@@ -5198,7 +5198,12 @@
     });
     audio.addEventListener('loadedmetadata', () => {
       applyPendingAudioSeek();
-      if (state.activeEngine === 'audio') updateDuration();
+      if (state.activeEngine === 'audio') {
+        updateDuration();
+        if (state.currentEpisode) {
+          syncMediaSession(state.currentEpisode);
+        }
+      }
     });
     audio.addEventListener('ended', () => {
       if (state.activeEngine === 'audio') {
@@ -5231,6 +5236,10 @@
       if (state.activeEngine === 'audio') {
         state.playbackStatus = 'playing';
         syncPlaybackButtons();
+
+        if (state.currentEpisode) {
+          syncMediaSession(state.currentEpisode);
+        }
       }
     });
     audio.addEventListener('play', () => {
@@ -5659,40 +5668,41 @@
       };
     }
 
-    if ('mediaSession' in navigator) {
-      let artworkList = [];
-      const artUrl = episode.artwork;
-      if (artUrl && (artUrl.startsWith('http://') || artUrl.startsWith('https://'))) {
-        artworkList = [
-          { src: artUrl, sizes: '96x96' },
-          { src: artUrl, sizes: '128x128' },
-          { src: artUrl, sizes: '192x192' },
-          { src: artUrl, sizes: '256x256' },
-          { src: artUrl, sizes: '384x384' },
-          { src: artUrl, sizes: '512x512' }
-        ];
-      }
+    // if ('mediaSession' in navigator) {
+    //   let artworkList = [];
+    //   const artUrl = episode.artwork;
+    //   if (artUrl && (artUrl.startsWith('http://') || artUrl.startsWith('https://'))) {
+    //     artworkList = [
+    //       { src: artUrl, sizes: '96x96' },
+    //       { src: artUrl, sizes: '128x128' },
+    //       { src: artUrl, sizes: '192x192' },
+    //       { src: artUrl, sizes: '256x256' },
+    //       { src: artUrl, sizes: '384x384' },
+    //       { src: artUrl, sizes: '512x512' }
+    //     ];
+    //   }
 
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: episode.title || 'Untitled Episode',
-        artist: episode.podcastTitle || 'Podcast',
-        album: episode.podcastTitle || 'Podcast',
-        artwork: artworkList
-      });
-      navigator.mediaSession.playbackState = 'playing';
+    //   navigator.mediaSession.metadata = new MediaMetadata({
+    //     title: episode.title || 'Untitled Episode',
+    //     artist: episode.podcastTitle || 'Podcast',
+    //     album: episode.podcastTitle || 'Podcast',
+    //     artwork: artworkList
+    //   });
+    //   navigator.mediaSession.playbackState = 'playing';
 
-      const initialDur = episode.duration ? parseDurationSeconds(episode.duration) : 0;
-      if ('setPositionState' in navigator.mediaSession && initialDur > 0) {
-        _lastPositionStateUpdate = Date.now();
-        try {
-          navigator.mediaSession.setPositionState({
-            duration: initialDur,
-            playbackRate: state.playbackSpeed || 1.0,
-            position: startTime || 0
-          });
-        } catch (_) {}
-      }
-    }
+    //   const initialDur = episode.duration ? parseDurationSeconds(episode.duration) : 0;
+    //   if ('setPositionState' in navigator.mediaSession && initialDur > 0) {
+    //     _lastPositionStateUpdate = Date.now();
+    //     try {
+    //       navigator.mediaSession.setPositionState({
+    //         duration: initialDur,
+    //         playbackRate: state.playbackSpeed || 1.0,
+    //         position: startTime || 0
+    //       });
+    //     } catch (_) {}
+    //   }
+    // }
+    syncMediaSession(episode);
 
     if (elements.playerBar) {
       elements.playerBar.classList.add('active-episode');
@@ -6005,6 +6015,49 @@
     btn.title = isEnabled
       ? `Autoplay ON (${state.playbackContext?.title || 'Timeline'})`
       : 'Autoplay OFF';
+  }
+  function syncMediaSession(episode) {
+    if (!('mediaSession' in navigator) || !episode) return;
+
+    // Fall back to podcast-level artwork if episode-specific artwork is missing
+    const feedMeta = episode.feedUrl ? state.feedMetadata[episode.feedUrl] : null;
+    const artUrl = episode.artwork || (feedMeta && feedMeta.artwork) || '';
+
+    let artworkList = [];
+    if (artUrl && (artUrl.startsWith('http://') || artUrl.startsWith('https://'))) {
+      artworkList = [
+        { src: artUrl, sizes: '96x96', type: 'image/png' },
+        { src: artUrl, sizes: '128x128', type: 'image/png' },
+        { src: artUrl, sizes: '192x192', type: 'image/png' },
+        { src: artUrl, sizes: '256x256', type: 'image/png' },
+        { src: artUrl, sizes: '384x384', type: 'image/png' },
+        { src: artUrl, sizes: '512x512', type: 'image/png' }
+      ];
+    }
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: episode.title || 'Untitled Episode',
+      artist: episode.podcastTitle || 'Podcast',
+      album: episode.podcastTitle || 'Podcast',
+      artwork: artworkList
+    });
+
+    navigator.mediaSession.playbackState = 'playing';
+
+    // Update lock-screen scrubber duration if available
+    const durSec = (elements.audio && elements.audio.duration && isFinite(elements.audio.duration))
+      ? elements.audio.duration
+      : (episode.duration ? parseDurationSeconds(episode.duration) : 0);
+
+    if ('setPositionState' in navigator.mediaSession && durSec > 0) {
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: Math.max(0, durSec),
+          playbackRate: state.playbackSpeed || 1.0,
+          position: Math.min(Math.max(0, elements.audio ? elements.audio.currentTime : 0), durSec)
+        });
+      } catch (_) {}
+    }
   }
 
   function syncPlaybackButtons() {
@@ -8655,7 +8708,10 @@ function setPlayerCollapsed(collapsed, save = true) {
         const dur = state.episodeTimeline.duration || (elements.audio ? elements.audio.duration : 0) || 0;
         const hoverSec = pct * dur;
         const segments = state.episodeTimeline.segments || [];
-        const matchSeg = segments.find(s => hoverSec >= s.start && hoverSec <= s.end);
+
+        // Only compute speech/music label if Audio Classifier is active in settings
+        const showClassifier = Boolean(state.experimentalSettings && state.experimentalSettings.enableAudioClassifier);
+        const matchSeg = showClassifier ? segments.find(s => hoverSec >= s.start && hoverSec <= s.end) : null;
         const typeLabel = matchSeg ? (matchSeg.type === 'music' ? '🎵 Music' : '🎙️ Talk') : '';
 
         elements.waveformTooltip.textContent = `${formatTime(hoverSec)}${typeLabel ? ' · ' + typeLabel : ''}`;

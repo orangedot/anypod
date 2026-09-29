@@ -17,9 +17,9 @@
   if (!localStorage.getItem(FIRST_LAUNCH_KEY)) {
     var defaults = {
       enableVisualizer: true,
-      enableAudioClassifier: true,
+      enableAudioClassifier: false,
       autoSkipSpeech: false,
-      enableTranscript: true
+      enableTranscript: false
     };
     localStorage.setItem(EXP_KEY, JSON.stringify(defaults));
     localStorage.setItem(FIRST_LAUNCH_KEY, 'true');
