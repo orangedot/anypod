@@ -51,15 +51,16 @@ self.addEventListener('fetch', (event) => {
     req.destination === 'audio';
 
   if (isAudioRequest) {
-    // Only intercept if already saved in offline cache
+    // Check if the URL is in the offline cache synchronously by key matching
     event.respondWith(
-      caches.open(AUDIO_CACHE_NAME).then(async (cache) => {
-        const cachedResponse = await cache.match(req.url);
-        if (cachedResponse) {
-          return servePartialAudio(req, cachedResponse);
-        }
-        // Fallback: fetch natively without holding SW thread alive
-        return fetch(req);
+      caches.open(AUDIO_CACHE_NAME).then((cache) => {
+        return cache.match(req.url).then((cachedResponse) => {
+          if (cachedResponse) {
+            return servePartialAudio(req, cachedResponse);
+          }
+          // Fallback to direct network fetch
+          return fetch(req);
+        });
       })
     );
     return;

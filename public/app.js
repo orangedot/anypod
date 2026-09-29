@@ -665,12 +665,10 @@
     btnHeaderBack: document.getElementById('btn-header-back'),
     // btnHeaderBackLabel: document.getElementById('btn-header-back-label')
   };
-
   document.addEventListener('visibilitychange', () => {
     state.isTabActive = !document.hidden;
 
     if (document.hidden) {
-      // Abort background probing immediately to save battery and satisfy OS watchdog
       if (activeProbeAbortController) {
         activeProbeAbortController.abort();
         activeProbeAbortController = null;
@@ -679,39 +677,61 @@
       if (elements.probeStatusPill) {
         elements.probeStatusPill.classList.add('hidden');
       }
-
-      if (typeof liveDspInterval !== 'undefined' && liveDspInterval) {
-        clearInterval(liveDspInterval);
-        liveDspInterval = null;
-      }
-      if (typeof isAcceleratingSilence !== 'undefined' && isAcceleratingSilence && elements.audio) {
-        elements.audio.playbackRate = state.playbackSpeed || 1.0;
-        isAcceleratingSilence = false;
-      }
     } else {
-      if (state.experimentalSettings.enableSilenceSkip && isEnginePlaying()) {
-        if (typeof startLiveSilenceDetection === 'function') {
-          startLiveSilenceDetection();
-        }
-      }
-
-      processAndSortEpisodes();
-      renderTimeline(true);
-      renderContinueShelf();
-      updateFilterBadges();
+      // Only resync player UI and playhead, avoid re-rendering entire episode lists
       syncPlaybackButtons();
-
-      if (state.activeFeedDetailUrl) {
-        renderFeedDetail(state.activeFeedDetailUrl);
-      }
-      if (state.currentEpisode) {
-        initOrLoadEpisodeTimeline(state.currentEpisode, state.episodeTimeline.duration);
-      }
-      if (state.experimentalSettings.enableVisualizer) {
+      updateProgress();
+      if (state.currentEpisode && state.experimentalSettings.enableVisualizer) {
         renderWaveformChart();
       }
     }
   });
+  // document.addEventListener('visibilitychange', () => {
+  //   state.isTabActive = !document.hidden;
+
+  //   if (document.hidden) {
+  //     // Abort background probing immediately to save battery and satisfy OS watchdog
+  //     if (activeProbeAbortController) {
+  //       activeProbeAbortController.abort();
+  //       activeProbeAbortController = null;
+  //     }
+  //     state.episodeTimeline.isProbing = false;
+  //     if (elements.probeStatusPill) {
+  //       elements.probeStatusPill.classList.add('hidden');
+  //     }
+
+  //     if (typeof liveDspInterval !== 'undefined' && liveDspInterval) {
+  //       clearInterval(liveDspInterval);
+  //       liveDspInterval = null;
+  //     }
+  //     if (typeof isAcceleratingSilence !== 'undefined' && isAcceleratingSilence && elements.audio) {
+  //       elements.audio.playbackRate = state.playbackSpeed || 1.0;
+  //       isAcceleratingSilence = false;
+  //     }
+  //   } else {
+  //     if (state.experimentalSettings.enableSilenceSkip && isEnginePlaying()) {
+  //       if (typeof startLiveSilenceDetection === 'function') {
+  //         startLiveSilenceDetection();
+  //       }
+  //     }
+
+  //     processAndSortEpisodes();
+  //     renderTimeline(true);
+  //     renderContinueShelf();
+  //     updateFilterBadges();
+  //     syncPlaybackButtons();
+
+  //     if (state.activeFeedDetailUrl) {
+  //       renderFeedDetail(state.activeFeedDetailUrl);
+  //     }
+  //     if (state.currentEpisode) {
+  //       initOrLoadEpisodeTimeline(state.currentEpisode, state.episodeTimeline.duration);
+  //     }
+  //     if (state.experimentalSettings.enableVisualizer) {
+  //       renderWaveformChart();
+  //     }
+  //   }
+  // });
 
   // ─────────────────────────────────────────────────────────────────────────
   // Scroll-position memory for the episode timeline list.
@@ -5253,13 +5273,19 @@
     audio.addEventListener('pause', () => {
       if (state.activeEngine === 'audio') {
         if (state.playbackStatus === 'loading') return;
-
         state.playbackStatus = 'paused';
         syncPlaybackButtons();
+        syncMediaSession(state.currentEpisode);
 
         if (state.currentEpisode && audio.currentTime > 2) {
           savePlaybackPositionToD1(state.currentEpisode.guid, audio.currentTime, false);
         }
+      }
+    });
+    audio.addEventListener('stalled', () => {
+      if (state.playbackStatus === 'playing') {
+        state.playbackStatus = 'loading';
+        syncPlaybackButtons();
       }
     });
     audio.addEventListener('error', () => {
@@ -6017,48 +6043,73 @@
       : 'Autoplay OFF';
   }
   function syncMediaSession(episode) {
-    if (!('mediaSession' in navigator) || !episode) return;
+  if (!('mediaSession' in navigator) || !episode) return;
 
-    // Fall back to podcast-level artwork if episode-specific artwork is missing
-    const feedMeta = episode.feedUrl ? state.feedMetadata[episode.feedUrl] : null;
-    const artUrl = episode.artwork || (feedMeta && feedMeta.artwork) || '';
+  const feedMeta = episode.feedUrl ? state.feedMetadata[episode.feedUrl] : null;
+  const rawArt = episode.artwork || (feedMeta && feedMeta.artwork) || '';
 
-    let artworkList = [];
-    if (artUrl && (artUrl.startsWith('http://') || artUrl.startsWith('https://'))) {
-      artworkList = [
-        { src: artUrl, sizes: '96x96', type: 'image/png' },
-        { src: artUrl, sizes: '128x128', type: 'image/png' },
-        { src: artUrl, sizes: '192x192', type: 'image/png' },
-        { src: artUrl, sizes: '256x256', type: 'image/png' },
-        { src: artUrl, sizes: '384x384', type: 'image/png' },
-        { src: artUrl, sizes: '512x512', type: 'image/png' }
-      ];
+  let resolvedArt = '';
+  if (rawArt && !rawArt.startsWith('data:')) {
+    try {
+      resolvedArt = new URL(rawArt, window.location.origin).href;
+    } catch (_) {}
+  }
+
+  let artworkList = [];
+  if (resolvedArt) {
+    artworkList = [
+      { src: resolvedArt, sizes: '96x96' },
+      { src: resolvedArt, sizes: '128x128' },
+      { src: resolvedArt, sizes: '192x192' },
+      { src: resolvedArt, sizes: '256x256' },
+      { src: resolvedArt, sizes: '384x384' },
+      { src: resolvedArt, sizes: '512x512' }
+    ];
+  }
+
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: episode.title || 'Untitled Episode',
+    artist: episode.podcastTitle || 'Podcast',
+    album: episode.podcastTitle || 'Podcast',
+    artwork: artworkList
+  });
+
+  const isPlaying = state.playbackStatus === 'playing';
+  const isPaused = state.playbackStatus === 'paused';
+  navigator.mediaSession.playbackState = isPlaying ? 'playing' : (isPaused ? 'paused' : 'none');
+
+  let durSec = 0;
+  let curSec = 0;
+
+  if (state.activeEngine === 'audio' && elements.audio) {
+    if (elements.audio.duration && isFinite(elements.audio.duration) && elements.audio.duration > 0) {
+      durSec = elements.audio.duration;
     }
-
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: episode.title || 'Untitled Episode',
-      artist: episode.podcastTitle || 'Podcast',
-      album: episode.podcastTitle || 'Podcast',
-      artwork: artworkList
-    });
-
-    navigator.mediaSession.playbackState = 'playing';
-
-    // Update lock-screen scrubber duration if available
-    const durSec = (elements.audio && elements.audio.duration && isFinite(elements.audio.duration))
-      ? elements.audio.duration
-      : (episode.duration ? parseDurationSeconds(episode.duration) : 0);
-
-    if ('setPositionState' in navigator.mediaSession && durSec > 0) {
-      try {
-        navigator.mediaSession.setPositionState({
-          duration: Math.max(0, durSec),
-          playbackRate: state.playbackSpeed || 1.0,
-          position: Math.min(Math.max(0, elements.audio ? elements.audio.currentTime : 0), durSec)
-        });
-      } catch (_) {}
+    curSec = elements.audio.currentTime || 0;
+  } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
+    if (typeof state.ytPlayer.getDuration === 'function') {
+      const yd = state.ytPlayer.getDuration();
+      if (yd && isFinite(yd) && yd > 0) durSec = yd;
+    }
+    if (typeof state.ytPlayer.getCurrentTime === 'function') {
+      curSec = state.ytPlayer.getCurrentTime() || 0;
     }
   }
+
+  if (!durSec && episode.duration) {
+    durSec = parseDurationSeconds(episode.duration);
+  }
+
+  if ('setPositionState' in navigator.mediaSession && durSec > 0 && curSec <= durSec) {
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: Math.max(0, durSec),
+        playbackRate: state.playbackSpeed || 1.0,
+        position: Math.max(0, Math.min(curSec, durSec))
+      });
+    } catch (_) {}
+  }
+}
 
   function syncPlaybackButtons() {
     const isPlaying = state.playbackStatus === 'playing';
@@ -7456,13 +7507,19 @@ function setPlayerCollapsed(collapsed, save = true) {
       });
     }
 
+    // Replace elements.btnClearDownloads listener:
     if (elements.btnClearDownloads) {
       elements.btnClearDownloads.addEventListener('click', () => {
         const count = Object.keys(state.downloadedEpisodes || {}).length;
         if (count === 0) return;
-        if (confirm(`Remove all ${count} downloaded podcast episodes from this device?`)) {
-          clearAllDownloads();
-        }
+        openConfirmDialog({
+          title: 'Remove Downloads',
+          message: `Remove all ${count} downloaded podcast episodes from this device?`,
+          actionLabel: 'Remove All',
+          onConfirm: () => {
+            clearAllDownloads();
+          }
+        });
       });
     }
 
@@ -7489,33 +7546,41 @@ function setPlayerCollapsed(collapsed, save = true) {
       });
     }
 
-    elements.btnClearStorage.addEventListener('click', () => {
-      if (confirm('Are you sure you want to clear all feeds and state?')) {
-        localStorage.clear();
-        if ('caches' in window) {
-          caches.delete('anypod-audio-v1').catch(() => {});
-        }
-        state.downloadedEpisodes = {};
-        state.feeds = [];
-        state.mutedFeeds = [];
-        state.feedMetadata = {};
-        state.allEpisodes = [];
-        state.filteredEpisodes = [];
-        state.queue = [];
-        state.currentEpisode = null;
-        state.playbackStatus = 'idle';
-        if (elements.playerBar) elements.playerBar.classList.remove('active-episode');
-        document.body.classList.remove('has-active-episode', 'has-mini-player', 'has-full-player');
-        pauseCurrentEngine();
-        syncPlaybackButtons();
-        updateFeedCountUI();
-        updateQueueUI();
-        updateDownloadedCountUI();
-        renderContinueShelf();
-        renderTimeline();
-        renderFeedsGrid();
-      }
-    });
+    // Replace elements.btnClearStorage listener:
+    if (elements.btnClearStorage) {
+      elements.btnClearStorage.addEventListener('click', () => {
+        openConfirmDialog({
+          title: 'Reset Library & Storage',
+          message: 'Are you sure you want to clear all feeds, queue, and stored listening history on this device?',
+          actionLabel: 'Reset Everything',
+          onConfirm: () => {
+            localStorage.clear();
+            if ('caches' in window) {
+              caches.delete('anypod-audio-v1').catch(() => {});
+            }
+            state.downloadedEpisodes = {};
+            state.feeds = [];
+            state.mutedFeeds = [];
+            state.feedMetadata = {};
+            state.allEpisodes = [];
+            state.filteredEpisodes = [];
+            state.queue = [];
+            state.currentEpisode = null;
+            state.playbackStatus = 'idle';
+            if (elements.playerBar) elements.playerBar.classList.remove('active-episode');
+            document.body.classList.remove('has-active-episode', 'has-mini-player', 'has-full-player');
+            pauseCurrentEngine();
+            syncPlaybackButtons();
+            updateFeedCountUI();
+            updateQueueUI();
+            updateDownloadedCountUI();
+            renderContinueShelf();
+            renderTimeline();
+            renderFeedsGrid();
+          }
+        });
+      });
+    }
 
     if (elements.btnPlayerShare) {
       elements.btnPlayerShare.addEventListener('click', (e) => {
@@ -7576,31 +7641,24 @@ function setPlayerCollapsed(collapsed, save = true) {
     let scrollCollapseTimer = null;
 
     window.addEventListener('scroll', () => {
-      const currentScrollY = window.scrollY;
+      const currentScrollY = Math.max(0, window.scrollY);
       const delta = currentScrollY - lastScrollY;
       lastScrollY = currentScrollY;
 
-      // Ignore if user didn't actively scroll DOWN by at least 30px
-      if (delta <= 25) return;
+      // Ignore bounce / elastic overscroll
+      if (currentScrollY <= 0 || delta <= 30) return;
 
       if (scrollCollapseTimer) return;
       scrollCollapseTimer = setTimeout(() => {
         scrollCollapseTimer = null;
-        // console.log('[Anypod Debug] Scroll event fired. current window.scrollY:', window.scrollY);
-        
-        // Skip if player was expanded less than 2.5s ago
-        if (Date.now() - (state._lastPlayerExpandTime || 0) < 2500){
-          // console.log('[Anypod Debug] _lastPlayerExpandTime');
-          return;
-        } 
+        if (Date.now() - (state._lastPlayerExpandTime || 0) < 3000) return;
 
         if (document.body.classList.contains('has-active-episode')) {
-          if (window.scrollY > 200 && !document.body.classList.contains('has-mini-player')) {
-            // console.log('[Anypod Debug] Threshold 200 exceeded! Minimizing player.');
+          if (currentScrollY > 260 && !document.body.classList.contains('has-mini-player')) {
             setPlayerCollapsed(true, false);
           }
         }
-      }, 120);
+      }, 150);
     }, { passive: true });
 
     if (elements.btnAutoplayToggle) {
@@ -8677,13 +8735,14 @@ function setPlayerCollapsed(collapsed, save = true) {
         cachedWrapRect = wrap.getBoundingClientRect();
         seekToPoint(e.touches[0].clientX);
       }
-    }, { passive: true });
+    }, { passive: false }); // Change passive: true to false so e.preventDefault() can block scroll if needed
 
     wrap.addEventListener('touchmove', (e) => {
       if (isDragging && e.touches && e.touches[0]) {
+        if (e.cancelable) e.preventDefault(); // Prevents vertical page scroll while scrubbing waveform
         seekToPoint(e.touches[0].clientX);
       }
-    }, { passive: true });
+    }, { passive: false });
 
     wrap.addEventListener('touchend', () => {
       isDragging = false;
