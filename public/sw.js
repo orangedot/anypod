@@ -1,4 +1,4 @@
-const CACHE_NAME = 'anypod-v5';
+const CACHE_NAME = 'anypod-v6';
 const AUDIO_CACHE_NAME = 'anypod-audio-v1';
 
 const APP_SHELL = [
@@ -9,6 +9,18 @@ const APP_SHELL = [
   '/manifest.webmanifest',
   '/icon.svg'
 ];
+
+let cachedAudioUrls = new Set();
+
+async function refreshAudioCacheKeys() {
+  try {
+    const cache = await caches.open(AUDIO_CACHE_NAME);
+    const keys = await cache.keys();
+    cachedAudioUrls = new Set(keys.map(k => k.url));
+  } catch (_) {}
+}
+
+refreshAudioCacheKeys();
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -28,8 +40,15 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
-    }).then(() => self.clients.claim())
+    }).then(() => refreshAudioCacheKeys())
+      .then(() => self.clients.claim())
   );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SYNC_AUDIO_CACHE') {
+    refreshAudioCacheKeys();
+  }
 });
 
 self.addEventListener('fetch', (event) => {
@@ -50,23 +69,33 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('.wav') ||
     req.destination === 'audio';
 
-  // Inside public/sw.js
   if (isAudioRequest) {
-    event.respondWith(
-      (async () => {
-        const cache = await caches.open(AUDIO_CACHE_NAME);
-        const cachedResponse = await cache.match(event.request.url);
-        if (cachedResponse) {
-          return servePartialAudio(event.request, cachedResponse);
-        }
-        // CRITICAL: Bypass Service Worker for live streaming so OS background sleep doesn't stall chunk downloads
-        return fetch(event.request);
-      })()
-    );
+    const isCachedOffline = url.searchParams.has('offline') || cachedAudioUrls.has(req.url);
+    if (isCachedOffline) {
+      event.respondWith(handleCachedAudioRequest(req));
+      return;
+    }
+    // CRITICAL: Live streaming audio MUST bypass the Service Worker completely!
+    // Returning without calling event.respondWith lets the native browser engine stream
+    // directly. This prevents OS background sleep from killing the connection after 30-90s.
+    return;
   }
 
   event.respondWith(handleStaticRequest(req));
 });
+
+async function handleCachedAudioRequest(req) {
+  try {
+    const audioCache = await caches.open(AUDIO_CACHE_NAME);
+    const cachedResponse = await audioCache.match(req.url);
+    if (cachedResponse) {
+      return servePartialAudio(req, cachedResponse);
+    }
+    return await fetch(req);
+  } catch (err) {
+    return new Response(null, { status: 504, statusText: 'Gateway Timeout (Offline)' });
+  }
+}
 
 async function servePartialAudio(req, cachedResponse) {
   const rangeHeader = req.headers.get('range');
@@ -92,43 +121,6 @@ async function servePartialAudio(req, cachedResponse) {
       'Accept-Ranges': 'bytes'
     }
   });
-}
-
-async function handleAudioRequest(req) {
-  const audioCache = await caches.open(AUDIO_CACHE_NAME);
-  const cachedResponse = await audioCache.match(req.url);
-
-  if (cachedResponse) {
-    const rangeHeader = req.headers.get('range');
-    if (!rangeHeader) {
-      return cachedResponse;
-    }
-
-    const buffer = await cachedResponse.arrayBuffer();
-    const total = buffer.byteLength;
-    const parts = rangeHeader.replace(/bytes=/, '').split('-');
-    const start = parseInt(parts[0], 10) || 0;
-    const end = parts[1] ? parseInt(parts[1], 10) : total - 1;
-    const boundedEnd = Math.min(end, total - 1);
-    const chunk = buffer.slice(start, boundedEnd + 1);
-
-    return new Response(chunk, {
-      status: 206,
-      statusText: 'Partial Content',
-      headers: {
-        'Content-Type': cachedResponse.headers.get('Content-Type') || 'audio/mpeg',
-        'Content-Range': `bytes ${start}-${boundedEnd}/${total}`,
-        'Content-Length': String(chunk.byteLength),
-        'Accept-Ranges': 'bytes'
-      }
-    });
-  }
-
-  try {
-    return await fetch(req);
-  } catch (err) {
-    return new Response(null, { status: 504, statusText: 'Gateway Timeout (Offline)' });
-  }
 }
 
 async function handleStaticRequest(req) {

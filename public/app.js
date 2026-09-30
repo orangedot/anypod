@@ -441,10 +441,10 @@
     },
     experimentalSettings: {
       enableVisualizer: true,
-      enableAudioClassifier: true,
-      showJumpButtons: true,
+      enableAudioClassifier: false,
+      showJumpButtons: false,
       autoSkipSpeech: false,
-      enableTranscript: true
+      enableTranscript: false
     },
     episodeTimeline: {
       guid: null,
@@ -2454,6 +2454,12 @@
     });
   }
 
+  function notifyServiceWorkerAudioCache() {
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'SYNC_AUDIO_CACHE' });
+    }
+  }
+
   async function downloadEpisode(ep) {
     if (!ep || !ep.audioUrl) return;
     if (state.downloadingGuids.has(ep.guid)) return;
@@ -2494,6 +2500,7 @@
           headers: headers
         });
         await audioCache.put(ep.audioUrl, cacheResponse);
+        notifyServiceWorkerAudioCache();
       }
 
       state.downloadedEpisodes[ep.guid] = {
@@ -2528,6 +2535,7 @@
       try {
         const audioCache = await caches.open('anypod-audio-v1');
         await audioCache.delete(ep.audioUrl);
+        notifyServiceWorkerAudioCache();
       } catch (e) {}
     }
     delete state.downloadedEpisodes[guid];
@@ -2543,6 +2551,7 @@
     if ('caches' in window) {
       try {
         await caches.delete('anypod-audio-v1');
+        notifyServiceWorkerAudioCache();
       } catch (e) {}
     }
     state.downloadedEpisodes = {};
@@ -5283,6 +5292,9 @@
           state.playbackStatus = 'loading';
         }
         syncPlaybackButtons();
+        if (state.currentEpisode) {
+          syncMediaSession(state.currentEpisode);
+        }
       }
     });
 
@@ -5327,10 +5339,21 @@
       }
     });
 
-    const handleSeekBarChange = () => {
-      const pct = elements.seekBar.value / 100;
-      elements.seekBar.style.setProperty('--seek-pct', `${elements.seekBar.value}%`);
+    let seekBarDebounce = null;
+    const updateSeekBarVisual = (pct) => {
+      elements.seekBar.style.setProperty('--seek-pct', `${pct * 100}%`);
       state._lastDrawnWaveformBarIndex = -1;
+      let total = elements.audio?.duration || 0;
+      if (total > 0 && elements.currentTimeLabel) {
+        elements.currentTimeLabel.textContent = formatTime(pct * total);
+      }
+      const progressOverlay = document.getElementById('waveform-progress-overlay');
+      const playheadLine = document.getElementById('waveform-playhead-line');
+      if (progressOverlay) progressOverlay.style.width = `${pct * 100}%`;
+      if (playheadLine) playheadLine.style.left = `${pct * 100}%`;
+    };
+
+    const commitAudioSeek = (pct) => {
       if (state.activeEngine === 'audio' && audio.duration && isFinite(audio.duration)) {
         audio.currentTime = pct * audio.duration;
       } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getDuration) {
@@ -5342,8 +5365,20 @@
         renderWaveformChart();
       }
     };
-    elements.seekBar.addEventListener('input', handleSeekBarChange);
-    elements.seekBar.addEventListener('change', handleSeekBarChange);
+
+    elements.seekBar.addEventListener('input', () => {
+      const pct = elements.seekBar.value / 100;
+      updateSeekBarVisual(pct);
+      clearTimeout(seekBarDebounce);
+      seekBarDebounce = setTimeout(() => {
+        commitAudioSeek(pct);
+      }, 120);
+    });
+    elements.seekBar.addEventListener('change', () => {
+      clearTimeout(seekBarDebounce);
+      const pct = elements.seekBar.value / 100;
+      commitAudioSeek(pct);
+    });
 
     const miniProgBar = document.querySelector('.mini-progress-bar');
     if (miniProgBar) {
@@ -5685,7 +5720,10 @@
     } else {
       state.activeEngine = 'audio';
       let streamUrl = episode.audioUrl;
-      if (window.location.protocol === 'https:' && streamUrl.startsWith('http://')) {
+      const isDownloaded = !!state.downloadedEpisodes[episode.guid];
+      if (isDownloaded) {
+        streamUrl = `${streamUrl}${streamUrl.includes('?') ? '&' : '?'}offline=1`;
+      } else if (window.location.protocol === 'https:' && streamUrl.startsWith('http://')) {
         streamUrl = `/api/audio-proxy?url=${encodeURIComponent(streamUrl)}`;
       }
 
@@ -5754,13 +5792,13 @@
 
     // 1. Lock-screen MediaSession scrubber: throttled so OS doesn't receive redundant IPC spam
     const now = Date.now();
-    if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession && total > 0) {
+    if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession && total > 0 && isFinite(total)) {
       if (now - _lastPositionStateUpdate > 3000) {
         _lastPositionStateUpdate = now;
         const accelerating = typeof isAcceleratingSilence !== 'undefined' && isAcceleratingSilence;
         try {
           navigator.mediaSession.setPositionState({
-            duration: Math.max(0, total),
+            duration: Math.max(0.1, total),
             playbackRate: (accelerating ? 2.5 : (state.playbackSpeed || 1.0)),
             position: Math.min(Math.max(0, current), total)
           });
@@ -6039,6 +6077,12 @@
     if (!('mediaSession' in navigator) || !episode) return;
 
     try {
+      const titleStr = episode.title || 'Untitled Episode';
+      const artistStr = episode.podcastTitle || 'Podcast';
+
+      // 0. Keep document.title in sync so lockscreen/notification fallback displays the episode
+      document.title = `${titleStr} • ${artistStr} — anypod`;
+
       // 1. Resolve Artwork to an ABSOLUTE URL (relative URLs break mobile OS lockscreens)
       const feedMeta = (state.feedMetadata && episode.feedUrl) ? state.feedMetadata[episode.feedUrl] : null;
       let rawArt = episode.artwork || (feedMeta && feedMeta.artwork) || '';
@@ -6061,25 +6105,34 @@
         }
       }
 
-      const artworkList = resolvedArt ? [
-        { src: resolvedArt, sizes: '96x96' },
-        { src: resolvedArt, sizes: '128x128' },
-        { src: resolvedArt, sizes: '192x192' },
-        { src: resolvedArt, sizes: '256x256' },
-        { src: resolvedArt, sizes: '384x384' },
-        { src: resolvedArt, sizes: '512x512' }
-      ] : [];
+      if (!resolvedArt) {
+        try {
+          resolvedArt = new URL('/icon.svg', window.location.origin).href;
+        } catch (_) {}
+      }
+
+      const artworkList = [];
+      if (resolvedArt && !resolvedArt.startsWith('data:')) {
+        const isPng = resolvedArt.toLowerCase().includes('.png');
+        const isWebp = resolvedArt.toLowerCase().includes('.webp');
+        const isSvg = resolvedArt.toLowerCase().includes('.svg');
+        const imgType = isPng ? 'image/png' : (isWebp ? 'image/webp' : (isSvg ? 'image/svg+xml' : 'image/jpeg'));
+        artworkList.push({
+          src: resolvedArt,
+          sizes: '512x512',
+          type: imgType
+        });
+      }
 
       // 2. Unconditionally assign MediaMetadata so the OS lockscreen gets immediate data
-      const titleStr = episode.title || 'Untitled Episode';
-      const artistStr = episode.podcastTitle || 'Podcast';
-
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: titleStr,
-        artist: artistStr,
-        album: artistStr,
-        artwork: artworkList
-      });
+      if ('MediaMetadata' in window) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: titleStr,
+          artist: artistStr,
+          album: artistStr,
+          artwork: artworkList
+        });
+      }
 
       // 3. Keep lockscreen widget alive: treat loading as playing
       if (state.playbackStatus === 'paused') {
@@ -7676,18 +7729,7 @@ function setPlayerCollapsed(collapsed, save = true) {
       }, 150);
     }, { passive: true });
 
-    if (elements.btnAutoplayToggle) {
-      elements.btnAutoplayToggle.addEventListener('click', () => {
-        state.autoplayEnabled = !state.autoplayEnabled;
-        localStorage.setItem(STORAGE_KEYS.AUTOPLAY, String(state.autoplayEnabled));
-        updateAutoplayButtonUI();
-        showToast(state.autoplayEnabled ? `Autoplay enabled (${state.playbackContext?.title || 'Timeline'})` : 'Autoplay disabled');
-        if (elements.queueModal && !elements.queueModal.classList.contains('hidden')) {
-          renderQueueModalContent();
-        }
-      });
-      updateAutoplayButtonUI();
-    }
+
 
     wireEmptyStateEvents();
   }
@@ -7877,23 +7919,20 @@ function setPlayerCollapsed(collapsed, save = true) {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed.showJumpButtons !== undefined) {
-          state.experimentalSettings.showJumpButtons = parsed.showJumpButtons;
+          state.experimentalSettings.showJumpButtons = !!parsed.showJumpButtons;
         }
         if (parsed.autoSkipSpeech !== undefined){
-          state.experimentalSettings.autoSkipSpeech = parsed.autoSkipSpeech;
+          state.experimentalSettings.autoSkipSpeech = !!parsed.autoSkipSpeech;
         }
         if (parsed.enableAudioClassifier !== undefined) {
-          state.experimentalSettings.enableAudioClassifier = parsed.enableAudioClassifier;
+          state.experimentalSettings.enableAudioClassifier = !!parsed.enableAudioClassifier;
         }
         if (parsed.enableTranscript !== undefined) {
-          state.experimentalSettings.enableTranscript = parsed.enableTranscript;
+          state.experimentalSettings.enableTranscript = !!parsed.enableTranscript;
         }
       }
     } catch (_) {}
     state.experimentalSettings.enableVisualizer = true;
-    if (state.experimentalSettings.enableAudioClassifier === undefined) {
-      state.experimentalSettings.enableAudioClassifier = true;
-    }
     syncExperimentalUI();
   }
 
@@ -7905,10 +7944,10 @@ function setPlayerCollapsed(collapsed, save = true) {
 
   function syncExperimentalUI() {
     const es = state.experimentalSettings;
-    const showButtons = es.showJumpButtons !== false;
+    const showButtons = !!es.showJumpButtons;
     const isVis = !!es.enableVisualizer;
     const isClass = !!es.enableAudioClassifier;
-    const isTrans = es.enableTranscript !== false;
+    const isTrans = !!es.enableTranscript;
     const isAutoSkip = !!es.autoSkipSpeech;
 
     const toggleJump = document.getElementById('toggle-jump-buttons');
@@ -8697,8 +8736,23 @@ function setPlayerCollapsed(collapsed, save = true) {
 
     let isDragging = false;
     let cachedWrapRect = null;
+    let seekDebounceTimer = null;
+    let lastTargetSec = 0;
 
-    const seekToPoint = (clientX) => {
+    const applySeekToEngine = (targetSec) => {
+      state._lastDrawnWaveformBarIndex = -1;
+      if (state.activeEngine === 'audio') {
+        elements.audio.currentTime = targetSec;
+      } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.seekTo) {
+        state.ytPlayer.seekTo(targetSec, true);
+      }
+      updateProgress();
+      if (state.experimentalSettings.enableVisualizer) {
+        renderWaveformChart();
+      }
+    };
+
+    const seekToPoint = (clientX, immediate = false) => {
       if (!cachedWrapRect) cachedWrapRect = wrap.getBoundingClientRect();
       const pct = Math.max(0, Math.min(1, (clientX - cachedWrapRect.left) / cachedWrapRect.width));
 
@@ -8713,15 +8767,29 @@ function setPlayerCollapsed(collapsed, save = true) {
 
       if (totalDur > 0) {
         const targetSec = pct * totalDur;
-        state._lastDrawnWaveformBarIndex = -1;
-        if (state.activeEngine === 'audio') {
-          elements.audio.currentTime = targetSec;
-        } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.seekTo) {
-          state.ytPlayer.seekTo(targetSec, true);
+        lastTargetSec = targetSec;
+
+        // Visual update is immediate for fluid UI response:
+        const progressOverlay = document.getElementById('waveform-progress-overlay');
+        const playheadLine = document.getElementById('waveform-playhead-line');
+        if (progressOverlay) progressOverlay.style.width = `${pct * 100}%`;
+        if (playheadLine) playheadLine.style.left = `${pct * 100}%`;
+        if (elements.currentTimeLabel) elements.currentTimeLabel.textContent = formatTime(targetSec);
+        if (elements.seekBar) {
+          elements.seekBar.value = pct * 100;
+          elements.seekBar.style.setProperty('--seek-pct', `${pct * 100}%`);
         }
-        updateProgress();
-        if (state.experimentalSettings.enableVisualizer) {
-          renderWaveformChart();
+
+        if (immediate) {
+          clearTimeout(seekDebounceTimer);
+          seekDebounceTimer = null;
+          applySeekToEngine(targetSec);
+        } else {
+          // Debounce continuous drag to prevent Range-request network flood and stalled decoding
+          clearTimeout(seekDebounceTimer);
+          seekDebounceTimer = setTimeout(() => {
+            applySeekToEngine(lastTargetSec);
+          }, 120);
         }
       }
     };
@@ -8730,15 +8798,20 @@ function setPlayerCollapsed(collapsed, save = true) {
       if (e.target && (e.target.id === 'total-duration' || e.target.id === 'current-time')) return;
       isDragging = true;
       cachedWrapRect = wrap.getBoundingClientRect();
-      seekToPoint(e.clientX);
+      // Single tap / initial click jumps directly!
+      seekToPoint(e.clientX, true);
     });
 
     window.addEventListener('mousemove', (e) => {
-      if (isDragging) seekToPoint(e.clientX);
+      if (isDragging) seekToPoint(e.clientX, false);
     });
 
     window.addEventListener('mouseup', () => {
-      isDragging = false;
+      if (isDragging) {
+        isDragging = false;
+        clearTimeout(seekDebounceTimer);
+        applySeekToEngine(lastTargetSec);
+      }
       cachedWrapRect = null;
     });
 
@@ -8748,19 +8821,24 @@ function setPlayerCollapsed(collapsed, save = true) {
       if (e.touches && e.touches[0]) {
         isDragging = true;
         cachedWrapRect = wrap.getBoundingClientRect();
-        seekToPoint(e.touches[0].clientX);
+        // Single tap jumps directly!
+        seekToPoint(e.touches[0].clientX, true);
       }
-    }, { passive: false }); // Change passive: true to false so e.preventDefault() can block scroll if needed
+    }, { passive: false });
 
     wrap.addEventListener('touchmove', (e) => {
       if (isDragging && e.touches && e.touches[0]) {
         if (e.cancelable) e.preventDefault(); // Prevents vertical page scroll while scrubbing waveform
-        seekToPoint(e.touches[0].clientX);
+        seekToPoint(e.touches[0].clientX, false);
       }
     }, { passive: false });
 
     wrap.addEventListener('touchend', () => {
-      isDragging = false;
+      if (isDragging) {
+        isDragging = false;
+        clearTimeout(seekDebounceTimer);
+        applySeekToEngine(lastTargetSec);
+      }
       cachedWrapRect = null;
     });
 

@@ -18,6 +18,7 @@
     var defaults = {
       enableVisualizer: true,
       enableAudioClassifier: false,
+      showJumpButtons: false,
       autoSkipSpeech: false,
       enableTranscript: false
     };
