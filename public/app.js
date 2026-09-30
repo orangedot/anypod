@@ -5216,6 +5216,7 @@
     audio.addEventListener('timeupdate', () => {
       if (state.activeEngine === 'audio') updateProgress();
     });
+
     audio.addEventListener('loadedmetadata', () => {
       applyPendingAudioSeek();
       if (state.activeEngine === 'audio') {
@@ -5225,25 +5226,33 @@
         }
       }
     });
+
     audio.addEventListener('ended', () => {
       if (state.activeEngine === 'audio') {
-        // state.playbackStatus = 'idle';
-        // syncPlaybackButtons();
+        // 1. Immediately flag loading so the browser's internal pause/emptied
+        // events on src-change will not demote playbackStatus to 'paused'
+        state.playbackStatus = 'loading';
+        syncPlaybackButtons();
         onEpisodeEnded();
       }
     });
+
     audio.addEventListener('loadstart', () => {
-      if (state.activeEngine === 'audio' && !audio.paused) {
+      // 2. Removed '!audio.paused' check: when switching to the next track,
+      // audio.paused is initially true until play() resolves.
+      if (state.activeEngine === 'audio' && state.currentEpisode) {
         state.playbackStatus = 'loading';
         syncPlaybackButtons();
       }
     });
+
     audio.addEventListener('waiting', () => {
       if (state.activeEngine === 'audio') {
         state.playbackStatus = 'loading';
         syncPlaybackButtons();
       }
     });
+
     audio.addEventListener('canplay', () => {
       applyPendingAudioSeek();
       if (state.activeEngine === 'audio' && !audio.paused) {
@@ -5251,6 +5260,7 @@
         syncPlaybackButtons();
       }
     });
+
     audio.addEventListener('playing', () => {
       applyPendingAudioSeek();
       if (state.activeEngine === 'audio') {
@@ -5259,9 +5269,14 @@
 
         if (state.currentEpisode) {
           syncMediaSession(state.currentEpisode);
+          // 3. Force lockscreen state to 'playing' as soon as audio outputs
+          if ('mediaSession' in navigator) {
+            navigator.mediaSession.playbackState = 'playing';
+          }
         }
       }
     });
+
     audio.addEventListener('play', () => {
       if (state.activeEngine === 'audio') {
         if (state.playbackStatus !== 'playing') {
@@ -5270,9 +5285,15 @@
         syncPlaybackButtons();
       }
     });
+
     audio.addEventListener('pause', () => {
       if (state.activeEngine === 'audio') {
-        if (state.playbackStatus === 'loading') return;
+        // 4. CRITICAL: Ignore browser pause events triggered by track completion (audio.ended)
+        // or by elements.audio.src reassignments during track transitions (loading)
+        if (audio.ended || state.playbackStatus === 'loading') {
+          return;
+        }
+
         state.playbackStatus = 'paused';
         syncPlaybackButtons();
         syncMediaSession(state.currentEpisode);
@@ -5282,15 +5303,20 @@
         }
       }
     });
+
     audio.addEventListener('stalled', () => {
       if (state.playbackStatus === 'playing') {
         state.playbackStatus = 'loading';
         syncPlaybackButtons();
       }
     });
+
     audio.addEventListener('error', () => {
       if (state.activeEngine === 'audio') {
-        if (state.currentEpisode && !elements.audio.src.includes('/api/audio-proxy')) {
+        // 5. Ensure valid src before attempting proxy fallback
+        if (state.currentEpisode && elements.audio.src && !elements.audio.src.includes('/api/audio-proxy')) {
+          state.playbackStatus = 'loading';
+          syncPlaybackButtons();
           const proxySrc = `/api/audio-proxy?url=${encodeURIComponent(state.currentEpisode.audioUrl)}`;
           elements.audio.src = proxySrc;
           elements.audio.play().catch(() => {});
@@ -5694,40 +5720,7 @@
       };
     }
 
-    // if ('mediaSession' in navigator) {
-    //   let artworkList = [];
-    //   const artUrl = episode.artwork;
-    //   if (artUrl && (artUrl.startsWith('http://') || artUrl.startsWith('https://'))) {
-    //     artworkList = [
-    //       { src: artUrl, sizes: '96x96' },
-    //       { src: artUrl, sizes: '128x128' },
-    //       { src: artUrl, sizes: '192x192' },
-    //       { src: artUrl, sizes: '256x256' },
-    //       { src: artUrl, sizes: '384x384' },
-    //       { src: artUrl, sizes: '512x512' }
-    //     ];
-    //   }
-
-    //   navigator.mediaSession.metadata = new MediaMetadata({
-    //     title: episode.title || 'Untitled Episode',
-    //     artist: episode.podcastTitle || 'Podcast',
-    //     album: episode.podcastTitle || 'Podcast',
-    //     artwork: artworkList
-    //   });
-    //   navigator.mediaSession.playbackState = 'playing';
-
-    //   const initialDur = episode.duration ? parseDurationSeconds(episode.duration) : 0;
-    //   if ('setPositionState' in navigator.mediaSession && initialDur > 0) {
-    //     _lastPositionStateUpdate = Date.now();
-    //     try {
-    //       navigator.mediaSession.setPositionState({
-    //         duration: initialDur,
-    //         playbackRate: state.playbackSpeed || 1.0,
-    //         position: startTime || 0
-    //       });
-    //     } catch (_) {}
-    //   }
-    // }
+    
     syncMediaSession(episode);
 
     if (elements.playerBar) {
@@ -6042,74 +6035,100 @@
       ? `Autoplay ON (${state.playbackContext?.title || 'Timeline'})`
       : 'Autoplay OFF';
   }
+  
   function syncMediaSession(episode) {
-  if (!('mediaSession' in navigator) || !episode) return;
+    if (!('mediaSession' in navigator) || !episode) return;
 
-  const feedMeta = episode.feedUrl ? state.feedMetadata[episode.feedUrl] : null;
-  const rawArt = episode.artwork || (feedMeta && feedMeta.artwork) || '';
+    // 1. Resolve Artwork with HTTPS upgrade and Fallback support
+    const feedMeta = episode.feedUrl ? state.feedMetadata[episode.feedUrl] : null;
+    let rawArt = episode.artwork || (feedMeta && feedMeta.artwork) || '';
 
-  let resolvedArt = '';
-  if (rawArt && !rawArt.startsWith('data:')) {
-    try {
-      resolvedArt = new URL(rawArt, window.location.origin).href;
-    } catch (_) {}
-  }
-
-  let artworkList = [];
-  if (resolvedArt) {
-    artworkList = [
-      { src: resolvedArt, sizes: '96x96' },
-      { src: resolvedArt, sizes: '128x128' },
-      { src: resolvedArt, sizes: '192x192' },
-      { src: resolvedArt, sizes: '256x256' },
-      { src: resolvedArt, sizes: '384x384' },
-      { src: resolvedArt, sizes: '512x512' }
-    ];
-  }
-
-  navigator.mediaSession.metadata = new MediaMetadata({
-    title: episode.title || 'Untitled Episode',
-    artist: episode.podcastTitle || 'Podcast',
-    album: episode.podcastTitle || 'Podcast',
-    artwork: artworkList
-  });
-
-  const isPlaying = state.playbackStatus === 'playing';
-  const isPaused = state.playbackStatus === 'paused';
-  navigator.mediaSession.playbackState = isPlaying ? 'playing' : (isPaused ? 'paused' : 'none');
-
-  let durSec = 0;
-  let curSec = 0;
-
-  if (state.activeEngine === 'audio' && elements.audio) {
-    if (elements.audio.duration && isFinite(elements.audio.duration) && elements.audio.duration > 0) {
-      durSec = elements.audio.duration;
+    if (!rawArt && typeof FALLBACK_ARTWORK !== 'undefined') {
+      rawArt = FALLBACK_ARTWORK;
     }
-    curSec = elements.audio.currentTime || 0;
-  } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
-    if (typeof state.ytPlayer.getDuration === 'function') {
-      const yd = state.ytPlayer.getDuration();
-      if (yd && isFinite(yd) && yd > 0) durSec = yd;
-    }
-    if (typeof state.ytPlayer.getCurrentTime === 'function') {
-      curSec = state.ytPlayer.getCurrentTime() || 0;
-    }
-  }
 
-  if (!durSec && episode.duration) {
-    durSec = parseDurationSeconds(episode.duration);
-  }
+    let resolvedArt = '';
+    if (rawArt && !rawArt.startsWith('data:')) {
+      try {
+        // Upgrade http:// to https:// to avoid mixed-content lockscreen rejection
+        if (window.location.protocol === 'https:' && rawArt.startsWith('http://')) {
+          resolvedArt = `/api/audio-proxy?url=${encodeURIComponent(rawArt)}`;
+        } else {
+          resolvedArt = new URL(rawArt, window.location.origin).href;
+        }
+      } catch (_) {}
+    }
 
-  if ('setPositionState' in navigator.mediaSession && durSec > 0 && curSec <= durSec) {
-    try {
-      navigator.mediaSession.setPositionState({
-        duration: Math.max(0, durSec),
-        playbackRate: state.playbackSpeed || 1.0,
-        position: Math.max(0, Math.min(curSec, durSec))
+    let artworkList = [];
+    if (resolvedArt) {
+      artworkList = [
+        { src: resolvedArt, sizes: '96x96' },
+        { src: resolvedArt, sizes: '128x128' },
+        { src: resolvedArt, sizes: '192x192' },
+        { src: resolvedArt, sizes: '256x256' },
+        { src: resolvedArt, sizes: '384x384' },
+        { src: resolvedArt, sizes: '512x512' }
+      ];
+    }
+
+    // 2. Set Metadata (only recreate if title/episode changed to prevent lockscreen redraw flicker)
+    const currentMeta = navigator.mediaSession.metadata;
+    const newTitle = episode.title || 'Untitled Episode';
+    const newArtist = episode.podcastTitle || 'Podcast';
+
+    if (!currentMeta || currentMeta.title !== newTitle || currentMeta.artist !== newArtist) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: newTitle,
+        artist: newArtist,
+        album: newArtist,
+        artwork: artworkList
       });
-    } catch (_) {}
+    }
+
+    // 3. CRITICAL: Never set 'none' during track load or transition!
+    // Setting 'none' tells iOS/Android to discard the lockscreen controls.
+    // Treat 'loading' as 'playing' to maintain lockscreen continuity.
+    if (state.playbackStatus === 'paused') {
+      navigator.mediaSession.playbackState = 'paused';
+    } else {
+      navigator.mediaSession.playbackState = 'playing';
+    }
+
+    // 4. Resolve Duration & Safe Position
+    let durSec = 0;
+    let curSec = 0;
+
+    if (state.activeEngine === 'audio' && elements.audio) {
+      if (elements.audio.duration && isFinite(elements.audio.duration) && elements.audio.duration > 0) {
+        durSec = elements.audio.duration;
+      }
+      curSec = elements.audio.currentTime || 0;
+    } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
+      if (typeof state.ytPlayer.getDuration === 'function') {
+        const yd = state.ytPlayer.getDuration();
+        if (yd && isFinite(yd) && yd > 0) durSec = yd;
+      }
+      if (typeof state.ytPlayer.getCurrentTime === 'function') {
+        curSec = state.ytPlayer.getCurrentTime() || 0;
+      }
+    }
+
+    if (!durSec && episode.duration) {
+      durSec = parseDurationSeconds(episode.duration);
+    }
+
+    // 5. Clamped setPositionState call
+    if ('setPositionState' in navigator.mediaSession && durSec > 0 && isFinite(durSec)) {
+      const safePos = Math.max(0, Math.min(curSec, durSec));
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: Math.max(0.1, durSec),
+          playbackRate: state.playbackSpeed || 1.0,
+          position: safePos
+        });
+      } catch (_) {}
+    }
   }
-}
 
   function syncPlaybackButtons() {
     const isPlaying = state.playbackStatus === 'playing';

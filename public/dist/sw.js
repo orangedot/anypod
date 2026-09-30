@@ -50,21 +50,19 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('.wav') ||
     req.destination === 'audio';
 
-  if (isAudioRequest) {
-    // Check if the URL is in the offline cache synchronously by key matching
-    event.respondWith(
-      caches.open(AUDIO_CACHE_NAME).then((cache) => {
-        return cache.match(req.url).then((cachedResponse) => {
+    if (isAudioRequest) {
+      event.respondWith(
+        (async () => {
+          const cache = await caches.open(AUDIO_CACHE_NAME);
+          const cachedResponse = await cache.match(event.request.url);
           if (cachedResponse) {
-            return servePartialAudio(req, cachedResponse);
+            return servePartialAudio(event.request, cachedResponse);
           }
-          // Fallback to direct network fetch
-          return fetch(req);
-        });
-      })
-    );
-    return;
-  }
+          // CRITICAL: Bypass Service Worker for live streaming so OS background sleep doesn't stall chunk downloads
+          return fetch(event.request);
+        })()
+      );
+    }
 
   event.respondWith(handleStaticRequest(req));
 });
