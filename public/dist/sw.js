@@ -50,19 +50,20 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('.wav') ||
     req.destination === 'audio';
 
-    if (isAudioRequest) {
-      event.respondWith(
-        (async () => {
-          const cache = await caches.open(AUDIO_CACHE_NAME);
-          const cachedResponse = await cache.match(event.request.url);
-          if (cachedResponse) {
-            return servePartialAudio(event.request, cachedResponse);
-          }
-          // CRITICAL: Bypass Service Worker for live streaming so OS background sleep doesn't stall chunk downloads
-          return fetch(event.request);
-        })()
-      );
-    }
+  // Inside public/sw.js
+  if (isAudioRequest) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(AUDIO_CACHE_NAME);
+        const cachedResponse = await cache.match(event.request.url);
+        if (cachedResponse) {
+          return servePartialAudio(event.request, cachedResponse);
+        }
+        // CRITICAL: Bypass Service Worker for live streaming so OS background sleep doesn't stall chunk downloads
+        return fetch(event.request);
+      })()
+    );
+  }
 
   event.respondWith(handleStaticRequest(req));
 });
