@@ -2313,13 +2313,49 @@ mark.search-highlight {
 /* Modern Card Grid */
 .starter-suggestions-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.85rem;
   width: 100%;
   max-width: 1200px;
   box-sizing: border-box;
   text-align: left;
   margin-top: 0.5rem;
+}
+
+@media (max-width: 580px) {
+  .starter-suggestions-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.5rem !important;
+  }
+
+  .starter-show-card {
+    padding: 0.65rem 0.6rem !important;
+  }
+
+  .starter-show-card .feed-art {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  .starter-show-card .feed-info h4 {
+    font-size: 0.8rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .starter-show-card .feed-info p {
+    font-size: 0.68rem !important;
+  }
+
+  .starter-show-card .starter-chip-add {
+    font-size: 0.72rem !important;
+    padding: 0.25rem 0.5rem !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  .starter-suggestions-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .starter-show-card {
@@ -3769,13 +3805,13 @@ body.has-active-episode.has-mini-player .bottom-action-dock {
   width: 100%;
   box-sizing: border-box;
   background: #ffffff !important;
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  border-top: none;
   box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.15);
 }
 
 [data-theme="dark"] .player-main-controls-row {
   background: #ffffff !important;
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  border-top: none;
 }
 
 @media (max-width: 768px) {
@@ -5366,8 +5402,8 @@ body.has-active-episode.has-mini-player .player-mini {
 
   .starter-suggestions-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.5rem;
     margin-top: 1rem;
   }
 
@@ -6236,9 +6272,9 @@ body.has-active-episode.has-mini-player .player-mini {
   height: 28px;
   cursor: pointer;
   user-select: none;
-  background: var(--bg-glass);
+  background: #ffffff !important;
   border-bottom: none !important;
-  border-top: none !important;
+  border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
   z-index: 10;
   flex-direction: column;
   justify-content: flex-end;
@@ -6279,8 +6315,9 @@ body.has-active-episode.has-mini-player .player-mini {
 
   .waveform-timeline-wrap {
     height: 24px;
-    padding: 0 1rem;
+    padding: 0;
     margin: 0 !important;
+    background: #ffffff !important;
   }
 }
 
@@ -6289,7 +6326,7 @@ body.has-active-episode.has-mini-player .player-mini {
   height: 100%;
   display: block;
   pointer-events: auto;
-  background: white !important;
+  background: transparent !important;
   margin: 0;
   padding: 0;
   vertical-align: bottom;
@@ -6320,6 +6357,8 @@ body.has-active-episode.has-mini-player .player-mini {
 @media (max-width: 768px) {
   .waveform-time-row {
     padding: 0;
+    right: 0;
+    left: 0;
   }
 }
 

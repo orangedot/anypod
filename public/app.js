@@ -136,7 +136,8 @@
     DOWNLOADS: 'anypod_downloads',
     FAVORITES: 'anypod_favorites',
     EXPERIMENTAL: 'anypod_experimental_settings',
-    AUTOPLAY: 'anypod_autoplay'
+    AUTOPLAY: 'anypod_autoplay',
+    LAST_EPISODE: 'anypod_last_active_episode'
   };
 
   const CARD_ICONS = {
@@ -1130,6 +1131,7 @@
     checkAuth();
     loadExperimentalSettings();
     setupExperimentalSettings();
+    restoreLastActiveEpisode();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1480,6 +1482,9 @@
   function savePositionsToStorage() {
     try {
       localStorage.setItem(STORAGE_KEYS.POSITIONS, JSON.stringify(state.playbackPositions));
+      if (state.currentEpisode) {
+        localStorage.setItem(STORAGE_KEYS.LAST_EPISODE, JSON.stringify(state.currentEpisode));
+      }
     } catch (e) {}
   }
 
@@ -1490,6 +1495,78 @@
         state.playbackPositions = JSON.parse(saved);
       }
     } catch (e) {}
+  }
+
+  function restoreLastActiveEpisode() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.LAST_EPISODE);
+      if (!raw) return;
+      const lastEp = JSON.parse(raw);
+      if (!lastEp || !lastEp.guid) return;
+
+      state.currentEpisode = lastEp;
+      state.playbackStatus = 'paused';
+      
+      if (elements.playerTitle) elements.playerTitle.textContent = lastEp.title || '';
+      if (elements.playerPodcast) elements.playerPodcast.textContent = lastEp.podcastTitle || '';
+      if (elements.playerArtwork) {
+        elements.playerArtwork.src = lastEp.artwork || FALLBACK_ARTWORK;
+      }
+      if (elements.miniTitle) elements.miniTitle.textContent = lastEp.title || '';
+      if (elements.miniPodcast) elements.miniPodcast.textContent = lastEp.podcastTitle || '';
+      if (elements.miniArtwork) {
+        elements.miniArtwork.src = lastEp.artwork || FALLBACK_ARTWORK;
+      }
+
+      if (elements.playerBar) {
+        elements.playerBar.classList.add('active-episode');
+      }
+      document.body.classList.add('has-active-episode');
+
+      const savedPos = state.playbackPositions[lastEp.guid];
+      const curSec = (savedPos && savedPos.position) ? savedPos.position : 0;
+      let durSec = 0;
+      if (lastEp.duration && typeof parseDurationSeconds === 'function') {
+        durSec = parseDurationSeconds(lastEp.duration);
+      }
+      if (elements.currentTimeLabel) elements.currentTimeLabel.textContent = formatTime(curSec);
+      if (elements.totalDurationLabel && durSec > 0) elements.totalDurationLabel.textContent = formatTime(durSec);
+
+      // Pre-load audio stream & set seek point so hitting play instantly starts audio
+      if (lastEp.audioUrl && elements.audio) {
+        state.activeEngine = 'audio';
+        let streamUrl = lastEp.audioUrl;
+        const isDownloaded = !!(state.downloadedEpisodes && state.downloadedEpisodes[lastEp.guid]);
+        if (isDownloaded) {
+          streamUrl = `${streamUrl}${streamUrl.includes('?') ? '&' : '?'}offline=1`;
+        } else if (window.location.protocol === 'https:' && streamUrl.startsWith('http://')) {
+          streamUrl = `/api/audio-proxy?url=${encodeURIComponent(streamUrl)}`;
+        }
+        state.pendingStartTime = curSec > 0 ? curSec : null;
+        elements.audio.src = streamUrl;
+        elements.audio.playbackRate = state.playbackSpeed || 1.0;
+        elements.audio.preload = 'metadata';
+      }
+
+      const savedCollapsed = localStorage.getItem('anypod_player_collapsed');
+      const shouldCollapse = savedCollapsed === 'true';
+      setPlayerCollapsed(shouldCollapse, false);
+      syncMediaSession(lastEp);
+      syncPlaybackButtons();
+      updatePlayerFavButton();
+
+      // Render waveform
+      state.episodeTimeline.guid = lastEp.guid;
+      state.episodeTimeline.duration = durSec || 1800;
+      state.episodeTimeline.progressPct = (durSec > 0 && curSec > 0) ? (curSec / durSec) : 0;
+      setTimeout(() => {
+        initOrLoadEpisodeTimeline(lastEp, durSec || 1800);
+        renderWaveformChart();
+      }, 50);
+      setTimeout(() => {
+        renderWaveformChart();
+      }, 250);
+    } catch (_) {}
   }
 
   async function loadPlaybackPositionsFromD1() {
@@ -2354,6 +2431,10 @@
 
   function renderFavorites() {
     if (!elements.favoritesEpisodesList) return;
+    if (!state.feeds || state.feeds.length === 0) {
+      navigateTo('discover');
+      return;
+    }
     let list = [...(state.favorites || [])];
     const q = (state.searchQuery || '').trim().toLowerCase();
     if (q) {
@@ -3912,32 +3993,12 @@
       return;
     }
 
-    container.innerHTML = '';
-
     if (state.feeds.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon-wrap">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-              <line x1="12" y1="19" x2="12" y2="23"></line>
-              <line x1="8" y1="23" x2="16" y2="23"></line>
-            </svg>
-          </div>
-          <div class="empty-title">no podcasts added yet</div>
-          <p>browse curated shows, search by topic, or import an opml file.</p>
-          <div class="empty-actions" style="margin-top: 1.25rem;">
-            <button class="btn btn-primary" id="btn-goto-discover">explore discover tab</button>
-            <button class="btn btn-secondary" id="btn-timeline-open-add">+ add feed url</button>
-          </div>
-        </div>
-      `;
-
-      container.querySelector('#btn-goto-discover')?.addEventListener('click', () => navigateTo('discover'));
-      // container.querySelector('#btn-timeline-open-add')?.addEventListener('click', openAddModal);
+      navigateTo('discover');
       return;
     }
+
+    container.innerHTML = '';
 
     if (state.filteredEpisodes.length === 0) {
       let emptyTitle = 'No episodes found';
@@ -4767,64 +4828,7 @@
 
     if (state.feeds.length === 0) {
       if (elements.feedsFilterBar) elements.feedsFilterBar.classList.add('hidden');
-      grid.innerHTML = `
-        <div class="empty-state onboarding-card">
-          <div class="empty-icon-wrap">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 11a9 9 0 0 1 9 9"></path>
-              <path d="M4 4a16 16 0 0 1 16 16"></path>
-              <circle cx="5" cy="19" r="1"></circle>
-            </svg>
-          </div>
-          <h3>your podcast library is empty</h3>
-          <p>search shows, explore curated topics, or import an opml library.</p>
-          <div class="empty-quick-add">
-            <form id="feeds-empty-quick-form" class="quick-add-form" action="javascript:void(0);">
-              <div class="quick-add-input-wrap">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="quick-add-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                <input type="text" id="feeds-empty-quick-input" placeholder="search podcast name or paste rss url..." autocomplete="off">
-                <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-feeds-empty-quick-submit">search / add</button>
-              </div>
-            </form>
-            <div class="dir-filters-row">
-              <div class="empty-category-chips" id="feeds-empty-category-chips">
-                <button type="button" class="category-chip" data-category="Science">science</button>
-                <button type="button" class="category-chip" data-category="Climate">climate &amp; planet</button>
-                <button type="button" class="category-chip" data-category="Earth Nature">earth &amp; nature</button>
-                <button type="button" class="category-chip" data-category="Space Astronomy">space &amp; astronomy</button>
-                <button type="button" class="category-chip" data-category="Oceans Marine">oceans &amp; marine</button>
-                <button type="button" class="category-chip" data-category="Physics Quantum">physics &amp; quantum</button>
-                <button type="button" class="category-chip" data-category="Neuroscience Mind">neuroscience &amp; mind</button>
-                <button type="button" class="category-chip" data-category="Biology Genetics">biology &amp; genetics</button>
-                <button type="button" class="category-chip" data-category="Clean Energy">clean tech &amp; energy</button>
-                <button type="button" class="category-chip" data-category="Ecology Forests">ecology &amp; forests</button>
-                <button type="button" class="category-chip" data-category="Weather Atmosphere">weather &amp; atmosphere</button>
-                <button type="button" class="category-chip" data-category="Paleontology Fossils">paleontology &amp; fossils</button>
-                <button type="button" class="category-chip" data-category="Medicine Health">medicine &amp; health</button>
-                <button type="button" class="category-chip" data-category="AI Tech">artificial intelligence</button>
-                <button type="button" class="category-chip" data-category="History Science">history of science</button>
-                <button type="button" class="category-chip" data-category="Archaeology Ancient">archaeology &amp; ancient</button>
-                <button type="button" class="category-chip" data-category="Math Logic">math &amp; logic</button>
-                <button type="button" class="category-chip" data-category="Agriculture Food">agriculture &amp; food</button>
-                <button type="button" class="category-chip" data-category="Tech Robotics">technology &amp; robots</button>
-                <button type="button" class="category-chip" data-category="Wildlife Zoology">wildlife &amp; zoology</button>
-                <button type="button" class="category-chip" data-category="Chemistry Materials">chemistry &amp; materials</button>
-                <button type="button" class="category-chip" data-category="Philosophy Science">philosophy of science</button>
-                <button type="button" class="category-chip" data-category="Wissen DE">wissen (de)</button>
-                <button type="button" class="category-chip" data-category="Sciences FR">sciences &amp; climat (fr)</button>
-                <button type="button" class="category-chip" data-category="Ciencia ES">ciencia y naturaleza (es)</button>
-              </div>
-            </div>
-            <div id="feeds-empty-quick-results" class="quick-results-container"></div>
-          </div>
-          <div class="empty-actions">
-            <button class="btn btn-primary" id="btn-feeds-empty-open-add">find or add podcasts</button>
-            <button class="btn btn-secondary" id="btn-feeds-empty-opml">import opml file</button>
-          </div>
-          ${buildStarterSuggestionsHTML('all')}
-        </div>
-      `;
-      wireFeedsEmptyStateEvents();
+      navigateTo('discover');
       return;
     }
 
@@ -5254,9 +5258,9 @@
     });
 
     audio.addEventListener('loadstart', () => {
-      // 2. Removed '!audio.paused' check: when switching to the next track,
-      // audio.paused is initially true until play() resolves.
-      if (state.activeEngine === 'audio' && state.currentEpisode) {
+      // Only set loading if audio is actively playing or attempting to play,
+      // so restoring a paused episode on reload keeps the paused state intact!
+      if (state.activeEngine === 'audio' && state.currentEpisode && (!audio.paused || state.playbackStatus === 'playing')) {
         state.playbackStatus = 'loading';
         syncPlaybackButtons();
       }
@@ -6557,8 +6561,12 @@ function setPlayerCollapsed(collapsed, save = true) {
     saveFeedsToStorage();
     removeFeedFromD1(url);
     processAndSortEpisodes();
-    renderTimeline();
-    renderFeedsGrid();
+    if (state.feeds.length === 0) {
+      navigateTo('discover');
+    } else {
+      renderTimeline();
+      renderFeedsGrid();
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -6683,6 +6691,7 @@ function setPlayerCollapsed(collapsed, save = true) {
           localStorage.removeItem(STORAGE_KEYS.CACHED_EPISODES);
           localStorage.removeItem(STORAGE_KEYS.CACHED_METADATA);
           localStorage.removeItem(STORAGE_KEYS.QUEUE);
+          localStorage.removeItem(STORAGE_KEYS.LAST_EPISODE);
           document.cookie = 'podcast_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
           window.history.replaceState({}, document.title, window.location.pathname);
           state.sessionToken = '';
@@ -8476,15 +8485,15 @@ function setPlayerCollapsed(collapsed, save = true) {
         }
 
         // Elegant, high-clarity color palette:
-        // Always visible in both light & dark themes, whether Audio Classifier is on or off
+        // Always crisp and visible with high contrast against the solid white player background
         let color;
         if (showClassifier && b.type === 'music') {
-          color = isPlayed ? '#a855f7' : (isLight ? 'rgba(168, 85, 247, 0.35)' : 'rgba(168, 85, 247, 0.28)');
+          color = isPlayed ? '#a855f7' : 'rgba(168, 85, 247, 0.40)';
         } else if (showClassifier && b.type === 'speech') {
-          color = isPlayed ? '#f97316' : (isLight ? 'rgba(249, 115, 22, 0.35)' : 'rgba(249, 115, 22, 0.28)');
+          color = isPlayed ? '#f97316' : 'rgba(249, 115, 22, 0.40)';
         } else {
-          // Standard waveform (Audio Classifier off or default)
-          color = isPlayed ? '#f97316' : (isLight ? 'rgba(0, 0, 0, 0.18)' : 'rgba(255, 255, 255, 0.22)');
+          // Standard waveform: vibrant orange for played, crisp readable charcoal for unplayed
+          color = isPlayed ? '#f97316' : 'rgba(24, 24, 27, 0.22)';
         }
 
         ctx.fillStyle = color;
