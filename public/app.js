@@ -463,7 +463,8 @@
       enableAudioClassifier: false,
       showJumpButtons: false,
       autoSkipSpeech: false,
-      enableTranscript: false
+      enableTranscript: false,
+      enableLiveTranscript: false
     },
     episodeTimeline: {
       guid: null,
@@ -676,6 +677,8 @@
     // Experimental feature toggles
     toggleVisualizer: document.getElementById('toggle-visualizer'),
     toggleClassifier: document.getElementById('toggle-classifier'),
+    toggleLiveTranscript: document.getElementById('toggle-live-transcript'),
+    rowLiveTranscript: document.getElementById('row-live-transcript'),
     toggleAutoSkip: document.getElementById('toggle-auto-skip'),
     toggleTranscript: document.getElementById('toggle-transcript'),
     experimentalStatus: document.getElementById('experimental-status'),
@@ -4219,11 +4222,23 @@
       const speechSegs = segments.filter(s => s.type === 'speech');
       const musicSegs = segments.filter(s => s.type === 'music');
 
+      const isLiveAvailable = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+      const isLiveEnabled = !!state.experimentalSettings.enableLiveTranscript;
+      const isClassifierEnabled = !!state.experimentalSettings.enableAudioClassifier;
+
       cuesList.innerHTML = `
         <div class="transcript-empty-state">
           <div style="font-size: 2.2rem; margin-bottom: 0.75rem;">🎙️</div>
           <h4>No Official Text Transcript in RSS</h4>
-          <p>This podcast feed doesn't publish an official WebVTT/SRT transcript track. However, Anypod analyzed the audio spectrum into <strong>${speechSegs.length} talking sections</strong> and <strong>${musicSegs.length} music sections</strong>.</p>
+          <p>This podcast feed doesn't include a WebVTT/SRT transcript. ${segments.length > 0 ? `Anypod's FFT classifier detected <strong>${speechSegs.length} speech</strong> and <strong>${musicSegs.length} music</strong> sections.` : 'Enable the <strong>Audio Classifier</strong> in Settings to detect speech sections.'}</p>
+          ${isLiveAvailable ? `
+            <div style="margin: 1rem 0; padding: 0.75rem 1rem; background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-sm); font-size: 0.85rem;">
+              ${isLiveEnabled
+                ? `<strong>🎙 Live transcription is on</strong> — text appears here as you listen.`
+                : `<strong>💡 Live Transcription available!</strong> Enable <em>Live Transcription</em> in Settings → Experimental Features to get speech-to-text as you listen.`
+              }
+            </div>
+          ` : ''}
           ${segments.length > 0 ? `
             <div class="transcript-segment-pills">
               ${segments.slice(0, 16).map(s => `
@@ -5331,6 +5346,7 @@
         if (state.currentEpisode) {
           syncMediaSession(state.currentEpisode);
         }
+        liveTranscription.onPlayStateChange(true);
       }
     });
 
@@ -5345,6 +5361,7 @@
         state.playbackStatus = 'paused';
         syncPlaybackButtons();
         syncMediaSession(state.currentEpisode);
+        liveTranscription.onPlayStateChange(false);
 
         if (state.currentEpisode && audio.currentTime > 2) {
           savePlaybackPositionToD1(state.currentEpisode.guid, audio.currentTime, false);
@@ -5646,7 +5663,8 @@
   function playEpisode(episode, overrideStartTime, context = null) {
     state.currentEpisode = episode;
     state.playbackStatus = 'loading';
-    
+
+    liveTranscription.onEpisodeChange(episode);
     syncMediaSession(episode);
     syncPlaybackButtons();
 
@@ -5935,6 +5953,15 @@
             }
           }
         });
+      }
+
+      // Live transcription: notify on time update (throttled to ~2s)
+      if (state.experimentalSettings.enableLiveTranscript) {
+        const nowMs = Date.now();
+        if (!updateProgress._lastLiveTick || nowMs - updateProgress._lastLiveTick > 2000) {
+          updateProgress._lastLiveTick = nowMs;
+          liveTranscription.onTimeUpdate(current);
+        }
       }
 
       if (state.currentEpisode) {
@@ -7999,6 +8026,9 @@ function setPlayerCollapsed(collapsed, save = true) {
         if (parsed.enableTranscript !== undefined) {
           state.experimentalSettings.enableTranscript = !!parsed.enableTranscript;
         }
+        if (parsed.enableLiveTranscript !== undefined) {
+          state.experimentalSettings.enableLiveTranscript = !!parsed.enableLiveTranscript;
+        }
       }
     } catch (_) {}
     state.experimentalSettings.enableVisualizer = true;
@@ -8018,6 +8048,7 @@ function setPlayerCollapsed(collapsed, save = true) {
     const isClass = !!es.enableAudioClassifier;
     const isTrans = !!es.enableTranscript;
     const isAutoSkip = !!es.autoSkipSpeech;
+    const isLiveTrans = !!es.enableLiveTranscript;
 
     const toggleJump = document.getElementById('toggle-jump-buttons');
     if (toggleJump) toggleJump.checked = showButtons;
@@ -8025,6 +8056,11 @@ function setPlayerCollapsed(collapsed, save = true) {
     if (elements.toggleClassifier) elements.toggleClassifier.checked = isClass;
     if (elements.toggleAutoSkip) elements.toggleAutoSkip.checked = !!es.autoSkipSpeech;
     if (elements.toggleTranscript) elements.toggleTranscript.checked = isTrans;
+    if (elements.toggleLiveTranscript) elements.toggleLiveTranscript.checked = isLiveTrans;
+    // Show live transcript row only when classifier is enabled (needs segment data)
+    if (elements.rowLiveTranscript) {
+      elements.rowLiveTranscript.style.display = isClass ? '' : 'none';
+    }
 
     if (elements.btnPlayerTranscript) {
       elements.btnPlayerTranscript.style.display = isTrans ? '' : 'none';
@@ -8111,6 +8147,17 @@ function setPlayerCollapsed(collapsed, save = true) {
         state.experimentalSettings.enableTranscript = elements.toggleTranscript.checked;
         saveExperimentalSettings();
         syncExperimentalUI();
+      });
+    }
+    if (elements.toggleLiveTranscript) {
+      elements.toggleLiveTranscript.addEventListener('change', () => {
+        state.experimentalSettings.enableLiveTranscript = elements.toggleLiveTranscript.checked;
+        saveExperimentalSettings();
+        if (state.experimentalSettings.enableLiveTranscript) {
+          liveTranscription.start();
+        } else {
+          liveTranscription.stop();
+        }
       });
     }
   }
@@ -8571,6 +8618,196 @@ function setPlayerCollapsed(collapsed, save = true) {
     });
   }
 
+  // ── Live Transcription Engine ────────────────────────────────────────────
+  // Uses the Web Speech API (SpeechRecognition) to produce real-time
+  // timestamped cues while the user listens.  The recogniser is paused
+  // automatically during music segments so accuracy stays high.
+  // Cues are merged into state.episodeTimeline.cues and persisted to
+  // localStorage so the transcript survives a page reload.
+
+  const liveTranscription = (() => {
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRec) return { start() {}, stop() {}, onPlayStateChange() {}, onTimeUpdate() {}, onEpisodeChange() {} };
+
+    let rec = null;
+    let active = false;
+    let listening = false;
+    let guidForSession = null;
+    let cueStart = 0;
+    let suppressMusicPause = false;
+
+    function _currentSegmentType(currentTime) {
+      const segments = state.episodeTimeline.segments || [];
+      for (const seg of segments) {
+        if (currentTime >= seg.start && currentTime <= seg.end) return seg.type;
+      }
+      return 'speech';
+    }
+
+    function _currentTime() {
+      if (state.activeEngine === 'audio' && elements.audio) return elements.audio.currentTime || 0;
+      if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
+        return state.ytPlayer.getCurrentTime() || 0;
+      }
+      return 0;
+    }
+
+    function _persistCues() {
+      if (!guidForSession) return;
+      try {
+        const stored = JSON.parse(localStorage.getItem('anypod_live_cues_' + guidForSession) || '[]');
+        const existingStarts = new Set(stored.map(c => c.start));
+        const newCues = (state.episodeTimeline.cues || []).filter(c => c.live && !existingStarts.has(c.start));
+        localStorage.setItem('anypod_live_cues_' + guidForSession, JSON.stringify([...stored, ...newCues]));
+      } catch (_) {}
+    }
+
+    function _addCue(text, startSec, endSec) {
+      if (!text || !text.trim()) return;
+      const trimmed = text.trim();
+      const cues = state.episodeTimeline.cues;
+      if (cues.length > 0 && cues[cues.length - 1].text === trimmed) return;
+      cues.push({ start: Math.round(startSec), end: Math.round(endSec + 0.5), text: trimmed, live: true });
+      if (state.experimentalSettings.enableTranscript) renderTranscriptView();
+      _persistCues();
+    }
+
+    function _buildRecogniser() {
+      if (rec) { try { rec.abort(); } catch (_) {} }
+      rec = new SpeechRec();
+      rec.continuous = true;
+      rec.interimResults = false;
+      rec.maxAlternatives = 1;
+      rec.lang = (state.currentEpisode && state.currentEpisode.language) || navigator.language || 'en-US';
+
+      rec.onstart = () => {
+        listening = true;
+        cueStart = _currentTime();
+        if (elements.probeStatusPill) {
+          elements.probeStatusPill.textContent = '🎙 Live transcript…';
+          elements.probeStatusPill.classList.remove('hidden');
+        }
+      };
+
+      rec.onresult = (event) => {
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            const transcript = event.results[i][0].transcript;
+            const endSec = _currentTime();
+            _addCue(transcript, cueStart, endSec);
+            cueStart = endSec;
+          }
+        }
+      };
+
+      rec.onerror = (e) => {
+        if (e.error !== 'aborted' && e.error !== 'no-speech') {
+          console.warn('[LiveTranscript] SpeechRecognition error:', e.error);
+        }
+        listening = false;
+        if (active && state.playbackStatus === 'playing') {
+          setTimeout(() => { if (active) _startListening(); }, 800);
+        }
+      };
+
+      rec.onend = () => {
+        listening = false;
+        if (active && !suppressMusicPause && state.playbackStatus === 'playing') {
+          const segType = _currentSegmentType(_currentTime());
+          if (segType !== 'music') {
+            setTimeout(() => { if (active && !listening) _startListening(); }, 300);
+          }
+        }
+      };
+    }
+
+    function _startListening() {
+      if (listening) return;
+      try { _buildRecogniser(); rec.start(); } catch (e) {
+        console.warn('[LiveTranscript] Could not start SpeechRecognition:', e.message);
+      }
+    }
+
+    function _stopListening() {
+      listening = false;
+      if (rec) { try { rec.abort(); } catch (_) {} }
+    }
+
+    function start() {
+      if (!SpeechRec) return;
+      active = true;
+      guidForSession = state.currentEpisode ? state.currentEpisode.guid : null;
+      if (guidForSession && state.episodeTimeline.cues.length === 0) {
+        try {
+          const stored = JSON.parse(localStorage.getItem('anypod_live_cues_' + guidForSession) || '[]');
+          if (stored.length > 0) {
+            state.episodeTimeline.cues = stored;
+            if (state.experimentalSettings.enableTranscript) renderTranscriptView();
+          }
+        } catch (_) {}
+      }
+      if (state.playbackStatus === 'playing') {
+        const segType = _currentSegmentType(_currentTime());
+        if (segType !== 'music') _startListening();
+      }
+    }
+
+    function stop() {
+      active = false;
+      _stopListening();
+      if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
+    }
+
+    function onPlayStateChange(isPlaying) {
+      if (!active) return;
+      if (isPlaying) {
+        const segType = _currentSegmentType(_currentTime());
+        if (segType !== 'music' && !listening) _startListening();
+      } else {
+        _stopListening();
+        if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
+      }
+    }
+
+    function onTimeUpdate(currentTime) {
+      if (!active) return;
+      const segType = _currentSegmentType(currentTime);
+      if (segType === 'music' && !suppressMusicPause) {
+        suppressMusicPause = true;
+        _stopListening();
+        if (elements.probeStatusPill) {
+          elements.probeStatusPill.textContent = '🎵 Paused (music)';
+          elements.probeStatusPill.classList.remove('hidden');
+          setTimeout(() => { if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden'); }, 1500);
+        }
+      } else if (segType !== 'music' && suppressMusicPause) {
+        suppressMusicPause = false;
+        if (!listening && state.playbackStatus === 'playing') _startListening();
+      }
+    }
+
+    function onEpisodeChange(episode) {
+      _stopListening();
+      guidForSession = episode ? episode.guid : null;
+      suppressMusicPause = false;
+      cueStart = 0;
+      if (guidForSession && active) {
+        try {
+          const stored = JSON.parse(localStorage.getItem('anypod_live_cues_' + guidForSession) || '[]');
+          if (stored.length > 0 && state.episodeTimeline.cues.length === 0) {
+            state.episodeTimeline.cues = stored;
+            if (state.experimentalSettings.enableTranscript) renderTranscriptView();
+          }
+        } catch (_) {}
+      }
+      if (active && state.playbackStatus === 'playing') {
+        setTimeout(() => { if (active && !listening) _startListening(); }, 600);
+      }
+    }
+
+    return { start, stop, onPlayStateChange, onTimeUpdate, onEpisodeChange };
+  })();
+
   // ── Background Audio Probing Engine ─────────────────────────────────────
   // Samples points across the audio file using HTTP Range requests through
   // /api/audio-proxy, decoding in a background AudioContext to measure
@@ -8705,58 +8942,184 @@ function setPlayerCollapsed(collapsed, save = true) {
     }
   }
 
-  // ── PCM Spectral & Energy Analyzer ──────────────────────────────────────
+  // ── PCM Spectral & Energy Analyzer (FFT-based) ───────────────────────────
+  // Computes a power-spectrum via a compact DFT over evenly-spaced windows,
+  // then derives: spectral centroid, flatness (Wiener entropy), rolloff, and
+  // sub-band energy ratios.  Much more reliable than pure time-domain ZCR.
+
+  function _fftPowerSpectrum(samples, sampleRate) {
+    // Use a power-of-2 window for speed.  Take the first 4096 samples max.
+    const N = Math.min(4096, samples.length);
+    const N2 = N >> 1;            // number of useful magnitude bins
+    const real = new Float32Array(N);
+    const imag = new Float32Array(N);
+
+    // Hann window
+    for (let i = 0; i < N; i++) {
+      const hann = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / N);
+      real[i] = samples[i] * hann;
+    }
+
+    // Cooley-Tukey in-place radix-2 DIT FFT
+    // Bit-reversal permutation
+    let j = 0;
+    for (let i = 1; i < N; i++) {
+      let bit = N >> 1;
+      for (; j & bit; bit >>= 1) j ^= bit;
+      j ^= bit;
+      if (i < j) {
+        [real[i], real[j]] = [real[j], real[i]];
+        [imag[i], imag[j]] = [imag[j], imag[i]];
+      }
+    }
+
+    // FFT butterfly
+    for (let len = 2; len <= N; len <<= 1) {
+      const ang = (2 * Math.PI) / len;
+      const wRe = Math.cos(ang);
+      const wIm = -Math.sin(ang);
+      for (let i = 0; i < N; i += len) {
+        let uRe = 1, uIm = 0;
+        for (let k = 0; k < (len >> 1); k++) {
+          const a = i + k;
+          const b = a + (len >> 1);
+          const tRe = uRe * real[b] - uIm * imag[b];
+          const tIm = uRe * imag[b] + uIm * real[b];
+          real[b] = real[a] - tRe;
+          imag[b] = imag[a] - tIm;
+          real[a] += tRe;
+          imag[a] += tIm;
+          const tmp = uRe * wRe - uIm * wIm;
+          uIm = uRe * wIm + uIm * wRe;
+          uRe = tmp;
+        }
+      }
+    }
+
+    // Power spectrum (magnitude² normalised)
+    const mag = new Float32Array(N2);
+    const binHz = sampleRate / N;
+    for (let i = 0; i < N2; i++) {
+      mag[i] = real[i] * real[i] + imag[i] * imag[i];
+    }
+    return { mag, binHz, N2 };
+  }
 
   function analyzePcmSnippet(samples, sampleRate) {
     const len = samples.length;
+    if (len === 0) return { type: 'speech', energy: 0.1 };
+
+    // ── 1. Basic time-domain: RMS + dynamic range (crest factor) ────────────
     let sumSq = 0;
-    let zeroCrossings = 0;
-    let hfDiffSum = 0;
-
-    for (let i = 0; i < len; i++) {
-      const s = samples[i];
-      sumSq += s * s;
-      if (i > 0) {
-        if ((samples[i] >= 0 && samples[i - 1] < 0) || (samples[i] < 0 && samples[i - 1] >= 0)) {
-          zeroCrossings++;
-        }
-        hfDiffSum += Math.abs(s - samples[i - 1]);
-      }
-    }
-
+    for (let i = 0; i < len; i++) sumSq += samples[i] * samples[i];
     const rms = Math.sqrt(sumSq / len);
-    const zcr = zeroCrossings / len;
-    const hfRatio = hfDiffSum / (sumSq + 0.0001);
 
-    // Frame-to-frame dynamic variance (speech has frequent pause gaps, music has steady compression)
-    const windowSize = Math.floor(sampleRate * 0.1); // 100ms
-    const numWindows = Math.floor(len / windowSize);
-    let minWinRms = 1.0;
-    let maxWinRms = 0.0;
+    if (rms < 0.01) return { type: 'silence', energy: 0.05 };
 
-    for (let w = 0; w < numWindows; w++) {
-      let winSum = 0;
-      const offset = w * windowSize;
-      for (let j = 0; j < windowSize; j++) {
-        const s = samples[offset + j];
-        winSum += s * s;
+    // Dynamic variance across 100ms windows (speech has gaps; music is compressed)
+    const winSize = Math.floor(sampleRate * 0.1);
+    const numWins = Math.max(1, Math.floor(len / winSize));
+    let minWR = 1, maxWR = 0;
+    for (let w = 0; w < numWins; w++) {
+      let wSq = 0;
+      const off = w * winSize;
+      for (let j = 0; j < winSize && off + j < len; j++) {
+        const s = samples[off + j];
+        wSq += s * s;
       }
-      const winRms = Math.sqrt(winSum / windowSize);
-      if (winRms < minWinRms) minWinRms = winRms;
-      if (winRms > maxWinRms) maxWinRms = winRms;
+      const wRms = Math.sqrt(wSq / winSize);
+      if (wRms < minWR) minWR = wRms;
+      if (wRms > maxWR) maxWR = wRms;
+    }
+    const dynamicRange = (maxWR - minWR) / (rms + 1e-6);  // large → speech, small → music
+
+    // ── 2. Spectral analysis via FFT ─────────────────────────────────────────
+    const { mag, binHz, N2 } = _fftPowerSpectrum(samples, sampleRate);
+
+    let totalPower = 0;
+    let weightedFreqSum = 0;    // for spectral centroid
+    let logSum = 0;             // for spectral flatness
+    let geometricProduct = 0;   // proxy via log-sum
+    const EPS = 1e-12;
+
+    // Sub-band energy buckets (Hz)
+    // sub-bass: 0-300, low-mid: 300-1k, speech core: 1k-4k, high: 4k-8k, air: 8k+
+    let eSub = 0, eLow = 0, eSpeech = 0, eHigh = 0, eAir = 0;
+
+    for (let i = 1; i < N2; i++) {
+      const hz = i * binHz;
+      const p = mag[i] + EPS;
+      totalPower += p;
+      weightedFreqSum += hz * p;
+      logSum += Math.log(p);
+
+      if      (hz < 300)  eSub    += p;
+      else if (hz < 1000) eLow    += p;
+      else if (hz < 4000) eSpeech += p;
+      else if (hz < 8000) eHigh   += p;
+      else                eAir    += p;
     }
 
-    const crestFactor = (maxWinRms - minWinRms) / (rms + 0.0001);
+    // Spectral centroid (Hz): music skews higher, voice ~500-3k
+    const centroid = weightedFreqSum / (totalPower + EPS);
 
-    // Classification heuristic:
-    // Music: continuous sustained energy (low crest variance), rich high frequencies, higher overall RMS
-    // Speech: high pause-to-peak variance, mid-range dominant
-    const isSilence = rms < 0.015;
-    const isMusic = !isSilence && (crestFactor < 1.4 || hfRatio > 1.8) && rms > 0.04;
+    // Spectral flatness (Wiener entropy): 0 = pure tone, 1 = white noise
+    // Music sits mid-range, speech is tonal (lower flatness in 300-4kHz band)
+    const geometricMean = Math.exp(logSum / N2);
+    const arithmeticMean = totalPower / N2;
+    const flatness = geometricMean / (arithmeticMean + EPS);  // 0..1
+
+    // Spectral rolloff: frequency below which 85% of energy sits
+    let rolloffThreshold = 0.85 * totalPower;
+    let rolloffHz = 0;
+    let cumPower = 0;
+    for (let i = 1; i < N2; i++) {
+      cumPower += mag[i];
+      if (cumPower >= rolloffThreshold) {
+        rolloffHz = i * binHz;
+        break;
+      }
+    }
+
+    // Normalised sub-band ratios
+    const speechCoreRatio = eSpeech / (totalPower + EPS);  // speech peaks 1-4k
+    const highRatio       = (eHigh + eAir) / (totalPower + EPS);  // music has sustained treble
+    const subRatio        = eSub / (totalPower + EPS);             // music often has deep bass
+
+    // ── 3. Classification decision tree ─────────────────────────────────────
+    // Music signatures:
+    //   • low dynamic range (compressed)  → dynamicRange < 1.2
+    //   • high spectral flatness          → flatness > 0.04  (broadband harmonic content)
+    //   • centroid > 2000 Hz or < 500 Hz  (bass-lines / synth highs)
+    //   • significant sustained high freq → highRatio > 0.15
+    //   • rolloff > 5 kHz                 (music fills the spectrum)
+    // Speech signatures:
+    //   • high dynamic range              → dynamicRange > 1.8
+    //   • speech core dominant            → speechCoreRatio > 0.45
+    //   • rolloff 1-5 kHz                 (voice mostly below 4k)
+    //   • lower spectral flatness (tonal vowels / consonant bursts)
+
+    let musicScore = 0;
+    if (dynamicRange < 1.2)        musicScore += 2;
+    if (flatness > 0.04)           musicScore += 2;
+    if (highRatio > 0.15)          musicScore += 2;
+    if (rolloffHz > 5000)          musicScore += 2;
+    if (centroid > 2500)           musicScore += 1;
+    if (subRatio > 0.12)           musicScore += 1;
+
+    let speechScore = 0;
+    if (dynamicRange > 1.8)        speechScore += 3;
+    if (speechCoreRatio > 0.45)    speechScore += 3;
+    if (rolloffHz < 4500)          speechScore += 2;
+    if (centroid > 300 && centroid < 3000) speechScore += 1;
+
+    const isMusic = musicScore > speechScore && musicScore >= 4;
 
     return {
-      type: isSilence ? 'speech' : (isMusic ? 'music' : 'speech'),
-      energy: Math.min(1.0, Math.max(0.2, rms * 4))
+      type: isMusic ? 'music' : 'speech',
+      energy: Math.min(1.0, Math.max(0.15, rms * 5)),
+      // expose raw metrics for debugging / future use
+      _meta: { rms, dynamicRange, centroid, flatness, rolloffHz, speechCoreRatio, highRatio, musicScore, speechScore }
     };
   }
 

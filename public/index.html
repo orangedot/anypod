@@ -262,10 +262,23 @@
             <label class="experimental-toggle-label" for="toggle-classifier">
               <div>
                 <strong>audio classifier</strong>
-                <span>detect speech vs. music segments (heuristic)</span>
+                <span>detect speech vs. music segments via FFT spectral analysis</span>
               </div>
               <div class="toggle-switch">
                 <input type="checkbox" id="toggle-classifier" role="switch">
+                <span class="toggle-track"></span>
+              </div>
+            </label>
+          </div>
+
+          <div class="experimental-row" id="row-live-transcript" style="display:none;">
+            <label class="experimental-toggle-label" for="toggle-live-transcript">
+              <div>
+                <strong>live transcription</strong>
+                <span>speech-to-text as you listen — builds timestamped transcript in real-time (Chrome/Edge/Safari)</span>
+              </div>
+              <div class="toggle-switch">
+                <input type="checkbox" id="toggle-live-transcript" role="switch">
                 <span class="toggle-track"></span>
               </div>
             </label>
