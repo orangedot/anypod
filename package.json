@@ -15,7 +15,7 @@
     "screenshots": "node scripts/capture_screenshots.js"
   },
   "devDependencies": {
-    "wrangler": "^3.100.0"
+    "wrangler": "^4.145.0"
   },
   "keywords": [
     "podcast",

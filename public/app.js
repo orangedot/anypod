@@ -253,16 +253,34 @@
         continue;
       }
 
-      // 2. Fetch fresh high-res artwork from iTunes
+      // 2. Fetch fresh high-res artwork from proxy (with direct fallback)
       try {
-        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=podcast&entity=podcast&limit=1`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.results && data.results[0]?.artworkUrl600) {
-            const artUrl = data.results[0].artworkUrl600;
-            _curatedArtworkCache[feedUrl] = artUrl;
-            img.src = artUrl;
+        let artUrl = null;
+        try {
+          const res = await fetch(`/api/search-directory?term=${encodeURIComponent(title)}&limit=1`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.results && data.results[0]?.artworkUrl600) {
+              artUrl = data.results[0].artworkUrl600;
+            }
           }
+        } catch (_) {}
+
+        if (!artUrl) {
+          try {
+            const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=podcast&entity=podcast&limit=1`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.results && data.results[0]?.artworkUrl600) {
+                artUrl = data.results[0].artworkUrl600;
+              }
+            }
+          } catch (_) {}
+        }
+
+        if (artUrl) {
+          _curatedArtworkCache[feedUrl] = artUrl;
+          img.src = artUrl;
         }
       } catch (_) {}
     }
@@ -2452,6 +2470,13 @@
         : `<div class="empty-state" style="grid-column: 1 / -1; padding: 2.5rem 1rem; text-align: center;"><p style="color: var(--text-muted); font-size: 0.9rem;">No favorite episodes yet. Click the heart icon on any episode to save it here.</p></div>`;
       return;
     }
+
+    const favContext = {
+      type: 'favorites',
+      id: 'favorites',
+      title: 'Favorites',
+      items: list
+    };
 
     const frag = document.createDocumentFragment();
     list.forEach(item => {
@@ -6670,58 +6695,66 @@ function setPlayerCollapsed(collapsed, save = true) {
     if (elements.btnAccountToggle) {
       elements.btnAccountToggle.addEventListener('click', async () => {
         if (elements.statusIndicator && elements.statusIndicator.classList.contains('online')) {
-          const currentToken = state.sessionToken;
-          try {
-            await fetch('/api/auth/logout', {
-              method: 'POST',
-              credentials: 'include',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(currentToken ? { 'X-Session-Token': currentToken } : {})
-              },
-              body: JSON.stringify({ sessionToken: currentToken })
-            });
-          } catch (e) {}
-          localStorage.removeItem(STORAGE_KEYS.SESSION);
-          localStorage.removeItem(STORAGE_KEYS.USER_EMAIL);
-          localStorage.removeItem('podcast_pulse_session_token');
-          localStorage.removeItem(STORAGE_KEYS.FEEDS);
-          localStorage.removeItem(STORAGE_KEYS.MUTED_FEEDS);
-          localStorage.removeItem(STORAGE_KEYS.POSITIONS);
-          localStorage.removeItem(STORAGE_KEYS.CACHED_EPISODES);
-          localStorage.removeItem(STORAGE_KEYS.CACHED_METADATA);
-          localStorage.removeItem(STORAGE_KEYS.QUEUE);
-          localStorage.removeItem(STORAGE_KEYS.LAST_EPISODE);
-          document.cookie = 'podcast_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-          window.history.replaceState({}, document.title, window.location.pathname);
-          state.sessionToken = '';
-          state.userEmail = '';
-          state.feeds = [];
-          state.mutedFeeds = [];
-          state.playbackPositions = {};
-          state.allEpisodes = [];
-          state.filteredEpisodes = [];
-          state.feedMetadata = {};
-          state.queue = [];
-          if (elements.audio) {
-            elements.audio.pause();
-            elements.audio.src = '';
-          }
-          if (state.ytPlayer && state.ytPlayer.stopVideo) {
-            state.ytPlayer.stopVideo();
-          }
-          state.currentEpisode = null;
-          state.playbackStatus = 'idle';
-          if (elements.playerBar) elements.playerBar.classList.remove('active-episode');
-          document.body.classList.remove('has-active-episode', 'has-mini-player', 'has-full-player');
-          updatePlayerUI(false);
-          updateFeedCountUI();
-          updateQueueUI();
-          renderContinueShelf();
-          renderTimeline();
-          renderFeedsGrid();
-          updateSyncStatusUI('Logged Out', '', false);
-          elements.authModal.classList.remove('hidden');
+          const emailDisplay = state.userEmail ? ` (${state.userEmail})` : '';
+          openConfirmDialog({
+            title: 'Sign Out?',
+            message: `Are you sure you want to sign out${emailDisplay}? Your cloud subscriptions and playback positions will remain safely synced to your account.`,
+            actionLabel: 'Sign Out',
+            onConfirm: async () => {
+              const currentToken = state.sessionToken;
+              try {
+                await fetch('/api/auth/logout', {
+                  method: 'POST',
+                  credentials: 'include',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...(currentToken ? { 'X-Session-Token': currentToken } : {})
+                  },
+                  body: JSON.stringify({ sessionToken: currentToken })
+                });
+              } catch (e) {}
+              localStorage.removeItem(STORAGE_KEYS.SESSION);
+              localStorage.removeItem(STORAGE_KEYS.USER_EMAIL);
+              localStorage.removeItem('podcast_pulse_session_token');
+              localStorage.removeItem(STORAGE_KEYS.FEEDS);
+              localStorage.removeItem(STORAGE_KEYS.MUTED_FEEDS);
+              localStorage.removeItem(STORAGE_KEYS.POSITIONS);
+              localStorage.removeItem(STORAGE_KEYS.CACHED_EPISODES);
+              localStorage.removeItem(STORAGE_KEYS.CACHED_METADATA);
+              localStorage.removeItem(STORAGE_KEYS.QUEUE);
+              localStorage.removeItem(STORAGE_KEYS.LAST_EPISODE);
+              document.cookie = 'podcast_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+              window.history.replaceState({}, document.title, window.location.pathname);
+              state.sessionToken = '';
+              state.userEmail = '';
+              state.feeds = [];
+              state.mutedFeeds = [];
+              state.playbackPositions = {};
+              state.allEpisodes = [];
+              state.filteredEpisodes = [];
+              state.feedMetadata = {};
+              state.queue = [];
+              if (elements.audio) {
+                elements.audio.pause();
+                elements.audio.src = '';
+              }
+              if (state.ytPlayer && state.ytPlayer.stopVideo) {
+                state.ytPlayer.stopVideo();
+              }
+              state.currentEpisode = null;
+              state.playbackStatus = 'idle';
+              if (elements.playerBar) elements.playerBar.classList.remove('active-episode');
+              document.body.classList.remove('has-active-episode', 'has-mini-player', 'has-full-player');
+              updatePlayerUI(false);
+              updateFeedCountUI();
+              updateQueueUI();
+              renderContinueShelf();
+              renderTimeline();
+              renderFeedsGrid();
+              updateSyncStatusUI('Logged Out', '', false);
+              elements.authModal.classList.remove('hidden');
+            }
+          });
         } else {
           elements.authModal.classList.remove('hidden');
         }
@@ -6926,11 +6959,21 @@ function setPlayerCollapsed(collapsed, save = true) {
 
       discoverSearchTimer = setTimeout(async () => {
         try {
-          // Fetch 5 matching shows
-          const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=podcast&entity=podcast&limit=5`);
-          if (!res.ok) return;
-          const data = await res.json();
-          if (!data.results || data.results.length === 0) {
+          // Fetch 5 matching shows via proxy (with direct fallback)
+          let data = null;
+          try {
+            const proxyRes = await fetch(`/api/search-directory?term=${encodeURIComponent(q)}&limit=5`);
+            if (proxyRes.ok) data = await proxyRes.json();
+          } catch (_) {}
+
+          if (!data || !data.results || data.results.length === 0) {
+            try {
+              const directRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=podcast&entity=podcast&limit=5`);
+              if (directRes.ok) data = await directRes.json();
+            } catch (_) {}
+          }
+
+          if (!data || !data.results || data.results.length === 0) {
             if (previewContainer) previewContainer.classList.add('hidden');
             return;
           }
@@ -7573,9 +7616,20 @@ function setPlayerCollapsed(collapsed, save = true) {
         const searchTerms = ["NASA's Curious Universe", "The Climate Question", "Radiolab", "Forschung aktuell"];
         for (const term of searchTerms) {
           try {
-            const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=podcast&limit=1`);
-            const data = await res.json();
-            if (data.results && data.results[0] && data.results[0].feedUrl) {
+            let data = null;
+            try {
+              const res = await fetch(`/api/search-directory?term=${encodeURIComponent(term)}&limit=1`);
+              if (res.ok) data = await res.json();
+            } catch (_) {}
+
+            if (!data || !data.results || data.results.length === 0) {
+              try {
+                const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=podcast&limit=1`);
+                if (res.ok) data = await res.json();
+              } catch (_) {}
+            }
+
+            if (data && data.results && data.results[0] && data.results[0].feedUrl) {
               const feedUrl = data.results[0].feedUrl;
               if (!state.feeds.includes(feedUrl)) {
                 state.feeds.push(feedUrl);
@@ -8485,15 +8539,15 @@ function setPlayerCollapsed(collapsed, save = true) {
         }
 
         // Elegant, high-clarity color palette:
-        // Always crisp and visible with high contrast against the solid white player background
+        // Always crisp and visible with high contrast against the solid player background
         let color;
         if (showClassifier && b.type === 'music') {
-          color = isPlayed ? '#a855f7' : 'rgba(168, 85, 247, 0.40)';
+          color = isPlayed ? '#a855f7' : (isLight ? 'rgba(168, 85, 247, 0.40)' : 'rgba(168, 85, 247, 0.35)');
         } else if (showClassifier && b.type === 'speech') {
-          color = isPlayed ? '#f97316' : 'rgba(249, 115, 22, 0.40)';
+          color = isPlayed ? '#f97316' : (isLight ? 'rgba(249, 115, 22, 0.40)' : 'rgba(249, 115, 22, 0.35)');
         } else {
-          // Standard waveform: vibrant orange for played, crisp readable charcoal for unplayed
-          color = isPlayed ? '#f97316' : 'rgba(24, 24, 27, 0.22)';
+          // Standard waveform: vibrant orange for played, crisp readable charcoal in light mode, translucent white in dark mode
+          color = isPlayed ? '#f97316' : (isLight ? 'rgba(24, 24, 27, 0.22)' : 'rgba(255, 255, 255, 0.28)');
         }
 
         ctx.fillStyle = color;

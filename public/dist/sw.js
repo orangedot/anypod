@@ -1,4 +1,4 @@
-const CACHE_NAME = 'anypod-v7';
+const CACHE_NAME = 'anypod-v8';
 const AUDIO_CACHE_NAME = 'anypod-audio-v1';
 
 const APP_SHELL = [
@@ -56,6 +56,12 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
+
+  // 1. Only handle same-origin requests in the Service Worker.
+  // Cross-origin requests (e.g. iTunes, CDN images, external APIs) must bypass the SW!
+  if (url.origin !== self.location.origin) {
+    return;
+  }
 
   if (url.pathname.startsWith('/api/')) {
     return;
