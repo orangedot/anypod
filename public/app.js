@@ -301,7 +301,7 @@
       return `
         <div class="feed-card starter-show-card" data-feed="${escapeHtml(item.feed)}" data-title="${escapeHtml(item.title)}">
           <div class="feed-header">
-            <img class="feed-art" src="${art}" alt="" loading="lazy">
+            <img class="feed-art" src="${art}" alt="" loading="lazy" width="48" height="48">
             <div class="feed-info">
               <h4>${escapeHtml(item.title)}</h4>
               <p>${escapeHtml(item.badge)}</p>
@@ -1013,7 +1013,8 @@
         } else if (['timeline', 'feeds', 'favorites', 'downloads', 'discover', 'settings'].includes(rawHash)) {
           _applyView({ tab: rawHash, feedUrl: null });
         } else {
-          _applyView({ tab: 'timeline', feedUrl: null });
+          const defaultTab = (!state.feeds || state.feeds.length === 0) ? 'discover' : 'timeline';
+          _applyView({ tab: defaultTab, feedUrl: null });
         }
       }
     });
@@ -1054,7 +1055,9 @@
       _applyView({ tab: rawHash, feedUrl: null });
       window.history.replaceState({ tab: rawHash, feedUrl: null }, '', '#' + rawHash);
     } else {
-      window.history.replaceState({ tab: 'timeline', feedUrl: null }, '', '#timeline');
+      const defaultTab = (!state.feeds || state.feeds.length === 0) ? 'discover' : 'timeline';
+      _applyView({ tab: defaultTab, feedUrl: null });
+      window.history.replaceState({ tab: defaultTab, feedUrl: null }, '', '#' + defaultTab);
     }
   }
 
@@ -1856,7 +1859,7 @@
       const cur = state.currentEpisode;
       elements.queueNowPlayingContainer.innerHTML = `
         <div class="queue-now-playing-card">
-          <div class="queue-now-playing-label">Now Playing</div>
+          <div class="queue-now-playing-label">now playing</div>
           <div class="queue-now-playing-row">
             <img class="queue-item-artwork" src="${cur.artwork || FALLBACK_ARTWORK}" alt="">
             <div class="queue-item-info">
@@ -1882,9 +1885,13 @@
     if (hasManualQueue) {
       const manualHeader = document.createElement('div');
       manualHeader.className = 'queue-section-header';
-      manualHeader.innerHTML = `<span>Up Next (${state.queue.length})</span>`;
+      manualHeader.innerHTML = `<span>Up Next (${state.queue.length})</span>
+      <button class="btn-text-subtle" id="btn-clear-queue">clear all</button>`;
+    
       elements.queueItemsContainer.appendChild(manualHeader);
 
+      manualHeader.querySelector('#btn-clear-queue')?.addEventListener('click', clearQueue);
+      
       state.queue.forEach((ep, idx) => {
         const row = document.createElement('div');
         row.className = 'queue-item-row';
@@ -2008,7 +2015,7 @@
         });
 
         elements.queueItemsContainer.appendChild(row);
-      });
+      });  
     }
 
     if (state.autoplayEnabled) {
@@ -4505,7 +4512,7 @@
 
     card.innerHTML = `
       <div class="episode-card-top">
-        <img class="episode-artwork" src="${ep.artwork || FALLBACK_ARTWORK}" alt="" loading="lazy">
+        <img class="episode-artwork" src="${ep.artwork || FALLBACK_ARTWORK}" alt="" loading="lazy" width="52" height="52">
         <div class="episode-header-info">
           <div class="episode-podcast-name">${ep.isYouTube ? 'YouTube' : highlightText(ep.podcastTitle, state.searchQuery)}</div>
           <div class="episode-title">${highlightText(ep.title, state.searchQuery)}</div>
@@ -7311,7 +7318,6 @@ function setPlayerCollapsed(collapsed, save = true) {
 
     if (elements.btnOpenQueue) elements.btnOpenQueue.addEventListener('click', openQueueModal);
     if (elements.btnCloseQueue) elements.btnCloseQueue.addEventListener('click', closeQueueModal);
-    if (elements.btnClearQueue) elements.btnClearQueue.addEventListener('click', clearQueue);
     if (elements.queueModal) {
       elements.queueModal.addEventListener('click', (e) => {
         if (e.target === elements.queueModal) closeQueueModal();
