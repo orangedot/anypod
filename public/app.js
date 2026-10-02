@@ -8840,13 +8840,22 @@ function setPlayerCollapsed(collapsed, save = true) {
   let _captionDismissed = false;  // user manually closed it
 
   function _showLiveCaption(text) {
-    if (_captionDismissed) return;
+    console.log('[Caption] _showLiveCaption() called. dismissed=', _captionDismissed, ' text="' + text?.slice(0,50) + '"');
+    if (_captionDismissed) {
+      console.log('[Caption] ❌ dismissed by user, skipped.');
+      return;
+    }
     const popup   = elements.liveCaptionPopup;
     const textEl  = elements.liveCaptionText;
-    if (!popup || !textEl) return;
+    console.log('[Caption] popup el=', popup, '  textEl=', textEl);
+    if (!popup || !textEl) {
+      console.warn('[Caption] ❌ DOM elements not found! liveCaptionPopup=', document.getElementById('live-caption-popup'));
+      return;
+    }
 
     textEl.textContent = text;
     popup.classList.remove('hidden');
+    console.log('[Caption] ✅ caption shown. popup classes=', popup.className);
 
     // Auto-hide after 8 s of no new cues
     if (_captionHideTimer) clearTimeout(_captionHideTimer);
@@ -8855,6 +8864,7 @@ function setPlayerCollapsed(collapsed, save = true) {
     }, 8000);
   }
 
+
   function _hideLiveCaption(dismiss = false) {
     if (dismiss) _captionDismissed = true;
     if (_captionHideTimer) { clearTimeout(_captionHideTimer); _captionHideTimer = null; }
@@ -8862,8 +8872,11 @@ function setPlayerCollapsed(collapsed, save = true) {
   }
 
   // Wire the × close button (done once at startup)
+  console.log('[Caption] Startup check — liveCaptionPopup=', elements.liveCaptionPopup, '  btnCloseCaption=', elements.btnCloseCaption);
   if (elements.btnCloseCaption) {
     elements.btnCloseCaption.addEventListener('click', () => _hideLiveCaption(true));
+  } else {
+    console.warn('[Caption] ⚠️ btnCloseCaption not found in DOM — caption popup may not work!');
   }
 
   // ── Live Transcription Engine ────────────────────────────────────────────
@@ -8911,17 +8924,27 @@ function setPlayerCollapsed(collapsed, save = true) {
     }
 
     function _addCue(text, startSec, endSec) {
-      if (!text || !text.trim()) return;
+      console.log('[LiveTranscript] _addCue() called. text=', JSON.stringify(text?.slice(0,60)));
+      if (!text || !text.trim()) {
+        console.log('[LiveTranscript] _addCue() ❌ empty text, skipped.');
+        return;
+      }
       const trimmed = text.trim();
       const cues = state.episodeTimeline.cues;
-      if (cues.length > 0 && cues[cues.length - 1].text === trimmed) return;
+      if (cues.length > 0 && cues[cues.length - 1].text === trimmed) {
+        console.log('[LiveTranscript] _addCue() ❌ duplicate of last cue, skipped.');
+        return;
+      }
       cues.push({ start: Math.round(startSec), end: Math.round(endSec + 0.5), text: trimmed, live: true });
+      console.log('[LiveTranscript] _addCue() ✅ cue added. total cues:', cues.length, '  enableTranscript=', state.experimentalSettings.enableTranscript);
       if (state.experimentalSettings.enableTranscript) renderTranscriptView();
       _persistCues();
 
       // Update live caption popup
+      console.log('[LiveTranscript] _addCue() → calling _showLiveCaption("' + trimmed.slice(0, 40) + '")');
       _showLiveCaption(trimmed);
     }
+
 
 
     function _buildRecogniser() {
@@ -8935,6 +8958,7 @@ function setPlayerCollapsed(collapsed, save = true) {
       rec.onstart = () => {
         listening = true;
         cueStart = _currentTime();
+        console.log('[LiveTranscript] 🎙 Recogniser STARTED. cueStart=', cueStart.toFixed(1), 's  lang=', rec.lang);
         if (elements.probeStatusPill) {
           elements.probeStatusPill.textContent = '🎙 Live transcript…';
           elements.probeStatusPill.classList.remove('hidden');
@@ -8942,12 +8966,18 @@ function setPlayerCollapsed(collapsed, save = true) {
       };
 
       rec.onresult = (event) => {
+        console.log('[LiveTranscript] 📥 onresult fired. results.length=', event.results.length, 'resultIndex=', event.resultIndex);
         for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            const transcript = event.results[i][0].transcript;
+          const result = event.results[i];
+          const text = result[0].transcript;
+          const confidence = result[0].confidence;
+          if (result.isFinal) {
             const endSec = _currentTime();
-            _addCue(transcript, cueStart, endSec);
+            console.log(`[LiveTranscript] ✅ FINAL segment [${cueStart.toFixed(1)}s → ${endSec.toFixed(1)}s] confidence=${confidence?.toFixed(2)} text="${text}"`);
+            _addCue(text, cueStart, endSec);
             cueStart = endSec;
+          } else {
+            console.log(`[LiveTranscript] ⏳ INTERIM text="${text}"`);
           }
         }
       };
