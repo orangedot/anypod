@@ -8879,37 +8879,33 @@ function setPlayerCollapsed(collapsed, save = true) {
     console.warn('[Caption] ⚠️ btnCloseCaption not found in DOM — caption popup may not work!');
   }
 
-  // ── Live Transcription Engine ────────────────────────────────────────────
-  // Uses the Web Speech API (SpeechRecognition) to produce real-time
-  // timestamped cues while the user listens.  The recogniser is paused
-  // automatically during music segments so accuracy stays high.
-  // Cues are merged into state.episodeTimeline.cues and persisted to
-  // localStorage so the transcript survives a page reload.
+  // ── Live Transcription Engine (Cloudflare AI Whisper) ───────────────────
+  // Captures the podcast audio stream directly from the <audio> element
+  // using audio.captureStream() + MediaRecorder.
+  // Every CHUNK_SEC seconds the blob is POSTed to /api/transcribe which runs
+  // @cf/openai/whisper on Cloudflare AI and returns the transcript text.
+  // No microphone permission required.
 
   const liveTranscription = (() => {
-    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRec) return { start() {}, stop() {}, onPlayStateChange() {}, onTimeUpdate() {}, onEpisodeChange() {} };
+    const CHUNK_SEC  = 8;    // record 8 s at a time
+    const MIME_TYPES = [     // prefer formats CF Whisper handles well
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/ogg;codecs=opus',
+      'audio/mp4'
+    ];
 
-    let rec = null;
-    let active = false;
-    let listening = false;
+    let mediaRecorder = null;
+    let audioStream   = null;
+    let active        = false;
     let guidForSession = null;
-    let cueStart = 0;
-    let suppressMusicPause = false;
+    let chunkStart    = 0;   // audio.currentTime when this chunk started recording
+    let chunkTimer    = null;
 
-    function _currentSegmentType(currentTime) {
-      const segments = state.episodeTimeline.segments || [];
-      for (const seg of segments) {
-        if (currentTime >= seg.start && currentTime <= seg.end) return seg.type;
-      }
-      return 'speech';
-    }
+    // ── helpers ─────────────────────────────────────────────────────────────
 
     function _currentTime() {
       if (state.activeEngine === 'audio' && elements.audio) return elements.audio.currentTime || 0;
-      if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
-        return state.ytPlayer.getCurrentTime() || 0;
-      }
       return 0;
     }
 
@@ -8924,127 +8920,167 @@ function setPlayerCollapsed(collapsed, save = true) {
     }
 
     function _addCue(text, startSec, endSec) {
-      console.log('[LiveTranscript] _addCue() called. text=', JSON.stringify(text?.slice(0,60)));
-      if (!text || !text.trim()) {
-        console.log('[LiveTranscript] _addCue() ❌ empty text, skipped.');
-        return;
-      }
+      console.log('[LiveTranscript] _addCue() text=', JSON.stringify(text?.slice(0, 60)));
+      if (!text || !text.trim()) return;
       const trimmed = text.trim();
       const cues = state.episodeTimeline.cues;
       if (cues.length > 0 && cues[cues.length - 1].text === trimmed) {
-        console.log('[LiveTranscript] _addCue() ❌ duplicate of last cue, skipped.');
+        console.log('[LiveTranscript] _addCue() duplicate, skipped.');
         return;
       }
       cues.push({ start: Math.round(startSec), end: Math.round(endSec + 0.5), text: trimmed, live: true });
-      console.log('[LiveTranscript] _addCue() ✅ cue added. total cues:', cues.length, '  enableTranscript=', state.experimentalSettings.enableTranscript);
+      console.log('[LiveTranscript] _addCue() ✅ cue added. total=', cues.length);
       if (state.experimentalSettings.enableTranscript) renderTranscriptView();
       _persistCues();
-
-      // Update live caption popup
-      console.log('[LiveTranscript] _addCue() → calling _showLiveCaption("' + trimmed.slice(0, 40) + '")');
       _showLiveCaption(trimmed);
     }
 
+    // POST recorded blob → /api/transcribe → add cue
+    async function _sendChunk(blob, startSec, endSec) {
+      if (!blob || blob.size < 500) {
+        console.log('[LiveTranscript] chunk too small, skipping:', blob?.size, 'bytes');
+        return;
+      }
+      console.log(`[LiveTranscript] 📤 sending chunk ${blob.size} bytes  [${startSec.toFixed(1)}s → ${endSec.toFixed(1)}s]`);
 
+      const lang = (state.currentEpisode && state.currentEpisode.language) || 'en';
+      try {
+        const res = await fetch('/api/transcribe', {
+          method: 'POST',
+          headers: {
+            'Content-Type': blob.type || 'audio/webm',
+            'X-Episode-Lang': lang
+          },
+          body: blob
+        });
 
-    function _buildRecogniser() {
-      if (rec) { try { rec.abort(); } catch (_) {} }
-      rec = new SpeechRec();
-      rec.continuous = true;
-      rec.interimResults = false;
-      rec.maxAlternatives = 1;
-      rec.lang = (state.currentEpisode && state.currentEpisode.language) || navigator.language || 'en-US';
+        const data = await res.json();
+        console.log('[LiveTranscript] 📥 Whisper response:', data);
 
-      rec.onstart = () => {
-        listening = true;
-        cueStart = _currentTime();
-        console.log('[LiveTranscript] 🎙 Recogniser STARTED. cueStart=', cueStart.toFixed(1), 's  lang=', rec.lang);
-        if (elements.probeStatusPill) {
-          elements.probeStatusPill.textContent = '🎙 Live transcript…';
-          elements.probeStatusPill.classList.remove('hidden');
-        }
-      };
-
-      rec.onresult = (event) => {
-        console.log('[LiveTranscript] 📥 onresult fired. results.length=', event.results.length, 'resultIndex=', event.resultIndex);
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const result = event.results[i];
-          const text = result[0].transcript;
-          const confidence = result[0].confidence;
-          if (result.isFinal) {
-            const endSec = _currentTime();
-            console.log(`[LiveTranscript] ✅ FINAL segment [${cueStart.toFixed(1)}s → ${endSec.toFixed(1)}s] confidence=${confidence?.toFixed(2)} text="${text}"`);
-            _addCue(text, cueStart, endSec);
-            cueStart = endSec;
-          } else {
-            console.log(`[LiveTranscript] ⏳ INTERIM text="${text}"`);
-          }
-        }
-      };
-
-      // ---------------------------------------------------------------------------
-      //  Live‑transcript error handling
-      // ---------------------------------------------------------------------------
-
-      const PERMANENT_ERRORS = new Set(['not-allowed', 'service-not-allowed', 'network']);
-
-      rec.onerror = (e) => {
-        listening = false;
-        if (PERMANENT_ERRORS.has(e.error)) {
-          // Permission denied or service unavailable — stop entirely
-          console.warn('[LiveTranscript] Permanent error, disabling live transcription:', e.error);
-          active = false;
-          // Uncheck the toggle so the user sees it’s off
-          if (elements.toggleLiveTranscript) elements.toggleLiveTranscript.checked = false;
-          state.experimentalSettings.enableLiveTranscript = false;
-          saveExperimentalSettings();
-          if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
-
-          // *** NEW – user‑facing toast when the error is “not‑allowed” ***
-          if (e.error === 'not-allowed') {
-            showStatus('Microphone permission blocked. Please enable microphone access in browser settings to use live transcription.');
-            setTimeout(() => hideStatus(), 6000);   // auto‑hide after 6 s
-          }
+        if (!res.ok) {
+          console.warn('[LiveTranscript] /api/transcribe error:', data.error);
           return;
         }
 
-        // Transient errors (no‑speech, audio‑capture, etc.) – silent retry
-        if (e.error !== 'aborted') {
-          console.warn('[LiveTranscript] Transient SpeechRecognition error:', e.error);
+        const text = (data.text || '').trim();
+        if (text) {
+          _addCue(text, startSec, endSec);
         }
-        if (active && state.playbackStatus === 'playing') {
-          setTimeout(() => { if (active && !listening) _startListening(); }, 1200);
-        }
-      };
-
-      rec.onend = () => {
-        listening = false;
-        // Only restart if still active (onerror may have cleared active on permanent errors)
-        if (active && !suppressMusicPause && state.playbackStatus === 'playing') {
-          const segType = _currentSegmentType(_currentTime());
-          if (segType !== 'music') {
-            setTimeout(() => { if (active && !listening) _startListening(); }, 400);
-          }
-        }
-      };
-    }
-
-    function _startListening() {
-      if (listening) return;
-      try { _buildRecogniser(); rec.start(); } catch (e) {
-        console.warn('[LiveTranscript] Could not start SpeechRecognition:', e.message);
+      } catch (e) {
+        console.warn('[LiveTranscript] fetch /api/transcribe failed:', e.message);
       }
     }
 
-    function _stopListening() {
-      listening = false;
-      if (rec) { try { rec.abort(); } catch (_) {} }
+    // Pick the best supported MIME type for MediaRecorder
+    function _chooseMime() {
+      for (const mime of MIME_TYPES) {
+        if (MediaRecorder.isTypeSupported(mime)) return mime;
+      }
+      return '';   // browser default
     }
 
+    // Start recording one CHUNK_SEC chunk from the audio element
+    function _startChunk() {
+      if (!active || !elements.audio || elements.audio.paused) return;
+
+      // Capture the audio element stream
+      let stream = audioStream;
+      if (!stream) {
+        try {
+          stream = elements.audio.captureStream
+            ? elements.audio.captureStream()
+            : elements.audio.mozCaptureStream
+              ? elements.audio.mozCaptureStream()
+              : null;
+        } catch (e) {
+          console.warn('[LiveTranscript] captureStream() failed:', e.message);
+        }
+        if (!stream) {
+          console.warn('[LiveTranscript] ❌ captureStream() not supported on this browser/OS.');
+          if (elements.probeStatusPill) {
+            elements.probeStatusPill.textContent = '⚠️ Live transcript not supported here';
+            elements.probeStatusPill.classList.remove('hidden');
+            setTimeout(() => elements.probeStatusPill?.classList.add('hidden'), 3000);
+          }
+          active = false;
+          return;
+        }
+        audioStream = stream;
+      }
+
+      // Create new MediaRecorder for this chunk
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        try { mediaRecorder.stop(); } catch (_) {}
+      }
+
+      const mime = _chooseMime();
+      const chunks = [];
+      const chunkStartTime = _currentTime();
+      chunkStart = chunkStartTime;
+
+      try {
+        mediaRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : {});
+      } catch (e) {
+        console.warn('[LiveTranscript] MediaRecorder creation failed:', e.message);
+        active = false;
+        return;
+      }
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const endTime = _currentTime();
+        const blob = new Blob(chunks, { type: mime || 'audio/webm' });
+        console.log(`[LiveTranscript] 🎙 chunk stopped. ${chunks.length} parts, ${blob.size} bytes`);
+        _sendChunk(blob, chunkStart, endTime);
+
+        // Schedule next chunk if still active & playing
+        if (active && state.playbackStatus === 'playing') {
+          chunkTimer = setTimeout(_startChunk, 200);
+        }
+      };
+
+      mediaRecorder.onerror = (e) => {
+        console.warn('[LiveTranscript] MediaRecorder error:', e.error?.message || e);
+      };
+
+      console.log(`[LiveTranscript] ▶ recording chunk, mime="${mime || 'default'}" duration=${CHUNK_SEC}s`);
+      mediaRecorder.start();
+
+      // Stop after CHUNK_SEC seconds to send to Whisper
+      chunkTimer = setTimeout(() => {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+          mediaRecorder.stop();
+        }
+      }, CHUNK_SEC * 1000);
+
+      // Show pill
+      if (elements.probeStatusPill) {
+        elements.probeStatusPill.textContent = '🎙 Transcribing…';
+        elements.probeStatusPill.classList.remove('hidden');
+      }
+    }
+
+    function _stopRecording() {
+      if (chunkTimer) { clearTimeout(chunkTimer); chunkTimer = null; }
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        try { mediaRecorder.stop(); } catch (_) {}
+      }
+      mediaRecorder = null;
+      // Don't release the stream — captureStream() is tied to the audio element
+      audioStream = null;
+      if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
+    }
+
+    // ── Public API ───────────────────────────────────────────────────────────
+
     function start() {
-      if (!SpeechRec) return;
       active = true;
       guidForSession = state.currentEpisode ? state.currentEpisode.guid : null;
+
+      // Restore persisted cues from previous session
       if (guidForSession && state.episodeTimeline.cues.length === 0) {
         try {
           const stored = JSON.parse(localStorage.getItem('anypod_live_cues_' + guidForSession) || '[]');
@@ -9054,51 +9090,35 @@ function setPlayerCollapsed(collapsed, save = true) {
           }
         } catch (_) {}
       }
-      if (state.playbackStatus === 'playing') {
-        const segType = _currentSegmentType(_currentTime());
-        if (segType !== 'music') _startListening();
-      }
+
+      if (state.playbackStatus === 'playing') _startChunk();
     }
 
     function stop() {
       active = false;
-      _stopListening();
-      if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
+      _stopRecording();
     }
 
     function onPlayStateChange(isPlaying) {
       if (!active) return;
       if (isPlaying) {
-        const segType = _currentSegmentType(_currentTime());
-        if (segType !== 'music' && !listening) _startListening();
+        _startChunk();
       } else {
-        _stopListening();
-        if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
+        _stopRecording();
       }
     }
 
-    function onTimeUpdate(currentTime) {
-      if (!active) return;
-      const segType = _currentSegmentType(currentTime);
-      if (segType === 'music' && !suppressMusicPause) {
-        suppressMusicPause = true;
-        _stopListening();
-        if (elements.probeStatusPill) {
-          elements.probeStatusPill.textContent = '🎵 Paused (music)';
-          elements.probeStatusPill.classList.remove('hidden');
-          setTimeout(() => { if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden'); }, 1500);
-        }
-      } else if (segType !== 'music' && suppressMusicPause) {
-        suppressMusicPause = false;
-        if (!listening && state.playbackStatus === 'playing') _startListening();
-      }
+    function onTimeUpdate(/* currentTime */) {
+      // Nothing needed — chunk-based approach handles timing via stop/start
     }
 
     function onEpisodeChange(episode) {
-      _stopListening();
+      _stopRecording();
+      audioStream = null;
       guidForSession = episode ? episode.guid : null;
-      suppressMusicPause = false;
-      cueStart = 0;
+      chunkStart = 0;
+
+      // Load persisted cues for the new episode
       if (guidForSession && active) {
         try {
           const stored = JSON.parse(localStorage.getItem('anypod_live_cues_' + guidForSession) || '[]');
@@ -9108,13 +9128,15 @@ function setPlayerCollapsed(collapsed, save = true) {
           }
         } catch (_) {}
       }
+
       if (active && state.playbackStatus === 'playing') {
-        setTimeout(() => { if (active && !listening) _startListening(); }, 600);
+        setTimeout(_startChunk, 600);
       }
     }
 
     return { start, stop, onPlayStateChange, onTimeUpdate, onEpisodeChange };
   })();
+
 
   // ── Background Audio Probing Engine ─────────────────────────────────────
   // Samples points across the audio file using HTTP Range requests through
