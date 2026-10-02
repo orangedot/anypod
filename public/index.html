@@ -576,6 +576,11 @@
           <span class="waveform-time-label time-elapsed" id="current-time" title="elapsed time">0:00</span>
           <span class="waveform-time-label time-remaining" id="total-duration" title="tap to toggle between remaining time and total duration">0:00</span>
         </div>
+        <!-- FFT scan progress stripe — visible while classifier is probing -->
+        <div class="scan-progress-bar hidden" id="scan-progress-bar">
+          <div class="scan-progress-fill" id="scan-progress-fill"></div>
+          <span class="scan-progress-label" id="scan-progress-label">Scanning…</span>
+        </div>
       </div>
 
       <div class="player-main-controls-row">

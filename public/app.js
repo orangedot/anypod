@@ -700,11 +700,33 @@
         elements.probeStatusPill.classList.add('hidden');
       }
     } else {
-      // Only resync player UI and playhead, avoid re-rendering entire episode lists
+      // Tab/app became visible again — resync UI
       syncPlaybackButtons();
       updateProgress();
       if (state.currentEpisode && state.experimentalSettings.enableVisualizer) {
         renderWaveformChart();
+      }
+      // Mobile OS (iOS/Android) may have paused audio while backgrounded.
+      // If our state says playing but the element is paused, try to resume.
+      if (
+        state.activeEngine === 'audio' &&
+        state.playbackStatus === 'playing' &&
+        elements.audio &&
+        elements.audio.paused &&
+        !elements.audio.ended
+      ) {
+        elements.audio.play().catch(() => {
+          // If play was rejected (e.g. user locked screen manually), honor the pause
+          state.playbackStatus = 'paused';
+          syncPlaybackButtons();
+        });
+      }
+      // Re-sync MediaSession so lock-screen controls reappear
+      if (state.currentEpisode && 'mediaSession' in navigator) {
+        syncMediaSession(state.currentEpisode);
+        if (state.playbackStatus === 'playing') {
+          navigator.mediaSession.playbackState = 'playing';
+        }
       }
     }
   });
@@ -5369,11 +5391,48 @@
       }
     });
 
+    let _stalledRetryCount = 0;
+    let _stalledRetryTimer = null;
+
     audio.addEventListener('stalled', () => {
-      if (state.playbackStatus === 'playing') {
-        state.playbackStatus = 'loading';
-        syncPlaybackButtons();
-      }
+      if (state.activeEngine !== 'audio') return;
+      state.playbackStatus = 'loading';
+      syncPlaybackButtons();
+
+      // Exponential back-off retry: after stall, attempt to force a resume
+      // by nudging currentTime. Works around iOS/Android stream hangs.
+      if (_stalledRetryTimer) return; // already retrying
+      _stalledRetryCount = 0;
+      const attemptResume = () => {
+        if (state.activeEngine !== 'audio' || state.playbackStatus !== 'loading') return;
+        if (_stalledRetryCount >= 3) {
+          // After 3 attempts, fall back to proxy URL
+          if (state.currentEpisode && !audio.src.includes('/api/audio-proxy')) {
+            const proxySrc = `/api/audio-proxy?url=${encodeURIComponent(state.currentEpisode.audioUrl)}`;
+            const savedTime = audio.currentTime;
+            audio.src = proxySrc;
+            audio.currentTime = savedTime;
+            audio.play().catch(() => {});
+          }
+          _stalledRetryCount = 0;
+          _stalledRetryTimer = null;
+          return;
+        }
+        _stalledRetryCount++;
+        // Nudge: reload from current position
+        const t = audio.currentTime;
+        audio.load();
+        audio.currentTime = t;
+        audio.play().catch(() => {});
+        _stalledRetryTimer = setTimeout(attemptResume, Math.min(2000, 500 * _stalledRetryCount));
+      };
+      _stalledRetryTimer = setTimeout(attemptResume, 800);
+    });
+
+    // Clear stall retry on successful play
+    audio.addEventListener('playing', () => {
+      _stalledRetryCount = 0;
+      if (_stalledRetryTimer) { clearTimeout(_stalledRetryTimer); _stalledRetryTimer = null; }
     });
 
     audio.addEventListener('error', () => {
@@ -5383,8 +5442,18 @@
           state.playbackStatus = 'loading';
           syncPlaybackButtons();
           const proxySrc = `/api/audio-proxy?url=${encodeURIComponent(state.currentEpisode.audioUrl)}`;
+          const savedTime = audio.currentTime;
           elements.audio.src = proxySrc;
-          elements.audio.play().catch(() => {});
+          // Restore position after proxy load, then play
+          elements.audio.addEventListener('loadedmetadata', function _onProxyMeta() {
+            elements.audio.removeEventListener('loadedmetadata', _onProxyMeta);
+            if (savedTime > 1) elements.audio.currentTime = savedTime;
+            elements.audio.play().catch(() => {
+              state.playbackStatus = 'paused';
+              syncPlaybackButtons();
+            });
+          }, { once: true });
+          elements.audio.load();
           return;
         }
         state.playbackStatus = 'paused';
@@ -8222,8 +8291,8 @@ function setPlayerCollapsed(collapsed, save = true) {
     state.episodeTimeline.guid = episode.guid;
     state.episodeTimeline.duration = dur;
 
-    // Check localStorage cache (v3 prefix for 140 fine-detail bars)
-    const cacheKey = 'anypod_timeline_v3_' + episode.guid;
+    // Check localStorage cache (v4 prefix for calibrated FFT classifier)
+    const cacheKey = 'anypod_timeline_v4_' + episode.guid;
     try {
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
@@ -8254,7 +8323,7 @@ function setPlayerCollapsed(collapsed, save = true) {
 
   async function fetchTimelineFromPipeline(episode, duration) {
     if (!episode || !episode.guid) return;
-    const cacheKey = 'anypod_timeline_v3_' + episode.guid;
+    const cacheKey = 'anypod_timeline_v4_' + episode.guid;
 
     // TIER 1: Check Podcasting 2.0 <podcast:transcript>
     if (episode.transcriptUrl) {
@@ -8700,22 +8769,42 @@ function setPlayerCollapsed(collapsed, save = true) {
         }
       };
 
+      // Errors where retrying is pointless (permanent / permission failures)
+      const PERMANENT_ERRORS = new Set(['not-allowed', 'service-not-allowed', 'network']);
+
       rec.onerror = (e) => {
-        if (e.error !== 'aborted' && e.error !== 'no-speech') {
-          console.warn('[LiveTranscript] SpeechRecognition error:', e.error);
-        }
         listening = false;
+        if (PERMANENT_ERRORS.has(e.error)) {
+          // Permission denied or service unavailable — stop entirely
+          console.warn('[LiveTranscript] Permanent error, disabling live transcription:', e.error);
+          active = false;
+          // Uncheck the toggle so the user sees it's off
+          if (elements.toggleLiveTranscript) elements.toggleLiveTranscript.checked = false;
+          state.experimentalSettings.enableLiveTranscript = false;
+          saveExperimentalSettings();
+          if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
+          if (e.error === 'not-allowed') {
+            showStatus('Microphone permission blocked. Please enable microphone access in browser settings to use live transcription.');
+            setTimeout(() => hideStatus(), 6000);
+          }
+          return;
+        }
+        // Transient errors (no-speech, audio-capture, etc.) — silent retry
+        if (e.error !== 'aborted') {
+          console.warn('[LiveTranscript] Transient SpeechRecognition error:', e.error);
+        }
         if (active && state.playbackStatus === 'playing') {
-          setTimeout(() => { if (active) _startListening(); }, 800);
+          setTimeout(() => { if (active && !listening) _startListening(); }, 1200);
         }
       };
 
       rec.onend = () => {
         listening = false;
+        // Only restart if still active (onerror may have cleared active on permanent errors)
         if (active && !suppressMusicPause && state.playbackStatus === 'playing') {
           const segType = _currentSegmentType(_currentTime());
           if (segType !== 'music') {
-            setTimeout(() => { if (active && !listening) _startListening(); }, 300);
+            setTimeout(() => { if (active && !listening) _startListening(); }, 400);
           }
         }
       };
@@ -8875,8 +8964,17 @@ function setPlayerCollapsed(collapsed, save = true) {
         const startByte = Math.max(0, Math.floor(probePos * (totalBytes - CHUNK_SIZE - 2048)));
         const endByte = startByte + CHUNK_SIZE - 1;
 
+        // Update scan progress bar (inside waveform area — visible in large player)
+        const pct = Math.round((p / NUM_PROBES) * 100);
+        const scanBar  = document.getElementById('scan-progress-bar');
+        const scanFill = document.getElementById('scan-progress-fill');
+        const scanLbl  = document.getElementById('scan-progress-label');
+        if (scanBar)  scanBar.classList.remove('hidden');
+        if (scanFill) scanFill.style.width = `${pct}%`;
+        if (scanLbl)  scanLbl.textContent   = `Scanning ${pct}%`;
+
         if (elements.probeStatusPill) {
-          elements.probeStatusPill.textContent = `Analyzing spectrum ${Math.round((p / NUM_PROBES) * 100)}%`;
+          elements.probeStatusPill.textContent = `Analyzing spectrum ${pct}%`;
         }
 
         try {
@@ -8899,6 +8997,23 @@ function setPlayerCollapsed(collapsed, save = true) {
               const channel = audioBuffer.getChannelData(0);
               const analysis = analyzePcmSnippet(channel, audioBuffer.sampleRate);
 
+              const startSec = Math.round((p / NUM_PROBES) * duration);
+              const meta = analysis._meta || {};
+              console.log(`[AudioClassifier] Probe ${p + 1}/${NUM_PROBES} (~${Math.floor(startSec / 60)}:${String(startSec % 60).padStart(2, '0')}) -> ${analysis.type.toUpperCase()}`, {
+                type: analysis.type,
+                override: meta.override || 'none',
+                musicScore: meta.musicScore,
+                speechScore: meta.speechScore,
+                bassRatio: meta.bassRatio ? Number(meta.bassRatio.toFixed(3)) : 0,
+                speechCoreRatio: meta.speechCoreRatio ? Number(meta.speechCoreRatio.toFixed(3)) : 0,
+                highRatio: meta.highRatio ? Number(meta.highRatio.toFixed(3)) : 0,
+                dynamicRange: meta.dynamicRange ? Number(meta.dynamicRange.toFixed(3)) : 0,
+                harmonicRatio: meta.harmonicRatio ? Number(meta.harmonicRatio.toFixed(3)) : 0,
+                flatness: meta.flatness ? Number(meta.flatness.toFixed(3)) : 0,
+                rolloffHz: meta.rolloffHz ? Math.round(meta.rolloffHz) : 0,
+                centroidHz: meta.centroid ? Math.round(meta.centroid) : 0
+              });
+
               const startBarIdx = p * barsPerProbe;
               const endBarIdx = Math.min(state.episodeTimeline.bars.length, startBarIdx + barsPerProbe);
 
@@ -8919,9 +9034,27 @@ function setPlayerCollapsed(collapsed, save = true) {
       }
 
       state.episodeTimeline.segments = deriveSegmentsFromBars(state.episodeTimeline.bars, duration);
+      console.log(`[AudioClassifier] Episode analysis complete. Consolidated segments:`);
+      if (console.table) {
+        console.table(state.episodeTimeline.segments.map(s => ({
+          type: s.type,
+          start: `${Math.floor(s.start / 60)}:${String(s.start % 60).padStart(2, '0')}`,
+          end: `${Math.floor(s.end / 60)}:${String(s.end % 60).padStart(2, '0')}`,
+          duration: `${Math.round(s.end - s.start)}s`
+        })));
+      }
+
+      // Hide scan progress bar
+      const scanBarDone = document.getElementById('scan-progress-bar');
+      const scanFillDone = document.getElementById('scan-progress-fill');
+      if (scanFillDone) scanFillDone.style.width = '100%';
+      setTimeout(() => {
+        if (scanBarDone) scanBarDone.classList.add('hidden');
+        if (scanFillDone) scanFillDone.style.width = '0%';
+      }, 600);
 
       try {
-        localStorage.setItem('anypod_timeline_v3_' + episode.guid, JSON.stringify({
+        localStorage.setItem('anypod_timeline_v4_' + episode.guid, JSON.stringify({
           bars: state.episodeTimeline.bars,
           segments: state.episodeTimeline.segments
         }));
@@ -8938,6 +9071,9 @@ function setPlayerCollapsed(collapsed, save = true) {
 
     } catch (e) {
     } finally {
+      // Ensure scan bar is hidden even on error
+      const scanBarErr = document.getElementById('scan-progress-bar');
+      if (scanBarErr) scanBarErr.classList.add('hidden');
       state.episodeTimeline.isProbing = false;
     }
   }
@@ -9009,117 +9145,197 @@ function setPlayerCollapsed(collapsed, save = true) {
     const len = samples.length;
     if (len === 0) return { type: 'speech', energy: 0.1 };
 
-    // ── 1. Basic time-domain: RMS + dynamic range (crest factor) ────────────
+    // ── 1. Time-domain RMS ───────────────────────────────────────────────────
     let sumSq = 0;
     for (let i = 0; i < len; i++) sumSq += samples[i] * samples[i];
     const rms = Math.sqrt(sumSq / len);
+    if (rms < 0.008) return { type: 'silence', energy: 0.05 };
 
-    if (rms < 0.01) return { type: 'silence', energy: 0.05 };
-
-    // Dynamic variance across 100ms windows (speech has gaps; music is compressed)
-    const winSize = Math.floor(sampleRate * 0.1);
-    const numWins = Math.max(1, Math.floor(len / winSize));
-    let minWR = 1, maxWR = 0;
+    // ── 2. Median-based dynamic range (robust to broadcast compression) ──────
+    // min/max is fooled by heavily compressed broadcast audio (like NPR).
+    // Compute per-window RMS, sort, use 10th-pct vs 90th-pct spread instead.
+    const winSize = Math.floor(sampleRate * 0.08); // 80ms windows
+    const numWins = Math.max(2, Math.floor(len / winSize));
+    const winRmsArr = new Float32Array(numWins);
     for (let w = 0; w < numWins; w++) {
       let wSq = 0;
       const off = w * winSize;
       for (let j = 0; j < winSize && off + j < len; j++) {
-        const s = samples[off + j];
-        wSq += s * s;
+        const s = samples[off + j]; wSq += s * s;
       }
-      const wRms = Math.sqrt(wSq / winSize);
-      if (wRms < minWR) minWR = wRms;
-      if (wRms > maxWR) maxWR = wRms;
+      winRmsArr[w] = Math.sqrt(wSq / winSize);
     }
-    const dynamicRange = (maxWR - minWR) / (rms + 1e-6);  // large → speech, small → music
+    winRmsArr.sort();
+    const p10 = winRmsArr[Math.floor(numWins * 0.10)];
+    const p90 = winRmsArr[Math.floor(numWins * 0.90)];
+    const dynamicRange = (p90 - p10) / (rms + 1e-6);
+    // speech: dynamicRange typically 0.6-2.5; music (compressed): 0.1-0.8
 
-    // ── 2. Spectral analysis via FFT ─────────────────────────────────────────
+    // ── 3. FFT spectral analysis ──────────────────────────────────────────────
     const { mag, binHz, N2 } = _fftPowerSpectrum(samples, sampleRate);
-
-    let totalPower = 0;
-    let weightedFreqSum = 0;    // for spectral centroid
-    let logSum = 0;             // for spectral flatness
-    let geometricProduct = 0;   // proxy via log-sum
     const EPS = 1e-12;
 
-    // Sub-band energy buckets (Hz)
-    // sub-bass: 0-300, low-mid: 300-1k, speech core: 1k-4k, high: 4k-8k, air: 8k+
-    let eSub = 0, eLow = 0, eSpeech = 0, eHigh = 0, eAir = 0;
+    let totalPower = 0, weightedFreqSum = 0, logSum = 0;
+    // Sub-bands (Hz):  deep-bass | bass | low-mid | speech-core | presence | air
+    //                  <80       | <300 | <1000   | <4000       | <8000    | rest
+    let eDeep = 0, eSub = 0, eLow = 0, eSpeech = 0, eHigh = 0, eAir = 0;
 
     for (let i = 1; i < N2; i++) {
       const hz = i * binHz;
-      const p = mag[i] + EPS;
-      totalPower += p;
+      const p  = mag[i] + EPS;
+      totalPower      += p;
       weightedFreqSum += hz * p;
-      logSum += Math.log(p);
-
-      if      (hz < 300)  eSub    += p;
+      logSum          += Math.log(p);
+      if      (hz < 80)   eDeep   += p;
+      else if (hz < 300)  eSub    += p;
       else if (hz < 1000) eLow    += p;
       else if (hz < 4000) eSpeech += p;
       else if (hz < 8000) eHigh   += p;
       else                eAir    += p;
     }
 
-    // Spectral centroid (Hz): music skews higher, voice ~500-3k
-    const centroid = weightedFreqSum / (totalPower + EPS);
+    const centroid       = weightedFreqSum / (totalPower + EPS);
+    const geoMean        = Math.exp(logSum / N2);
+    const arithMean      = totalPower / N2;
+    const flatness       = geoMean / (arithMean + EPS);  // 0 = pure tone, ~1 = noise
 
-    // Spectral flatness (Wiener entropy): 0 = pure tone, 1 = white noise
-    // Music sits mid-range, speech is tonal (lower flatness in 300-4kHz band)
-    const geometricMean = Math.exp(logSum / N2);
-    const arithmeticMean = totalPower / N2;
-    const flatness = geometricMean / (arithmeticMean + EPS);  // 0..1
+    // Sub-band ratios
+    const speechCoreRatio = eSpeech / (totalPower + EPS);
+    const highRatio       = (eHigh + eAir) / (totalPower + EPS);
+    const bassRatio       = (eDeep + eSub) / (totalPower + EPS);   // deep+sub bass
+    const lowMidRatio     = eLow / (totalPower + EPS);
 
-    // Spectral rolloff: frequency below which 85% of energy sits
-    let rolloffThreshold = 0.85 * totalPower;
-    let rolloffHz = 0;
-    let cumPower = 0;
+    // Spectral rolloff (85th percentile)
+    let rolloffHz = binHz, cumPow = 0;
+    const rolloffTarget = 0.85 * totalPower;
     for (let i = 1; i < N2; i++) {
-      cumPower += mag[i];
-      if (cumPower >= rolloffThreshold) {
-        rolloffHz = i * binHz;
-        break;
-      }
+      cumPow += mag[i];
+      if (cumPow >= rolloffTarget) { rolloffHz = i * binHz; break; }
     }
 
-    // Normalised sub-band ratios
-    const speechCoreRatio = eSpeech / (totalPower + EPS);  // speech peaks 1-4k
-    const highRatio       = (eHigh + eAir) / (totalPower + EPS);  // music has sustained treble
-    const subRatio        = eSub / (totalPower + EPS);             // music often has deep bass
+    // ── 4. Spectral variance (spread around centroid) ────────────────────────
+    // Speech has tight formant peaks → low variance relative to centroid.
+    // Music (especially broadband electronic) has higher variance.
+    let varSum = 0;
+    for (let i = 1; i < N2; i++) {
+      const hz = i * binHz;
+      const p  = mag[i] + EPS;
+      varSum += p * (hz - centroid) * (hz - centroid);
+    }
+    const spectralVar = Math.sqrt(varSum / (totalPower + EPS)); // Hz std-dev
 
-    // ── 3. Classification decision tree ─────────────────────────────────────
-    // Music signatures:
-    //   • low dynamic range (compressed)  → dynamicRange < 1.2
-    //   • high spectral flatness          → flatness > 0.04  (broadband harmonic content)
-    //   • centroid > 2000 Hz or < 500 Hz  (bass-lines / synth highs)
-    //   • significant sustained high freq → highRatio > 0.15
-    //   • rolloff > 5 kHz                 (music fills the spectrum)
-    // Speech signatures:
-    //   • high dynamic range              → dynamicRange > 1.8
-    //   • speech core dominant            → speechCoreRatio > 0.45
-    //   • rolloff 1-5 kHz                 (voice mostly below 4k)
-    //   • lower spectral flatness (tonal vowels / consonant bursts)
+    // ── 5. Harmonic comb detection (periodicity → music) ────────────────────
+    // Scan for evenly-spaced magnitude peaks in the bass-to-mid range
+    // (kick drum harmonics, bass notes, synth fundamentals).
+    // Count how many of the expected harmonics show up above threshold.
+    let harmonicScore = 0;
+    const fundamental = Math.max(50, centroid * 0.15);  // rough fundamental guess
+    const harmThresh  = (totalPower / N2) * 3;          // 3× mean power
+    let harmChecked = 0;
+    for (let h = 1; h <= 8; h++) {
+      const hHz = fundamental * h;
+      if (hHz > sampleRate / 2) break;
+      const bin = Math.round(hHz / binHz);
+      if (bin > 0 && bin < N2) {
+        harmChecked++;
+        // Check bin ±2 for a peak
+        const peakPow = Math.max(mag[Math.max(0, bin - 2)], mag[bin], mag[Math.min(N2 - 1, bin + 2)]);
+        if (peakPow > harmThresh) harmonicScore++;
+      }
+    }
+    const harmonicRatio = harmChecked > 0 ? harmonicScore / harmChecked : 0;  // 0-1
+
+    // ── 6. Hard override rules (single conditions strong enough to decide) ────
+    //
+    // HARD MUSIC: bass + treble simultaneously = impossible for speech
+    const hasBass    = bassRatio > 0.12;
+    const hasTreble  = highRatio > 0.10;
+    const hasMidFill = (eLow + eSpeech) / (totalPower + EPS) > 0.30;
+    // If energy is spread across bass, mid, AND treble → music, period
+    if (hasBass && hasTreble && hasMidFill) {
+      return {
+        type: 'music',
+        energy: Math.min(1.0, Math.max(0.15, rms * 5)),
+        _meta: { rms, dynamicRange, centroid, flatness, rolloffHz, speechCoreRatio, highRatio, bassRatio, harmonicRatio, musicScore: 99, speechScore: 0, override: 'broadband' }
+      };
+    }
+
+    // HARD SPEECH: near-zero sub-bass + narrow rolloff = almost certainly speech
+    if (bassRatio < 0.04 && rolloffHz < 4000 && dynamicRange > 0.7) {
+      return {
+        type: 'speech',
+        energy: Math.min(1.0, Math.max(0.15, rms * 5)),
+        _meta: { rms, dynamicRange, centroid, flatness, rolloffHz, speechCoreRatio, highRatio, bassRatio, harmonicRatio, musicScore: 0, speechScore: 99, override: 'narrowband' }
+      };
+    }
+
+    // ── 7. Scored classification ──────────────────────────────────────────────
 
     let musicScore = 0;
-    if (dynamicRange < 1.2)        musicScore += 2;
-    if (flatness > 0.04)           musicScore += 2;
-    if (highRatio > 0.15)          musicScore += 2;
-    if (rolloffHz > 5000)          musicScore += 2;
-    if (centroid > 2500)           musicScore += 1;
-    if (subRatio > 0.12)           musicScore += 1;
+
+    // Bass presence — almost exclusive to music
+    if (bassRatio > 0.25)                                 musicScore += 3;
+    else if (bassRatio > 0.12)                            musicScore += 2;
+    else if (bassRatio > 0.07)                            musicScore += 1;
+
+    // Harmonic periodicity — very reliable music indicator
+    if (harmonicRatio > 0.6)                              musicScore += 3;
+    else if (harmonicRatio > 0.4)                         musicScore += 2;
+    else if (harmonicRatio > 0.25)                        musicScore += 1;
+
+    // Sustained high-frequency content
+    if (highRatio > 0.20)                                 musicScore += 2;
+    else if (highRatio > 0.10)                            musicScore += 1;
+
+    // Rolloff covers most of the audible spectrum
+    if (rolloffHz > 6000)                                 musicScore += 2;
+    else if (rolloffHz > 4500)                            musicScore += 1;
+
+    // Spectral flatness: broad harmonic content
+    if (flatness > 0.08)                                  musicScore += 2;
+    else if (flatness > 0.04)                             musicScore += 1;
+
+    // Spectral spread (std-dev around centroid) — broadband = music
+    if (spectralVar > 2500)                               musicScore += 2;
+    else if (spectralVar > 1500)                          musicScore += 1;
+
+    // Compressed DR — only counts when combined with other music signals
+    if (dynamicRange < 0.4)                               musicScore += 1;
 
     let speechScore = 0;
-    if (dynamicRange > 1.8)        speechScore += 3;
-    if (speechCoreRatio > 0.45)    speechScore += 3;
-    if (rolloffHz < 4500)          speechScore += 2;
-    if (centroid > 300 && centroid < 3000) speechScore += 1;
 
-    const isMusic = musicScore > speechScore && musicScore >= 4;
+    // Speech-core score is ONLY reliable when sub-bass is absent.
+    // If bassRatio is high, synths filling 1-4kHz doesn't indicate speech.
+    if (bassRatio < 0.08) {
+      if (speechCoreRatio > 0.55)                         speechScore += 4;
+      else if (speechCoreRatio > 0.40)                    speechScore += 2;
+    } else {
+      // Mild credit even with bass (could be voice over music)
+      if (speechCoreRatio > 0.60)                         speechScore += 1;
+    }
+
+    // High dynamic range → pauses between words/sentences
+    if (dynamicRange > 1.2)                               speechScore += 3;
+    else if (dynamicRange > 0.8)                          speechScore += 1;
+
+    // Very low sub-bass confirms voice
+    if (bassRatio < 0.04)                                 speechScore += 3;
+    else if (bassRatio < 0.08)                            speechScore += 1;
+
+    // Rolloff in voice band
+    if (rolloffHz < 3500)                                 speechScore += 2;
+    else if (rolloffHz < 5000)                            speechScore += 1;
+
+    // Centroid in voice formant range
+    if (centroid > 200 && centroid < 2500)                speechScore += 1;
+
+    // Require music to win clearly
+    const isMusic = musicScore >= 5 && musicScore > speechScore + 1;
 
     return {
       type: isMusic ? 'music' : 'speech',
       energy: Math.min(1.0, Math.max(0.15, rms * 5)),
-      // expose raw metrics for debugging / future use
-      _meta: { rms, dynamicRange, centroid, flatness, rolloffHz, speechCoreRatio, highRatio, musicScore, speechScore }
+      _meta: { rms, dynamicRange, centroid, flatness, rolloffHz, speechCoreRatio, highRatio, bassRatio, harmonicRatio, spectralVar, musicScore, speechScore }
     };
   }
 

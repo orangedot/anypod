@@ -6644,6 +6644,42 @@ body.has-active-episode.has-mini-player .player-mini {
   margin-left: 0.25rem;
 }
 
+/* Scan progress bar — shows inside waveform area while FFT classifier is running */
+.scan-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 0 0 4px 4px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+}
+.scan-progress-bar.hidden { display: none; }
+
+.scan-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent-orange, #f97316), var(--accent-purple, #a855f7));
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.scan-progress-label {
+  position: absolute;
+  right: 6px;
+  bottom: 5px;
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  font-style: italic;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
 .sr-only-range {
   position: absolute;
   width: 1px;
