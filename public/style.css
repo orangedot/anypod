@@ -6920,7 +6920,8 @@ body.has-active-episode.has-mini-player .player-mini {
   flex-direction: column;
   gap: 0.75rem;
   overflow-y: auto;
-  max-height: 52vh;
+  flex: 1;
+  min-height: 200px;
   padding-right: 0.5rem;
 }
 
@@ -7030,3 +7031,102 @@ body.has-active-episode.has-mini-player .player-mini {
   color: #f97316;
   border-color: rgba(249, 115, 22, 0.3);
 }
+
+/* ── Live Caption Popup ────────────────────────────────────────── */
+.live-caption-popup {
+  position: fixed;
+  bottom: calc(var(--player-bar-height, 110px) + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(640px, 92vw);
+  width: max-content;
+  background: rgba(15, 15, 15, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  padding: 0.55rem 2.2rem 0.55rem 1rem;
+  z-index: 1100;
+  pointer-events: auto;
+  animation: caption-fadein 0.25s ease;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.45);
+}
+.live-caption-popup.hidden { display: none; }
+
+@keyframes caption-fadein {
+  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.live-caption-text {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #fff;
+  text-align: center;
+  white-space: pre-wrap;
+}
+
+.live-caption-close {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.4);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  transition: color 0.15s;
+}
+.live-caption-close:hover { color: rgba(255,255,255,0.85); }
+
+/* ── Inline classifier / transcript section inside show notes ──── */
+.notes-analysis-section {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.notes-analysis-section .analysis-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.9rem;
+}
+
+.notes-analysis-section .analysis-header .source-pill {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 99px;
+  background: rgba(249,115,22,0.15);
+  color: var(--accent-orange);
+  border: 1px solid rgba(249,115,22,0.3);
+  text-transform: uppercase;
+}
+
+.notes-enable-hint {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 0.75rem 0.5rem 0;
+}
+
+.notes-enable-hint a,
+.notes-enable-hint button.inline-link {
+  color: var(--accent-orange);
+  text-decoration: underline;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: inherit;
+  padding: 0;
+}
+

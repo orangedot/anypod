@@ -623,8 +623,8 @@
     tabBtnTranscript: document.getElementById('tab-btn-transcript'),
     transcriptSourcePill: document.getElementById('transcript-source-pill'),
     showTranscriptContent: document.getElementById('show-transcript-content'),
-    transcriptSearchInput: document.getElementById('transcript-search-input'),
-    transcriptFileInput: document.getElementById('transcript-file-input'),
+    // transcriptSearchInput: document.getElementById('transcript-search-input'),
+    // transcriptFileInput: document.getElementById('transcript-file-input'),
     transcriptCuesList: document.getElementById('transcript-cues-list'),
 
     audio: document.getElementById('audio-engine'),
@@ -686,6 +686,11 @@
     // Top navigation back button
     btnHeaderBack: document.getElementById('btn-header-back'),
     // btnHeaderBackLabel: document.getElementById('btn-header-back-label')
+
+    // Live caption popup (floats above player bar)
+    liveCaptionPopup: document.getElementById('live-caption-popup'),
+    liveCaptionText: document.getElementById('live-caption-text'),
+    btnCloseCaption: document.getElementById('btn-close-caption'),
   };
   document.addEventListener('visibilitychange', () => {
     state.isTabActive = !document.hidden;
@@ -4211,6 +4216,112 @@
     updateProgress();
   }
 
+  /**
+   * Render an inline "Audio Analysis" section at the bottom of the show-notes
+   * content pane. Called every time openShowNotes() populates the notes tab.
+   *
+   * Shows:
+   *  - Segment chapter pills (only when a real analysis source exists)
+   *  - Live-transcript cues inline (if any)
+   *  - A nudge/link to Settings when the classifier/transcript is not enabled
+   */
+  function _renderInlineAnalysisSection(container) {
+    if (!container) return;
+    // Remove previous section if present
+    const prev = container.querySelector('.notes-analysis-section');
+    if (prev) prev.remove();
+
+    const segments  = state.episodeTimeline.segments || [];
+    const cues      = state.episodeTimeline.cues || [];
+    const src       = state.episodeTimeline.transcriptSource || '';
+    const hasReal   = segments.length > 0 && !!src;
+    const hasCues   = cues.length > 0;
+    const isClassOn = !!state.experimentalSettings.enableAudioClassifier;
+    const isLiveOn  = !!state.experimentalSettings.enableLiveTranscript;
+
+    // Nothing to show and features are enabled (will populate once analysis runs)
+    if (!hasReal && !hasCues && isClassOn) return;
+
+    const section = document.createElement('div');
+    section.className = 'notes-analysis-section';
+
+    let innerHtml = '';
+
+    if (hasReal || hasCues) {
+      // ── Header pill ─────────────────────────────────────────────────────
+      const sourcePillText = hasCues ? (src || 'live') : (src || 'probe');
+      innerHtml += `
+        <div class="analysis-header">
+          <span>🔬 Audio Analysis</span>
+          <span class="source-pill">${escapeHtml(sourcePillText)}</span>
+        </div>
+      `;
+
+      // ── Segment chapter pills (only when real analysis) ─────────────────
+      if (hasReal) {
+        innerHtml += `<div class="transcript-segment-pills" style="justify-content:flex-start;">
+          ${segments.slice(0, 20).map(s => `
+            <button type="button" class="segment-jump-pill ${s.type === 'music' ? 'is-music' : 'is-speech'}" data-seconds="${s.start}">
+              ${s.type === 'music' ? '🎵' : '🎙️'} ${formatTime(s.start)}
+            </button>
+          `).join('')}
+        </div>`;
+      }
+
+      // ── Live cues preview (last 3, scrolls into transcript tab for full) ──
+      if (hasCues) {
+        const preview = cues.slice(-3);
+        innerHtml += `
+          <div style="margin-top:0.75rem; font-size:0.82rem; color:var(--text-secondary);">
+            <strong style="color:var(--text-primary);">🎙 Live transcript</strong>
+            ${preview.map(c => `<p style="margin:0.3rem 0 0; color:var(--text-primary);">"${escapeHtml(c.text)}"</p>`).join('')}
+            ${cues.length > 3 ? `<button type="button" class="inline-link notes-open-transcript">see all ${cues.length} lines →</button>` : ''}
+          </div>
+        `;
+      }
+    } else {
+      // Features are disabled — show a friendly nudge
+      innerHtml += `
+        <div class="notes-enable-hint">
+          <strong>🔬 Audio Analysis not active</strong><br>
+          <button type="button" class="inline-link" id="inline-goto-settings">Enable Audio Classifier or Live Transcript in Experimental Settings →</button>
+        </div>
+      `;
+    }
+
+    section.innerHTML = innerHtml;
+    container.appendChild(section);
+
+    // Wire segment-jump clicks
+    section.querySelectorAll('.segment-jump-pill').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const sec = parseFloat(btn.dataset.seconds);
+        if (!isNaN(sec)) {
+          seekToExactTime(sec);
+          if (state.playbackStatus !== 'playing') resumeCurrentEngine();
+        }
+      });
+    });
+
+    // Wire "see all" → switch to transcript tab
+    const seeAllBtn = section.querySelector('.notes-open-transcript');
+    if (seeAllBtn) {
+      seeAllBtn.addEventListener('click', () => switchShowNotesTab('transcript'));
+    }
+
+    // Wire settings deeplink
+    const settingsBtn = section.querySelector('#inline-goto-settings');
+    if (settingsBtn) {
+      settingsBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        closeShowNotes();
+        const settingsTab = document.getElementById('tab-settings');
+        if (settingsTab) settingsTab.click();
+      });
+    }
+  }
+
   function switchShowNotesTab(tab) {
     const isNotes = tab === 'notes';
     if (elements.tabBtnNotes) elements.tabBtnNotes.classList.toggle('active', isNotes);
@@ -4241,41 +4352,58 @@
 
     if (cues.length === 0) {
       const segments = state.episodeTimeline.segments || [];
+      const hasRealAnalysis = segments.length > 0 && !!state.episodeTimeline.transcriptSource;
       const speechSegs = segments.filter(s => s.type === 'speech');
-      const musicSegs = segments.filter(s => s.type === 'music');
+      const musicSegs  = segments.filter(s => s.type === 'music');
 
       const isLiveAvailable = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
-      const isLiveEnabled = !!state.experimentalSettings.enableLiveTranscript;
+      const isLiveEnabled   = !!state.experimentalSettings.enableLiveTranscript;
       const isClassifierEnabled = !!state.experimentalSettings.enableAudioClassifier;
+
+      // Segment pills — only visible when we have a real analysis (RSS, probe, community)
+      const pillsHtml = hasRealAnalysis ? `
+        <div class="transcript-segment-pills">
+          ${segments.slice(0, 16).map(s => `
+            <button type="button" class="segment-jump-pill ${s.type === 'music' ? 'is-music' : 'is-speech'}" data-seconds="${s.start}">
+              <span>${s.type === 'music' ? '🎵 Music' : '🎙️ Talk'} · ${formatTime(s.start)}</span>
+            </button>
+          `).join('')}
+        </div>
+      ` : '';
+
+      // Live transcription status box
+      const liveHtml = isLiveAvailable ? `
+        <div style="margin: 1rem 0; padding: 0.75rem 1rem; background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-sm); font-size: 0.85rem;">
+          ${isLiveEnabled
+            ? `<strong>🎙 Live transcription is on</strong> — text appears here as you listen.`
+            : `<strong>💡 Live Transcription available!</strong>
+               <button type="button" class="inline-link" id="transcript-goto-settings">Enable it in Experimental Settings →</button>`
+          }
+        </div>
+      ` : '';
+
+      // Summary line
+      let summaryHtml = '';
+      if (hasRealAnalysis) {
+        const src = state.episodeTimeline.transcriptSource;
+        summaryHtml = `<p>Anypod's FFT classifier detected <strong>${speechSegs.length} speech</strong> and <strong>${musicSegs.length} music</strong> sections.<br><small style="color:var(--text-secondary)">source: ${escapeHtml(src)}</small></p>`;
+      } else if (isClassifierEnabled) {
+        summaryHtml = `<p>The audio classifier is active — open this episode to start analysis.</p>`;
+      } else {
+        summaryHtml = `<p>No transcript available. <button type="button" class="inline-link" id="transcript-goto-settings">Enable Audio Classifier in Experimental Settings</button> to detect speech and music sections.</p>`;
+      }
 
       cuesList.innerHTML = `
         <div class="transcript-empty-state">
           <div style="font-size: 2.2rem; margin-bottom: 0.75rem;">🎙️</div>
           <h4>No Official Text Transcript in RSS</h4>
-          <p>This podcast feed doesn't include a WebVTT/SRT transcript. ${segments.length > 0 ? `Anypod's FFT classifier detected <strong>${speechSegs.length} speech</strong> and <strong>${musicSegs.length} music</strong> sections.` : 'Enable the <strong>Audio Classifier</strong> in Settings to detect speech sections.'}</p>
-          ${isLiveAvailable ? `
-            <div style="margin: 1rem 0; padding: 0.75rem 1rem; background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-sm); font-size: 0.85rem;">
-              ${isLiveEnabled
-                ? `<strong>🎙 Live transcription is on</strong> — text appears here as you listen.`
-                : `<strong>💡 Live Transcription available!</strong> Enable <em>Live Transcription</em> in Settings → Experimental Features to get speech-to-text as you listen.`
-              }
-            </div>
-          ` : ''}
-          ${segments.length > 0 ? `
-            <div class="transcript-segment-pills">
-              ${segments.slice(0, 16).map(s => `
-                <button type="button" class="segment-jump-pill ${s.type === 'music' ? 'is-music' : 'is-speech'}" data-seconds="${s.start}">
-                  <span>${s.type === 'music' ? '🎵 Music' : '🎙️ Talk'} · ${formatTime(s.start)}</span>
-                </button>
-              `).join('')}
-            </div>
-          ` : ''}
-          <div style="margin-top: 1.5rem; font-size: 0.8rem; color: var(--text-muted);">
-            Have an external transcript file? Use the <strong>Upload VTT/SRT</strong> button above to load it!
-          </div>
+          ${summaryHtml}
+          ${liveHtml}
+          ${pillsHtml}
         </div>
       `;
 
+      // Segment-jump clicks
       cuesList.querySelectorAll('.segment-jump-pill').forEach(btn => {
         btn.addEventListener('click', (e) => {
           e.preventDefault();
@@ -4286,8 +4414,21 @@
           }
         });
       });
+
+      // Settings deeplink
+      const gotoSettingsBtn = cuesList.querySelector('#transcript-goto-settings');
+      if (gotoSettingsBtn) {
+        gotoSettingsBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          closeShowNotes();
+          // Switch to settings tab
+          const settingsTab = document.getElementById('tab-settings');
+          if (settingsTab) settingsTab.click();
+        });
+      }
       return;
     }
+
 
     const query = (filterText || '').toLowerCase().trim();
     const filteredCues = query
@@ -4421,7 +4562,11 @@
           }
         });
       });
+
+      // Inject inline analysis section at the bottom of the notes tab
+      _renderInlineAnalysisSection(elements.showNotesContent);
     }
+
 
     // Wire main popup Play button
     if (elements.btnNotesPlay) {
@@ -5734,6 +5879,9 @@
     state.playbackStatus = 'loading';
 
     liveTranscription.onEpisodeChange(episode);
+    // Reset caption popup for the new episode
+    _captionDismissed = false;
+    _hideLiveCaption(false);
     syncMediaSession(episode);
     syncPlaybackButtons();
 
@@ -7528,45 +7676,45 @@ function setPlayerCollapsed(collapsed, save = true) {
     if (elements.tabBtnTranscript) {
       elements.tabBtnTranscript.addEventListener('click', () => switchShowNotesTab('transcript'));
     }
-    if (elements.transcriptSearchInput) {
-      elements.transcriptSearchInput.addEventListener('input', (e) => {
-        renderTranscriptView(e.target.value);
-      });
-    }
-    if (elements.transcriptFileInput) {
-      elements.transcriptFileInput.addEventListener('change', (e) => {
-        const file = e.target.files && e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          const text = evt.target.result;
-          const cues = parseVttOrSrtTimestamps(text);
-          if (cues.length > 0) {
-            state.episodeTimeline.cues = cues;
-            state.episodeTimeline.transcriptSource = 'Upload';
-            const dur = (elements.audio && elements.audio.duration) ? elements.audio.duration : state.episodeTimeline.duration;
-            state.episodeTimeline.bars = deriveBarsFromCues(cues, dur, TIMELINE_BAR_COUNT);
-            state.episodeTimeline.segments = deriveSegmentsFromCues(cues, dur);
+    // if (elements.transcriptSearchInput) {
+    //   elements.transcriptSearchInput.addEventListener('input', (e) => {
+    //     renderTranscriptView(e.target.value);
+    //   });
+    // }
+    // if (elements.transcriptFileInput) {
+    //   elements.transcriptFileInput.addEventListener('change', (e) => {
+    //     const file = e.target.files && e.target.files[0];
+    //     if (!file) return;
+    //     const reader = new FileReader();
+    //     reader.onload = (evt) => {
+    //       const text = evt.target.result;
+    //       const cues = parseVttOrSrtTimestamps(text);
+    //       if (cues.length > 0) {
+    //         state.episodeTimeline.cues = cues;
+    //         state.episodeTimeline.transcriptSource = 'Upload';
+    //         const dur = (elements.audio && elements.audio.duration) ? elements.audio.duration : state.episodeTimeline.duration;
+    //         state.episodeTimeline.bars = deriveBarsFromCues(cues, dur, TIMELINE_BAR_COUNT);
+    //         state.episodeTimeline.segments = deriveSegmentsFromCues(cues, dur);
 
-            if (state.currentEpisode) {
-              try {
-                localStorage.setItem('anypod_timeline_' + state.currentEpisode.guid, JSON.stringify({
-                  bars: state.episodeTimeline.bars,
-                  segments: state.episodeTimeline.segments,
-                  cues: cues,
-                  transcriptSource: 'Upload'
-                }));
-              } catch (_) {}
-              saveTimelineToCommunityCache(state.currentEpisode, dur, state.episodeTimeline.bars, state.episodeTimeline.segments, 'upload');
-            }
+    //         if (state.currentEpisode) {
+    //           try {
+    //             localStorage.setItem('anypod_timeline_' + state.currentEpisode.guid, JSON.stringify({
+    //               bars: state.episodeTimeline.bars,
+    //               segments: state.episodeTimeline.segments,
+    //               cues: cues,
+    //               transcriptSource: 'Upload'
+    //             }));
+    //           } catch (_) {}
+    //           saveTimelineToCommunityCache(state.currentEpisode, dur, state.episodeTimeline.bars, state.episodeTimeline.segments, 'upload');
+    //         }
 
-            renderWaveformChart();
-            renderTranscriptView();
-          }
-        };
-        reader.readAsText(file);
-      });
-    }
+    //         renderWaveformChart();
+    //         renderTranscriptView();
+    //       }
+    //     };
+    //     reader.readAsText(file);
+    //   });
+    // }
 
     function toggleCurrentPlayback() {
       if (state.currentEpisode) {
@@ -8687,6 +8835,37 @@ function setPlayerCollapsed(collapsed, save = true) {
     });
   }
 
+  // ── Live Caption Popup helpers ────────────────────────────────────────────
+  let _captionHideTimer = null;
+  let _captionDismissed = false;  // user manually closed it
+
+  function _showLiveCaption(text) {
+    if (_captionDismissed) return;
+    const popup   = elements.liveCaptionPopup;
+    const textEl  = elements.liveCaptionText;
+    if (!popup || !textEl) return;
+
+    textEl.textContent = text;
+    popup.classList.remove('hidden');
+
+    // Auto-hide after 8 s of no new cues
+    if (_captionHideTimer) clearTimeout(_captionHideTimer);
+    _captionHideTimer = setTimeout(() => {
+      if (popup) popup.classList.add('hidden');
+    }, 8000);
+  }
+
+  function _hideLiveCaption(dismiss = false) {
+    if (dismiss) _captionDismissed = true;
+    if (_captionHideTimer) { clearTimeout(_captionHideTimer); _captionHideTimer = null; }
+    if (elements.liveCaptionPopup) elements.liveCaptionPopup.classList.add('hidden');
+  }
+
+  // Wire the × close button (done once at startup)
+  if (elements.btnCloseCaption) {
+    elements.btnCloseCaption.addEventListener('click', () => _hideLiveCaption(true));
+  }
+
   // ── Live Transcription Engine ────────────────────────────────────────────
   // Uses the Web Speech API (SpeechRecognition) to produce real-time
   // timestamped cues while the user listens.  The recogniser is paused
@@ -8739,7 +8918,11 @@ function setPlayerCollapsed(collapsed, save = true) {
       cues.push({ start: Math.round(startSec), end: Math.round(endSec + 0.5), text: trimmed, live: true });
       if (state.experimentalSettings.enableTranscript) renderTranscriptView();
       _persistCues();
+
+      // Update live caption popup
+      _showLiveCaption(trimmed);
     }
+
 
     function _buildRecogniser() {
       if (rec) { try { rec.abort(); } catch (_) {} }
@@ -8769,7 +8952,10 @@ function setPlayerCollapsed(collapsed, save = true) {
         }
       };
 
-      // Errors where retrying is pointless (permanent / permission failures)
+      // ---------------------------------------------------------------------------
+      //  Live‑transcript error handling
+      // ---------------------------------------------------------------------------
+
       const PERMANENT_ERRORS = new Set(['not-allowed', 'service-not-allowed', 'network']);
 
       rec.onerror = (e) => {
@@ -8778,18 +8964,21 @@ function setPlayerCollapsed(collapsed, save = true) {
           // Permission denied or service unavailable — stop entirely
           console.warn('[LiveTranscript] Permanent error, disabling live transcription:', e.error);
           active = false;
-          // Uncheck the toggle so the user sees it's off
+          // Uncheck the toggle so the user sees it’s off
           if (elements.toggleLiveTranscript) elements.toggleLiveTranscript.checked = false;
           state.experimentalSettings.enableLiveTranscript = false;
           saveExperimentalSettings();
           if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
+
+          // *** NEW – user‑facing toast when the error is “not‑allowed” ***
           if (e.error === 'not-allowed') {
             showStatus('Microphone permission blocked. Please enable microphone access in browser settings to use live transcription.');
-            setTimeout(() => hideStatus(), 6000);
+            setTimeout(() => hideStatus(), 6000);   // auto‑hide after 6 s
           }
           return;
         }
-        // Transient errors (no-speech, audio-capture, etc.) — silent retry
+
+        // Transient errors (no‑speech, audio‑capture, etc.) – silent retry
         if (e.error !== 'aborted') {
           console.warn('[LiveTranscript] Transient SpeechRecognition error:', e.error);
         }
@@ -9273,10 +9462,13 @@ function setPlayerCollapsed(collapsed, save = true) {
 
     let musicScore = 0;
 
-    // Bass presence — almost exclusive to music
-    if (bassRatio > 0.25)                                 musicScore += 3;
-    else if (bassRatio > 0.12)                            musicScore += 2;
-    else if (bassRatio > 0.07)                            musicScore += 1;
+    // Bass presence — still a music indicator but less dominant
+    // (lowered thresholds to avoid false‑music on spoken audio)
+    if (bassRatio > 0.30)                                 musicScore += 3;
+    else if (bassRatio > 0.18)                            musicScore += 2;
+    else if (bassRatio > 0.10)                            musicScore += 1;
+
+
 
     // Harmonic periodicity — very reliable music indicator
     if (harmonicRatio > 0.6)                              musicScore += 3;
@@ -9304,15 +9496,11 @@ function setPlayerCollapsed(collapsed, save = true) {
 
     let speechScore = 0;
 
-    // Speech-core score is ONLY reliable when sub-bass is absent.
-    // If bassRatio is high, synths filling 1-4kHz doesn't indicate speech.
-    if (bassRatio < 0.08) {
-      if (speechCoreRatio > 0.55)                         speechScore += 4;
-      else if (speechCoreRatio > 0.40)                    speechScore += 2;
-    } else {
-      // Mild credit even with bass (could be voice over music)
-      if (speechCoreRatio > 0.60)                         speechScore += 1;
-    }
+    // Speech‑core score – give it weight even when bass is present,
+    // because spoken audio often contains low‑frequency rumble.
+    if (speechCoreRatio > 0.55)                           speechScore += 4;
+    else if (speechCoreRatio > 0.40)                      speechScore += 2;
+    else if (speechCoreRatio > 0.25)                      speechScore += 1;
 
     // High dynamic range → pauses between words/sentences
     if (dynamicRange > 1.2)                               speechScore += 3;
@@ -9330,7 +9518,7 @@ function setPlayerCollapsed(collapsed, save = true) {
     if (centroid > 200 && centroid < 2500)                speechScore += 1;
 
     // Require music to win clearly
-    const isMusic = musicScore >= 5 && musicScore > speechScore + 1;
+    const isMusic = musicScore >= 6 && musicScore > speechScore + 2;
 
     return {
       type: isMusic ? 'music' : 'speech',

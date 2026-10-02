@@ -515,22 +515,22 @@
             </div>
           </div>
         </div>
-        <!-- <div class="modal-tabs show-notes-tabs">
+        <div class="modal-tabs show-notes-tabs">
           <button class="modal-tab-btn active" id="tab-btn-notes" type="button">show notes</button>
           <button class="modal-tab-btn" id="tab-btn-transcript" type="button">
             <span>transcript</span>
             <span class="transcript-source-pill hidden" id="transcript-source-pill">rss</span>
           </button>
-        </div> -->
+        </div>
         <div class="modal-body show-notes-modal-body">
           <div class="show-notes-content" id="show-notes-content"></div>
           <div class="show-transcript-content hidden" id="show-transcript-content">
             <div class="transcript-toolbar">
-              <input type="text" id="transcript-search-input" class="transcript-search-input" placeholder="search transcript...">
-              <label class="btn-transcript-upload" title="upload local .vtt or .srt transcript">
+              <!-- <input type="text" id="transcript-search-input" class="transcript-search-input" placeholder="search transcript..."> -->
+              <!-- <label class="btn-transcript-upload" title="upload local .vtt or .srt transcript">
                 <span>upload vtt/srt</span>
                 <input type="file" id="transcript-file-input" accept=".vtt,.srt,.txt" style="display: none;">
-              </label>
+              </label> -->
             </div>
             <div class="transcript-cues-list" id="transcript-cues-list"></div>
           </div>
@@ -561,6 +561,12 @@
       </select>
       <!-- <button class="btn btn-secondary btn-sm btn-dock-refresh" id="btn-refresh-all" title="refresh all feeds">refresh</button> -->
     </aside>
+
+    <!-- Live Caption Popup — floats above the player bar -->
+    <div class="live-caption-popup hidden" id="live-caption-popup" aria-live="polite" aria-atomic="true">
+      <button class="live-caption-close" id="btn-close-caption" aria-label="Close captions">×</button>
+      <p class="live-caption-text" id="live-caption-text"></p>
+    </div>
 
     <!-- Sticky Audio Player Footer -->
     <footer class="player-bar" id="player-bar">
