@@ -147,6 +147,38 @@ function extractYtInitialData(html) {
   return null;
 }
 
+function parseRelativeDate(str) {
+  if (!str || typeof str !== 'string') return 0;
+  const now = Date.now();
+  const lower = str.toLowerCase().trim();
+
+  const m = lower.match(/(\d+)\s*(y|yr|year|jahre?|mo|month|monate?|w|wk|week|woche?n?|d|day|tage?n?|h|hr|hour|stunde?n?|min|minute|minuten?)/);
+  if (!m) return 0;
+
+  const count = parseInt(m[1], 10);
+  const unit = m[2];
+
+  if (unit.startsWith('y') || unit.startsWith('j')) {
+    return Math.round(now - count * 365.25 * 24 * 3600 * 1000);
+  }
+  if (unit === 'mo' || unit.startsWith('month') || unit.startsWith('monat')) {
+    return Math.round(now - count * 30.4 * 24 * 3600 * 1000);
+  }
+  if (unit.startsWith('w')) {
+    return Math.round(now - count * 7 * 24 * 3600 * 1000);
+  }
+  if (unit.startsWith('d') || unit.startsWith('t')) {
+    return Math.round(now - count * 24 * 3600 * 1000);
+  }
+  if (unit.startsWith('h') || unit.startsWith('s')) {
+    return Math.round(now - count * 3600 * 1000);
+  }
+  if (unit.startsWith('min')) {
+    return Math.round(now - count * 60 * 1000);
+  }
+  return 0;
+}
+
 /**
  * Parses videos and continuation tokens from any InnerTube/ytInitialData structure.
  */
@@ -178,8 +210,28 @@ function parseVideosFromInnerTube(data) {
           if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) durSec = parts[0] * 60 + parts[1];
           else if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) durSec = parts[0] * 3600 + parts[1] * 60 + parts[2];
         }
-        const epOrderOffset = episodes.length * 60000;
-        const approxTimestamp = now - epOrderOffset;
+
+        let dateText = '';
+        const rows = l.metadata?.lockupMetadataViewModel?.metadata?.contentMetadataViewModel?.metadataRows;
+        if (Array.isArray(rows)) {
+          for (const row of rows) {
+            if (Array.isArray(row.metadataParts)) {
+              for (const part of row.metadataParts) {
+                const candidate = part.accessibilityLabel || part.text?.content || '';
+                if (/ago|vor|year|month|week|day|hour|min/i.test(candidate)) {
+                  dateText = candidate;
+                  break;
+                }
+              }
+            }
+            if (dateText) break;
+          }
+        }
+
+        const parsedTimestamp = parseRelativeDate(dateText);
+        const approxTimestamp = parsedTimestamp 
+          ? (parsedTimestamp - episodes.length * 1000) 
+          : (now - episodes.length * 60000);
 
         episodes.push({
           guid: `yt:${vId}`,
@@ -225,8 +277,13 @@ function parseVideosFromInnerTube(data) {
         }
       }
 
-      const epOrderOffset = episodes.length * 60000;
-      const approxTimestamp = now - epOrderOffset;
+      let dateText = v.videoInfo?.runs?.map(r => r.text).join(' ') 
+        || v.publishedTimeText?.simpleText 
+        || '';
+      const parsedTimestamp = parseRelativeDate(dateText);
+      const approxTimestamp = parsedTimestamp 
+        ? (parsedTimestamp - episodes.length * 1000) 
+        : (now - episodes.length * 60000);
 
       episodes.push({
         guid: `yt:${v.videoId}`,
