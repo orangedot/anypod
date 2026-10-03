@@ -92,7 +92,7 @@
             <button type="button" id="btn-clear-crate-search" class="crate-btn-clear hidden">✕</button>
           </div>
           <div class="crate-tabs">
-            <button type="button" class="crate-tab active" data-tab="all">All</button>
+            <button type="button" class="crate-tab active" data-tab="feeds">Podcasts</button>
             <button type="button" class="crate-tab" data-tab="queue">Queue</button>
             <button type="button" class="crate-tab" data-tab="favorites">Favorites</button>
             <button type="button" class="crate-tab" data-tab="cached">All Episodes</button>
@@ -102,7 +102,30 @@
           <input type="url" id="crate-url" placeholder="Paste custom audio / RSS episode URL..." autocomplete="off">
           <button type="submit">Add URL</button>
         </form>
-        <ul class="crate-list" id="crate-list"></ul>
+
+        <!-- View 1: Feed Picker (Grid of subscribed podcasts) -->
+        <div id="crate-feeds-view" class="crate-view">
+          <div class="crate-feeds-grid" id="crate-feeds-grid"></div>
+        </div>
+
+        <!-- View 2: Feed Detail (Episodes of selected podcast) -->
+        <div id="crate-detail-view" class="crate-view hidden">
+          <div class="crate-detail-header">
+            <button type="button" class="crate-btn-back" id="btn-crate-back">← Back to Podcasts</button>
+            <img class="crate-detail-art" id="crate-detail-art" src="" alt="" loading="lazy">
+            <div class="crate-detail-info">
+              <div class="crate-detail-title" id="crate-detail-title">Podcast Title</div>
+              <div class="crate-detail-ep-count" id="crate-detail-ep-count">0 episodes</div>
+            </div>
+          </div>
+          <ul class="crate-list" id="crate-detail-list"></ul>
+        </div>
+
+        <!-- View 3: Flat Episodes View (Queue, Favorites, All Episodes, or Search Results) -->
+        <div id="crate-episodes-view" class="crate-view hidden">
+          <div id="crate-search-feed-matches" class="crate-search-feed-matches hidden"></div>
+          <ul class="crate-list" id="crate-list"></ul>
+        </div>
       </div>
     </section>
   </main>
