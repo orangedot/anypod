@@ -25,3 +25,14 @@
 
 /style.css
   Cache-Control: no-cache, no-store, must-revalidate
+/dj.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/dj.css
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/dj-engine.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/dj-ui.js
+  Cache-Control: no-cache, no-store, must-revalidate

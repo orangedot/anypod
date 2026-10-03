@@ -19,5 +19,11 @@ export async function onRequest(context) {
     return Response.redirect(url.toString(), 301);
   }
 
+  // dj.anypod.org serves the DJ app at its root (same Pages project)
+  if (url.hostname.toLowerCase() === 'dj.anypod.org' && (url.pathname === '/' || url.pathname === '/index.html')) {
+    url.pathname = '/dj.html';
+    return context.env.ASSETS.fetch(new Request(url.toString(), context.request));
+  }
+
   return context.next();
 }

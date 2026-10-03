@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0b0b10">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Anypod DJ</title>
+  <link rel="stylesheet" href="dj.css">
+</head>
+<body>
+  <div id="rotate-overlay" role="alert">
+    <div class="rotate-icon">⟳</div>
+    <p>Rotate your device to landscape</p>
+  </div>
+
+  <main class="dj" id="dj-root">
+    <!-- Deck A -->
+    <section class="deck deck-a" data-deck="A" aria-label="Deck A">
+      <div class="deck-head">
+        <span class="deck-tag">A</span>
+        <div class="track-title" data-role="title">Load a track</div>
+      </div>
+      <canvas class="waveform" data-role="wave" aria-label="Waveform placeholder"></canvas>
+      <div class="time-row"><span data-role="cur">0:00</span><span data-role="dur">0:00</span></div>
+      <div class="deck-controls">
+        <button class="play-btn" data-role="play" aria-label="Play / Pause deck A">▶</button>
+        <div class="cues">
+          <button class="cue" data-cue="0">1</button>
+          <button class="cue" data-cue="1">2</button>
+          <button class="cue" data-cue="2">3</button>
+        </div>
+        <label class="pitch">
+          <span>Speed <b data-role="rate-label">1.00×</b></span>
+          <input type="range" data-role="rate" min="0.5" max="1.5" step="0.01" value="1">
+        </label>
+      </div>
+    </section>
+
+    <!-- Mixer -->
+    <section class="mixer" aria-label="Mixer">
+      <div class="eq-wrap">
+        <div class="eq" data-deck="A">
+          <label><input type="range" class="vslider" data-eq="high" min="-24" max="12" step="0.5" value="0" orient="vertical"><span>HI</span></label>
+          <label><input type="range" class="vslider" data-eq="mid" min="-24" max="12" step="0.5" value="0" orient="vertical"><span>MID</span></label>
+          <label><input type="range" class="vslider" data-eq="low" min="-24" max="12" step="0.5" value="0" orient="vertical"><span>LOW</span></label>
+        </div>
+        <div class="eq" data-deck="B">
+          <label><input type="range" class="vslider" data-eq="high" min="-24" max="12" step="0.5" value="0" orient="vertical"><span>HI</span></label>
+          <label><input type="range" class="vslider" data-eq="mid" min="-24" max="12" step="0.5" value="0" orient="vertical"><span>MID</span></label>
+          <label><input type="range" class="vslider" data-eq="low" min="-24" max="12" step="0.5" value="0" orient="vertical"><span>LOW</span></label>
+        </div>
+      </div>
+      <div class="xfader">
+        <span>A</span>
+        <input type="range" id="crossfader" min="0" max="1" step="0.001" value="0.5" aria-label="Crossfader">
+        <span>B</span>
+      </div>
+    </section>
+
+    <!-- Deck B -->
+    <section class="deck deck-b" data-deck="B" aria-label="Deck B">
+      <div class="deck-head">
+        <span class="deck-tag">B</span>
+        <div class="track-title" data-role="title">Load a track</div>
+      </div>
+      <canvas class="waveform" data-role="wave" aria-label="Waveform placeholder"></canvas>
+      <div class="time-row"><span data-role="cur">0:00</span><span data-role="dur">0:00</span></div>
+      <div class="deck-controls">
+        <button class="play-btn" data-role="play" aria-label="Play / Pause deck B">▶</button>
+        <div class="cues">
+          <button class="cue" data-cue="0">1</button>
+          <button class="cue" data-cue="1">2</button>
+          <button class="cue" data-cue="2">3</button>
+        </div>
+        <label class="pitch">
+          <span>Speed <b data-role="rate-label">1.00×</b></span>
+          <input type="range" data-role="rate" min="0.5" max="1.5" step="0.01" value="1">
+        </label>
+      </div>
+    </section>
+
+    <!-- Crate drawer -->
+    <section class="crate" id="crate" aria-label="Playlist / Crate">
+      <button class="crate-toggle" id="crate-toggle" aria-expanded="false">▲ Crate <span id="crate-count">0</span></button>
+      <div class="crate-body">
+        <form class="crate-add" id="crate-add">
+          <input type="url" id="crate-url" placeholder="Paste audio URL (mp3, m4a…)" autocomplete="off">
+          <button type="submit">Add</button>
+        </form>
+        <ul class="crate-list" id="crate-list"></ul>
+      </div>
+    </section>
+  </main>
+
+  <script src="dj-engine.js"></script>
+  <script src="dj-ui.js"></script>
+</body>
+</html>

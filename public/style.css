@@ -1573,14 +1573,14 @@ select {
   width: 100%;
 }
 
-@media (min-width: 880px) {
+@media (min-width: 850px) {
   .episode-list {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.85rem;
   }
 }
 
-@media (min-width: 1680px) {
+@media (min-width: 1400px) {
   .episode-list {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 1rem;
