@@ -17,7 +17,27 @@ export async function onRequest(context) {
     return new Response(null, { headers: corsHeaders, status: 204 });
   }
 
+  // 1. YouTube continuation pagination requests
+  const isBatch = urlParams.get('batch');
+  const playlistId = urlParams.get('playlistId');
+  const continuation = urlParams.get('continuation');
 
+  if (isBatch && playlistId) {
+    try {
+      const batchData = await fetchYouTubePlaylistBatch(playlistId, continuation);
+      return new Response(JSON.stringify(batchData), {
+        headers: corsHeaders,
+        status: 200
+      });
+    } catch (err) {
+      return new Response(JSON.stringify({ error: err.message, episodes: [], nextToken: null }), {
+        headers: corsHeaders,
+        status: 500
+      });
+    }
+  }
+
+  // 2. Batch feed requests from subscriptions
   if (request.method === 'POST') {
     try {
       const body = await request.json();
@@ -43,6 +63,7 @@ export async function onRequest(context) {
     }
   }
 
+  // 3. Single feed validation
   if (!targetUrl || !isValidExternalUrl(targetUrl)) {
     return new Response(JSON.stringify({ 
       error: 'Invalid or disallowed feed URL parameter.' 
@@ -71,6 +92,124 @@ export async function onRequest(context) {
   }
 }
 
+/**
+ * Scrapes public playlist page for title and true total video count.
+ */
+async function fetchYouTubePlaylistMetadata(playlistId) {
+  try {
+    const res = await fetch(`https://www.youtube.com/playlist?list=${playlistId}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9'
+      }
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+
+    const countMatch = html.match(/"videoCountText":\s*\{\s*"runs":\s*\[\s*\{\s*"text":\s*"([\d,.]+)"/i) 
+                    || html.match(/"itemCount":\s*"([\d,.]+)"/i)
+                    || html.match(/(\d[\d,.]*)\s+videos/i);
+    
+    const count = countMatch ? parseInt(countMatch[1].replace(/[,.]/g, ''), 10) : null;
+    const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+    const title = titleMatch ? titleMatch[1].replace(/ - YouTube$/i, '').trim() : '';
+
+    return { totalCount: count, title };
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Fetches batches of items using YouTube's InnerTube API.
+ */
+async function fetchYouTubePlaylistBatch(playlistId, continuationToken = null) {
+  const url = 'https://www.youtube.com/youtubei/v1/browse?prettyPrint=false';
+
+  const body = continuationToken
+    ? {
+        context: {
+          client: { clientName: 'WEB', clientVersion: '2.20240101.00.00' }
+        },
+        continuation: continuationToken
+      }
+    : {
+        context: {
+          client: { clientName: 'WEB', clientVersion: '2.20240101.00.00' }
+        },
+        browseId: playlistId.startsWith('VL') ? playlistId : `VL${playlistId}`
+      };
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'X-YouTube-Client-Name': '1',
+      'X-YouTube-Client-Version': '2.20240101.00.00'
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) return { episodes: [], nextToken: null };
+  const data = await res.json();
+
+  const episodes = [];
+  const seenIds = new Set();
+  let nextToken = null;
+  const now = Date.now();
+
+  function extractVideos(obj) {
+    if (!obj || typeof obj !== 'object') return;
+
+    if (obj.playlistVideoRenderer) {
+      const v = obj.playlistVideoRenderer;
+      if (v.videoId && !seenIds.has(v.videoId)) {
+        seenIds.add(v.videoId);
+        const titleText = v.title?.runs
+          ? v.title.runs.map(r => r.text).join('')
+          : (v.title?.simpleText || 'Untitled Video');
+        const authorText = v.shortBylineText?.runs
+          ? v.shortBylineText.runs.map(r => r.text).join('')
+          : (v.shortBylineText?.simpleText || '');
+        const thumb = v.thumbnail?.thumbnails?.slice(-1)[0]?.url || '';
+        const durSec = v.lengthSeconds ? parseInt(v.lengthSeconds, 10) : 0;
+
+        const epOrderOffset = episodes.length * 60000; // 1 min apart to maintain playlist order
+        const approxTimestamp = now - epOrderOffset;
+
+        episodes.push({
+          guid: `yt:${v.videoId}`,
+          videoId: v.videoId,
+          title: titleText,
+          podcastTitle: authorText,
+          artwork: thumb,
+          audioUrl: `https://www.youtube.com/watch?v=${v.videoId}`,
+          duration: durSec ? String(durSec) : '',
+          pubDate: new Date(approxTimestamp).toUTCString(),
+          timestamp: approxTimestamp,
+          isYouTube: true
+        });
+      }
+    }
+
+    if (!nextToken) {
+      if (obj.continuationCommand?.token) {
+        nextToken = obj.continuationCommand.token;
+      } else if (obj.continuationEndpoint?.continuationCommand?.token) {
+        nextToken = obj.continuationEndpoint.continuationCommand.token;
+      }
+    }
+
+    for (const key of Object.keys(obj)) {
+      extractVideos(obj[key]);
+    }
+  }
+
+  extractVideos(data);
+  return { episodes, nextToken };
+}
+
 async function fetchAndParseFeed(inputUrl) {
   let isYouTubeUrl = false;
   let playlistId = null;
@@ -84,6 +223,45 @@ async function fetchAndParseFeed(inputUrl) {
   } catch (e) {}
 
   if (isYouTubeUrl && playlistId) {
+    // 1. Get true playlist count and title
+    const meta = await fetchYouTubePlaylistMetadata(playlistId);
+
+    // 2. Try fetching the first batch via InnerTube (returns continuation token)
+    let batchData = null;
+    try {
+      batchData = await fetchYouTubePlaylistBatch(playlistId);
+    } catch (_) {}
+
+    if (batchData && batchData.episodes && batchData.episodes.length > 0) {
+      const firstEp = batchData.episodes[0];
+      const title = meta?.title || firstEp.podcastTitle || 'YouTube Playlist';
+      const artwork = firstEp.artwork || 'https://i.ytimg.com/vi/default.jpg';
+      const totalCount = meta?.totalCount || batchData.episodes.length;
+
+      batchData.episodes.forEach(ep => {
+        ep.podcastTitle = title;
+        ep.feedUrl = inputUrl;
+      });
+
+      return {
+        title,
+        description: `YouTube Playlist (${playlistId})`,
+        author: firstEp.podcastTitle || 'YouTube Creator',
+        artwork,
+        link: inputUrl,
+        feedUrl: inputUrl,
+        playlistId,
+        isYouTube: true,
+        isYouTubePlaylist: true,
+        episodesCount: totalCount,
+        expectedTotalCount: totalCount,
+        nextToken: batchData.nextToken,
+        updatedAt: new Date().toISOString(),
+        episodes: batchData.episodes
+      };
+    }
+
+    // 3. Fallback: YouTube Atom RSS Feed (15 items)
     const rssUrl = `https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistId}`;
     try {
       const res = await fetch(rssUrl, {
@@ -97,6 +275,11 @@ async function fetchAndParseFeed(inputUrl) {
         const xmlText = await res.text();
         const feedData = parsePodcastXml(xmlText, rssUrl, inputUrl);
         if (feedData.episodes && feedData.episodes.length > 0) {
+          feedData.playlistId = playlistId;
+          feedData.isYouTube = true;
+          feedData.isYouTubePlaylist = true;
+          feedData.expectedTotalCount = meta?.totalCount || feedData.episodes.length;
+          feedData.episodesCount = feedData.expectedTotalCount;
           return feedData;
         }
       }
@@ -112,7 +295,6 @@ async function fetchAndParseFeed(inputUrl) {
     }
   };
 
-  // Add Cloudflare edge caching when running on Cloudflare Workers/Pages
   try {
     fetchOptions.cf = {
       cacheTtl: 300,
@@ -120,7 +302,6 @@ async function fetchAndParseFeed(inputUrl) {
     };
   } catch (_) {}
 
-  // 8.5s timeout prevents Cloudflare Worker from hitting 503 on hanging origins
   if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) {
     fetchOptions.signal = AbortSignal.timeout(8500);
   }
@@ -326,7 +507,6 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
         epArtwork = epArtwork.replace(/^http:\/\//i, 'https://');
       }
 
-      // Podcasting 2.0 <podcast:transcript url="..." type="..." />
       const transcriptUrl = getAttribute(itemXml, 'podcast:transcript', 'url') || getAttribute(itemXml, 'transcript', 'url');
       const transcriptType = getAttribute(itemXml, 'podcast:transcript', 'type') || getAttribute(itemXml, 'transcript', 'type') || 'text/vtt';
 

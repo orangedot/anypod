@@ -3118,6 +3118,17 @@ mark.search-highlight {
 }
 
 @media (max-width: 1050px) {
+  .player-main-controls-row {
+    display: flex;
+    flex-direction: column;
+    padding: 0.65rem 1rem calc(0.65rem + env(safe-area-inset-bottom, 0px)) 1rem !important;
+    gap: 0.4rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  
   .search-directory-results.is-enlarged .dir-search-list {
     grid-template-columns: repeat(4, 1fr) !important;
   }
@@ -5342,17 +5353,6 @@ body.has-active-episode.has-mini-player .player-mini {
     box-shadow: none !important;
   }
 
-  .player-main-controls-row {
-    display: flex;
-    flex-direction: column;
-    padding: 0.65rem 1rem calc(0.65rem + env(safe-area-inset-bottom, 0px)) 1rem !important;
-    gap: 0.4rem;
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-    overflow: hidden;
-  }
-
   .player-bar.active-episode {
     transform: translateY(0);
     opacity: 1;
@@ -5986,7 +5986,7 @@ body.has-active-episode.has-mini-player .player-mini {
 }
 
 #btn-player-fav.is-favorited {
-  color: #ef4444;
+  display: none;
 }
 
 #btn-player-fav.is-favorited .icon-fav-unfilled {

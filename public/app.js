@@ -352,56 +352,6 @@
       } catch (_) {}
     }
   }
-  // Helper to build the 3 recent playable episodes widget matching the Feeds tab
-  function buildRecentEpisodesWidget(feedEpisodes, feedUrl) {
-    if (!feedEpisodes || feedEpisodes.length === 0) {
-      return `
-        <div class="feed-recent-widget feed-recent-loading" data-feed="${escapeHtml(feedUrl || '')}">
-          <div class="feed-recent-header">latest episodes</div>
-          <div class="feed-recent-list">
-            <div class="recent-ep-row is-loading" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.45rem 0.5rem; color: var(--text-muted); font-size: 0.78rem;">
-              <span class="spinner" style="width: 12px; height: 12px; border-width: 2px;"></span>
-              <span>Loading latest episodes...</span>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-    const recent = feedEpisodes.slice(0, 3);
-
-    return `
-      <div class="feed-recent-widget" data-feed="${escapeHtml(feedUrl || '')}">
-        <div class="feed-recent-header">up next (unplayed)</div>
-        <div class="feed-recent-list">
-          ${recent.map(ep => {
-            const isCurrent = state.currentEpisode && state.currentEpisode.guid === ep.guid;
-            const isEpPlaying = isCurrent && state.playbackStatus === 'playing';
-            const pos = state.playbackPositions ? state.playbackPositions[ep.guid] : null;
-            const isCompleted = pos && (pos.completed === 1 || pos.completed === true);
-            const isInProgress = pos && !isCompleted && pos.position > 2;
-
-            let durStr = ep.duration ? (typeof formatDurationCompact === 'function' ? formatDurationCompact(ep.duration) : ep.duration) : '';
-            if (isInProgress && typeof formatTime === 'function') {
-              durStr = `Resume ${formatTime(pos.position)}`;
-            } else if (isCompleted) {
-              durStr = `✓ ${durStr}`;
-            }
-
-            return `
-              <div class="recent-ep-row ${isCurrent ? 'active' : ''} ${isCompleted ? 'is-played' : ''} ${isInProgress ? 'is-in-progress' : ''}" data-guid="${escapeHtml(ep.guid)}" title="${escapeHtml(ep.title)}">
-                <button type="button" class="btn-recent-play ${isEpPlaying ? 'is-playing' : ''}" data-guid="${escapeHtml(ep.guid)}" aria-label="Play ${escapeHtml(ep.title)}">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-                    ${isEpPlaying ? '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>' : '<polygon points="5 3 19 12 5 21 5 3"></polygon>'}
-                  </svg>
-                </button>
-                <span class="recent-ep-title">${escapeHtml(ep.title)}</span>${durStr ? `<span class="recent-ep-duration">${escapeHtml(durStr)}</span>` : ''}
-              </div>
-            `;
-          }).join('')}
-        </div>
-      </div>
-    `;
-  }
 
   // ── Auto-load 3 Real Episodes for Visible Discover Cards ──────────────────
   const _fetchingFeedPreviews = new Set();
@@ -1177,6 +1127,8 @@
       const ytPlaying = window.YT ? YT.PlayerState.PLAYING : 1;
       const ytPaused = window.YT ? YT.PlayerState.PAUSED : 2;
       const ytEnded = window.YT ? YT.PlayerState.ENDED : 0;
+      const ytCued = window.YT ? YT.PlayerState.CUED : 5;
+
       if (event.data === ytBuffering) {
         state.playbackStatus = 'loading';
         syncPlaybackButtons();
@@ -1190,7 +1142,29 @@
         state.playbackStatus = 'idle';
         syncPlaybackButtons();
         onEpisodeEnded();
+      } else if (event.data === ytCued) {
+        // Video is loaded and ready — trigger playback
+        if (state.ytPlayer && state.ytPlayer.playVideo) {
+          state.ytPlayer.playVideo();
+        }
       }
+    }
+  }
+
+  function handleYouTubeError(event) {
+    const code = event?.data;
+    console.error('[YouTube Player Error Code]:', code);
+    state.playbackStatus = 'paused';
+    syncPlaybackButtons();
+
+    if (code === 150 || code === 101) {
+      showStatus('Playback restricted: creator disabled embedding for this video.');
+    } else if (code === 100) {
+      showStatus('YouTube video not found or removed.');
+    } else if (code === 2) {
+      showStatus('Invalid YouTube video ID.');
+    } else {
+      showStatus(`YouTube playback error (${code || 'unknown'}).`);
     }
   }
 
@@ -1200,17 +1174,17 @@
     if (!playerTarget) return;
 
     state.ytPlayer = new YT.Player('yt-player', {
-      height: '180',
-      width: '320',
+      height: '120',
+      width: '200',
       playerVars: {
-        autoplay: 0,
+        autoplay: 1,
         controls: 0,
         playsinline: 1,
         enablejsapi: 1,
         origin: window.location.origin
       },
       events: {
-        onReady: (event) => {
+        onReady: () => {
           state.ytReady = true;
           if (state.pendingYouTubePlay) {
             const pending = state.pendingYouTubePlay;
@@ -1219,10 +1193,7 @@
           }
         },
         onStateChange: handleYouTubeStateChange,
-        onError: () => {
-          state.playbackStatus = 'paused';
-          syncPlaybackButtons();
-        }
+        onError: handleYouTubeError
       }
     });
   }
@@ -3217,6 +3188,11 @@
           };
         }
         return null;
+      }
+
+      // Trigger progressive background pagination for YouTube playlists
+      if (feedData.isYouTubePlaylist && feedData.playlistId && feedData.nextToken) {
+        startYouTubeBackgroundPaging(feedData.playlistId, url, feedData.nextToken);
       }
 
       updatedMetadata[url] = {
@@ -5705,6 +5681,15 @@
       });
     }
 
+    const loadedCount = episodes.length;
+    const expectedTotal = meta.episodesCount || totalCount;
+
+    const badgeText = q
+      ? `${loadedCount} / ${expectedTotal} episodes`
+      : (expectedTotal && loadedCount < expectedTotal)
+        ? `${loadedCount} / ${expectedTotal} episodes (syncing...)`
+        : `${loadedCount} episodes`;
+
     if (header.dataset.feedUrl !== feedUrl) {
       header.dataset.feedUrl = feedUrl;
       const prevView = state.navHistory[state.navHistory.length - 1];
@@ -5739,7 +5724,7 @@
               <button class="feed-link-badge" id="btn-copy-link" title="Copy Podcast Link to Clipboard">Copy Link</button>
               <button class="feed-link-badge" id="btn-share-feed-link" title="Share Podcast">Share Feed</button>
               <button class="feed-link-badge" id="btn-copy-rss" title="Copy RSS Feed URL">Copy RSS</button>
-              <span class="feed-link-badge" id="feed-episodes-badge" style="cursor: default;">${q ? `${episodes.length} / ${totalCount} episodes` : `${totalCount} episodes`}</span>
+              <span class="feed-link-badge" id="feed-episodes-badge" style="cursor: default;">${badgeText}</span>
               ${isSubbed && isMuted ? `<span class="feed-link-badge feed-muted-badge" style="cursor: default;">Timeline Muted</span>` : ''}
             </div>
           </div>
@@ -5806,7 +5791,7 @@
     } else {
       const badge = header.querySelector('#feed-episodes-badge');
       if (badge) {
-        badge.textContent = q ? `${episodes.length} / ${totalCount} episodes` : `${totalCount} episodes`;
+        badge.textContent = badgeText;
       }
       const actionBtn = header.querySelector('#btn-feed-action');
       if (actionBtn) {
@@ -6401,15 +6386,22 @@
     }
 
     if (episode.isYouTube || episode.videoId || episode.playlistId) {
+      // 1. Stop native audio element so streams do not conflict
+      if (elements.audio) {
+        elements.audio.pause();
+        elements.audio.removeAttribute('src');
+      }
+
       state.activeEngine = 'youtube';
+
       if (state.ytPlayer && typeof state.ytPlayer.loadVideoById === 'function') {
-        if (episode.isYouTubePlaylist && episode.playlistId) {
+        if (episode.videoId) {
+          state.ytPlayer.loadVideoById(episode.videoId, startTime || 0);
+        } else if (episode.isYouTubePlaylist && episode.playlistId) {
           state.ytPlayer.loadPlaylist({
             list: episode.playlistId,
             listType: 'playlist'
           });
-        } else if (episode.videoId) {
-          state.ytPlayer.loadVideoById({ videoId: episode.videoId, startSeconds: startTime || 0 });
         }
         if (state.ytPlayer.playVideo) state.ytPlayer.playVideo();
         if (state.ytPlayer.setPlaybackRate) state.ytPlayer.setPlaybackRate(state.playbackSpeed);
@@ -6419,8 +6411,8 @@
           container.innerHTML = '<div id="yt-player"></div>';
         }
         const playerConfig = {
-          height: '180',
-          width: '320',
+          height: '120',
+          width: '200',
           playerVars: {
             autoplay: 1,
             controls: 0,
@@ -6438,21 +6430,20 @@
               if (event.target.setPlaybackRate) event.target.setPlaybackRate(state.playbackSpeed);
             },
             onStateChange: handleYouTubeStateChange,
-            onError: () => {
-              state.playbackStatus = 'paused';
-              syncPlaybackButtons();
-            }
+            onError: handleYouTubeError
           }
         };
-        if (episode.isYouTubePlaylist && episode.playlistId) {
-          playerConfig.playerVars.listType = 'playlist';
-          playerConfig.playerVars.list = episode.playlistId;
-        } else if (episode.videoId) {
+
+        if (episode.videoId) {
           playerConfig.videoId = episode.videoId;
           if (startTime > 0) {
             playerConfig.playerVars.start = Math.floor(startTime);
           }
+        } else if (episode.isYouTubePlaylist && episode.playlistId) {
+          playerConfig.playerVars.listType = 'playlist';
+          playerConfig.playerVars.list = episode.playlistId;
         }
+
         state.ytPlayer = new YT.Player('yt-player', playerConfig);
       } else {
         state.pendingYouTubePlay = { episode, startTime };
@@ -6519,6 +6510,83 @@
       setPlayerCollapsed(false, false);
       initOrLoadEpisodeTimeline(episode, (episode.duration ? parseDurationSeconds(episode.duration) : 0));
     }
+  }
+
+  const _activeYtPaginations = new Set();
+
+  /**
+   * Lazily streams the full YouTube playlist in the background without UI lag.
+   */
+  async function startYouTubeBackgroundPaging(playlistId, feedUrl, initialToken) {
+    if (!playlistId || !initialToken) return;
+    if (_activeYtPaginations.has(playlistId)) return;
+    _activeYtPaginations.add(playlistId);
+
+    let nextToken = initialToken;
+
+    try {
+      while (nextToken) {
+        // 600ms delay protects against rate limits & keeps the UI responsive
+        await new Promise(r => setTimeout(r, 600));
+
+        // Abort if user removed this feed
+        if (!state.feeds.includes(feedUrl)) break;
+
+        const apiUrl = `/api/feed?batch=1&playlistId=${encodeURIComponent(playlistId)}&continuation=${encodeURIComponent(nextToken)}`;
+        const res = await fetch(apiUrl);
+        if (!res.ok) break;
+
+        const batch = await res.json();
+        if (!batch.episodes || batch.episodes.length === 0) break;
+
+        // Deduplicate against state.allEpisodes
+        const currentGuids = new Set(state.allEpisodes.map(e => e.guid));
+        let addedAny = false;
+
+        for (const ep of batch.episodes) {
+          if (!currentGuids.has(ep.guid)) {
+            currentGuids.add(ep.guid);
+            ep.feedUrl = feedUrl;
+            if (state.feedMetadata[feedUrl]?.title) {
+              ep.podcastTitle = state.feedMetadata[feedUrl].title;
+            }
+            state.allEpisodes.push(ep);
+            addedAny = true;
+          }
+        }
+
+        nextToken = batch.nextToken;
+
+        if (addedAny) {
+          saveCacheToStorage();
+          processAndSortEpisodes();
+          renderTimeline();
+          // Fix: use renderFeedDetail instead of renderFeedDetailView
+          if (state.activeFeedDetailUrl === feedUrl && typeof renderFeedDetail === 'function') {
+            renderFeedDetail(feedUrl);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[YouTube Hydration] Paging stopped:', err);
+    } finally {
+      _activeYtPaginations.delete(playlistId);
+    }
+  }
+
+  function updatePlaylistCountBadges(feedUrl, loadedCount, expectedTotal) {
+    // Target any badge displaying episode count for this feed
+    const badges = document.querySelectorAll(`[data-feed-badge="${feedUrl}"], .feed-item[data-url="${feedUrl}"] .feed-count`);
+
+    badges.forEach(badge => {
+      if (expectedTotal && loadedCount < expectedTotal) {
+        badge.textContent = `${loadedCount} / ${expectedTotal} ep (syncing...)`;
+        badge.classList.add('is-syncing');
+      } else {
+        badge.textContent = `${loadedCount} episodes`;
+        badge.classList.remove('is-syncing');
+      }
+    });
   }
 
   let _lastPositionStateUpdate = 0;
