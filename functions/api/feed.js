@@ -159,6 +159,44 @@ function parseVideosFromInnerTube(data) {
   function extractVideos(obj) {
     if (!obj || typeof obj !== 'object') return;
 
+    // 1. Support modern YouTube lockupViewModel (2024-2026 UI)
+    if (obj.lockupViewModel && (obj.lockupViewModel.contentType === 'LOCKUP_CONTENT_TYPE_VIDEO' || obj.lockupViewModel.contentId)) {
+      const l = obj.lockupViewModel;
+      const vId = l.contentId || l.rendererContext?.commandContext?.onTap?.innertubeCommand?.watchEndpoint?.videoId;
+      if (vId && !seenIds.has(vId)) {
+        seenIds.add(vId);
+        const titleText = l.metadata?.lockupMetadataViewModel?.title?.content 
+          || l.rendererContext?.accessibilityContext?.label 
+          || 'Untitled Video';
+        const authorText = l.metadata?.lockupMetadataViewModel?.metadata?.contentMetadataViewModel?.metadataRows?.[0]?.parts?.[0]?.text?.content || '';
+        const thumb = l.contentImage?.thumbnailViewModel?.image?.sources?.slice(-1)[0]?.url 
+          || `https://i.ytimg.com/vi/${vId}/hqdefault.jpg`;
+        const durText = l.contentImage?.thumbnailViewModel?.overlays?.[0]?.thumbnailBottomOverlayViewModel?.badges?.[0]?.thumbnailBadgeViewModel?.text || '';
+        let durSec = 0;
+        if (durText) {
+          const parts = durText.split(':').map(p => parseInt(p, 10));
+          if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) durSec = parts[0] * 60 + parts[1];
+          else if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) durSec = parts[0] * 3600 + parts[1] * 60 + parts[2];
+        }
+        const epOrderOffset = episodes.length * 60000;
+        const approxTimestamp = now - epOrderOffset;
+
+        episodes.push({
+          guid: `yt:${vId}`,
+          videoId: vId,
+          title: titleText.trim(),
+          podcastTitle: authorText.trim(),
+          artwork: thumb,
+          audioUrl: `https://www.youtube.com/watch?v=${vId}`,
+          duration: durSec ? String(durSec) : '',
+          pubDate: new Date(approxTimestamp).toUTCString(),
+          timestamp: approxTimestamp,
+          isYouTube: true
+        });
+      }
+    }
+
+    // 2. Support classic YouTube playlistVideoRenderer / videoRenderer
     const v = obj.playlistVideoRenderer 
       || obj.playlistPanelVideoRenderer 
       || obj.videoRenderer 
@@ -172,7 +210,7 @@ function parseVideosFromInnerTube(data) {
       const authorText = v.shortBylineText?.runs
         ? v.shortBylineText.runs.map(r => r.text).join('')
         : (v.shortBylineText?.simpleText || v.longBylineText?.runs?.map(r => r.text).join('') || '');
-      const thumb = v.thumbnail?.thumbnails?.slice(-1)[0]?.url || '';
+      const thumb = v.thumbnail?.thumbnails?.slice(-1)[0]?.url || `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`;
       
       let durSec = 0;
       if (v.lengthSeconds) {
@@ -193,8 +231,8 @@ function parseVideosFromInnerTube(data) {
       episodes.push({
         guid: `yt:${v.videoId}`,
         videoId: v.videoId,
-        title: titleText,
-        podcastTitle: authorText,
+        title: titleText.trim(),
+        podcastTitle: authorText.trim(),
         artwork: thumb,
         audioUrl: `https://www.youtube.com/watch?v=${v.videoId}`,
         duration: durSec ? String(durSec) : '',
@@ -239,13 +277,13 @@ async function fetchYouTubePlaylistMetadata(playlistId) {
     if (!res.ok) return null;
     const html = await res.text();
 
-    const countMatch = html.match(/"videoCountText":\s*\{\s*"runs":\s*\[\s*\{\s*"text":\s*"([\d,.]+)"/i) 
-                    || html.match(/"itemCount":\s*"([\d,.]+)"/i)
-                    || html.match(/(\d[\d,.]*)\s+videos/i);
+    let countMatch = html.match(/"videoCountText":\s*\{\s*"runs":\s*\[\s*\{\s*"text":\s*"([\d,.]+)"/i) 
+                  || html.match(/"itemCount":\s*"([\d,.]+)"/i)
+                  || html.match(/(\d[\d,.]*)\s+(?:videos|Videos|Titel)/i);
     
-    const count = countMatch ? parseInt(countMatch[1].replace(/[,.]/g, ''), 10) : null;
+    let count = countMatch ? parseInt(countMatch[1].replace(/[,.]/g, ''), 10) : null;
     const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
-    const title = titleMatch ? titleMatch[1].replace(/ - YouTube$/i, '').trim() : '';
+    let title = titleMatch ? titleMatch[1].replace(/ - YouTube$/i, '').trim() : '';
 
     let initialBatch = null;
     try {
@@ -254,6 +292,17 @@ async function fetchYouTubePlaylistMetadata(playlistId) {
         const parsed = parseVideosFromInnerTube(initialData);
         if (parsed.episodes && parsed.episodes.length > 0) {
           initialBatch = parsed;
+        }
+        if (!count) {
+          const matchFromData = JSON.stringify(initialData).match(/(\d[\d,.]*)\s*(?:Videos|videos|Titel|tracks|episodes)/i);
+          if (matchFromData) {
+            count = parseInt(matchFromData[1].replace(/[,.]/g, ''), 10);
+          } else if (initialBatch?.episodes?.length) {
+            count = initialBatch.episodes.length;
+          }
+        }
+        if (!title && initialData.header?.pageHeaderRenderer?.pageTitle) {
+          title = initialData.header.pageHeaderRenderer.pageTitle;
         }
       }
     } catch (_) {}

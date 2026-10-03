@@ -5684,11 +5684,18 @@
     const loadedCount = episodes.length;
     const expectedTotal = meta.episodesCount || totalCount;
 
+    const isPaging = (typeof _activeYtPaginations !== 'undefined') && (
+      (meta.playlistId && _activeYtPaginations.has(meta.playlistId)) ||
+      (feedUrl.includes('list=') && _activeYtPaginations.has(feedUrl.split('list=')[1].split('&')[0]))
+    );
+
     const badgeText = q
       ? `${loadedCount} / ${expectedTotal} episodes`
-      : (expectedTotal && loadedCount < expectedTotal)
+      : (expectedTotal && loadedCount < expectedTotal && isPaging)
         ? `${loadedCount} / ${expectedTotal} episodes (syncing...)`
-        : `${loadedCount} episodes`;
+        : (expectedTotal && loadedCount < expectedTotal)
+          ? `${loadedCount} / ${expectedTotal} episodes`
+          : `${loadedCount} episodes`;
 
     if (header.dataset.feedUrl !== feedUrl) {
       header.dataset.feedUrl = feedUrl;
