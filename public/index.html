@@ -22,15 +22,21 @@
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="apple-touch-icon" href="/icon.svg">
 
-  <!-- Fonts & App Styles loaded non-blockingly via media="print" switch -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://is1-ssl.mzstatic.com" crossorigin>
+
+  <!-- External Font Preconnects -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- Google Fonts (Non-blocking via print switch) -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" media="print" id="google-fonts-link">
-  <link rel="stylesheet" href="/style.css?v=20260925_player_v5" media="print" id="app-style-link">
-  
   <noscript>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap">
-    <link rel="stylesheet" href="/style.css?v=20260925_player_v5">
   </noscript>
 
+  <!-- Local dev stylesheet (auto-inlined into <style> by build.js for production) -->
   <link rel="stylesheet" href="/style.css?v=20260925_player_v5">
 </head>
 <body>
