@@ -275,7 +275,7 @@ function inPageSetup(continueData, timelineData, feedsData) {
     card.className = 'episode-card' + (item.active ? ' playing' : '');
 
     let cardHtml = '<div class="episode-card-top">';
-    cardHtml += '<img class="episode-artwork" src="' + item.art + '">';
+    cardHtml += '<img class="episode-artwork" loading="lazy" decoding="async" width="48" height="48" src="' + item.art + '">';
     cardHtml += '<div class="episode-header-info">';
     cardHtml += '<div class="episode-podcast-name">' + item.pod + '</div>';
     cardHtml += '<div class="episode-title">' + item.title + '</div>';
@@ -317,7 +317,7 @@ function inPageSetup(continueData, timelineData, feedsData) {
     const fCard = document.createElement('div');
     fCard.className = 'feed-card';
     let fHtml = '<div class="feed-header">';
-    fHtml += '<img class="feed-art" src="' + f.art + '">';
+    fHtml += '<img class="feed-art" loading="lazy" decoding="async" width="48" height="48" src="' + f.art + '">';
     fHtml += '<div class="feed-info">';
     fHtml += '<h4>' + f.title + '</h4>';
     fHtml += '<p>' + f.episodes + ' • ' + f.author + '</p>';

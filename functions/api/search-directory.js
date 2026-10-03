@@ -11,7 +11,8 @@ export async function onRequestGet(context) {
 
   const corsHeaders = {
     'Content-Type': 'application/json; charset=utf-8',
-    'Access-Control-Allow-Origin': '*'
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS'
   };
 
   if (!term.trim()) {
@@ -40,21 +41,21 @@ export async function onRequestGet(context) {
     });
 
     if (!res.ok) {
-      // Return upstream status (e.g., 429) so app.js knows to fall back to direct browser fetch
-      return new Response(JSON.stringify({ error: `Directory upstream status ${res.status}`, rateLimited: res.status === 429 }), {
-        status: res.status,
+      // Graceful fallback on rate limits (429) or upstream errors:
+      // Return 200 with an empty list + flag so the client doesn't trigger direct CORS-failing fetches
+      return new Response(JSON.stringify({ resultCount: 0, results: [], rateLimited: res.status === 429 }), {
+        status: 200,
         headers: {
           ...corsHeaders,
-          'Cache-Control': 'no-store'
+          'Cache-Control': res.status === 429 ? 'public, max-age=60' : 'no-store'
         }
       });
     }
 
     const data = await res.text();
     const parsed = JSON.parse(data);
-
-    // Only cache if iTunes actually returned results
     const hasResults = parsed.results && parsed.results.length > 0;
+
     const response = new Response(data, {
       headers: {
         ...corsHeaders,
@@ -70,9 +71,12 @@ export async function onRequestGet(context) {
 
     return response;
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: corsHeaders
+    return new Response(JSON.stringify({ resultCount: 0, results: [], error: err.message }), {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        'Cache-Control': 'no-store'
+      }
     });
   }
 }
