@@ -2,27 +2,29 @@
  * Cloudflare Pages Middleware
  * 
  * 1. Canonical Domain Redirection:
- *    Redirects 'www.anypod.org' -> 'anypod.org' (HTTP 301 Permanent).
- *    In modern web apps (Spotify, GitHub, Stripe), having both www and apex serve
- *    the app splits localStorage (cached audio, history, downloads) and sessions.
- *    Enforcing apex anypod.org ensures single unified storage, single auth state, and optimal SEO.
+ *    Leitet 'www.anypod.org' -> 'anypod.org' weiter (HTTP 301).
  * 
- * 2. Security & Caching headers.
+ * 2. Subdomain Routing:
+ *    dj.anypod.org liefert an der Root '/' direkt /dj.html aus.
  */
 
 export async function onRequest(context) {
   const url = new URL(context.request.url);
+  const hostname = url.hostname.toLowerCase();
 
-  // Canonical Redirect www.anypod.org -> anypod.org
-  if (url.hostname.toLowerCase() === 'www.anypod.org') {
+  // 1. Canonical Redirect www.anypod.org -> anypod.org
+  if (hostname === 'www.anypod.org') {
     url.hostname = 'anypod.org';
     return Response.redirect(url.toString(), 301);
   }
 
-  // dj.anypod.org serves the DJ app at its root (same Pages project)
-  if (url.hostname.toLowerCase() === 'dj.anypod.org' && (url.pathname === '/' || url.pathname === '/index.html')) {
-    url.pathname = '/dj.html';
-    return context.env.ASSETS.fetch(new Request(url.toString(), context.request));
+  // 2. dj.anypod.org bedient die DJ-App an der Root
+  if (hostname === 'dj.anypod.org') {
+    if (url.pathname === '/' || url.pathname === '/index.html') {
+      // Direktes Umschreiben des Pfads auf das Ziel-Asset
+      const assetUrl = new URL('/dj.html', url.origin);
+      return context.env.ASSETS.fetch(assetUrl);
+    }
   }
 
   return context.next();
