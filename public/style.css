@@ -2500,9 +2500,38 @@ mark.search-highlight {
 .feeds-filter-bar {
   margin-bottom: 1rem;
   width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.feeds-filter-bar.hidden {
+  display: none;
+}
+
+.feeds-sort-select {
+  flex-shrink: 0;
+  margin-left: auto;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-full);
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  max-width: 45%;
+}
+
+.feeds-sort-select:hover,
+.feeds-sort-select:focus {
+  color: var(--text-primary);
+  outline: none;
 }
 
 .feeds-filter-chips {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -7129,4 +7158,157 @@ body.has-active-episode.has-mini-player .player-mini {
   font-size: inherit;
   padding: 0;
 }
+
+/* ── Apple-Style Volume Popover ────────────────────────────────── */
+.volume-popover-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.volume-popover-card {
+  position: absolute;
+  bottom: calc(100% + 14px);
+  right: 0;
+  transform: none;
+  background: rgba(24, 24, 27, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  padding: 0.55rem 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  z-index: 1200;
+  white-space: nowrap;
+  animation: popover-fadein 0.18s ease-out;
+}
+
+@keyframes popover-fadein {
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.volume-popover-card.hidden {
+  display: none !important;
+}
+
+.volume-popover-mute-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  transition: color 0.15s ease;
+}
+
+.volume-popover-mute-btn:hover {
+  color: var(--text-primary);
+}
+
+.volume-slider-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.volume-slider-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.volume-slider-range::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.volume-popover-percent {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 32px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 2026 Storage Permission Banner ────────────────────────────── */
+.storage-permission-banner {
+  background: rgba(234, 88, 12, 0.12);
+  border: 1px solid rgba(234, 88, 12, 0.35);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1.25rem;
+  margin: 1rem 0 1.25rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  animation: popover-fadein 0.25s ease;
+}
+
+.storage-permission-banner.hidden {
+  display: none !important;
+}
+
+.storage-banner-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.storage-banner-icon {
+  color: #ea580c;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.storage-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+
+.storage-banner-text strong {
+  font-size: 0.95rem;
+  color: #ea580c;
+}
+
+.storage-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .storage-permission-banner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.85rem;
+  }
+  .storage-banner-actions {
+    justify-content: flex-end;
+  }
+}
+
+
 

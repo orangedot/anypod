@@ -13,16 +13,23 @@
   var EXP_KEY = 'anypod_experimental_settings';
   var FIRST_LAUNCH_KEY = 'anypod_first_launch';
 
-  // Only set defaults if this is a fresh install (no first-launch marker).
-  if (!localStorage.getItem(FIRST_LAUNCH_KEY)) {
-    var defaults = {
-      enableVisualizer: true,
-      enableAudioClassifier: false,
-      showJumpButtons: false,
-      autoSkipSpeech: false,
-      enableTranscript: false
-    };
-    localStorage.setItem(EXP_KEY, JSON.stringify(defaults));
-    localStorage.setItem(FIRST_LAUNCH_KEY, 'true');
+  try {
+    // Only set defaults if this is a fresh install (no first-launch marker).
+    if (!window.localStorage || !localStorage.getItem(FIRST_LAUNCH_KEY)) {
+      var defaults = {
+        enableVisualizer: true,
+        enableAudioClassifier: false,
+        showJumpButtons: false,
+        autoSkipSpeech: false,
+        enableTranscript: false
+      };
+      if (window.localStorage) {
+        localStorage.setItem(EXP_KEY, JSON.stringify(defaults));
+        localStorage.setItem(FIRST_LAUNCH_KEY, 'true');
+      }
+    }
+  } catch (err) {
+    // Chrome storage blocked / Incognito storage restriction
+    console.warn('[settings.js] Storage access denied or blocked by browser:', err.message);
   }
 })();

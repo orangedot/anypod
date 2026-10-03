@@ -123,6 +123,73 @@
   // SECTION 1 · Constants & Configuration
   // ─────────────────────────────────────────────────────────────────────────
 
+  // ── Safe Storage Fallback Proxy ──────────────────────────────────────────
+  // Chrome / Webview can deny access to window.localStorage if third-party cookies
+  // or site data are restricted. We proxy storage access into an in-memory dictionary
+  // so the entire application UI and playback continue functioning seamlessly without fatal errors.
+  let isStorageBlocked = false;
+  const memoryStore = {};
+
+  const safeStorage = {
+    getItem(key) {
+      try {
+        if (window.localStorage) return window.localStorage.getItem(key);
+      } catch (e) {
+        isStorageBlocked = true;
+      }
+      return Object.prototype.hasOwnProperty.call(memoryStore, key) ? memoryStore[key] : null;
+    },
+    setItem(key, value) {
+      const valStr = String(value);
+      try {
+        if (window.localStorage) {
+          window.localStorage.setItem(key, valStr);
+          return;
+        }
+      } catch (e) {
+        isStorageBlocked = true;
+      }
+      memoryStore[key] = valStr;
+    },
+    removeItem(key) {
+      try {
+        if (window.localStorage) {
+          window.localStorage.removeItem(key);
+          return;
+        }
+      } catch (e) {
+        isStorageBlocked = true;
+      }
+      delete memoryStore[key];
+    },
+    clear() {
+      try {
+        if (window.localStorage) {
+          window.localStorage.clear();
+          return;
+        }
+      } catch (e) {
+        isStorageBlocked = true;
+      }
+      for (const k in memoryStore) delete memoryStore[k];
+    }
+  };
+
+  // Test storage access once at startup
+  try {
+    const testKey = '__storage_test__';
+    window.localStorage.setItem(testKey, '1');
+    window.localStorage.removeItem(testKey);
+  } catch (_) {
+    isStorageBlocked = true;
+    console.warn('[anypod] Browser local storage access is restricted. Using memory store with permission banner.');
+  }
+
+  // Alias localStorage inside this function scope so any existing call
+  // automatically falls back gracefully if browser blocks storage
+  const storage = safeStorage;
+  const localStorage = safeStorage;
+
   const STORAGE_KEYS = {
     FEEDS: 'anypod_feeds',
     MUTED_FEEDS: 'anypod_muted_feeds',
@@ -478,7 +545,7 @@
     },
     showRemainingTime: true,
     isTabActive: typeof document !== 'undefined' ? !document.hidden : true,
-    autoplayEnabled: localStorage.getItem(STORAGE_KEYS.AUTOPLAY) !== 'false',
+    autoplayEnabled: safeStorage.getItem(STORAGE_KEYS.AUTOPLAY) !== 'false',
     playbackContext: {
       type: 'timeline',
       id: '',
@@ -661,6 +728,14 @@
     miniToggle: document.getElementById('mini-toggle'),
     miniProgressFill: document.getElementById('mini-progress-fill'),
 
+    // Volume Popover Controls
+    btnPlayerVolume: document.getElementById('btn-player-volume'),
+    btnMiniVolume: document.getElementById('btn-mini-volume'),
+    volumePopover: document.getElementById('volume-popover'),
+    volumeSlider: document.getElementById('volume-slider'),
+    volumePercentLabel: document.getElementById('volume-percent-label'),
+    btnVolumeMute: document.getElementById('btn-volume-mute'),
+
     // Full-Episode Waveform & Speech/Music Timeline Chart
     timeScrubber: document.getElementById('time-scrubber'),
     timelineLegend: document.getElementById('timeline-legend'),
@@ -691,6 +766,12 @@
     liveCaptionPopup: document.getElementById('live-caption-popup'),
     liveCaptionText: document.getElementById('live-caption-text'),
     btnCloseCaption: document.getElementById('btn-close-caption'),
+
+    // Storage permission banner
+    storagePermissionBanner: document.getElementById('storage-permission-banner'),
+    btnRequestStorage: document.getElementById('btn-request-storage'),
+    btnRetryStorage: document.getElementById('btn-retry-storage'),
+    btnDismissStorage: document.getElementById('btn-dismiss-storage'),
   };
   document.addEventListener('visibilitychange', () => {
     state.isTabActive = !document.hidden;
@@ -1180,6 +1261,16 @@
     loadExperimentalSettings();
     setupExperimentalSettings();
     restoreLastActiveEpisode();
+    checkStoragePermissionAlert();
+  }
+
+  function checkStoragePermissionAlert() {
+    if (!elements.storagePermissionBanner) return;
+    if (isStorageBlocked) {
+      elements.storagePermissionBanner.classList.remove('hidden');
+    } else {
+      elements.storagePermissionBanner.classList.add('hidden');
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -5028,7 +5119,84 @@
     });
   }
 
+  const FEEDS_SORT_KEY = 'anypod_feeds_sort';
+  const isYouTubeFeedUrl = (url) => /youtube\.com|youtu\.be/i.test(url || '');
+
+  function getFeedsSortOrder() {
+    return localStorage.getItem(FEEDS_SORT_KEY) || 'recent';
+  }
+
+  function sortFeedsForGrid(urls) {
+    const order = getFeedsSortOrder();
+    const addedIndex = new Map(state.feeds.map((u, i) => [u, i]));
+    const titleOf = (u) => ((state.feedMetadata[u] || {}).title || u).toLowerCase();
+
+    // One pass over all episodes → per-feed stats
+    const stats = new Map();
+    urls.forEach(u => stats.set(u, { lastPlayed: 0, newest: 0, unplayed: 0 }));
+    state.allEpisodes.forEach(ep => {
+      const s = stats.get(ep.feedUrl);
+      if (!s) return;
+      const ts = ep.timestamp || 0;
+      if (ts > s.newest) s.newest = ts;
+      const pos = state.playbackPositions[ep.guid];
+      if (pos && pos.lastListenedAt) {
+        // lastListenedAt may be stored in seconds or ms — normalise to ms
+        const l = pos.lastListenedAt < 1e12 ? pos.lastListenedAt * 1000 : pos.lastListenedAt;
+        if (l > s.lastPlayed) s.lastPlayed = l;
+      }
+      if (!pos || (!pos.completed && (!pos.position || pos.position <= 2))) s.unplayed++;
+    });
+
+    const byName = (a, b) => titleOf(a).localeCompare(titleOf(b));
+    const sorted = [...urls];
+    switch (order) {
+      case 'newest':
+        sorted.sort((a, b) => stats.get(b).newest - stats.get(a).newest || byName(a, b));
+        break;
+      case 'unplayed':
+        sorted.sort((a, b) => stats.get(b).unplayed - stats.get(a).unplayed || byName(a, b));
+        break;
+      case 'name-asc':
+        sorted.sort(byName);
+        break;
+      case 'name-desc':
+        sorted.sort((a, b) => byName(b, a));
+        break;
+      case 'added-desc':
+        sorted.sort((a, b) => addedIndex.get(b) - addedIndex.get(a));
+        break;
+      case 'added-asc':
+        sorted.sort((a, b) => addedIndex.get(a) - addedIndex.get(b));
+        break;
+      case 'type':
+        sorted.sort((a, b) => (isYouTubeFeedUrl(a) - isYouTubeFeedUrl(b)) || byName(a, b));
+        break;
+      case 'recent':
+      default:
+        // Last played first; never-played feeds fall back to newest episode
+        sorted.sort((a, b) => {
+          const sa = stats.get(a), sb = stats.get(b);
+          if (sa.lastPlayed || sb.lastPlayed) return sb.lastPlayed - sa.lastPlayed;
+          return sb.newest - sa.newest;
+        });
+    }
+    return sorted;
+  }
+
+  function setupFeedsSortSelect() {
+    const sel = document.getElementById('feeds-sort-order');
+    if (!sel || sel.dataset.wired) return;
+    sel.dataset.wired = '1';
+    sel.value = getFeedsSortOrder();
+    sel.addEventListener('change', () => {
+      localStorage.setItem(FEEDS_SORT_KEY, sel.value);
+      renderFeedsGrid();
+    });
+  }
+
   function renderFeedsGrid() {
+    setupFeedsSortSelect();
     updateDockVisibility();
     const grid = elements.feedsGrid;
     grid.innerHTML = '';
@@ -5077,6 +5245,8 @@
       `;
       return;
     }
+
+    feedsToRender = sortFeedsForGrid(feedsToRender);
 
     feedsToRender.forEach(url => {
       const meta = state.feedMetadata[url] || {};
@@ -7745,15 +7915,137 @@ function setPlayerCollapsed(collapsed, save = true) {
       if (elements.audio) {
         const newVol = Math.max(0, Math.min(1, elements.audio.volume + delta));
         elements.audio.volume = newVol;
+        syncVolumeUI(newVol, elements.audio.muted);
         showStatus(`Volume ${Math.round(newVol * 100)}%`);
       }
     }
 
+    function syncVolumeUI(vol, isMuted) {
+      const effectiveVol = isMuted ? 0 : vol;
+      const pct = Math.round(effectiveVol * 100);
+
+      if (elements.volumeSlider) {
+        elements.volumeSlider.value = isMuted ? 0 : vol;
+      }
+      if (elements.volumePercentLabel) {
+        elements.volumePercentLabel.textContent = `${pct}%`;
+      }
+
+      const isZero = effectiveVol === 0 || isMuted;
+      const isLow = effectiveVol > 0 && effectiveVol < 0.5 && !isMuted;
+      const isHigh = effectiveVol >= 0.5 && !isMuted;
+
+      [elements.btnPlayerVolume, elements.btnMiniVolume].forEach(btn => {
+        if (!btn) return;
+        const iconHigh = btn.querySelector('.icon-vol-high');
+        const iconLow = btn.querySelector('.icon-vol-low');
+        const iconMute = btn.querySelector('.icon-vol-mute');
+
+        if (iconHigh) iconHigh.classList.toggle('hidden', !isHigh);
+        if (iconLow) iconLow.classList.toggle('hidden', !isLow);
+        if (iconMute) iconMute.classList.toggle('hidden', !isZero);
+      });
+    }
+
+    function toggleVolumePopover(targetAnchor) {
+      if (!elements.volumePopover) return;
+      const card = elements.volumePopover;
+      const isHidden = card.classList.contains('hidden');
+
+      if (isHidden) {
+        // Move popover into targetAnchor container if needed for proper positioning
+        if (targetAnchor && card.parentElement !== targetAnchor) {
+          targetAnchor.appendChild(card);
+        }
+        card.classList.remove('hidden');
+        if (elements.audio) {
+          syncVolumeUI(elements.audio.volume, elements.audio.muted);
+        }
+      } else {
+        card.classList.add('hidden');
+      }
+    }
+
+    if (elements.btnPlayerVolume) {
+      elements.btnPlayerVolume.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const wrap = elements.btnPlayerVolume.closest('.volume-popover-wrap');
+        toggleVolumePopover(wrap);
+      });
+    }
+
+    if (elements.btnMiniVolume) {
+      elements.btnMiniVolume.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const wrap = elements.btnMiniVolume.closest('.volume-popover-wrap');
+        toggleVolumePopover(wrap);
+      });
+    }
+
+    if (elements.volumeSlider) {
+      elements.volumeSlider.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        if (elements.audio) {
+          elements.audio.volume = val;
+          if (val > 0 && elements.audio.muted) elements.audio.muted = false;
+          syncVolumeUI(val, elements.audio.muted);
+        }
+      });
+    }
+
+    if (elements.btnVolumeMute) {
+      elements.btnVolumeMute.addEventListener('click', (e) => {
+        e.stopPropagation();
+        togglePlayerMute();
+      });
+    }
+
+    // Dismiss volume popover when clicking outside
+    document.addEventListener('click', (e) => {
+      if (elements.volumePopover && !elements.volumePopover.classList.contains('hidden')) {
+        if (!e.target.closest('.volume-popover-wrap') && !e.target.closest('#volume-popover')) {
+          elements.volumePopover.classList.add('hidden');
+        }
+      }
+    });
+
     function togglePlayerMute() {
       if (elements.audio) {
         elements.audio.muted = !elements.audio.muted;
+        syncVolumeUI(elements.audio.volume, elements.audio.muted);
         showStatus(elements.audio.muted ? 'Muted' : 'Unmuted');
       }
+    }
+
+    // Storage permission banner actions
+    if (elements.btnRetryStorage) {
+      elements.btnRetryStorage.addEventListener('click', async () => {
+        // Try requesting storage access first in case the browser allows programmatic prompt
+        if (typeof document.requestStorageAccess === 'function') {
+          try { await document.requestStorageAccess(); } catch (_) {}
+        }
+        if (navigator.storage && typeof navigator.storage.persist === 'function') {
+          try { await navigator.storage.persist(); } catch (_) {}
+        }
+
+        try {
+          const testKey = '__storage_test__';
+          window.localStorage.setItem(testKey, '1');
+          window.localStorage.removeItem(testKey);
+          isStorageBlocked = false;
+          if (elements.storagePermissionBanner) elements.storagePermissionBanner.classList.add('hidden');
+          showStatus('Storage access enabled! Reloading to load your saved data...');
+          setTimeout(() => window.location.reload(), 600);
+        } catch (_) {
+          showStatus('Still blocked. Please click the crossed eye icon (🚫👁️) in your Chrome URL bar and choose "Allow".');
+        }
+      });
+    }
+
+    if (elements.btnDismissStorage) {
+      elements.btnDismissStorage.addEventListener('click', () => {
+        if (elements.storagePermissionBanner) elements.storagePermissionBanner.classList.add('hidden');
+      });
     }
 
     // Modern 2026 Player Keyboard Shortcuts (Spotify / Apple Podcasts / YouTube UX)
