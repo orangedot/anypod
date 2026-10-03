@@ -180,75 +180,190 @@
   const crateAdd = document.getElementById('crate-add');
   const crateUrl = document.getElementById('crate-url');
   const crateCount = document.getElementById('crate-count');
+  const crateSearchInput = document.getElementById('crate-search-input');
+  const btnClearCrateSearch = document.getElementById('btn-clear-crate-search');
+  const crateTabs = document.querySelectorAll('.crate-tab');
+
+  let activeCrateTab = 'all';
+  let crateSearchQuery = '';
 
   crateToggle.addEventListener('click', () => {
     const open = crateEl.classList.toggle('open');
     crateToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-    crateToggle.innerHTML = `${open ? '▼' : '▲'} Crate <span id="crate-count">${crateTracks.length}</span>`;
+    crateToggle.innerHTML = `${open ? '▼' : '▲'} Crate <span id="crate-count">${filteredCrateTracks().length}</span>`;
   });
 
-  let crateTracks = [];
+  let rawCrateTracks = [];
 
   function loadCrateFromStorage() {
-    crateTracks = [];
+    rawCrateTracks = [];
+    const seenUrls = new Set();
+
+    const addTrack = (item, source) => {
+      if (!item) return;
+      const url = item.audioUrl || item.url;
+      if (!url || seenUrls.has(url)) return;
+      seenUrls.add(url);
+      rawCrateTracks.push({
+        guid: item.guid || url,
+        title: item.title || 'Untitled Episode',
+        podcastTitle: item.podcastTitle || item.author || '',
+        description: item.description || item.content || '',
+        content: item.content || '',
+        url: url,
+        source: source || 'cached'
+      });
+    };
+
     try {
-      // 1. Check anypod playback queue
+      // 1. Up Next Queue
       const q = JSON.parse(localStorage.getItem('anypod_playback_queue') || '[]');
       const eps = JSON.parse(localStorage.getItem('anypod_cached_episodes') || '{}');
       if (Array.isArray(q)) {
-        q.forEach((item) => {
+        q.forEach(item => {
           const ep = eps[item.guid] || item;
-          if (ep && (ep.audioUrl || ep.url)) {
-            crateTracks.push({
-              title: ep.title || 'Podcast Episode',
-              url: ep.audioUrl || ep.url
-            });
-          }
+          addTrack(ep, 'queue');
         });
+      }
+
+      // 2. Favorites
+      const favs = JSON.parse(localStorage.getItem('anypod_favorites') || '[]');
+      if (Array.isArray(favs)) {
+        favs.forEach(item => {
+          const ep = eps[item.guid] || item;
+          addTrack(ep, 'favorites');
+        });
+      }
+
+      // 3. All cached episodes from your subscribed feeds
+      if (eps && typeof eps === 'object') {
+        Object.values(eps).forEach(ep => addTrack(ep, 'cached'));
       }
     } catch (_) {}
 
-    // Add sample tracks if empty
-    if (crateTracks.length === 0) {
-      crateTracks.push(
-        { title: 'Sample 1: Synth Loop', url: 'https://cdn.freesound.org/previews/381/381382_1676145-lq.mp3' },
-        { title: 'Sample 2: Funk Beat', url: 'https://cdn.freesound.org/previews/242/242857_4284968-lq.mp3' }
+    // Add sample tracks if completely empty
+    if (rawCrateTracks.length === 0) {
+      rawCrateTracks.push(
+        { title: 'Synth Loop Beat', podcastTitle: 'Sample Pack', description: 'Electronic synth loop', url: 'https://cdn.freesound.org/previews/381/381382_1676145-lq.mp3', source: 'sample' },
+        { title: 'Funk Beat Loop', podcastTitle: 'Sample Pack', description: 'Funky drums sample', url: 'https://cdn.freesound.org/previews/242/242857_4284968-lq.mp3', source: 'sample' }
       );
     }
+
     renderCrate();
+  }
+
+  function filteredCrateTracks() {
+    let list = rawCrateTracks;
+
+    // Filter by tab
+    if (activeCrateTab === 'queue') {
+      list = list.filter(t => t.source === 'queue');
+    } else if (activeCrateTab === 'favorites') {
+      list = list.filter(t => t.source === 'favorites');
+    } else if (activeCrateTab === 'cached') {
+      list = list.filter(t => t.source === 'cached');
+    }
+
+    // In-depth multi-term search
+    if (crateSearchQuery) {
+      const terms = crateSearchQuery.toLowerCase().split(/\s+/).filter(Boolean);
+      list = list.filter(t => {
+        const title = (t.title || '').toLowerCase();
+        const pod = (t.podcastTitle || '').toLowerCase();
+        const desc = (t.content || t.description || '').toLowerCase();
+        const url = (t.url || '').toLowerCase();
+        return terms.every(term => title.includes(term) || pod.includes(term) || desc.includes(term) || url.includes(term));
+      });
+    }
+
+    return list;
+  }
+
+  function highlightCrateText(str, query) {
+    if (!str) return '';
+    const safe = str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    if (!query || query.trim().length < 2) return safe;
+    const terms = query.trim().toLowerCase().split(/\s+/).filter(t => t.length >= 2);
+    if (terms.length === 0) return safe;
+    const pattern = terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+    return safe.replace(new RegExp(`(${pattern})`, 'gi'), '<mark style="background:#ffcc00;color:#000;border-radius:2px;padding:0 2px;">$1</mark>');
   }
 
   function renderCrate() {
     crateList.innerHTML = '';
-    crateCount.textContent = crateTracks.length;
-    crateTracks.forEach((t, i) => {
+    const visibleTracks = filteredCrateTracks();
+    crateCount.textContent = visibleTracks.length;
+
+    if (visibleTracks.length === 0) {
+      crateList.innerHTML = `
+        <li style="padding: 18px 10px; text-align: center; color: var(--muted); font-size: 11px;">
+          ${crateSearchQuery ? `No episodes matching "${crateSearchQuery}"` : 'No episodes in this tab. Try searching or paste an audio URL.'}
+        </li>
+      `;
+      return;
+    }
+
+    visibleTracks.forEach((t) => {
       const li = document.createElement('li');
       li.className = 'crate-item';
+      const metaText = t.podcastTitle || (t.source === 'queue' ? 'Queue' : (t.source === 'favorites' ? 'Favorite' : ''));
       li.innerHTML = `
-        <span class="crate-item-title">${t.title}</span>
+        <div class="crate-item-main">
+          <span class="crate-item-title">${highlightCrateText(t.title, crateSearchQuery)}</span>
+          ${metaText ? `<span class="crate-item-meta">${highlightCrateText(metaText, crateSearchQuery)}</span>` : ''}
+        </div>
         <div class="crate-item-actions">
-          <button class="btn-load btn-load-a" data-action="load-a" data-idx="${i}">Load A</button>
-          <button class="btn-load btn-load-b" data-action="load-b" data-idx="${i}">Load B</button>
+          <button class="btn-load btn-load-a" data-action="load-a">Load A</button>
+          <button class="btn-load btn-load-b" data-action="load-b">Load B</button>
         </div>
       `;
+
+      li.querySelector('[data-action="load-a"]').addEventListener('click', () => {
+        mixer.loadTrack('A', t.url, { title: t.title, artist: t.podcastTitle });
+        crateEl.classList.remove('open');
+      });
+
+      li.querySelector('[data-action="load-b"]').addEventListener('click', () => {
+        mixer.loadTrack('B', t.url, { title: t.title, artist: t.podcastTitle });
+        crateEl.classList.remove('open');
+      });
+
       crateList.appendChild(li);
     });
   }
 
-  crateList.addEventListener('click', (e) => {
-    const btn = e.target.closest('button');
-    if (!btn) return;
-    const idx = parseInt(btn.dataset.idx, 10);
-    const track = crateTracks[idx];
-    if (!track) return;
+  // Search input events
+  if (crateSearchInput) {
+    let searchDebounce = null;
+    crateSearchInput.addEventListener('input', (e) => {
+      const val = e.target.value.trim();
+      crateSearchQuery = val;
+      if (btnClearCrateSearch) {
+        btnClearCrateSearch.classList.toggle('hidden', !val);
+      }
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(renderCrate, 250);
+    });
 
-    if (btn.dataset.action === 'load-a') {
-      mixer.loadTrack('A', track.url, { title: track.title });
-      crateEl.classList.remove('open');
-    } else if (btn.dataset.action === 'load-b') {
-      mixer.loadTrack('B', track.url, { title: track.title });
-      crateEl.classList.remove('open');
+    if (btnClearCrateSearch) {
+      btnClearCrateSearch.addEventListener('click', () => {
+        crateSearchInput.value = '';
+        crateSearchQuery = '';
+        btnClearCrateSearch.classList.add('hidden');
+        renderCrate();
+        crateSearchInput.focus();
+      });
     }
+  }
+
+  // Tabs
+  crateTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      crateTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      activeCrateTab = tab.dataset.tab;
+      renderCrate();
+    });
   });
 
   crateAdd.addEventListener('submit', (e) => {
@@ -256,7 +371,7 @@
     const url = crateUrl.value.trim();
     if (!url) return;
     const title = url.split('/').pop().split('?')[0] || 'Custom Track';
-    crateTracks.unshift({ title, url });
+    rawCrateTracks.unshift({ title, url, podcastTitle: 'Custom Stream', source: 'queue' });
     crateUrl.value = '';
     renderCrate();
   });

@@ -85,9 +85,22 @@
     <section class="crate" id="crate" aria-label="Playlist / Crate">
       <button class="crate-toggle" id="crate-toggle" aria-expanded="false">▲ Crate <span id="crate-count">0</span></button>
       <div class="crate-body">
+        <div class="crate-toolbar">
+          <div class="crate-search-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="crate-search-input" placeholder="Search my episodes & podcasts..." autocomplete="off">
+            <button type="button" id="btn-clear-crate-search" class="crate-btn-clear hidden">✕</button>
+          </div>
+          <div class="crate-tabs">
+            <button type="button" class="crate-tab active" data-tab="all">All</button>
+            <button type="button" class="crate-tab" data-tab="queue">Queue</button>
+            <button type="button" class="crate-tab" data-tab="favorites">Favorites</button>
+            <button type="button" class="crate-tab" data-tab="cached">All Episodes</button>
+          </div>
+        </div>
         <form class="crate-add" id="crate-add">
-          <input type="url" id="crate-url" placeholder="Paste audio URL (mp3, m4a…)" autocomplete="off">
-          <button type="submit">Add</button>
+          <input type="url" id="crate-url" placeholder="Paste custom audio / RSS episode URL..." autocomplete="off">
+          <button type="submit">Add URL</button>
         </form>
         <ul class="crate-list" id="crate-list"></ul>
       </div>
