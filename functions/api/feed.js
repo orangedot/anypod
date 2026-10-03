@@ -24,8 +24,14 @@ export async function onRequest(context) {
 
   if (isBatch && playlistId) {
     try {
-      const batchData = await fetchYouTubePlaylistBatch(playlistId, continuation);
-      return new Response(JSON.stringify(batchData), {
+      let batchData = await fetchYouTubePlaylistBatch(playlistId, continuation);
+      if ((!batchData || batchData.episodes.length === 0) && !continuation) {
+        const meta = await fetchYouTubePlaylistMetadata(playlistId);
+        if (meta?.initialBatch && meta.initialBatch.episodes.length > 0) {
+          batchData = meta.initialBatch;
+        }
+      }
+      return new Response(JSON.stringify(batchData || { episodes: [], nextToken: null }), {
         headers: corsHeaders,
         status: 200
       });
@@ -93,7 +99,134 @@ export async function onRequest(context) {
 }
 
 /**
- * Scrapes public playlist page for title and true total video count.
+ * Safely extracts ytInitialData JSON object from YouTube HTML without regex catastrophic backtracking.
+ */
+function extractYtInitialData(html) {
+  if (!html) return null;
+  const marker = 'ytInitialData';
+  const markerIdx = html.indexOf(marker);
+  if (markerIdx === -1) return null;
+
+  const equalIdx = html.indexOf('=', markerIdx + marker.length);
+  if (equalIdx === -1 || equalIdx - markerIdx > 20) return null;
+
+  const jsonStart = html.indexOf('{', equalIdx);
+  if (jsonStart === -1 || jsonStart - equalIdx > 10) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = jsonStart; i < html.length; i++) {
+    const char = html[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (char === '\\') {
+      escape = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (!inString) {
+      if (char === '{') depth++;
+      else if (char === '}') {
+        depth--;
+        if (depth === 0) {
+          try {
+            return JSON.parse(html.slice(jsonStart, i + 1));
+          } catch (_) {
+            return null;
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Parses videos and continuation tokens from any InnerTube/ytInitialData structure.
+ */
+function parseVideosFromInnerTube(data) {
+  const episodes = [];
+  const seenIds = new Set();
+  let nextToken = null;
+  const now = Date.now();
+
+  function extractVideos(obj) {
+    if (!obj || typeof obj !== 'object') return;
+
+    const v = obj.playlistVideoRenderer 
+      || obj.playlistPanelVideoRenderer 
+      || obj.videoRenderer 
+      || obj.compactVideoRenderer;
+
+    if (v && v.videoId && !seenIds.has(v.videoId)) {
+      seenIds.add(v.videoId);
+      const titleText = v.title?.runs
+        ? v.title.runs.map(r => r.text).join('')
+        : (v.title?.simpleText || 'Untitled Video');
+      const authorText = v.shortBylineText?.runs
+        ? v.shortBylineText.runs.map(r => r.text).join('')
+        : (v.shortBylineText?.simpleText || v.longBylineText?.runs?.map(r => r.text).join('') || '');
+      const thumb = v.thumbnail?.thumbnails?.slice(-1)[0]?.url || '';
+      
+      let durSec = 0;
+      if (v.lengthSeconds) {
+        durSec = parseInt(v.lengthSeconds, 10);
+      } else if (v.lengthText) {
+        const text = v.lengthText.simpleText || (v.lengthText.runs ? v.lengthText.runs.map(r => r.text).join('') : '');
+        const parts = text.split(':').map(p => parseInt(p, 10));
+        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+          durSec = parts[0] * 60 + parts[1];
+        } else if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+          durSec = parts[0] * 3600 + parts[1] * 60 + parts[2];
+        }
+      }
+
+      const epOrderOffset = episodes.length * 60000;
+      const approxTimestamp = now - epOrderOffset;
+
+      episodes.push({
+        guid: `yt:${v.videoId}`,
+        videoId: v.videoId,
+        title: titleText,
+        podcastTitle: authorText,
+        artwork: thumb,
+        audioUrl: `https://www.youtube.com/watch?v=${v.videoId}`,
+        duration: durSec ? String(durSec) : '',
+        pubDate: new Date(approxTimestamp).toUTCString(),
+        timestamp: approxTimestamp,
+        isYouTube: true
+      });
+    }
+
+    if (!nextToken) {
+      if (obj.continuationCommand?.token) {
+        nextToken = obj.continuationCommand.token;
+      } else if (obj.continuationEndpoint?.continuationCommand?.token) {
+        nextToken = obj.continuationEndpoint.continuationCommand.token;
+      } else if (obj.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token) {
+        nextToken = obj.continuationItemRenderer.continuationEndpoint.continuationCommand.token;
+      } else if (obj.nextContinuationData?.continuation) {
+        nextToken = obj.nextContinuationData.continuation;
+      }
+    }
+
+    for (const key of Object.keys(obj)) {
+      extractVideos(obj[key]);
+    }
+  }
+
+  extractVideos(data);
+  return { episodes, nextToken };
+}
+
+/**
+ * Scrapes public playlist page for title, true total video count, and ytInitialData.
  */
 async function fetchYouTubePlaylistMetadata(playlistId) {
   try {
@@ -114,7 +247,18 @@ async function fetchYouTubePlaylistMetadata(playlistId) {
     const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
     const title = titleMatch ? titleMatch[1].replace(/ - YouTube$/i, '').trim() : '';
 
-    return { totalCount: count, title };
+    let initialBatch = null;
+    try {
+      const initialData = extractYtInitialData(html);
+      if (initialData) {
+        const parsed = parseVideosFromInnerTube(initialData);
+        if (parsed.episodes && parsed.episodes.length > 0) {
+          initialBatch = parsed;
+        }
+      }
+    } catch (_) {}
+
+    return { totalCount: count, title, initialBatch, nextToken: initialBatch?.nextToken || null };
   } catch (_) {
     return null;
   }
@@ -126,88 +270,53 @@ async function fetchYouTubePlaylistMetadata(playlistId) {
 async function fetchYouTubePlaylistBatch(playlistId, continuationToken = null) {
   const url = 'https://www.youtube.com/youtubei/v1/browse?prettyPrint=false';
 
-  const body = continuationToken
-    ? {
-        context: {
-          client: { clientName: 'WEB', clientVersion: '2.20240101.00.00' }
-        },
-        continuation: continuationToken
-      }
-    : {
-        context: {
-          client: { clientName: 'WEB', clientVersion: '2.20240101.00.00' }
-        },
-        browseId: playlistId.startsWith('VL') ? playlistId : `VL${playlistId}`
-      };
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      'X-YouTube-Client-Name': '1',
-      'X-YouTube-Client-Version': '2.20240101.00.00'
+  const clients = [
+    {
+      clientName: 'ANDROID',
+      clientVersion: '19.29.35',
+      androidSdkVersion: 30
     },
-    body: JSON.stringify(body)
-  });
+    {
+      clientName: 'WEB',
+      clientVersion: '2.20240101.00.00'
+    }
+  ];
 
-  if (!res.ok) return { episodes: [], nextToken: null };
-  const data = await res.json();
+  for (const client of clients) {
+    try {
+      const body = continuationToken
+        ? {
+            context: { client },
+            continuation: continuationToken
+          }
+        : {
+            context: { client },
+            browseId: playlistId.startsWith('VL') ? playlistId : `VL${playlistId}`
+          };
 
-  const episodes = [];
-  const seenIds = new Set();
-  let nextToken = null;
-  const now = Date.now();
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': client.clientName === 'ANDROID'
+            ? 'com.google.android.youtube/19.29.35 (Linux; U; Android 11; en_US)'
+            : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'X-YouTube-Client-Name': client.clientName === 'ANDROID' ? '3' : '1',
+          'X-YouTube-Client-Version': client.clientVersion
+        },
+        body: JSON.stringify(body)
+      });
 
-  function extractVideos(obj) {
-    if (!obj || typeof obj !== 'object') return;
-
-    if (obj.playlistVideoRenderer) {
-      const v = obj.playlistVideoRenderer;
-      if (v.videoId && !seenIds.has(v.videoId)) {
-        seenIds.add(v.videoId);
-        const titleText = v.title?.runs
-          ? v.title.runs.map(r => r.text).join('')
-          : (v.title?.simpleText || 'Untitled Video');
-        const authorText = v.shortBylineText?.runs
-          ? v.shortBylineText.runs.map(r => r.text).join('')
-          : (v.shortBylineText?.simpleText || '');
-        const thumb = v.thumbnail?.thumbnails?.slice(-1)[0]?.url || '';
-        const durSec = v.lengthSeconds ? parseInt(v.lengthSeconds, 10) : 0;
-
-        const epOrderOffset = episodes.length * 60000; // 1 min apart to maintain playlist order
-        const approxTimestamp = now - epOrderOffset;
-
-        episodes.push({
-          guid: `yt:${v.videoId}`,
-          videoId: v.videoId,
-          title: titleText,
-          podcastTitle: authorText,
-          artwork: thumb,
-          audioUrl: `https://www.youtube.com/watch?v=${v.videoId}`,
-          duration: durSec ? String(durSec) : '',
-          pubDate: new Date(approxTimestamp).toUTCString(),
-          timestamp: approxTimestamp,
-          isYouTube: true
-        });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const parsed = parseVideosFromInnerTube(data);
+      if (parsed.episodes.length > 0 || parsed.nextToken) {
+        return parsed;
       }
-    }
-
-    if (!nextToken) {
-      if (obj.continuationCommand?.token) {
-        nextToken = obj.continuationCommand.token;
-      } else if (obj.continuationEndpoint?.continuationCommand?.token) {
-        nextToken = obj.continuationEndpoint.continuationCommand.token;
-      }
-    }
-
-    for (const key of Object.keys(obj)) {
-      extractVideos(obj[key]);
-    }
+    } catch (_) {}
   }
 
-  extractVideos(data);
-  return { episodes, nextToken };
+  return { episodes: [], nextToken: null };
 }
 
 async function fetchAndParseFeed(inputUrl) {
@@ -223,14 +332,16 @@ async function fetchAndParseFeed(inputUrl) {
   } catch (e) {}
 
   if (isYouTubeUrl && playlistId) {
-    // 1. Get true playlist count and title
+    // 1. Get true playlist count, title, and initial page data
     const meta = await fetchYouTubePlaylistMetadata(playlistId);
 
-    // 2. Try fetching the first batch via InnerTube (returns continuation token)
-    let batchData = null;
-    try {
-      batchData = await fetchYouTubePlaylistBatch(playlistId);
-    } catch (_) {}
+    // 2. Try initialBatch from scraped page first, or fetchYouTubePlaylistBatch
+    let batchData = meta?.initialBatch;
+    if (!batchData || !batchData.episodes || batchData.episodes.length === 0) {
+      try {
+        batchData = await fetchYouTubePlaylistBatch(playlistId);
+      } catch (_) {}
+    }
 
     if (batchData && batchData.episodes && batchData.episodes.length > 0) {
       const firstEp = batchData.episodes[0];
@@ -280,6 +391,7 @@ async function fetchAndParseFeed(inputUrl) {
           feedData.isYouTubePlaylist = true;
           feedData.expectedTotalCount = meta?.totalCount || feedData.episodes.length;
           feedData.episodesCount = feedData.expectedTotalCount;
+          feedData.nextToken = meta?.nextToken || null;
           return feedData;
         }
       }

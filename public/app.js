@@ -3191,8 +3191,8 @@
       }
 
       // Trigger progressive background pagination for YouTube playlists
-      if (feedData.isYouTubePlaylist && feedData.playlistId && feedData.nextToken) {
-        startYouTubeBackgroundPaging(feedData.playlistId, url, feedData.nextToken);
+      if (feedData.isYouTubePlaylist && feedData.playlistId) {
+        startYouTubeBackgroundPaging(feedData.playlistId, url, feedData.nextToken || null);
       }
 
       updatedMetadata[url] = {
@@ -6518,26 +6518,36 @@
    * Lazily streams the full YouTube playlist in the background without UI lag.
    */
   async function startYouTubeBackgroundPaging(playlistId, feedUrl, initialToken) {
-    if (!playlistId || !initialToken) return;
+    if (!playlistId) return;
     if (_activeYtPaginations.has(playlistId)) return;
     _activeYtPaginations.add(playlistId);
 
     let nextToken = initialToken;
+    let isFirstBatch = !nextToken;
 
     try {
-      while (nextToken) {
-        // 600ms delay protects against rate limits & keeps the UI responsive
-        await new Promise(r => setTimeout(r, 600));
+      while (nextToken || isFirstBatch) {
+        // 500ms delay protects against rate limits & keeps the UI responsive
+        await new Promise(r => setTimeout(r, 500));
 
-        // Abort if user removed this feed
-        if (!state.feeds.includes(feedUrl)) break;
+        // Abort if user removed this feed and is not viewing it in detail preview
+        if (!state.feeds.includes(feedUrl) && state.activeFeedDetailUrl !== feedUrl) break;
 
-        const apiUrl = `/api/feed?batch=1&playlistId=${encodeURIComponent(playlistId)}&continuation=${encodeURIComponent(nextToken)}`;
+        const apiUrl = nextToken
+          ? `/api/feed?batch=1&playlistId=${encodeURIComponent(playlistId)}&continuation=${encodeURIComponent(nextToken)}`
+          : `/api/feed?batch=1&playlistId=${encodeURIComponent(playlistId)}`;
+
+        isFirstBatch = false;
+
         const res = await fetch(apiUrl);
         if (!res.ok) break;
 
         const batch = await res.json();
-        if (!batch.episodes || batch.episodes.length === 0) break;
+        if (!batch.episodes || batch.episodes.length === 0) {
+          nextToken = batch.nextToken || null;
+          if (!nextToken) break;
+          continue;
+        }
 
         // Deduplicate against state.allEpisodes
         const currentGuids = new Set(state.allEpisodes.map(e => e.guid));
@@ -6555,13 +6565,13 @@
           }
         }
 
-        nextToken = batch.nextToken;
+        nextToken = batch.nextToken || null;
 
         if (addedAny) {
           saveCacheToStorage();
           processAndSortEpisodes();
           renderTimeline();
-          // Fix: use renderFeedDetail instead of renderFeedDetailView
+          // Keep Feed Detail view up to date while user is browsing this feed
           if (state.activeFeedDetailUrl === feedUrl && typeof renderFeedDetail === 'function') {
             renderFeedDetail(feedUrl);
           }
