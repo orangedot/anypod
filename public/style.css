@@ -1033,8 +1033,14 @@ body.has-active-episode .continue-shelf.is-expanded .continue-toggle-wrap {
     gap: 0.85rem;
   }
 }
+@media (min-width: 1150px) {
+  .shelf-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+}
 
-@media (min-width: 1680px) {
+@media (min-width: 1400px) {
   .shelf-grid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 1rem;
@@ -1043,14 +1049,14 @@ body.has-active-episode .continue-shelf.is-expanded .continue-toggle-wrap {
 
 @media (min-width: 2000px) {
   .shelf-grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 1rem;
   }
 }
 
 @media (min-width: 2400px) {
   .shelf-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 1.15rem;
   }
 }

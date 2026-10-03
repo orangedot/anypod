@@ -2818,9 +2818,12 @@
     let list = [...(state.favorites || [])];
     const q = (state.searchQuery || '').trim().toLowerCase();
     if (q) {
+      const terms = q.split(/\s+/).filter(Boolean);
       list = list.filter(item => {
-        return (item.title || '').toLowerCase().includes(q) ||
-               (item.podcastTitle || '').toLowerCase().includes(q);
+        const title = (item.title || '').toLowerCase();
+        const podTitle = (item.podcastTitle || '').toLowerCase();
+        const fullDesc = (item.content || item.description || '').toLowerCase();
+        return terms.every(term => title.includes(term) || podTitle.includes(term) || fullDesc.includes(term));
       });
     }
 
@@ -2906,9 +2909,12 @@
     let list = Object.values(state.downloadedEpisodes || {});
     const q = (state.searchQuery || '').trim().toLowerCase();
     if (q) {
+      const terms = q.split(/\s+/).filter(Boolean);
       list = list.filter(item => {
-        return (item.title || '').toLowerCase().includes(q) ||
-               (item.podcastTitle || '').toLowerCase().includes(q);
+        const title = (item.title || '').toLowerCase();
+        const podTitle = (item.podcastTitle || '').toLowerCase();
+        const fullDesc = (item.content || item.description || '').toLowerCase();
+        return terms.every(term => title.includes(term) || podTitle.includes(term) || fullDesc.includes(term));
       });
     }
 
@@ -3365,12 +3371,24 @@
     }
 
     if (state.searchQuery) {
-      const q = state.searchQuery.toLowerCase();
-      list = list.filter(ep => 
-        ep.title.toLowerCase().includes(q) || 
-        ep.podcastTitle.toLowerCase().includes(q) ||
-        (ep.description && ep.description.toLowerCase().includes(q))
-      );
+      const q = state.searchQuery.toLowerCase().trim();
+      const terms = q.split(/\s+/).filter(Boolean);
+      list = list.filter(ep => {
+        const fullDesc = (ep.content || ep.description || '').toLowerCase();
+        const title = (ep.title || '').toLowerCase();
+        const podTitle = (ep.podcastTitle || '').toLowerCase();
+        const feedUrl = (ep.feedUrl || '').toLowerCase();
+        const author = (ep.author || (state.feedMetadata[ep.feedUrl]?.author) || '').toLowerCase();
+
+        // In-depth search: all terms must match across any of the fields
+        return terms.every(term => 
+          title.includes(term) ||
+          podTitle.includes(term) ||
+          fullDesc.includes(term) ||
+          author.includes(term) ||
+          feedUrl.includes(term)
+        );
+      });
     }
 
     const currentGuid = state.currentEpisode ? state.currentEpisode.guid : null;
@@ -4344,13 +4362,13 @@
           quickSubmit.textContent = (val.startsWith('http://') || val.startsWith('https://')) ? 'Add Feed' : 'Search';
         }
         if (emptySearchDebounceTimer) clearTimeout(emptySearchDebounceTimer);
-        if (!val || val.startsWith('http://') || val.startsWith('https://')) {
+        if (!val || val.length < 3 || val.startsWith('http://') || val.startsWith('https://')) {
           if (quickResults) quickResults.innerHTML = '';
           return;
         }
         emptySearchDebounceTimer = setTimeout(() => {
           if (quickResults) searchPodcastDirectory(val, quickResults);
-        }, 350);
+        }, 650);
       });
 
       quickForm.addEventListener('submit', (e) => {
@@ -5166,7 +5184,7 @@
           <div class="episode-title">${highlightText(ep.title, state.searchQuery)}</div>
         </div>
       </div>
-      ${ep.description ? `<div class="episode-desc">${formatHighlightedDesc(ep.description, state.searchQuery)} <span class="episode-desc-link">Notes & links →</span></div>` : ''}
+      ${(ep.description || ep.content) ? `<div class="episode-desc">${formatHighlightedDesc(ep.content || ep.description, state.searchQuery)} <span class="episode-desc-link">Notes & links →</span></div>` : ''}
       ${progressTrackHtml}
       <div class="episode-footer">
         <div class="episode-meta">
@@ -5314,11 +5332,7 @@
           }
         }
         if (feedsSearchDebounceTimer) clearTimeout(feedsSearchDebounceTimer);
-        if (!val) {
-          if (quickResults) quickResults.innerHTML = '';
-          return;
-        }
-        if (val.startsWith('http://') || val.startsWith('https://')) {
+        if (!val || val.length < 3 || val.startsWith('http://') || val.startsWith('https://')) {
           if (quickResults) quickResults.innerHTML = '';
           return;
         }
@@ -5326,7 +5340,7 @@
           if (quickResults) {
             searchPodcastDirectory(val, quickResults);
           }
-        }, 350);
+        }, 650);
       });
 
       quickForm.addEventListener('submit', (e) => {
@@ -5683,10 +5697,11 @@
     const totalCount = episodes.length;
     const q = (state.searchQuery || '').trim().toLowerCase();
     if (q) {
+      const terms = q.split(/\s+/).filter(Boolean);
       episodes = episodes.filter(ep => {
         const title = (ep.title || '').toLowerCase();
-        const desc = (ep.description || '').toLowerCase();
-        return title.includes(q) || desc.includes(q);
+        const fullDesc = (ep.content || ep.description || '').toLowerCase();
+        return terms.every(term => title.includes(term) || fullDesc.includes(term));
       });
     }
 
@@ -7655,7 +7670,7 @@ function setPlayerCollapsed(collapsed, save = true) {
       const q = e.target.value.trim();
       clearTimeout(discoverSearchTimer);
 
-      if (q.length < 2) {
+      if (q.length < 3) {
         if (previewContainer) previewContainer.classList.add('hidden');
         return;
       }
@@ -7772,7 +7787,7 @@ function setPlayerCollapsed(collapsed, save = true) {
 
           if (previewContainer) previewContainer.classList.remove('hidden');
         } catch (_) {}
-      }, 300);
+      }, 650);
     });
 
     // Clicking anywhere outside closes the preview
@@ -8759,32 +8774,45 @@ function setPlayerCollapsed(collapsed, save = true) {
     const q = query.trim();
     if (q.length < 2) return safe;
 
-    const escapedQuery = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`(${escapedQuery})`, 'gi');
+    const terms = q.split(/\s+/).filter(t => t.length >= 2);
+    if (terms.length === 0) return safe;
+
+    const pattern = terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+    const regex = new RegExp(`(${pattern})`, 'gi');
     return safe.replace(regex, '<mark class="search-highlight">$1</mark>');
   }
 
   function formatHighlightedDesc(fullText, query) {
     if (!fullText) return '';
-    const cleanText = fullText.replace(/\s+/g, ' ').trim();
+    // Strip HTML tags for card snippet view if full content was provided
+    let cleanText = fullText.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
     if (!query || query.trim().length < 2) {
-      return escapeHtml(cleanText);
+      return escapeHtml(cleanText.length > 240 ? cleanText.substring(0, 240) + '…' : cleanText);
     }
     const q = query.trim();
     const lowerText = cleanText.toLowerCase();
-    const lowerQ = q.toLowerCase();
-    const matchIdx = lowerText.indexOf(lowerQ);
+    const terms = q.toLowerCase().split(/\s+/).filter(t => t.length >= 2);
+
+    // Find earliest match index among all query terms
+    let matchIdx = -1;
+    for (const term of terms) {
+      const idx = lowerText.indexOf(term);
+      if (idx !== -1 && (matchIdx === -1 || idx < matchIdx)) {
+        matchIdx = idx;
+      }
+    }
 
     if (matchIdx === -1) {
-      return escapeHtml(cleanText);
+      return escapeHtml(cleanText.length > 240 ? cleanText.substring(0, 240) + '…' : cleanText);
     }
 
-    if (matchIdx <= 100) {
-      return highlightText(cleanText, q);
+    if (matchIdx <= 120) {
+      const snippet = cleanText.length > 260 ? cleanText.slice(0, 260).trim() + ' …' : cleanText;
+      return highlightText(snippet, q);
     }
 
-    const startIdx = Math.max(0, cleanText.lastIndexOf(' ', matchIdx - 20));
-    const endIdx = Math.min(cleanText.length, cleanText.indexOf(' ', matchIdx + q.length + 100));
+    const startIdx = Math.max(0, cleanText.lastIndexOf(' ', matchIdx - 35));
+    const endIdx = Math.min(cleanText.length, cleanText.indexOf(' ', matchIdx + 160));
     const actualEnd = endIdx === -1 ? cleanText.length : endIdx;
 
     const prefix = startIdx > 0 ? '… ' : '';

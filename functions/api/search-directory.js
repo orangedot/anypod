@@ -47,7 +47,7 @@ export async function onRequestGet(context) {
         status: 200,
         headers: {
           ...corsHeaders,
-          'Cache-Control': res.status === 429 ? 'public, max-age=60' : 'no-store'
+          'Cache-Control': 'no-store'
         }
       });
     }
