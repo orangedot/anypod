@@ -1,13 +1,8 @@
-import { getUserFromRequest, isValidExternalUrl } from '../utils.js';
+import { getUserFromRequest, isValidExternalUrl, getCorsHeaders } from '../utils.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Session-Token',
-    'Content-Type': 'application/json; charset=utf-8'
-  };
+  const corsHeaders = getCorsHeaders(request, 'GET, POST, DELETE, OPTIONS');
 
   if (request.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders, status: 204 });
@@ -28,8 +23,21 @@ export async function onRequest(context) {
 
   try {
     if (request.method === 'GET') {
+      let cookieSessionToken = '';
+      const cookieHeader = request.headers.get('Cookie') || '';
+      if (cookieHeader) {
+        const pairs = cookieHeader.split(';');
+        for (const pair of pairs) {
+          const [k, ...v] = pair.trim().split('=');
+          if (k === 'podcast_session' || k === 'sessionid') {
+            cookieSessionToken = v.join('=').trim();
+            break;
+          }
+        }
+      }
+      const sessionToken = cookieSessionToken || request.headers.get('X-Session-Token') || '';
       const rows = await db.prepare('SELECT feed_url, title, artwork FROM subscriptions WHERE user_id = ? ORDER BY created_at ASC').bind(userId).all();
-      return new Response(JSON.stringify({ feeds: rows.results || [], userEmail: user.email }), { headers: corsHeaders, status: 200 });
+      return new Response(JSON.stringify({ feeds: rows.results || [], userEmail: user.email, sessionToken }), { headers: corsHeaders, status: 200 });
     }
 
     if (request.method === 'POST') {

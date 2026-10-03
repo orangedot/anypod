@@ -1,14 +1,8 @@
-import { hashToken } from '../utils.js';
+import { hashToken, getCorsHeaders } from '../utils.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
-
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Content-Type': 'application/json; charset=utf-8'
-  };
+  const corsHeaders = getCorsHeaders(request, 'POST, OPTIONS');
 
   if (request.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders, status: 204 });
@@ -78,32 +72,45 @@ export async function onRequest(context) {
       'INSERT INTO auth_tokens (token_hash, user_id, expires_at, used) VALUES (?, ?, ?, 0)'
     ).bind(tokenHash, user.id, expiresAt).run();
 
-    let appUrl = '';
-    if (body && body.origin && typeof body.origin === 'string') {
+    function isAllowedOrigin(originStr) {
+      if (!originStr || typeof originStr !== 'string') return false;
       try {
-        const parsed = new URL(body.origin);
-        if (parsed.protocol === 'https:' || parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
-          appUrl = parsed.origin;
+        const u = new URL(originStr);
+        const host = u.hostname.toLowerCase();
+        if (host === 'anypod.org' || host.endsWith('.anypod.org')) {
+          return u.protocol === 'https:' || u.protocol === 'http:';
         }
-      } catch (e) {}
+        if (host === 'localhost' || host === '127.0.0.1') {
+          return true;
+        }
+        return false;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    let appUrl = '';
+    if (body && body.origin && isAllowedOrigin(body.origin)) {
+      appUrl = new URL(body.origin).origin;
     }
     if (!appUrl) {
       const originHeader = request.headers.get('Origin');
-      if (originHeader && originHeader !== 'null') {
+      if (originHeader && isAllowedOrigin(originHeader)) {
         appUrl = originHeader;
       }
     }
     if (!appUrl) {
       const referer = request.headers.get('Referer');
-      if (referer) {
-        try {
-          appUrl = new URL(referer).origin;
-        } catch (e) {}
+      if (referer && isAllowedOrigin(referer)) {
+        appUrl = new URL(referer).origin;
       }
     }
     if (!appUrl) {
       try {
-        appUrl = new URL(request.url).origin;
+        const reqOrigin = new URL(request.url).origin;
+        if (isAllowedOrigin(reqOrigin)) {
+          appUrl = reqOrigin;
+        }
       } catch (e) {}
     }
     if (!appUrl || appUrl === 'null') {

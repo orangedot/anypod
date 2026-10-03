@@ -23,7 +23,8 @@
       const res = await fetch('/api/auth/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token })
+        body: JSON.stringify({ token }),
+        credentials: 'include'
       });
 
       const data = await res.json();
@@ -31,11 +32,28 @@
         throw new Error(data.error || 'verification failed');
       }
 
+      const returnTo = urlParams.get('return_to') || urlParams.get('redirect') || '';
+      let targetUrl = '/';
+      if (returnTo) {
+        try {
+          if (returnTo.startsWith('/')) {
+            targetUrl = returnTo;
+          } else {
+            const parsedTarget = new URL(returnTo);
+            const host = parsedTarget.hostname.toLowerCase();
+            if (host === 'anypod.org' || host.endsWith('.anypod.org') || host === 'localhost' || host === '127.0.0.1') {
+              targetUrl = returnTo;
+            }
+          }
+        } catch (_) {}
+      }
+
       if (data.sessionToken) {
         localStorage.setItem('anypod_session_token', data.sessionToken);
-        window.location.href = '/?session=' + encodeURIComponent(data.sessionToken);
+        const sep = targetUrl.includes('?') ? '&' : '?';
+        window.location.href = targetUrl + sep + 'session=' + encodeURIComponent(data.sessionToken);
       } else {
-        window.location.href = '/';
+        window.location.href = targetUrl;
       }
     } catch (err) {
       btn.disabled = false;

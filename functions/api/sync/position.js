@@ -1,13 +1,8 @@
-import { getUserFromRequest } from '../utils.js';
+import { getUserFromRequest, getCorsHeaders } from '../utils.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Session-Token',
-    'Content-Type': 'application/json; charset=utf-8'
-  };
+  const corsHeaders = getCorsHeaders(request, 'GET, POST, OPTIONS');
 
   if (request.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders, status: 204 });

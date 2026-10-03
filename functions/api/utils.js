@@ -152,3 +152,44 @@ export function isValidExternalUrl(urlString) {
   }
 }
 
+export function getCookieDomainAttr(request) {
+  try {
+    const url = new URL(request.url);
+    const hostname = url.hostname.toLowerCase();
+    if (hostname === 'anypod.org' || hostname.endsWith('.anypod.org')) {
+      return '; Domain=.anypod.org';
+    }
+  } catch (_) {}
+  return '';
+}
+
+export function getCorsHeaders(request, allowedMethods = 'GET, POST, OPTIONS') {
+  const origin = request.headers.get('Origin');
+  const headers = {
+    'Access-Control-Allow-Methods': allowedMethods,
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Session-Token',
+    'Content-Type': 'application/json; charset=utf-8'
+  };
+
+  if (origin) {
+    try {
+      const u = new URL(origin);
+      const host = u.hostname.toLowerCase();
+      if (
+        host === 'anypod.org' ||
+        host.endsWith('.anypod.org') ||
+        host === 'localhost' ||
+        host === '127.0.0.1'
+      ) {
+        headers['Access-Control-Allow-Origin'] = origin;
+        headers['Access-Control-Allow-Credentials'] = 'true';
+        headers['Vary'] = 'Origin';
+        return headers;
+      }
+    } catch (_) {}
+  }
+
+  headers['Access-Control-Allow-Origin'] = '*';
+  return headers;
+}
+

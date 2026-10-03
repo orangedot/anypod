@@ -1,15 +1,9 @@
-import { hashToken } from '../utils.js';
+import { hashToken, getCookieDomainAttr, getCorsHeaders } from '../utils.js';
 import { verifyToken } from '../verifyToken.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
-
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Content-Type': 'application/json; charset=utf-8'
-  };
+  const corsHeaders = getCorsHeaders(request, 'POST, OPTIONS');
 
   if (request.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders, status: 204 });
@@ -82,11 +76,9 @@ export async function onRequest(context) {
       'INSERT INTO user_sessions (session_hash, user_id, expires_at) VALUES (?, ?, ?)'
     ).bind(sessionHash, userId, sessionExpiresAt).run();
 
-    const url = new URL(request.url);
-    const domainAttr = url.hostname.endsWith('anypod.org') ? '; Domain=.anypod.org' : '';
-
+    const domainAttr = getCookieDomainAttr(request);
     const headers = new Headers(corsHeaders);
-    headers.set('Set-Cookie', `podcast_session=${rawSessionToken}; HttpOnly; Secure; SameSite=Lax; Path=/${domainAttr}; Max-Age=2592000`);
+    headers.set('Set-Cookie', `podcast_session=${rawSessionToken}; Path=/; HttpOnly; Secure; SameSite=Lax${domainAttr}; Max-Age=2592000`);
 
     return new Response(JSON.stringify({ success: true, sessionToken: rawSessionToken }), {
       headers,

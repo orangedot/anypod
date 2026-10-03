@@ -1,14 +1,8 @@
-import { hashToken } from '../utils.js';
+import { hashToken, getCookieDomainAttr, getCorsHeaders } from '../utils.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
-
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Session-Token',
-    'Content-Type': 'application/json; charset=utf-8'
-  };
+  const corsHeaders = getCorsHeaders(request, 'POST, OPTIONS');
 
   if (request.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders, status: 204 });
@@ -51,11 +45,9 @@ export async function onRequest(context) {
       await env.DB.prepare('DELETE FROM user_sessions WHERE session_hash = ?').bind(sessionHash).run();
     }
 
-    const url = new URL(request.url);
-    const domainAttr = url.hostname.endsWith('anypod.org') ? '; Domain=.anypod.org' : '';
-
+    const domainAttr = getCookieDomainAttr(request);
     const headers = new Headers(corsHeaders);
-    headers.set('Set-Cookie', `podcast_session=; HttpOnly; Secure; SameSite=Lax; Path=/${domainAttr}; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`);
+    headers.set('Set-Cookie', `podcast_session=; Path=/; HttpOnly; Secure; SameSite=Lax${domainAttr}; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`);
 
     return new Response(JSON.stringify({ success: true }), {
       headers,

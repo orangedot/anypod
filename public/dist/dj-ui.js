@@ -841,5 +841,52 @@
     });
   }
 
+  async function hydrateSessionAndFeeds() {
+    try {
+      const res = await fetch('/api/sync/feeds', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        let changed = false;
+
+        if (data.sessionToken && !localStorage.getItem('anypod_session_token')) {
+          localStorage.setItem('anypod_session_token', data.sessionToken);
+        }
+        if (data.userEmail && !localStorage.getItem('anypod_user_email')) {
+          localStorage.setItem('anypod_user_email', data.userEmail);
+        }
+
+        if (Array.isArray(data.feeds) && data.feeds.length > 0) {
+          const remoteUrls = data.feeds.map(f => f.feed_url);
+          const isOnlyDefault = state.feeds.length === DEFAULT_STARTER_FEEDS.length &&
+            state.feeds.every((u, i) => u === DEFAULT_STARTER_FEEDS[i]);
+
+          if (isOnlyDefault || state.feeds.length === 0) {
+            state.feeds = remoteUrls;
+            localStorage.setItem('anypod_feeds', JSON.stringify(state.feeds));
+            changed = true;
+          }
+
+          data.feeds.forEach(f => {
+            if (f.feed_url && !state.feedMetadata[f.feed_url]) {
+              state.feedMetadata[f.feed_url] = {
+                title: f.title || '',
+                artwork: f.artwork || ''
+              };
+              changed = true;
+            }
+          });
+
+          if (changed) {
+            localStorage.setItem('anypod_cached_metadata', JSON.stringify(state.feedMetadata));
+            renderCrate();
+          }
+        }
+      }
+    } catch (_) {
+      // Guest or offline
+    }
+  }
+
   loadCrateFromStorage();
+  hydrateSessionAndFeeds();
 })();

@@ -1544,18 +1544,6 @@
       return;
     }
 
-    // Skip network round-trip entirely in guest mode (prevents 401 console logs)
-    if (!state.sessionToken) {
-      elements.authModal.classList.add('hidden');
-      updateSyncStatusUI('logged in as guest / local device storage', '', false);
-      if (state.feeds.length > 0) {
-        refreshAllFeeds();
-      } else {
-        renderTimeline();
-      }
-      return;
-    }
-
     try {
       const res = await fetch('/api/sync/feeds', { credentials: 'include' });
       if (res.status === 401) {
@@ -1571,6 +1559,12 @@
       if (res.ok) {
         const data = await res.json();
         elements.authModal.classList.add('hidden');
+        if (data.sessionToken) {
+          state.sessionToken = data.sessionToken;
+          try {
+            localStorage.setItem(STORAGE_KEYS.SESSION, data.sessionToken);
+          } catch (_) {}
+        }
         state.userEmail = data.userEmail || '';
         try {
           if (state.userEmail) localStorage.setItem(STORAGE_KEYS.USER_EMAIL, state.userEmail);
@@ -1791,6 +1785,12 @@
       }
 
       const data = await res.json();
+      if (data.sessionToken && !state.sessionToken) {
+        state.sessionToken = data.sessionToken;
+        try {
+          localStorage.setItem(STORAGE_KEYS.SESSION, data.sessionToken);
+        } catch (_) {}
+      }
       if (data.userEmail) {
         state.userEmail = data.userEmail;
         try {
