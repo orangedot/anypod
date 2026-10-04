@@ -147,7 +147,9 @@
           return;
         }
       } catch (e) {
-        isStorageBlocked = true;
+        if (e.name !== 'QuotaExceededError' && e.code !== 22) {
+          isStorageBlocked = true;
+        }
       }
       memoryStore[key] = valStr;
     },
@@ -2103,7 +2105,69 @@
     }
   }
 
+  // IndexedDB Persistent Store for large libraries (1,000+ items without 5MB quota limits)
+  const idbStore = {
+    _dbPromise: null,
+    getDb() {
+      if (this._dbPromise) return this._dbPromise;
+      this._dbPromise = new Promise((resolve) => {
+        if (typeof window === 'undefined' || !window.indexedDB) return resolve(null);
+        try {
+          const req = window.indexedDB.open('anypod_store_v1', 1);
+          req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains('keyval')) {
+              db.createObjectStore('keyval');
+            }
+          };
+          req.onsuccess = (e) => resolve(e.target.result);
+          req.onerror = () => resolve(null);
+        } catch (_) {
+          resolve(null);
+        }
+      });
+      return this._dbPromise;
+    },
+    async get(key) {
+      try {
+        const db = await this.getDb();
+        if (!db) return null;
+        return new Promise((resolve) => {
+          try {
+            const tx = db.transaction('keyval', 'readonly');
+            const store = tx.objectStore('keyval');
+            const req = store.get(key);
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = () => resolve(null);
+          } catch (_) {
+            resolve(null);
+          }
+        });
+      } catch (_) {
+        return null;
+      }
+    },
+    async set(key, val) {
+      try {
+        const db = await this.getDb();
+        if (!db) return;
+        return new Promise((resolve) => {
+          try {
+            const tx = db.transaction('keyval', 'readwrite');
+            const store = tx.objectStore('keyval');
+            store.put(val, key);
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => resolve();
+          } catch (_) {
+            resolve();
+          }
+        });
+      } catch (_) {}
+    }
+  };
+
   function loadCacheFromStorage() {
+    // 1. Fast synchronous load from localStorage for instant initial paint (0ms delay)
     try {
       const cachedEps = localStorage.getItem(STORAGE_KEYS.CACHED_EPISODES);
       const cachedMeta = localStorage.getItem(STORAGE_KEYS.CACHED_METADATA);
@@ -2120,18 +2184,63 @@
         renderFeedsGrid();
       }
     } catch (e) {}
+
+    // 2. Asynchronous deep hydration from IndexedDB (handles full 1,000+ episode libraries)
+    idbStore.get(STORAGE_KEYS.CACHED_EPISODES).then(idbEps => {
+      if (Array.isArray(idbEps) && idbEps.length > 0) {
+        const currentCount = state.allEpisodes ? state.allEpisodes.length : 0;
+        if (idbEps.length >= currentCount) {
+          state.allEpisodes = idbEps;
+          processAndSortEpisodes();
+          renderTimeline();
+          renderContinueShelf();
+          renderFeedsGrid();
+          if (state.activeFeedDetailUrl && typeof renderFeedDetail === 'function') {
+            renderFeedDetail(state.activeFeedDetailUrl);
+          }
+        }
+      }
+    }).catch(() => {});
+
+    idbStore.get(STORAGE_KEYS.CACHED_METADATA).then(idbMeta => {
+      if (idbMeta && typeof idbMeta === 'object') {
+        state.feedMetadata = { ...idbMeta, ...state.feedMetadata };
+      }
+    }).catch(() => {});
   }
 
   function saveCacheToStorage() {
+    if (!state.allEpisodes || state.allEpisodes.length === 0) return;
+
+    // 1. Save full, unbounded episodes & metadata to IndexedDB (safe from 5MB quota)
+    idbStore.set(STORAGE_KEYS.CACHED_EPISODES, state.allEpisodes).catch(() => {});
+    if (state.feedMetadata) {
+      idbStore.set(STORAGE_KEYS.CACHED_METADATA, state.feedMetadata).catch(() => {});
+    }
+
+    // 2. Save lean/compact slice to localStorage for synchronous 0ms startup
     try {
-      if (state.allEpisodes && state.allEpisodes.length > 0) {
-        const trimmed = state.allEpisodes.slice(0, 2000);
-        localStorage.setItem(STORAGE_KEYS.CACHED_EPISODES, JSON.stringify(trimmed));
-      }
+      const leanEps = state.allEpisodes.slice(0, 1500).map(ep => ({
+        guid: ep.guid,
+        videoId: ep.videoId,
+        title: ep.title,
+        podcastTitle: ep.podcastTitle,
+        artwork: ep.artwork,
+        audioUrl: ep.audioUrl,
+        duration: ep.duration,
+        pubDate: ep.pubDate,
+        timestamp: ep.timestamp,
+        isYouTube: ep.isYouTube,
+        feedUrl: ep.feedUrl,
+        description: (ep.description || '').slice(0, 200)
+      }));
+      localStorage.setItem(STORAGE_KEYS.CACHED_EPISODES, JSON.stringify(leanEps));
       if (state.feedMetadata) {
         localStorage.setItem(STORAGE_KEYS.CACHED_METADATA, JSON.stringify(state.feedMetadata));
       }
-    } catch (e) {}
+    } catch (e) {
+      // If localStorage is full, IndexedDB already holds the complete dataset
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -3253,8 +3362,13 @@
         return null;
       }
 
-      // Trigger progressive background pagination for YouTube playlists
-      if (feedData.isYouTubePlaylist && feedData.playlistId) {
+      // Check if this playlist is already fully cached locally
+      const currentFeedEps = state.allEpisodes ? state.allEpisodes.filter(e => e.feedUrl === url) : [];
+      const expectedTotal = feedData.episodesCount || 0;
+      const isAlreadyFullySynced = expectedTotal > 0 && currentFeedEps.length >= expectedTotal;
+
+      // Trigger progressive background pagination for YouTube playlists ONLY if older episodes are actually missing
+      if (feedData.isYouTubePlaylist && feedData.playlistId && !isAlreadyFullySynced) {
         startYouTubeBackgroundPaging(feedData.playlistId, url, feedData.nextToken || null);
       }
 
@@ -5828,15 +5942,19 @@
       (feedUrl.includes('list=') && _activeYtPaginations.has(feedUrl.split('list=')[1].split('&')[0]))
     );
 
-    const isPartial = expectedTotal && loadedCount < expectedTotal;
+    const isPartial = expectedTotal > 0 && totalCount < expectedTotal;
 
     const badgeText = q
-      ? `${loadedCount} / ${expectedTotal} episodes`
+      ? `${loadedCount} of ${totalCount} episodes`
       : (isPartial && isPaging)
-        ? `${loadedCount} / ${expectedTotal} episodes (syncing...)`
+        ? `${totalCount} / ${expectedTotal} episodes (syncing...)`
         : isPartial
-          ? `${loadedCount} / ${expectedTotal} episodes • Click to sync`
-          : `${loadedCount} episodes`;
+          ? `${totalCount} / ${expectedTotal} episodes • Click to sync`
+          : state.filterMode === 'unplayed' && loadedCount !== totalCount
+            ? `${loadedCount} unplayed • ${totalCount} episodes`
+            : state.filterMode === 'played' && loadedCount !== totalCount
+              ? `${loadedCount} played • ${totalCount} episodes`
+              : `${totalCount} episodes`;
 
     if (header.dataset.feedUrl !== feedUrl) {
       header.dataset.feedUrl = feedUrl;
@@ -6850,6 +6968,13 @@
     if (_activeYtPaginations.has(playlistId)) return;
     _activeYtPaginations.add(playlistId);
 
+    const totalExpected = state.feedMetadata[feedUrl]?.episodesCount || 0;
+    const currentTotal = state.allEpisodes ? state.allEpisodes.filter(e => e.feedUrl === feedUrl).length : 0;
+    if (totalExpected > 0 && currentTotal >= totalExpected) {
+      _activeYtPaginations.delete(playlistId);
+      return;
+    }
+
     let nextToken = initialToken || state.feedMetadata[feedUrl]?.nextToken || null;
     let isFirstBatch = !nextToken;
 
@@ -6948,6 +7073,12 @@
           if (state.activeFeedDetailUrl === feedUrl && typeof renderFeedDetail === 'function') {
             renderFeedDetail(feedUrl);
           }
+        }
+
+        const currentEpCount = state.allEpisodes ? state.allEpisodes.filter(e => e.feedUrl === feedUrl).length : 0;
+        const targetEpCount = state.feedMetadata[feedUrl]?.episodesCount || 0;
+        if (targetEpCount > 0 && currentEpCount >= targetEpCount) {
+          break;
         }
       }
     } catch (err) {
@@ -7798,6 +7929,7 @@ function setPlayerCollapsed(collapsed, save = true) {
     }
     delete state.feedMetadata[url];
     saveFeedsToStorage();
+    saveCacheToStorage();
     removeFeedFromD1(url);
     processAndSortEpisodes();
     if (state.feeds.length === 0) {
