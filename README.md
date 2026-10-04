@@ -81,7 +81,7 @@ Anypod is a free, open-source podcast player that respects you. Open it, search 
 
 ## Features
 
-- **Audio & YouTube Playback**: Streams standard podcast RSS enclosures (MP3, M4A, AAC) and YouTube playlists/channels.
+- **Audio & YouTube Playback**: Streams standard podcast RSS enclosures (MP3, M4A, AAC) and YouTube playlists/channels. Check out the [YouTube Music Export Guide](docs/YOUTUBE_MUSIC_EXPORT.md) to import your Liked Music library.
 - **Offline Audio Caching (PWA)**: Service worker with Range request support (`HTTP 206`) for offline listening and CacheStorage management.
 - **Cross-Device Sync**: Multi-user subscription and playback position synchronization powered by Cloudflare D1 (SQLite at the edge).
 - **Passwordless Auth**: Magic link login via Resend with cryptographic token verification.
@@ -90,6 +90,11 @@ Anypod is a free, open-source podcast player that respects you. Open it, search 
 - **Playback Controls**: Non-destructive skip (preserves position in Continue Listening), dedicated mark-as-listened button, variable speed (0.8x - 2.0x), and sleep timer.
 - **OPML Support**: Export and import subscription lists in standard OPML format.
 - **Responsive Interface**: Minimalist dark and light themes, optimized single-column layout on mobile, and desktop multi-column grid.
+
+## Guides & Documentation
+
+- 🎵 **[YouTube Music & Playlist Export Guide](docs/YOUTUBE_MUSIC_EXPORT.md)** — Export your private Liked Music library or YouTube playlists into Anypod using a 1-click console script or native range select.
+- 🚀 **[Self-Hosting Guide](SELF_HOSTING.md)** — Run your own Anypod instance on Cloudflare Pages or Docker.
 
 ## Technology Stack
 
