@@ -5919,20 +5919,33 @@
       });
     }
 
-    // Sort episodes according to dock sortOrder
-    if (state.sortOrder === 'newest') {
-      episodes.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-    } else if (state.sortOrder === 'oldest') {
-      episodes.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-    } else if (state.sortOrder === 'title-asc') {
-      episodes.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-    } else if (state.sortOrder === 'title-desc') {
-      episodes.sort((a, b) => (b.title || '').localeCompare(a.title || ''));
-    } else if (state.sortOrder === 'duration-asc') {
-      episodes.sort((a, b) => parseDurationSeconds(a.duration) - parseDurationSeconds(b.duration));
-    } else if (state.sortOrder === 'duration-desc') {
-      episodes.sort((a, b) => parseDurationSeconds(b.duration) - parseDurationSeconds(a.duration));
-    }
+    // Sort episodes according to dock sortOrder with played/listened episodes ordered last by default
+    episodes.sort((a, b) => {
+      // 1. Order played episodes last when viewing 'all' episodes
+      if (state.filterMode === 'all') {
+        const isPlayedA = !!(state.playbackPositions[a.guid]?.completed);
+        const isPlayedB = !!(state.playbackPositions[b.guid]?.completed);
+        if (isPlayedA !== isPlayedB) {
+          return isPlayedA ? 1 : -1;
+        }
+      }
+
+      // 2. Primary sort order within unplayed / played groups
+      if (state.sortOrder === 'newest') {
+        return (b.timestamp || 0) - (a.timestamp || 0);
+      } else if (state.sortOrder === 'oldest') {
+        return (a.timestamp || 0) - (b.timestamp || 0);
+      } else if (state.sortOrder === 'title-asc') {
+        return (a.title || '').localeCompare(b.title || '');
+      } else if (state.sortOrder === 'title-desc') {
+        return (b.title || '').localeCompare(a.title || '');
+      } else if (state.sortOrder === 'duration-asc') {
+        return parseDurationSeconds(a.duration) - parseDurationSeconds(b.duration);
+      } else if (state.sortOrder === 'duration-desc') {
+        return parseDurationSeconds(b.duration) - parseDurationSeconds(a.duration);
+      }
+      return 0;
+    });
 
     const loadedCount = episodes.length;
     const expectedTotal = meta.episodesCount || totalCount;
