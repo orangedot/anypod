@@ -4768,11 +4768,25 @@
   function switchShowNotesTab(tab) {
     const isNotes = tab === 'notes';
     if (elements.tabBtnNotes) elements.tabBtnNotes.classList.toggle('active', isNotes);
-    if (elements.tabBtnTranscript) elements.tabBtnTranscript.classList.toggle('active', !isNotes);
+    if (elements.tabBtnTranscript) {
+      elements.tabBtnTranscript.classList.toggle('active', !isNotes);
+      const isYt = !!(state.activeNotesEpisode?.isYouTube || state.activeNotesEpisode?.guid?.startsWith('yt:'));
+      const span = elements.tabBtnTranscript.querySelector('span');
+      if (span) span.textContent = isYt ? 'lyrics' : 'transcript';
+    }
     if (elements.showNotesContent) elements.showNotesContent.classList.toggle('hidden', !isNotes);
     if (elements.showTranscriptContent) elements.showTranscriptContent.classList.toggle('hidden', isNotes);
 
     if (!isNotes) {
+      if ((!state.episodeTimeline.cues || state.episodeTimeline.cues.length === 0) && state.activeNotesEpisode) {
+        const ep = state.activeNotesEpisode;
+        if (ep.isYouTube || ep.videoId || ep.guid?.startsWith('yt:')) {
+          const dur = ep.duration ? parseDurationSeconds(ep.duration) : (state.episodeTimeline.duration || 0);
+          fetchLyricsFromLrclib(ep, dur).then(found => {
+            if (found) renderTranscriptView();
+          });
+        }
+      }
       renderTranscriptView();
     }
   }
@@ -4833,18 +4847,46 @@
       } else if (isClassifierEnabled) {
         summaryHtml = `<p>The audio classifier is active — open this episode to start analysis.</p>`;
       } else {
-        summaryHtml = `<p>No transcript available. <button type="button" class="inline-link" id="transcript-goto-settings">Enable Audio Classifier in Experimental Settings</button> to detect speech and music sections.</p>`;
+        summaryHtml = `<p>No transcript in RSS. <button type="button" class="inline-link" id="transcript-goto-settings">Enable Audio Classifier in Settings</button> or search online lyrics below.</p>`;
       }
 
       cuesList.innerHTML = `
         <div class="transcript-empty-state">
-          <div style="font-size: 2.2rem; margin-bottom: 0.75rem;">🎙️</div>
-          <h4>No Official Text Transcript in RSS</h4>
+          <div style="font-size: 2.2rem; margin-bottom: 0.75rem;">🎵</div>
+          <h4>No Lyrics or Transcript Found</h4>
           ${summaryHtml}
+          <div style="margin-top: 1rem;">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-fetch-lyrics">
+              🎵 Search Lyrics on LRCLIB
+            </button>
+          </div>
           ${liveHtml}
           ${pillsHtml}
         </div>
       `;
+
+      // Search lyrics button click
+      const fetchLyricsBtn = cuesList.querySelector('#btn-fetch-lyrics');
+      if (fetchLyricsBtn) {
+        fetchLyricsBtn.addEventListener('click', async () => {
+          fetchLyricsBtn.disabled = true;
+          fetchLyricsBtn.textContent = 'Searching LRCLIB...';
+          const ep = state.activeNotesEpisode || state.currentEpisode;
+          const dur = ep?.duration ? parseDurationSeconds(ep.duration) : (state.episodeTimeline.duration || 0);
+          const found = await fetchLyricsFromLrclib(ep, dur);
+          if (found) {
+            renderTranscriptView();
+          } else {
+            fetchLyricsBtn.textContent = 'No Lyrics Found on LRCLIB';
+            setTimeout(() => {
+              if (fetchLyricsBtn) {
+                fetchLyricsBtn.disabled = false;
+                fetchLyricsBtn.textContent = '🎵 Search Lyrics on LRCLIB';
+              }
+            }, 3000);
+          }
+        });
+      }
 
       // Segment-jump clicks
       cuesList.querySelectorAll('.segment-jump-pill').forEach(btn => {
@@ -9368,11 +9410,11 @@ function setPlayerCollapsed(collapsed, save = true) {
     }
 
     if (elements.btnPlayerTranscript) {
-      elements.btnPlayerTranscript.style.display = isTrans ? '' : 'none';
+      elements.btnPlayerTranscript.style.display = '';
     }
     const epTranscriptBtns = document.querySelectorAll('.btn-transcript-ep');
     epTranscriptBtns.forEach(btn => {
-      btn.style.display = isTrans ? '' : 'none';
+      btn.style.display = '';
     });
 
     const skipRow = document.getElementById('row-auto-skip');
@@ -9639,7 +9681,15 @@ function setPlayerCollapsed(collapsed, save = true) {
         }
       }
     } catch (_) {
-      // Fall through to Tier 3
+      // Fall through
+    }
+
+    // TIER 2.5: Free LRCLIB Lyrics API for YouTube songs & music tracks
+    if (episode.isYouTube || episode.videoId || episode.guid?.startsWith('yt:') || !episode.transcriptUrl) {
+      try {
+        const lyricsFound = await fetchLyricsFromLrclib(episode, duration);
+        if (lyricsFound) return;
+      } catch (_) {}
     }
 
     // TIER 3: Fallback to Client-side Probing if Classifier is Enabled
@@ -9648,6 +9698,156 @@ function setPlayerCollapsed(collapsed, save = true) {
     } else {
       if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
     }
+  }
+
+  function parseMusicTrackInfo(title, podcastTitle = '') {
+    if (!title) return { artist: '', track: '', query: '' };
+
+    let clean = title
+      .replace(/\s*[\(\[](?:official\s*(?:music\s*)?(?:video|audio|visualizer|lyric\s*video|lyrics|hd|4k|remaster(?:ed)?)|lyrics|audio|music\s*video|visualizer|remastered|live)[\)\]]/gi, '')
+      .replace(/\s*[\(\[](?:feat\.|ft\.)[^\)\]]+[\)\]]/gi, '')
+      .trim();
+
+    const sepMatch = clean.match(/^([^-–—]+)\s*[-–—]\s*(.+)$/);
+    if (sepMatch) {
+      const artist = sepMatch[1].trim();
+      const track = sepMatch[2].trim();
+      return { artist, track, query: `${artist} ${track}` };
+    }
+
+    if (podcastTitle && !podcastTitle.toLowerCase().includes('playlist') && !podcastTitle.toLowerCase().includes('youtube')) {
+      return { artist: podcastTitle.trim(), track: clean, query: `${podcastTitle} ${clean}` };
+    }
+
+    return { artist: '', track: clean, query: clean };
+  }
+
+  function parseLrcToCues(lrcText, totalDuration = 0) {
+    if (!lrcText || typeof lrcText !== 'string') return [];
+    const lines = lrcText.split(/\r?\n/);
+    const rawCues = [];
+    const lrcRegex = /\[(\d{1,2}):(\d{2})(?:\.(\d{2,3}))?\](.*)/;
+
+    for (const line of lines) {
+      const match = line.match(lrcRegex);
+      if (match) {
+        const min = parseInt(match[1], 10);
+        const sec = parseInt(match[2], 10);
+        const frac = match[3] ? (match[3].length === 2 ? parseInt(match[3], 10) / 100 : parseInt(match[3], 10) / 1000) : 0;
+        const startTime = min * 60 + sec + frac;
+        const text = match[4].trim();
+        if (text) {
+          rawCues.push({ start: startTime, text });
+        }
+      }
+    }
+
+    rawCues.sort((a, b) => a.start - b.start);
+
+    const cues = [];
+    for (let i = 0; i < rawCues.length; i++) {
+      const current = rawCues[i];
+      const nextStart = (i + 1 < rawCues.length) ? rawCues[i + 1].start : (totalDuration || current.start + 5);
+      cues.push({
+        start: current.start,
+        end: Math.max(current.start + 1, nextStart),
+        text: current.text
+      });
+    }
+
+    return cues;
+  }
+
+  async function fetchLyricsFromLrclib(episode, duration) {
+    if (!episode || !episode.title) return false;
+    const cacheKey = 'anypod_timeline_v4_' + episode.guid;
+
+    const { artist, track, query } = parseMusicTrackInfo(episode.title, episode.podcastTitle);
+    if (!query && !track) return false;
+
+    if (elements.probeStatusPill) {
+      elements.probeStatusPill.textContent = 'Searching lyrics...';
+      elements.probeStatusPill.classList.remove('hidden');
+    }
+
+    try {
+      let data = null;
+
+      // 1. Try exact get if artist and track are detected
+      if (artist && track) {
+        const durParam = duration && duration > 0 ? `&duration=${Math.round(duration)}` : '';
+        const getUrl = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(track)}${durParam}`;
+        const res = await fetch(getUrl);
+        if (res.ok) {
+          data = await res.json();
+        }
+      }
+
+      // 2. If not found, try full-text search
+      if (!data || (!data.syncedLyrics && !data.plainLyrics)) {
+        const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(query || episode.title)}`;
+        const res = await fetch(searchUrl);
+        if (res.ok) {
+          const results = await res.json();
+          if (Array.isArray(results) && results.length > 0) {
+            data = results.find(r => r.syncedLyrics || r.plainLyrics) || results[0];
+          }
+        }
+      }
+
+      if (data && (data.syncedLyrics || data.plainLyrics)) {
+        let cues = [];
+        if (data.syncedLyrics) {
+          cues = parseLrcToCues(data.syncedLyrics, duration);
+        } else if (data.plainLyrics) {
+          const plainLines = data.plainLyrics.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+          const lineDur = (duration && duration > 0) ? duration / Math.max(1, plainLines.length) : 4;
+          cues = plainLines.map((text, idx) => ({
+            start: Math.round(idx * lineDur * 10) / 10,
+            end: Math.round((idx + 1) * lineDur * 10) / 10,
+            text
+          }));
+        }
+
+        if (cues.length > 0) {
+          const bars = deriveBarsFromCues(cues, duration, TIMELINE_BAR_COUNT);
+          const segments = deriveSegmentsFromCues(cues, duration);
+
+          state.episodeTimeline.bars = bars;
+          state.episodeTimeline.segments = segments;
+          state.episodeTimeline.cues = cues;
+          state.episodeTimeline.transcriptSource = data.syncedLyrics ? 'Lyrics (Synced)' : 'Lyrics';
+
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify({
+              bars,
+              segments,
+              cues,
+              transcriptSource: state.episodeTimeline.transcriptSource
+            }));
+          } catch (_) {}
+
+          renderWaveformChart();
+
+          if (elements.probeStatusPill) {
+            elements.probeStatusPill.textContent = data.syncedLyrics ? '✓ Synced Lyrics' : '✓ Lyrics';
+            setTimeout(() => {
+              if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
+            }, 2500);
+          }
+
+          if (elements.showNotesModal && !elements.showNotesModal.classList.contains('hidden') && elements.showTranscriptContent && !elements.showTranscriptContent.classList.contains('hidden')) {
+            renderTranscriptView();
+          }
+
+          return true;
+        }
+      }
+    } catch (err) {
+      console.warn('[LRCLIB] Lyrics lookup failed:', err);
+    }
+
+    return false;
   }
 
   function parseVttOrSrtTimestamps(text) {
