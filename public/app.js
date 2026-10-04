@@ -4344,13 +4344,13 @@
           quickSubmit.textContent = (val.startsWith('http://') || val.startsWith('https://')) ? 'Add Feed' : 'Search';
         }
         if (emptySearchDebounceTimer) clearTimeout(emptySearchDebounceTimer);
-        if (!val || val.length < 2 || val.startsWith('http://') || val.startsWith('https://')) {
+        if (!val || val.length < 3 || val.startsWith('http://') || val.startsWith('https://')) {
           if (quickResults) quickResults.innerHTML = '';
           return;
         }
         emptySearchDebounceTimer = setTimeout(() => {
           if (quickResults) searchPodcastDirectory(val, quickResults);
-        }, 300);
+        }, 650);
       });
 
       quickForm.addEventListener('submit', (e) => {
@@ -5314,7 +5314,7 @@
           }
         }
         if (feedsSearchDebounceTimer) clearTimeout(feedsSearchDebounceTimer);
-        if (!val || val.length < 2 || val.startsWith('http://') || val.startsWith('https://')) {
+        if (!val || val.length < 3 || val.startsWith('http://') || val.startsWith('https://')) {
           if (quickResults) quickResults.innerHTML = '';
           return;
         }
@@ -5322,7 +5322,7 @@
           if (quickResults) {
             searchPodcastDirectory(val, quickResults);
           }
-        }, 300);
+        }, 650);
       });
 
       quickForm.addEventListener('submit', (e) => {
@@ -7812,7 +7812,7 @@ function setPlayerCollapsed(collapsed, save = true) {
       const q = e.target.value.trim();
       clearTimeout(discoverSearchTimer);
 
-      if (q.length < 2) {
+      if (q.length < 3) {
         if (previewContainer) previewContainer.classList.add('hidden');
         return;
       }
@@ -7929,7 +7929,7 @@ function setPlayerCollapsed(collapsed, save = true) {
 
           if (previewContainer) previewContainer.classList.remove('hidden');
         } catch (_) {}
-      }, 300);
+      }, 650);
     });
 
     // Clicking anywhere outside closes the preview
@@ -8135,10 +8135,10 @@ function setPlayerCollapsed(collapsed, save = true) {
         const val = elements.podcastSearchQuery.value.trim();
         elements.btnClearModalSearch.classList.toggle('hidden', !val);
         if (modalSearchDebounceTimer) clearTimeout(modalSearchDebounceTimer);
-        if (val.length >= 2) {
+        if (val.length >= 3) {
           modalSearchDebounceTimer = setTimeout(() => {
             searchPodcastDirectory(val);
-          }, 300);
+          }, 650);
         } else if (!val) {
           if (elements.searchDirectoryResults) {
             elements.searchDirectoryResults.innerHTML = buildStarterSuggestionsHTML('all');
