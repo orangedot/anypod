@@ -3259,6 +3259,7 @@
   }
 
   function parseDurationSeconds(durationStr) {
+    if (typeof durationStr === 'number') return (isFinite(durationStr) && durationStr > 0) ? durationStr : 0;
     if (!durationStr || typeof durationStr !== 'string') return 0;
     const parts = durationStr.trim().split(':').map(p => parseFloat(p) || 0);
     if (parts.length === 3) {
@@ -6982,9 +6983,9 @@
       let resolvedArt = '';
       if (rawArt && typeof rawArt === 'string' && !rawArt.startsWith('data:')) {
         try {
-          if (rawArt.startsWith('http://')) {
-            // Upgrade insecure HTTP to HTTPS for CDNs
-            resolvedArt = rawArt.replace(/^http:\/\//i, 'https://');
+          if (window.location.protocol === 'https:' && rawArt.startsWith('http://')) {
+            // Upgrade insecure HTTP to secure proxy to prevent mixed-content & SSL handshake failures
+            resolvedArt = new URL(`/api/audio-proxy?url=${encodeURIComponent(rawArt)}`, window.location.origin).href;
           } else if (rawArt.startsWith('//')) {
             resolvedArt = 'https:' + rawArt;
           } else {
@@ -7001,27 +7002,33 @@
       const fallbackArt = new URL('/icon-512.png', window.location.origin).href;
       const primaryArt = (!resolvedArt || isSvg) ? fallbackArt : resolvedArt;
 
-      const isPng = primaryArt.toLowerCase().includes('.png');
-      const isWebp = primaryArt.toLowerCase().includes('.webp');
-      const imgType = isPng ? 'image/png' : (isWebp ? 'image/webp' : 'image/jpeg');
-
       const artworkList = [
-        { src: primaryArt, sizes: '96x96', type: imgType },
-        { src: primaryArt, sizes: '128x128', type: imgType },
-        { src: primaryArt, sizes: '192x192', type: imgType },
-        { src: primaryArt, sizes: '256x256', type: imgType },
-        { src: primaryArt, sizes: '384x384', type: imgType },
-        { src: primaryArt, sizes: '512x512', type: imgType }
+        { src: primaryArt, sizes: '96x96' },
+        { src: primaryArt, sizes: '128x128' },
+        { src: primaryArt, sizes: '192x192' },
+        { src: primaryArt, sizes: '256x256' },
+        { src: primaryArt, sizes: '384x384' },
+        { src: primaryArt, sizes: '512x512' }
       ];
 
-      // 2. Unconditionally assign MediaMetadata so the OS lockscreen gets immediate data
-      if ('MediaMetadata' in window) {
-        navigator.mediaSession.metadata = new MediaMetadata({
+      // 2. Set Metadata: only recreate when episode changes to prevent lockscreen redraw flicker
+      // In iOS WebKit / nowplayingd, repeatedly re-instantiating MediaMetadata on loadedmetadata/play/playing
+      // tears down remote playback info and causes the lockscreen to fall back to "A site is playing media".
+      const currentMeta = navigator.mediaSession.metadata;
+      const isSameEpisode = currentMeta &&
+        currentMeta.title === titleStr &&
+        currentMeta.artist === artistStr &&
+        currentMeta._guid === episode.guid;
+
+      if (!isSameEpisode && 'MediaMetadata' in window) {
+        const newMeta = new MediaMetadata({
           title: titleStr,
           artist: artistStr,
           album: albumStr,
           artwork: artworkList
         });
+        newMeta._guid = episode.guid;
+        navigator.mediaSession.metadata = newMeta;
       }
 
       // 3. Keep lockscreen widget alive: treat loading as playing
@@ -7036,11 +7043,11 @@
       let curSec = 0;
 
       if (state.activeEngine === 'audio' && elements.audio) {
-        if (elements.audio.duration && isFinite(elements.audio.duration) && elements.audio.duration > 0) {
+        // When transitioning between episodes (loading), elements.audio still holds the OLD track's duration & position!
+        // Never read stale duration from elements.audio while loading a new track.
+        if (state.playbackStatus !== 'loading' && elements.audio.duration && isFinite(elements.audio.duration) && elements.audio.duration > 0) {
           durSec = elements.audio.duration;
         }
-        // ONLY use elements.audio.currentTime if it's currently loaded with this episode!
-        // When transitioning between episodes, elements.audio.currentTime still holds the OLD episode position
         if (state.playbackStatus === 'loading') {
           curSec = state.pendingStartTime || 0;
         } else {
