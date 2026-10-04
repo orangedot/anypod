@@ -3471,6 +3471,21 @@ mark.search-highlight {
   text-decoration: none;
 }
 
+.feed-link-badge.feed-sync-resumable {
+  border-color: rgba(249, 115, 22, 0.45);
+  background: rgba(249, 115, 22, 0.08);
+  color: var(--primary);
+  cursor: pointer !important;
+  transition: all 0.2s ease;
+}
+
+.feed-link-badge.feed-sync-resumable:hover {
+  background: rgba(249, 115, 22, 0.18);
+  border-color: rgba(249, 115, 22, 0.8);
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+
 [data-theme="light"] .feed-link-badge {
   background: rgba(0, 0, 0, 0.04);
 }

@@ -3195,9 +3195,13 @@
 
       let response = await fetch(apiUrl, { headers });
 
-      // If Cloudflare or origin returns 503/524, retry once after a short backoff
-      if (response.status === 503 || response.status === 524) {
-        await new Promise(r => setTimeout(r, 750));
+      // Retry up to 3 times with exponential backoff if Cloudflare returns 503/524/429
+      let retryCount = 0;
+      while ((response.status === 503 || response.status === 524 || response.status === 429) && retryCount < 3) {
+        retryCount++;
+        const backoffMs = Math.min(1000 * Math.pow(2, retryCount), 6000);
+        console.warn(`[Feed Fetch] Got HTTP ${response.status} for ${url}, retrying in ${backoffMs}ms (attempt ${retryCount}/3)...`);
+        await new Promise(r => setTimeout(r, backoffMs));
         response = await fetch(apiUrl, { headers });
       }
 
@@ -3229,7 +3233,10 @@
         title: feedData.title,
         artwork: feedData.artwork,
         episodesCount: feedData.episodesCount,
-        description: feedData.description
+        description: feedData.description,
+        isYouTubePlaylist: feedData.isYouTubePlaylist || false,
+        playlistId: feedData.playlistId || null,
+        nextToken: feedData.nextToken || null
       };
 
       if (Array.isArray(feedData.episodes)) {
@@ -3239,12 +3246,14 @@
       return feedData;
     } catch (err) {
       if (!updatedMetadata[url]) {
-        updatedMetadata[url] = {
-          title: 'Error Loading Feed',
-          artwork: '',
-          episodesCount: 0,
-          error: err.message
-        };
+        updatedMetadata[url] = state.feedMetadata[url]
+          ? { ...state.feedMetadata[url], error: err.message }
+          : {
+              title: 'Error Loading Feed',
+              artwork: '',
+              episodesCount: 0,
+              error: err.message
+            };
       }
       return null;
     }
@@ -5720,12 +5729,14 @@
       (feedUrl.includes('list=') && _activeYtPaginations.has(feedUrl.split('list=')[1].split('&')[0]))
     );
 
+    const isPartial = expectedTotal && loadedCount < expectedTotal;
+
     const badgeText = q
       ? `${loadedCount} / ${expectedTotal} episodes`
-      : (expectedTotal && loadedCount < expectedTotal && isPaging)
+      : (isPartial && isPaging)
         ? `${loadedCount} / ${expectedTotal} episodes (syncing...)`
-        : (expectedTotal && loadedCount < expectedTotal)
-          ? `${loadedCount} / ${expectedTotal} episodes`
+        : isPartial
+          ? `${loadedCount} / ${expectedTotal} episodes • Click to sync`
           : `${loadedCount} episodes`;
 
     if (header.dataset.feedUrl !== feedUrl) {
@@ -5762,7 +5773,7 @@
               <button class="feed-link-badge" id="btn-copy-link" title="Copy Podcast Link to Clipboard">Copy Link</button>
               <button class="feed-link-badge" id="btn-share-feed-link" title="Share Podcast">Share Feed</button>
               <button class="feed-link-badge" id="btn-copy-rss" title="Copy RSS Feed URL">Copy RSS</button>
-              <span class="feed-link-badge" id="feed-episodes-badge" style="cursor: default;">${badgeText}</span>
+              <span class="feed-link-badge ${isPartial && !isPaging ? 'feed-sync-resumable' : ''}" id="feed-episodes-badge" style="cursor: ${isPartial && !isPaging ? 'pointer' : 'default'};" title="${isPartial && !isPaging ? 'Click to resume syncing remaining episodes' : isPaging ? 'Sync in progress' : ''}">${badgeText}</span>
               ${isSubbed && isMuted ? `<span class="feed-link-badge feed-muted-badge" style="cursor: default;">Timeline Muted</span>` : ''}
             </div>
           </div>
@@ -5826,10 +5837,34 @@
           }, 2000);
         });
       });
+
+      const epBadge = header.querySelector('#feed-episodes-badge');
+      if (epBadge) {
+        epBadge.addEventListener('click', () => {
+          const currentMeta = state.feedMetadata[feedUrl] || {};
+          const currentEps = state.allEpisodes.filter(e => e.feedUrl === feedUrl);
+          const currentExpected = currentMeta.episodesCount || 0;
+          const pId = currentMeta.playlistId || (feedUrl.includes('list=') ? feedUrl.split('list=')[1].split('&')[0] : null);
+          const currentlyPaging = pId && _activeYtPaginations.has(pId);
+
+          if (currentExpected && currentEps.length < currentExpected && !currentlyPaging && pId) {
+            showToast('Resuming episode sync...');
+            startYouTubeBackgroundPaging(pId, feedUrl, currentMeta.nextToken || null);
+            renderFeedDetail(feedUrl);
+          }
+        });
+      }
     } else {
       const badge = header.querySelector('#feed-episodes-badge');
       if (badge) {
         badge.textContent = badgeText;
+        badge.style.cursor = isPartial && !isPaging ? 'pointer' : 'default';
+        badge.title = isPartial && !isPaging ? 'Click to resume syncing remaining episodes' : isPaging ? 'Sync in progress' : '';
+        if (isPartial && !isPaging) {
+          badge.classList.add('feed-sync-resumable');
+        } else {
+          badge.classList.remove('feed-sync-resumable');
+        }
       }
       const actionBtn = header.querySelector('#btn-feed-action');
       if (actionBtn) {
@@ -6673,7 +6708,7 @@
     if (_activeYtPaginations.has(playlistId)) return;
     _activeYtPaginations.add(playlistId);
 
-    let nextToken = initialToken;
+    let nextToken = initialToken || state.feedMetadata[feedUrl]?.nextToken || null;
     let isFirstBatch = !nextToken;
 
     try {
@@ -6690,12 +6725,54 @@
 
         isFirstBatch = false;
 
-        const res = await fetch(apiUrl);
-        if (!res.ok) break;
+        let res = null;
+        let retryCount = 0;
+        const maxRetries = 3;
+
+        while (retryCount <= maxRetries) {
+          try {
+            res = await fetch(apiUrl);
+            if (res.ok) break;
+
+            // Retry on 503 (Cloudflare worker temporarily unavailable / CPU spike), 429 (Rate limit), 524 (Timeout)
+            if ((res.status === 503 || res.status === 429 || res.status === 524) && retryCount < maxRetries) {
+              retryCount++;
+              const backoffMs = Math.min(1000 * Math.pow(2, retryCount), 8000);
+              console.warn(`[YouTube Hydration] Got HTTP ${res.status}, retrying in ${backoffMs}ms (attempt ${retryCount}/${maxRetries})...`);
+              if (state.activeFeedDetailUrl === feedUrl) {
+                const badge = document.getElementById('feed-episodes-badge');
+                if (badge) {
+                  const currentEps = state.allEpisodes.filter(e => e.feedUrl === feedUrl);
+                  const expected = state.feedMetadata[feedUrl]?.episodesCount || currentEps.length;
+                  badge.textContent = `${currentEps.length} / ${expected} episodes (retrying in ${Math.round(backoffMs / 1000)}s...)`;
+                }
+              }
+              await new Promise(r => setTimeout(r, backoffMs));
+              continue;
+            }
+          } catch (netErr) {
+            if (retryCount < maxRetries) {
+              retryCount++;
+              const backoffMs = Math.min(1000 * Math.pow(2, retryCount), 8000);
+              console.warn(`[YouTube Hydration] Network error, retrying in ${backoffMs}ms:`, netErr);
+              await new Promise(r => setTimeout(r, backoffMs));
+              continue;
+            }
+          }
+          break;
+        }
+
+        if (!res || !res.ok) {
+          console.warn(`[YouTube Hydration] Batch request stopped with HTTP ${res ? res.status : 'NetworkError'}.`);
+          break;
+        }
 
         const batch = await res.json();
         if (!batch.episodes || batch.episodes.length === 0) {
           nextToken = batch.nextToken || null;
+          if (state.feedMetadata[feedUrl]) {
+            state.feedMetadata[feedUrl].nextToken = nextToken;
+          }
           if (!nextToken) break;
           continue;
         }
@@ -6717,6 +6794,9 @@
         }
 
         nextToken = batch.nextToken || null;
+        if (state.feedMetadata[feedUrl]) {
+          state.feedMetadata[feedUrl].nextToken = nextToken;
+        }
 
         if (addedAny) {
           saveCacheToStorage();
@@ -6732,6 +6812,9 @@
       console.warn('[YouTube Hydration] Paging stopped:', err);
     } finally {
       _activeYtPaginations.delete(playlistId);
+      if (state.activeFeedDetailUrl === feedUrl && typeof renderFeedDetail === 'function') {
+        renderFeedDetail(feedUrl);
+      }
     }
   }
 
