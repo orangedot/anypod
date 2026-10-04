@@ -2758,16 +2758,11 @@ mark.search-highlight {
 }
 
 .feed-recent-widget {
-  background: rgba(255, 255, 255, 0.025);
+  background: transparent;
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
-  padding: 0.5rem 0.65rem;
+  padding: 0.5rem 0rem;
   margin-top: 0.25rem;
-}
-
-[data-theme="light"] .feed-recent-widget,
-:root:not([data-theme="dark"]) .feed-recent-widget {
-  background: rgba(0, 0, 0, 0.02);
 }
 
 .feed-recent-header {
@@ -2789,7 +2784,7 @@ mark.search-highlight {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.3rem 0.4rem;
+  padding: 0.3rem 0rem;
   border-radius: 5px;
   background: transparent;
   transition: background 0.15s ease;

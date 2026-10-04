@@ -35,15 +35,14 @@ export async function onRequestGet(context) {
   try {
     const res = await fetch(itunesUrl, {
       headers: {
-        'User-Agent': 'Anypod/1.0 (+https://anypod.org)',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'application/json'
       }
     });
 
     if (!res.ok) {
-      // Graceful fallback on rate limits (429) or upstream errors:
-      // Return 200 with an empty list + flag so the client doesn't trigger direct CORS-failing fetches
-      return new Response(JSON.stringify({ resultCount: 0, results: [], rateLimited: res.status === 429 }), {
+      // Graceful fallback on rate limits (429/403) or upstream errors:
+      return new Response(JSON.stringify({ resultCount: 0, results: [], rateLimited: true, upstreamStatus: res.status }), {
         status: 200,
         headers: {
           ...corsHeaders,
