@@ -736,7 +736,8 @@
       id: '',
       title: 'Timeline',
       items: []
-    }
+    },
+    _nowPlayingActiveGuid: null
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1141,6 +1142,11 @@
       } else if (event.data === ytPlaying) {
         state.playbackStatus = 'playing';
         syncPlaybackButtons();
+        if (state.currentEpisode) {
+          const needsReassert = state._nowPlayingActiveGuid !== state.currentEpisode.guid;
+          syncMediaSession(state.currentEpisode, needsReassert);
+          state._nowPlayingActiveGuid = state.currentEpisode.guid;
+        }
       } else if (event.data === ytPaused) {
         state.playbackStatus = 'paused';
         syncPlaybackButtons();
@@ -5975,7 +5981,12 @@
         syncPlaybackButtons();
 
         if (state.currentEpisode) {
-          syncMediaSession(state.currentEpisode);
+          // Re-assert MediaSession metadata when audio stream actively emits sound,
+          // ensuring the iOS lockscreen / nowplayingd binds the new track while screen is locked
+          const needsReassert = state._nowPlayingActiveGuid !== state.currentEpisode.guid;
+          syncMediaSession(state.currentEpisode, needsReassert);
+          state._nowPlayingActiveGuid = state.currentEpisode.guid;
+
           // 3. Force lockscreen state to 'playing' as soon as audio outputs
           if ('mediaSession' in navigator) {
             navigator.mediaSession.playbackState = 'playing';
@@ -6394,12 +6405,12 @@
   function playEpisode(episode, overrideStartTime, context = null) {
     state.currentEpisode = episode;
     state.playbackStatus = 'loading';
+    state._nowPlayingActiveGuid = null;
 
     liveTranscription.onEpisodeChange(episode);
     // Reset caption popup for the new episode
     _captionDismissed = false;
     _hideLiveCaption(false);
-    syncMediaSession(episode);
     syncPlaybackButtons();
 
     if (context && Array.isArray(context.items)) {
@@ -6563,6 +6574,7 @@
     updatePlayerFavButton();
     syncPlaybackButtons();
     updateAutoplayButtonUI();
+    syncMediaSession(episode, true);
 
     if (!document.hidden) {
       renderContinueShelf();
@@ -6965,7 +6977,7 @@
       : 'Autoplay OFF';
   }
 
-  function syncMediaSession(episode) {
+  function syncMediaSession(episode, forceMetadataUpdate = false) {
     if (!('mediaSession' in navigator) || !episode) return;
 
     try {
@@ -7011,11 +7023,9 @@
         { src: primaryArt, sizes: '512x512' }
       ];
 
-      // 2. Set Metadata: only recreate when episode changes to prevent lockscreen redraw flicker
-      // In iOS WebKit / nowplayingd, repeatedly re-instantiating MediaMetadata on loadedmetadata/play/playing
-      // tears down remote playback info and causes the lockscreen to fall back to "A site is playing media".
+      // 2. Set Metadata: update when requested (force) or when title/artist/guid differs
       const currentMeta = navigator.mediaSession.metadata;
-      const isSameEpisode = currentMeta &&
+      const isSameEpisode = !forceMetadataUpdate && currentMeta &&
         currentMeta.title === titleStr &&
         currentMeta.artist === artistStr &&
         currentMeta._guid === episode.guid;
