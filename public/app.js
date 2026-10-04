@@ -738,6 +738,7 @@
       items: []
     },
     _mediaSessionGuid: null,
+    _nowPlayingActiveGuid: null,
     _episodeEndedTriggered: false
   };
 
@@ -977,8 +978,20 @@
       }
     } else {
       // Tab/app became visible again — resync UI
-      syncPlaybackButtons();
+      if (state.currentEpisode) {
+        if (elements.playerTitle) elements.playerTitle.textContent = state.currentEpisode.title;
+        if (elements.playerPodcast) elements.playerPodcast.textContent = state.currentEpisode.podcastTitle;
+        if (elements.playerArtwork) elements.playerArtwork.src = state.currentEpisode.artwork || FALLBACK_ARTWORK;
+        if (elements.miniTitle) elements.miniTitle.textContent = state.currentEpisode.title;
+        if (elements.miniPodcast) elements.miniPodcast.textContent = state.currentEpisode.podcastTitle;
+        if (elements.miniArtwork) elements.miniArtwork.src = state.currentEpisode.artwork || FALLBACK_ARTWORK;
+        renderContinueShelf();
+        updateFilterBadges();
+        initOrLoadEpisodeTimeline(state.currentEpisode, (state.currentEpisode.duration ? parseDurationSeconds(state.currentEpisode.duration) : 0));
+      }
+      updateDuration();
       updateProgress();
+      syncPlaybackButtons();
       if (state.currentEpisode && state.experimentalSettings.enableVisualizer) {
         renderWaveformChart();
       }
@@ -1144,8 +1157,13 @@
         state.playbackStatus = 'playing';
         syncPlaybackButtons();
         if (state.currentEpisode) {
-          const needsReassert = state._mediaSessionGuid !== state.currentEpisode.guid;
-          syncMediaSession(state.currentEpisode, needsReassert);
+          const needsReassert = state._nowPlayingActiveGuid !== state.currentEpisode.guid;
+          if (needsReassert) {
+            state._nowPlayingActiveGuid = state.currentEpisode.guid;
+            syncMediaSession(state.currentEpisode, true);
+          } else {
+            syncMediaSession(state.currentEpisode, false);
+          }
         }
       } else if (event.data === ytPaused) {
         state.playbackStatus = 'paused';
@@ -6017,10 +6035,13 @@
         syncPlaybackButtons();
 
         if (state.currentEpisode) {
-          // Only re-create MediaMetadata if it doesn't match this episode yet,
-          // avoiding rapid duplicate IPC calls to Android's MediaNotificationService.
-          const needsReassert = state._mediaSessionGuid !== state.currentEpisode.guid;
-          syncMediaSession(state.currentEpisode, needsReassert);
+          const needsReassert = state._nowPlayingActiveGuid !== state.currentEpisode.guid;
+          if (needsReassert) {
+            state._nowPlayingActiveGuid = state.currentEpisode.guid;
+            syncMediaSession(state.currentEpisode, true);
+          } else {
+            syncMediaSession(state.currentEpisode, false);
+          }
 
           // Force lockscreen state to 'playing' as soon as audio outputs
           if ('mediaSession' in navigator) {
@@ -6461,6 +6482,7 @@
 
   function playEpisode(episode, overrideStartTime, context = null) {
     state._episodeEndedTriggered = false;
+    state._nowPlayingActiveGuid = null;
     state.currentEpisode = episode;
     state.playbackStatus = 'loading';
     syncMediaSession(episode, true);
@@ -6593,9 +6615,6 @@
       state.pendingStartTime = startTime > 0 ? startTime : null;
       elements.audio.src = streamUrl;
       elements.audio.playbackRate = state.playbackSpeed;
-      try {
-        elements.audio.load();
-      } catch (_) {}
 
       const playPromise = elements.audio.play();
       if (playPromise !== undefined) {
@@ -7119,44 +7138,42 @@
         navigator.mediaSession.playbackState = 'playing';
       }
 
-      // 4. Safe setPositionState
-      let durSec = 0;
-      let curSec = 0;
+      // 4. Safe setPositionState: only update position state when not loading.
+      // Calling setPositionState during track loading with estimated durations
+      // desynchronizes Android's PlaybackStateCompat and can drop the notification.
+      if (state.playbackStatus !== 'loading') {
+        let durSec = 0;
+        let curSec = 0;
 
-      if (state.activeEngine === 'audio' && elements.audio) {
-        // When transitioning between episodes (loading), elements.audio still holds the OLD track's duration & position!
-        // Never read stale duration from elements.audio while loading a new track.
-        if (state.playbackStatus !== 'loading' && elements.audio.duration && isFinite(elements.audio.duration) && elements.audio.duration > 0) {
-          durSec = elements.audio.duration;
-        }
-        if (state.playbackStatus === 'loading') {
-          curSec = state.pendingStartTime || 0;
-        } else {
+        if (state.activeEngine === 'audio' && elements.audio) {
+          if (elements.audio.duration && isFinite(elements.audio.duration) && elements.audio.duration > 0) {
+            durSec = elements.audio.duration;
+          }
           curSec = elements.audio.currentTime || 0;
+        } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
+          if (typeof state.ytPlayer.getDuration === 'function') {
+            const yd = state.ytPlayer.getDuration();
+            if (yd && isFinite(yd) && yd > 0) durSec = yd;
+          }
+          if (typeof state.ytPlayer.getCurrentTime === 'function') {
+            curSec = state.ytPlayer.getCurrentTime() || 0;
+          }
         }
-      } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
-        if (typeof state.ytPlayer.getDuration === 'function') {
-          const yd = state.ytPlayer.getDuration();
-          if (yd && isFinite(yd) && yd > 0) durSec = yd;
-        }
-        if (typeof state.ytPlayer.getCurrentTime === 'function') {
-          curSec = state.ytPlayer.getCurrentTime() || 0;
-        }
-      }
 
-      if (!durSec && episode.duration && typeof parseDurationSeconds === 'function') {
-        durSec = parseDurationSeconds(episode.duration);
-      }
+        if (!durSec && episode.duration && typeof parseDurationSeconds === 'function') {
+          durSec = parseDurationSeconds(episode.duration);
+        }
 
-      if ('setPositionState' in navigator.mediaSession && durSec > 0 && isFinite(durSec)) {
-        const safePos = Math.max(0, Math.min(curSec, durSec));
-        try {
-          navigator.mediaSession.setPositionState({
-            duration: Math.max(0.1, durSec),
-            playbackRate: state.playbackSpeed || 1.0,
-            position: safePos
-          });
-        } catch (_) {}
+        if ('setPositionState' in navigator.mediaSession && durSec > 0 && isFinite(durSec)) {
+          const safePos = Math.max(0, Math.min(curSec, durSec));
+          try {
+            navigator.mediaSession.setPositionState({
+              duration: Math.max(0.1, durSec),
+              playbackRate: state.playbackSpeed || 1.0,
+              position: safePos
+            });
+          } catch (_) {}
+        }
       }
     } catch (err) {
       console.warn('[Anypod MediaSession] sync failed:', err);
