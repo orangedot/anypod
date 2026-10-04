@@ -204,6 +204,7 @@
     FAVORITES: 'anypod_favorites',
     EXPERIMENTAL: 'anypod_experimental_settings',
     AUTOPLAY: 'anypod_autoplay',
+    SHUFFLE: 'anypod_shuffle',
     LAST_EPISODE: 'anypod_last_active_episode'
   };
 
@@ -684,6 +685,7 @@
     currentEpisode: null,
     playbackSpeed: 1.0,
     sortOrder: 'newest',
+    isShuffle: localStorage.getItem('anypod_shuffle') === 'true',
     searchQuery: '',
     filterMode: 'unplayed',
     feedFilter: 'all',
@@ -770,6 +772,7 @@
     btnPrev15: document.getElementById('btn-prev-15'),
     btnNext15: document.getElementById('btn-next-15'),
     btnSkipEpisode: document.getElementById('btn-skip-episode'),
+    btnPlayerShuffle: document.getElementById('btn-player-shuffle'),
     btnPlayerMarkPlayed: document.getElementById('btn-player-mark-played'),
 
     tabs: document.querySelectorAll('.nav-tab'),
@@ -1497,6 +1500,7 @@
     updateDownloadedCountUI();
     updateDockVisibility();
     updateAutoplayButtonUI();
+    updateShuffleButtonUI();
     initServiceWorker();
     initNavigationRoute();
     checkAuth();
@@ -2090,9 +2094,9 @@
     if (!elements.bottomActionDock) return;
     const isTimelineActive = elements.tabTimeline && elements.tabTimeline.classList.contains('active');
     const isDetailActive = !!state.activeFeedDetailUrl;
-    const hasFeeds = state.feeds && state.feeds.length > 0;
+    const hasEpisodes = state.allEpisodes && state.allEpisodes.length > 0;
 
-    if (isTimelineActive && !isDetailActive && hasFeeds) {
+    if ((isTimelineActive || isDetailActive) && hasEpisodes) {
       elements.bottomActionDock.classList.remove('dock-hidden');
     } else {
       elements.bottomActionDock.classList.add('dock-hidden');
@@ -2263,6 +2267,31 @@
     queuedGuids.add(currentGuid);
 
     let candidates = [];
+
+    // 0. Shuffle Mode: Random selection from current playback context or global pool
+    if (state.isShuffle) {
+      let pool = [];
+      if (state.playbackContext && Array.isArray(state.playbackContext.items) && state.playbackContext.items.length > 0) {
+        pool = state.playbackContext.items.filter(ep => !queuedGuids.has(ep.guid));
+      } else if (state.filteredEpisodes.length > 0) {
+        pool = state.filteredEpisodes.filter(ep => !queuedGuids.has(ep.guid));
+      } else {
+        pool = state.allEpisodes.filter(ep => !queuedGuids.has(ep.guid));
+      }
+
+      // If all unqueued items have been exhausted, fall back to any track from context except currently playing
+      if (pool.length === 0) {
+        const fullList = (state.playbackContext?.items?.length) ? state.playbackContext.items : state.allEpisodes;
+        pool = fullList.filter(ep => ep.guid !== currentGuid);
+      }
+
+      const shuffled = [...pool];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled.slice(0, limit);
+    }
 
     // 1. Context-specific sequential queueing
     if (state.playbackContext && Array.isArray(state.playbackContext.items) && state.playbackContext.items.length > 0) {
@@ -5721,6 +5750,34 @@
       });
     }
 
+    // Filter by unplayed / played / all according to dock filterMode
+    if (state.filterMode === 'unplayed') {
+      episodes = episodes.filter(ep => {
+        const pos = state.playbackPositions[ep.guid];
+        return !pos || !pos.completed;
+      });
+    } else if (state.filterMode === 'played') {
+      episodes = episodes.filter(ep => {
+        const pos = state.playbackPositions[ep.guid];
+        return pos && pos.completed;
+      });
+    }
+
+    // Sort episodes according to dock sortOrder
+    if (state.sortOrder === 'newest') {
+      episodes.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    } else if (state.sortOrder === 'oldest') {
+      episodes.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    } else if (state.sortOrder === 'title-asc') {
+      episodes.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+    } else if (state.sortOrder === 'title-desc') {
+      episodes.sort((a, b) => (b.title || '').localeCompare(a.title || ''));
+    } else if (state.sortOrder === 'duration-asc') {
+      episodes.sort((a, b) => parseDurationSeconds(a.duration) - parseDurationSeconds(b.duration));
+    } else if (state.sortOrder === 'duration-desc') {
+      episodes.sort((a, b) => parseDurationSeconds(b.duration) - parseDurationSeconds(a.duration));
+    }
+
     const loadedCount = episodes.length;
     const expectedTotal = meta.episodesCount || totalCount;
 
@@ -5752,6 +5809,15 @@
         <div class="feed-detail-top-nav">
           <button class="btn-back-nav" id="btn-feed-back">${escapeHtml(backLabel)}</button>
           <div class="feed-detail-top-actions">
+            <button class="btn btn-primary btn-sm btn-feed-play" id="btn-feed-play-all" title="Play episodes from this feed">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 3px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <span>Play</span>
+            </button>
+            <label class="feed-shuffle-checkbox-wrap" id="label-feed-shuffle" title="Toggle shuffle mode">
+              <input type="checkbox" id="chk-feed-shuffle" ${state.isShuffle ? 'checked' : ''}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+              <span>Shuffle</span>
+            </label>
             ${isSubbed ? `
               <button class="btn btn-secondary btn-sm btn-feed-mute ${isMuted ? 'is-muted' : ''}" id="btn-feed-mute" title="${isMuted ? 'Unmute: show episodes in timeline' : 'Mute: hide episodes from timeline'}">
                 <span>${isMuted ? 'Muted' : 'Mute'}</span>
@@ -5783,6 +5849,35 @@
       header.querySelector('#btn-feed-back').addEventListener('click', () => {
         navigateBack();
       });
+
+      const playAllBtn = header.querySelector('#btn-feed-play-all');
+      if (playAllBtn) {
+        playAllBtn.addEventListener('click', () => {
+          if (episodes.length === 0) return;
+          const feedContext = {
+            type: 'feed',
+            id: feedUrl,
+            title: meta.title || 'Podcast Show',
+            items: episodes
+          };
+          if (state.isShuffle) {
+            const randIdx = Math.floor(Math.random() * episodes.length);
+            playEpisode(episodes[randIdx], null, feedContext);
+          } else {
+            playEpisode(episodes[0], null, feedContext);
+          }
+        });
+      }
+
+      const chkShuffle = header.querySelector('#chk-feed-shuffle');
+      if (chkShuffle) {
+        chkShuffle.addEventListener('change', (e) => {
+          state.isShuffle = e.target.checked;
+          localStorage.setItem(STORAGE_KEYS.SHUFFLE, String(state.isShuffle));
+          updateShuffleButtonUI();
+          showToast(state.isShuffle ? 'Shuffle mode ON' : 'Shuffle mode OFF');
+        });
+      }
 
       const copyLinkBtn = header.querySelector('#btn-copy-link');
       if (copyLinkBtn) {
@@ -5855,6 +5950,10 @@
         });
       }
     } else {
+      const chk = header.querySelector('#chk-feed-shuffle');
+      if (chk) {
+        chk.checked = state.isShuffle === true;
+      }
       const badge = header.querySelector('#feed-episodes-badge');
       if (badge) {
         badge.textContent = badgeText;
@@ -6689,6 +6788,7 @@
     updatePlayerFavButton();
     syncPlaybackButtons();
     updateAutoplayButtonUI();
+    updateShuffleButtonUI();
 
     if (!document.hidden) {
       renderContinueShelf();
@@ -7138,6 +7238,30 @@
     btn.title = isEnabled
       ? `Autoplay ON (${state.playbackContext?.title || 'Timeline'})`
       : 'Autoplay OFF';
+  }
+
+  function updateShuffleButtonUI() {
+    const btn = elements.btnPlayerShuffle || document.getElementById('btn-player-shuffle');
+    if (btn) {
+      const isShuffle = state.isShuffle === true;
+      btn.classList.toggle('active', isShuffle);
+      btn.setAttribute('aria-pressed', String(isShuffle));
+      btn.title = isShuffle ? 'Shuffle Playback (ON)' : 'Shuffle Playback (OFF)';
+    }
+    const chk = document.getElementById('chk-feed-shuffle');
+    if (chk) {
+      chk.checked = state.isShuffle === true;
+    }
+  }
+
+  function toggleShuffle() {
+    state.isShuffle = !state.isShuffle;
+    localStorage.setItem(STORAGE_KEYS.SHUFFLE, String(state.isShuffle));
+    updateShuffleButtonUI();
+    showToast(state.isShuffle ? 'Shuffle mode ON' : 'Shuffle mode OFF');
+    if (elements.queueModal && !elements.queueModal.classList.contains('hidden')) {
+      renderQueueModalContent();
+    }
   }
 
   function syncMediaSession(episode, forceMetadataUpdate = false) {
@@ -7736,6 +7860,9 @@ function setPlayerCollapsed(collapsed, save = true) {
           state.filterMode = chip.dataset.filter || 'all';
           processAndSortEpisodes();
           renderTimeline();
+          if (state.activeFeedDetailUrl) {
+            renderFeedDetail(state.activeFeedDetailUrl);
+          }
         });
       });
     }
@@ -7919,6 +8046,10 @@ function setPlayerCollapsed(collapsed, save = true) {
       elements.btnSkipEpisode.addEventListener('click', () => {
         skipToNextEpisode(false);
       });
+    }
+
+    if (elements.btnPlayerShuffle) {
+      elements.btnPlayerShuffle.addEventListener('click', toggleShuffle);
     }
 
     if (elements.btnPlayerMarkPlayed) {

@@ -799,6 +799,54 @@ body.has-active-episode .app-container {
   opacity: 1;
 }
 
+.btn-shuffle-toggle {
+  position: relative;
+  transition: color 0.2s, background-color 0.2s;
+  color: var(--text-muted);
+}
+
+.btn-shuffle-toggle.active {
+  color: var(--primary, #f97316);
+  background: rgba(249, 115, 22, 0.12);
+  border-radius: var(--radius-sm);
+}
+
+.btn-feed-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: 600;
+  padding: 0.35rem 0.85rem;
+}
+
+.feed-shuffle-checkbox-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  padding: 0.3rem 0.55rem;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-light);
+  transition: all 0.2s ease;
+}
+
+.feed-shuffle-checkbox-wrap:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.feed-shuffle-checkbox-wrap input[type="checkbox"] {
+  accent-color: var(--primary, #f97316);
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+}
+
 .queue-section-header.auto-queue-header {
   display: flex;
   justify-content: space-between;
