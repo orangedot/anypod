@@ -7450,29 +7450,24 @@
     }
   }
 
-  function syncMediaSession(episode, forceMetadataUpdate = false) {
+  function syncMediaSession(episode) {
     if (!('mediaSession' in navigator) || !episode) return;
 
     try {
-      const titleStr = episode.title || 'Untitled Episode';
-      const artistStr = episode.podcastTitle || 'Podcast';
-      const albumStr = episode.podcastTitle || 'anypod';
-
-      // 0. Keep document.title in sync so lockscreen/notification fallback displays the episode
-      document.title = `${titleStr} • ${artistStr} — anypod`;
-
-      // 1. Resolve Artwork to an ABSOLUTE URL
+      // 1. Resolve Artwork to an ABSOLUTE URL (relative URLs break mobile OS lockscreens)
       const feedMeta = (state.feedMetadata && episode.feedUrl) ? state.feedMetadata[episode.feedUrl] : null;
       let rawArt = episode.artwork || (feedMeta && feedMeta.artwork) || '';
 
+      if (!rawArt && typeof FALLBACK_ARTWORK !== 'undefined') {
+        rawArt = FALLBACK_ARTWORK;
+      }
+
       let resolvedArt = '';
-      if (rawArt && typeof rawArt === 'string' && !rawArt.startsWith('data:')) {
+      if (rawArt && !rawArt.startsWith('data:')) {
         try {
           if (window.location.protocol === 'https:' && rawArt.startsWith('http://')) {
-            // Upgrade insecure HTTP to secure proxy to prevent mixed-content & SSL handshake failures
+            // MUST be absolute: prefix with window.location.origin
             resolvedArt = new URL(`/api/audio-proxy?url=${encodeURIComponent(rawArt)}`, window.location.origin).href;
-          } else if (rawArt.startsWith('//')) {
-            resolvedArt = 'https:' + rawArt;
           } else {
             resolvedArt = new URL(rawArt, window.location.origin).href;
           }
@@ -7481,92 +7476,67 @@
         }
       }
 
-      // If no valid artwork or if it is SVG, fallback to our PNG icons:
-      // iOS WebKit and Android lockscreen widgets reject SVG artwork!
-      const isSvg = resolvedArt.toLowerCase().includes('.svg');
-      const fallbackArt = new URL('/icon-512.png', window.location.origin).href;
-      const primaryArt = (!resolvedArt || isSvg) ? fallbackArt : resolvedArt;
+      const artworkList = resolvedArt ? [
+        { src: resolvedArt, sizes: '96x96' },
+        { src: resolvedArt, sizes: '128x128' },
+        { src: resolvedArt, sizes: '192x192' },
+        { src: resolvedArt, sizes: '256x256' },
+        { src: resolvedArt, sizes: '384x384' },
+        { src: resolvedArt, sizes: '512x512' }
+      ] : [];
 
-      let imgType = 'image/png';
-      const lowerArt = primaryArt.toLowerCase();
-      if (lowerArt.includes('.jpg') || lowerArt.includes('.jpeg')) {
-        imgType = 'image/jpeg';
-      } else if (lowerArt.includes('.webp')) {
-        imgType = 'image/webp';
-      }
+      // 2. Unconditionally assign MediaMetadata so the OS lockscreen gets immediate data
+      const titleStr = episode.title || 'Untitled Episode';
+      const artistStr = episode.podcastTitle || 'Podcast';
 
-      const artworkList = [
-        { src: primaryArt, sizes: '96x96', type: imgType },
-        { src: primaryArt, sizes: '128x128', type: imgType },
-        { src: primaryArt, sizes: '192x192', type: imgType },
-        { src: primaryArt, sizes: '256x256', type: imgType },
-        { src: primaryArt, sizes: '384x384', type: imgType },
-        { src: primaryArt, sizes: '512x512', type: imgType }
-      ];
-      if (primaryArt !== fallbackArt) {
-        artworkList.push(
-          { src: fallbackArt, sizes: '192x192', type: 'image/png' },
-          { src: fallbackArt, sizes: '512x512', type: 'image/png' }
-        );
-      }
+      document.title = `${titleStr} • ${artistStr} — anypod`;
 
-      // 2. Set Metadata: update when requested (force) or when guid differs
-      const isSameEpisode = !forceMetadataUpdate && (state._mediaSessionGuid === episode.guid);
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: titleStr,
+        artist: artistStr,
+        album: artistStr,
+        artwork: artworkList
+      });
 
-      if (!isSameEpisode && 'MediaMetadata' in window) {
-        state._mediaSessionGuid = episode.guid;
-        const newMeta = new MediaMetadata({
-          title: titleStr,
-          artist: artistStr,
-          album: albumStr,
-          artwork: artworkList
-        });
-        navigator.mediaSession.metadata = newMeta;
-      }
-
-      // 3. Keep lockscreen widget alive: treat loading as playing
+      // 3. Keep lockscreen widget alive: treat 'loading' as 'playing'
       if (state.playbackStatus === 'paused') {
         navigator.mediaSession.playbackState = 'paused';
       } else {
         navigator.mediaSession.playbackState = 'playing';
       }
 
-      // 4. Safe setPositionState: only update position state when not loading.
-      // Calling setPositionState during track loading with estimated durations
-      // desynchronizes Android's PlaybackStateCompat and can drop the notification.
-      if (state.playbackStatus !== 'loading') {
-        let durSec = 0;
-        let curSec = 0;
+      // 4. Safe setPositionState
+      let durSec = 0;
+      let curSec = 0;
 
-        if (state.activeEngine === 'audio' && elements.audio) {
-          if (elements.audio.duration && isFinite(elements.audio.duration) && elements.audio.duration > 0) {
-            durSec = elements.audio.duration;
-          }
-          curSec = elements.audio.currentTime || 0;
-        } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
-          if (typeof state.ytPlayer.getDuration === 'function') {
-            const yd = state.ytPlayer.getDuration();
-            if (yd && isFinite(yd) && yd > 0) durSec = yd;
-          }
-          if (typeof state.ytPlayer.getCurrentTime === 'function') {
-            curSec = state.ytPlayer.getCurrentTime() || 0;
-          }
+      if (state.activeEngine === 'audio' && elements.audio) {
+        if (elements.audio.duration && isFinite(elements.audio.duration) && elements.audio.duration > 0) {
+          durSec = elements.audio.duration;
         }
+        curSec = elements.audio.currentTime || 0;
+      } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
+        if (typeof state.ytPlayer.getDuration === 'function') {
+          const yd = state.ytPlayer.getDuration();
+          if (yd && isFinite(yd) && yd > 0) durSec = yd;
+        }
+        if (typeof state.ytPlayer.getCurrentTime === 'function') {
+          curSec = state.ytPlayer.getCurrentTime() || 0;
+        }
+      }
 
-        if (!durSec && episode.duration && typeof parseDurationSeconds === 'function') {
-          durSec = parseDurationSeconds(episode.duration);
-        }
+      if (!durSec && episode.duration && typeof parseDurationSeconds === 'function') {
+        durSec = parseDurationSeconds(episode.duration);
+      }
 
-        if ('setPositionState' in navigator.mediaSession && durSec > 0 && isFinite(durSec)) {
-          const safePos = Math.max(0, Math.min(curSec, durSec));
-          try {
-            navigator.mediaSession.setPositionState({
-              duration: Math.max(0.1, durSec),
-              playbackRate: state.playbackSpeed || 1.0,
-              position: safePos
-            });
-          } catch (_) {}
-        }
+      if ('setPositionState' in navigator.mediaSession && durSec > 0 && isFinite(durSec)) {
+        const safePos = Math.max(0, Math.min(curSec, durSec));
+        try {
+          navigator.mediaSession.setPositionState({
+            duration: Math.max(0.1, durSec),
+            playbackRate: state.playbackSpeed || 1.0,
+            position: safePos
+          });
+        } catch (_) {}
       }
     } catch (err) {
       console.warn('[Anypod MediaSession] sync failed:', err);
