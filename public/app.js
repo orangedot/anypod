@@ -6792,7 +6792,6 @@
     state._nowPlayingActiveGuid = null;
     state.currentEpisode = episode;
     state.playbackStatus = 'loading';
-    syncMediaSession(episode, true);
 
     liveTranscription.onEpisodeChange(episode);
     // Reset caption popup for the new episode
@@ -6849,6 +6848,7 @@
       }
 
       state.activeEngine = 'youtube';
+      syncMediaSession(episode);
 
       if (state.ytPlayer && typeof state.ytPlayer.loadVideoById === 'function') {
         if (episode.videoId) {
@@ -6921,7 +6921,11 @@
 
       state.pendingStartTime = startTime > 0 ? startTime : null;
       elements.audio.src = streamUrl;
-      elements.audio.playbackRate = state.playbackSpeed;
+      elements.audio.load(); // Force socket open to beat background throttling
+      elements.audio.playbackRate = state.playbackSpeed || 1.0;
+
+      // Sync lock screen AFTER resetting audio so the old duration is cleared
+      syncMediaSession(episode);
 
       const playPromise = elements.audio.play();
       if (playPromise !== undefined) {
@@ -7166,18 +7170,66 @@
       return;
     }
 
-    if (elements.currentTimeLabel) {
-      elements.currentTimeLabel.textContent = formatTime(current);
-    }
-    if (elements.totalDurationLabel) {
-      if (total > 0 && state.showRemainingTime && total > current) {
-        elements.totalDurationLabel.textContent = `-${formatTime(total - current)}`;
-      } else if (total > 0) {
-        elements.totalDurationLabel.textContent = formatTime(total);
-      } else {
-        elements.totalDurationLabel.textContent = '0:00';
+    const currentInt = Math.floor(current);
+    if (updateProgress._lastDomSync !== currentInt) {
+      updateProgress._lastDomSync = currentInt;
+
+      if (elements.currentTimeLabel) {
+        elements.currentTimeLabel.textContent = formatTime(current);
+      }
+      if (elements.totalDurationLabel) {
+        if (total > 0 && state.showRemainingTime && total > current) {
+          elements.totalDurationLabel.textContent = `-${formatTime(total - current)}`;
+        } else if (total > 0) {
+          elements.totalDurationLabel.textContent = formatTime(total);
+        } else {
+          elements.totalDurationLabel.textContent = '0:00';
+        }
+      }
+
+      if (state.currentEpisode) {
+        const activeCards = document.querySelectorAll(`.episode-card[data-guid="${CSS.escape(state.currentEpisode.guid)}"]`);
+        const cardPct = total > 0 ? (current / total) * 100 : 0;
+        activeCards.forEach(card => {
+          let track = card.querySelector('.ep-progress-track');
+          let fill = card.querySelector('.ep-progress-fill');
+          if (!track && current > 2) {
+            track = document.createElement('div');
+            track.className = 'ep-progress-track';
+            track.title = 'Click or scrub to resume at any point';
+            fill = document.createElement('div');
+            fill.className = 'ep-progress-fill';
+            track.appendChild(fill);
+            const footer = card.querySelector('.episode-footer');
+            if (footer) {
+              card.insertBefore(track, footer);
+              setupProgressTrackInteractivity(track, card, state.currentEpisode);
+            }
+          }
+          if (fill) {
+            fill.style.width = `${Math.min(100, Math.max(1, cardPct))}%`;
+          }
+          let resumeBadge = card.querySelector('.ep-resume-time');
+          if (!resumeBadge && current > 2) {
+            const meta = card.querySelector('.episode-meta');
+            if (meta) {
+              resumeBadge = document.createElement('span');
+              resumeBadge.className = 'ep-resume-time';
+              resumeBadge.title = 'Click to resume playback';
+              meta.appendChild(resumeBadge);
+              resumeBadge.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleEpisodePlayback(state.currentEpisode);
+              });
+            }
+          }
+          if (resumeBadge) {
+            resumeBadge.textContent = `• Resumes at ${formatTime(current)}`;
+          }
+        });
       }
     }
+
     if (total > 0) {
       const pct = (current / total) * 100;
       if (elements.seekBar) {
@@ -7251,47 +7303,6 @@
           updateProgress._lastLiveTick = nowMs;
           liveTranscription.onTimeUpdate(current);
         }
-      }
-
-      if (state.currentEpisode) {
-        const activeCards = document.querySelectorAll(`.episode-card[data-guid="${CSS.escape(state.currentEpisode.guid)}"]`);
-        activeCards.forEach(card => {
-          let track = card.querySelector('.ep-progress-track');
-          let fill = card.querySelector('.ep-progress-fill');
-          if (!track && current > 2) {
-            track = document.createElement('div');
-            track.className = 'ep-progress-track';
-            track.title = 'Click or scrub to resume at any point';
-            fill = document.createElement('div');
-            fill.className = 'ep-progress-fill';
-            track.appendChild(fill);
-            const footer = card.querySelector('.episode-footer');
-            if (footer) {
-              card.insertBefore(track, footer);
-              setupProgressTrackInteractivity(track, card, state.currentEpisode);
-            }
-          }
-          if (fill) {
-            fill.style.width = `${Math.min(100, Math.max(1, pct))}%`;
-          }
-          let resumeBadge = card.querySelector('.ep-resume-time');
-          if (!resumeBadge && current > 2) {
-            const meta = card.querySelector('.episode-meta');
-            if (meta) {
-              resumeBadge = document.createElement('span');
-              resumeBadge.className = 'ep-resume-time';
-              resumeBadge.title = 'Click to resume playback';
-              meta.appendChild(resumeBadge);
-              resumeBadge.addEventListener('click', (e) => {
-                e.stopPropagation();
-                toggleEpisodePlayback(state.currentEpisode);
-              });
-            }
-          }
-          if (resumeBadge) {
-            resumeBadge.textContent = `• Resumes at ${formatTime(current)}`;
-          }
-        });
       }
     }
   }
@@ -7509,7 +7520,10 @@
       let durSec = 0;
       let curSec = 0;
 
-      if (state.activeEngine === 'audio' && elements.audio) {
+      // Prioritize episode string duration during track transitions
+      if (state.playbackStatus === 'loading' && episode.duration && typeof parseDurationSeconds === 'function') {
+        durSec = parseDurationSeconds(episode.duration);
+      } else if (state.activeEngine === 'audio' && elements.audio) {
         if (elements.audio.duration && isFinite(elements.audio.duration) && elements.audio.duration > 0) {
           durSec = elements.audio.duration;
         }
