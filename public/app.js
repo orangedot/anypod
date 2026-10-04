@@ -737,7 +737,8 @@
       title: 'Timeline',
       items: []
     },
-    _nowPlayingActiveGuid: null
+    _mediaSessionGuid: null,
+    _episodeEndedTriggered: false
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1143,9 +1144,8 @@
         state.playbackStatus = 'playing';
         syncPlaybackButtons();
         if (state.currentEpisode) {
-          const needsReassert = state._nowPlayingActiveGuid !== state.currentEpisode.guid;
+          const needsReassert = state._mediaSessionGuid !== state.currentEpisode.guid;
           syncMediaSession(state.currentEpisode, needsReassert);
-          state._nowPlayingActiveGuid = state.currentEpisode.guid;
         }
       } else if (event.data === ytPaused) {
         state.playbackStatus = 'paused';
@@ -5919,8 +5919,39 @@
       } catch (_) {}
     };
 
+    function triggerEpisodeEnd(reason = 'ended') {
+      if (state._episodeEndedTriggered) return;
+      state._episodeEndedTriggered = true;
+      if (state.activeEngine === 'audio') {
+        state.playbackStatus = 'loading';
+        syncPlaybackButtons();
+        onEpisodeEnded();
+      }
+    }
+
+    function checkEpisodeEndWatchdog() {
+      if (state.activeEngine !== 'audio' || !elements.audio || !state.currentEpisode) return;
+      if (state._episodeEndedTriggered) return;
+      if (state.playbackStatus !== 'playing' && state.playbackStatus !== 'loading') return;
+
+      const audio = elements.audio;
+      const cur = audio.currentTime || 0;
+      const rawDur = audio.duration;
+      const dur = (rawDur && isFinite(rawDur) && rawDur > 0)
+        ? rawDur
+        : (state.currentEpisode.duration ? parseDurationSeconds(state.currentEpisode.duration) : 0);
+
+      // If track is > 5s and currentTime is within 0.75s of the end (or past it):
+      if (dur > 5 && cur >= Math.max(1, dur - 0.75)) {
+        triggerEpisodeEnd('watchdog: near-end');
+      }
+    }
+
     audio.addEventListener('timeupdate', () => {
-      if (state.activeEngine === 'audio') updateProgress();
+      if (state.activeEngine === 'audio') {
+        updateProgress();
+        checkEpisodeEndWatchdog();
+      }
     });
 
     audio.addEventListener('loadedmetadata', () => {
@@ -5928,18 +5959,14 @@
       if (state.activeEngine === 'audio') {
         updateDuration();
         if (state.currentEpisode) {
-          syncMediaSession(state.currentEpisode);
+          syncMediaSession(state.currentEpisode, false);
         }
       }
     });
 
     audio.addEventListener('ended', () => {
       if (state.activeEngine === 'audio') {
-        // 1. Immediately flag loading so the browser's internal pause/emptied
-        // events on src-change will not demote playbackStatus to 'paused'
-        state.playbackStatus = 'loading';
-        syncPlaybackButtons();
-        onEpisodeEnded();
+        triggerEpisodeEnd('event: ended');
       }
     });
 
@@ -5954,6 +5981,15 @@
 
     audio.addEventListener('waiting', () => {
       if (state.activeEngine === 'audio') {
+        const cur = audio.currentTime || 0;
+        const rawDur = audio.duration;
+        const dur = (rawDur && isFinite(rawDur) && rawDur > 0)
+          ? rawDur
+          : (state.currentEpisode?.duration ? parseDurationSeconds(state.currentEpisode.duration) : 0);
+        if (dur > 5 && cur >= Math.max(1, dur - 2.5)) {
+          triggerEpisodeEnd('waiting-near-end');
+          return;
+        }
         state.playbackStatus = 'loading';
         syncPlaybackButtons();
       }
@@ -5981,13 +6017,12 @@
         syncPlaybackButtons();
 
         if (state.currentEpisode) {
-          // Re-assert MediaSession metadata when audio stream actively emits sound,
-          // ensuring the iOS lockscreen / nowplayingd binds the new track while screen is locked
-          const needsReassert = state._nowPlayingActiveGuid !== state.currentEpisode.guid;
+          // Only re-create MediaMetadata if it doesn't match this episode yet,
+          // avoiding rapid duplicate IPC calls to Android's MediaNotificationService.
+          const needsReassert = state._mediaSessionGuid !== state.currentEpisode.guid;
           syncMediaSession(state.currentEpisode, needsReassert);
-          state._nowPlayingActiveGuid = state.currentEpisode.guid;
 
-          // 3. Force lockscreen state to 'playing' as soon as audio outputs
+          // Force lockscreen state to 'playing' as soon as audio outputs
           if ('mediaSession' in navigator) {
             navigator.mediaSession.playbackState = 'playing';
           }
@@ -6002,7 +6037,7 @@
         }
         syncPlaybackButtons();
         if (state.currentEpisode) {
-          syncMediaSession(state.currentEpisode);
+          syncMediaSession(state.currentEpisode, false);
         }
         liveTranscription.onPlayStateChange(true);
       }
@@ -6012,13 +6047,23 @@
       if (state.activeEngine === 'audio') {
         // 4. CRITICAL: Ignore browser pause events triggered by track completion (audio.ended)
         // or by elements.audio.src reassignments during track transitions (loading)
-        if (audio.ended || state.playbackStatus === 'loading') {
+        if (audio.ended || state.playbackStatus === 'loading' || state._episodeEndedTriggered) {
+          return;
+        }
+
+        const cur = audio.currentTime || 0;
+        const rawDur = audio.duration;
+        const dur = (rawDur && isFinite(rawDur) && rawDur > 0)
+          ? rawDur
+          : (state.currentEpisode?.duration ? parseDurationSeconds(state.currentEpisode.duration) : 0);
+        if (dur > 5 && cur >= Math.max(1, dur - 1.5)) {
+          triggerEpisodeEnd('pause-near-end');
           return;
         }
 
         state.playbackStatus = 'paused';
         syncPlaybackButtons();
-        syncMediaSession(state.currentEpisode);
+        syncMediaSession(state.currentEpisode, false);
         liveTranscription.onPlayStateChange(false);
 
         if (state.currentEpisode && audio.currentTime > 2) {
@@ -6032,6 +6077,15 @@
 
     audio.addEventListener('stalled', () => {
       if (state.activeEngine !== 'audio') return;
+      const cur = audio.currentTime || 0;
+      const rawDur = audio.duration;
+      const dur = (rawDur && isFinite(rawDur) && rawDur > 0)
+        ? rawDur
+        : (state.currentEpisode?.duration ? parseDurationSeconds(state.currentEpisode.duration) : 0);
+      if (dur > 5 && cur >= Math.max(1, dur - 2.5)) {
+        triggerEpisodeEnd('stalled-near-end');
+        return;
+      }
       // CRITICAL: On mobile (iOS Safari & Android Chrome), browsers fire 'stalled' normally
       // whenever the audio buffer reaches capacity and pauses downloading network chunks.
       // 1. If tab is in background (screen locked / pocket), NEVER touch the audio element.
@@ -6234,7 +6288,10 @@
     }, 8000);
 
     setInterval(() => {
-      if (state.activeEngine === 'youtube' && isEnginePlaying() && state.ytPlayer && state.ytPlayer.getCurrentTime) {        updateProgress();
+      if (state.activeEngine === 'audio' && isEnginePlaying()) {
+        checkEpisodeEndWatchdog();
+      } else if (state.activeEngine === 'youtube' && isEnginePlaying() && state.ytPlayer && state.ytPlayer.getCurrentTime) {
+        updateProgress();
         updateDuration();
       }
     }, 1000);
@@ -6403,9 +6460,10 @@
   }
 
   function playEpisode(episode, overrideStartTime, context = null) {
+    state._episodeEndedTriggered = false;
     state.currentEpisode = episode;
     state.playbackStatus = 'loading';
-    state._nowPlayingActiveGuid = null;
+    syncMediaSession(episode, true);
 
     liveTranscription.onEpisodeChange(episode);
     // Reset caption popup for the new episode
@@ -6535,6 +6593,9 @@
       state.pendingStartTime = startTime > 0 ? startTime : null;
       elements.audio.src = streamUrl;
       elements.audio.playbackRate = state.playbackSpeed;
+      try {
+        elements.audio.load();
+      } catch (_) {}
 
       const playPromise = elements.audio.play();
       if (playPromise !== undefined) {
@@ -6574,7 +6635,6 @@
     updatePlayerFavButton();
     syncPlaybackButtons();
     updateAutoplayButtonUI();
-    syncMediaSession(episode, true);
 
     if (!document.hidden) {
       renderContinueShelf();
@@ -6939,6 +6999,7 @@
 
   function skipToNextEpisode(markCompleted = false) {
     if (!state.currentEpisode) return;
+    state._episodeEndedTriggered = false;
     const curEp = state.currentEpisode;
     if (markCompleted) {
       savePlaybackPositionToD1(curEp.guid, 0, true);
@@ -7014,30 +7075,40 @@
       const fallbackArt = new URL('/icon-512.png', window.location.origin).href;
       const primaryArt = (!resolvedArt || isSvg) ? fallbackArt : resolvedArt;
 
-      const artworkList = [
-        { src: primaryArt, sizes: '96x96' },
-        { src: primaryArt, sizes: '128x128' },
-        { src: primaryArt, sizes: '192x192' },
-        { src: primaryArt, sizes: '256x256' },
-        { src: primaryArt, sizes: '384x384' },
-        { src: primaryArt, sizes: '512x512' }
-      ];
+      let imgType = 'image/png';
+      const lowerArt = primaryArt.toLowerCase();
+      if (lowerArt.includes('.jpg') || lowerArt.includes('.jpeg')) {
+        imgType = 'image/jpeg';
+      } else if (lowerArt.includes('.webp')) {
+        imgType = 'image/webp';
+      }
 
-      // 2. Set Metadata: update when requested (force) or when title/artist/guid differs
-      const currentMeta = navigator.mediaSession.metadata;
-      const isSameEpisode = !forceMetadataUpdate && currentMeta &&
-        currentMeta.title === titleStr &&
-        currentMeta.artist === artistStr &&
-        currentMeta._guid === episode.guid;
+      const artworkList = [
+        { src: primaryArt, sizes: '96x96', type: imgType },
+        { src: primaryArt, sizes: '128x128', type: imgType },
+        { src: primaryArt, sizes: '192x192', type: imgType },
+        { src: primaryArt, sizes: '256x256', type: imgType },
+        { src: primaryArt, sizes: '384x384', type: imgType },
+        { src: primaryArt, sizes: '512x512', type: imgType }
+      ];
+      if (primaryArt !== fallbackArt) {
+        artworkList.push(
+          { src: fallbackArt, sizes: '192x192', type: 'image/png' },
+          { src: fallbackArt, sizes: '512x512', type: 'image/png' }
+        );
+      }
+
+      // 2. Set Metadata: update when requested (force) or when guid differs
+      const isSameEpisode = !forceMetadataUpdate && (state._mediaSessionGuid === episode.guid);
 
       if (!isSameEpisode && 'MediaMetadata' in window) {
+        state._mediaSessionGuid = episode.guid;
         const newMeta = new MediaMetadata({
           title: titleStr,
           artist: artistStr,
           album: albumStr,
           artwork: artworkList
         });
-        newMeta._guid = episode.guid;
         navigator.mediaSession.metadata = newMeta;
       }
 
