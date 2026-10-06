@@ -3,300 +3,94 @@
 
   const mixer = new DJMixer();
 
-  const deckEls = {
-    A: {
-      root: document.querySelector('.deck-a'),
-      title: document.querySelector('.deck-a [data-role="title"]'),
-      cur: document.querySelector('.deck-a [data-role="cur"]'),
-      dur: document.querySelector('.deck-a [data-role="dur"]'),
-      play: document.querySelector('.deck-a [data-role="play"]'),
-      rate: document.querySelector('.deck-a [data-role="rate"]'),
-      rateLabel: document.querySelector('.deck-a [data-role="rate-label"]'),
-      cues: document.querySelectorAll('.deck-a .cue'),
-      wave: document.querySelector('.deck-a [data-role="wave"]')
-    },
-    B: {
-      root: document.querySelector('.deck-b'),
-      title: document.querySelector('.deck-b [data-role="title"]'),
-      cur: document.querySelector('.deck-b [data-role="cur"]'),
-      dur: document.querySelector('.deck-b [data-role="dur"]'),
-      play: document.querySelector('.deck-b [data-role="play"]'),
-      rate: document.querySelector('.deck-b [data-role="rate"]'),
-      rateLabel: document.querySelector('.deck-b [data-role="rate-label"]'),
-      cues: document.querySelectorAll('.deck-b .cue'),
-      wave: document.querySelector('.deck-b [data-role="wave"]')
-    }
+  // ─────────────────────────────────────────────────────────────────────────
+  // STATE MANAGEMENT
+  // ─────────────────────────────────────────────────────────────────────────
+  const state = {
+    allTracks: [],
+    filteredTracks: [],
+    activeFilter: 'all', // 'all' | 'youtube' | 'podcasts' | 'queue' | 'favorites' | 'live-now' | 'samples'
+    searchQuery: '',
+    loadedDeckA: null,
+    loadedDeckB: null,
+    masterBpm: 128.00,
+    deckPitch: { A: 1.0, B: 1.0 },
+    tapTimes: [],
+    feeds: [],
+    feedMetadata: {},
+    queue: [],
+    favorites: [],
+    liveAppTrack: null
   };
 
-  const FALLBACK_ARTWORK = 'data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%231c1c24%22/%3E%3Ccircle%20cx=%2250%22%20cy=%2250%22%20r=%2222%22%20fill=%22none%22%20stroke=%22%234b4b60%22%20stroke-width=%224%22/%3E%3Ccircle%20cx=%2250%22%20cy=%2250%22%20r=%226%22%20fill=%22%234b4b60%22/%3E%3C/svg%3E';
-
-  const DEFAULT_STARTER_FEEDS = [
-    'https://feeds.megaphone.fm/NATIONALAERONAUTICSANDSPACEADMINISTRATION8162188566',
-    'https://feeds.simplecast.com/EmVW7VGp',
-    'https://podcasts.files.bbci.co.uk/w13xtvb6.rss',
-    'https://www.deutschlandfunk.de/forschung-aktuell-102.xml'
+  const SAMPLE_TRACKS = [
+    {
+      guid: 'sample-909-kit',
+      title: '909 Deep Tech Beat (128 BPM)',
+      podcastTitle: 'DJ Anypod Tools',
+      artwork: 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=160&auto=format&fit=crop&q=80',
+      audioUrl: 'https://cdn.freesound.org/previews/381/381382_1676145-lq.mp3',
+      duration: 32,
+      bpm: 128,
+      key: '8m',
+      isYouTube: false,
+      isSample: true
+    },
+    {
+      guid: 'sample-funk-groove',
+      title: 'Funk Breakbeat & Bassline',
+      podcastTitle: 'DJ Anypod Tools',
+      artwork: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=160&auto=format&fit=crop&q=80',
+      audioUrl: 'https://cdn.freesound.org/previews/242/242857_4284968-lq.mp3',
+      duration: 28,
+      bpm: 124,
+      key: '10m',
+      isYouTube: false,
+      isSample: true
+    },
+    {
+      guid: 'sample-acid-synth',
+      title: 'Acid Resonance Bassline (130 BPM)',
+      podcastTitle: 'DJ Anypod Tools',
+      artwork: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=160&auto=format&fit=crop&q=80',
+      audioUrl: 'https://cdn.freesound.org/previews/450/450621_649468-lq.mp3',
+      duration: 30,
+      bpm: 130,
+      key: '6m',
+      isYouTube: false,
+      isSample: true
+    },
+    {
+      guid: 'sample-vocal-drop',
+      title: 'Hypnotic Vocal FX Stems',
+      podcastTitle: 'DJ Anypod Tools',
+      artwork: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=160&auto=format&fit=crop&q=80',
+      audioUrl: 'https://cdn.freesound.org/previews/173/173859_321967-lq.mp3',
+      duration: 20,
+      bpm: 126,
+      key: '11m',
+      isYouTube: false,
+      isSample: true
+    }
   ];
 
-  const STARTER_METADATA = {
-    'https://feeds.megaphone.fm/NATIONALAERONAUTICSANDSPACEADMINISTRATION8162188566': {
-      title: "NASA's Curious Universe",
-      artwork: 'https://content.production.cdn.art19.com/images/3a/0c/3a0c0a37-5489-4ba6-86f1-a1698d28cfda/86c6734d85290b200b213b1f9b3be5d8518e3881fa2c2f741ae84b6da1bbd2d8ceeafeeeaa8c2bc13d52d9a6c7ecdf7ad6b499159954a6db2d1cfa97645ef5fe_1400x1400.jpeg',
-      episodesCount: 50
-    },
-    'https://feeds.simplecast.com/EmVW7VGp': {
-      title: 'Radiolab',
-      artwork: 'https://media.wnyc.org/i/1400/1400/l/80/1/Radiolab_SquareAudioLogo_Final.png',
-      episodesCount: 100
-    },
-    'https://podcasts.files.bbci.co.uk/w13xtvb6.rss': {
-      title: 'The Climate Question (BBC)',
-      artwork: 'https://ichef.bbci.co.uk/images/ic/1024x1024/p09249sl.jpg',
-      episodesCount: 80
-    },
-    'https://www.deutschlandfunk.de/forschung-aktuell-102.xml': {
-      title: 'Forschung aktuell (Deutschlandfunk)',
-      artwork: 'https://static.deutschlandradio.de/dlf/podcast/forschung_aktuell.jpg',
-      episodesCount: 120
-    }
-  };
-
+  // ─────────────────────────────────────────────────────────────────────────
+  // TIME & FORMAT UTILITIES
+  // ─────────────────────────────────────────────────────────────────────────
   function formatTime(s) {
-    if (!s || !isFinite(s)) return '0:00';
+    if (!s || !isFinite(s) || s < 0) return '0:00';
     const m = Math.floor(s / 60);
     const sec = Math.floor(s % 60);
     return `${m}:${sec < 10 ? '0' : ''}${sec}`;
   }
 
-  function formatEpDuration(dur) {
-    if (!dur) return '';
-    if (typeof dur === 'number') {
-      const h = Math.floor(dur / 3600);
-      const m = Math.floor((dur % 3600) / 60);
-      const s = Math.floor(dur % 60);
-      if (h > 0) return `${h}h ${m}m`;
-      return `${m}:${s < 10 ? '0' : ''}${s}`;
-    }
+  function formatDuration(dur) {
+    if (!dur) return '0:00';
+    if (typeof dur === 'number') return formatTime(dur);
     const str = String(dur).trim();
-    if (str.includes(':')) {
-      const parts = str.split(':').map(Number);
-      if (parts.length === 3) {
-        return parts[0] > 0 ? `${parts[0]}h ${parts[1]}m` : `${parts[1]}:${parts[2] < 10 ? '0' : ''}${parts[2]}`;
-      }
-      if (parts.length === 2) {
-        return `${parts[0]}:${parts[1] < 10 ? '0' : ''}${parts[1]}`;
-      }
-    }
-    const sec = parseFloat(str);
-    if (!isNaN(sec) && sec > 0) return formatEpDuration(sec);
-    return str;
-  }
-
-  function formatEpDate(ts) {
-    if (!ts) return '';
-    try {
-      const d = new Date(typeof ts === 'number' && ts < 10000000000 ? ts * 1000 : ts);
-      if (isNaN(d.getTime())) return '';
-      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    } catch (_) {
-      return '';
-    }
-  }
-
-  function drawWaveform(canvas, progress, color) {
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const w = (canvas.width = canvas.clientWidth);
-    const h = (canvas.height = canvas.clientHeight);
-
-    ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = '#222230';
-    ctx.fillRect(0, 0, w, h);
-
-    const step = 4;
-    const bars = Math.floor(w / step);
-    for (let i = 0; i < bars; i++) {
-      const barX = i * step;
-      const barProgress = barX / w;
-      const val = (Math.sin(i * 0.2) + Math.cos(i * 0.5) + 2) / 4;
-      const barH = Math.max(4, val * (h - 8));
-      const barY = (h - barH) / 2;
-
-      ctx.fillStyle = barProgress <= progress ? color : '#3a3a4e';
-      ctx.fillRect(barX, barY, step - 1, barH);
-    }
-  }
-
-  // Bind deck actions
-  ['A', 'B'].forEach((id) => {
-    const el = deckEls[id];
-    const color = id === 'A' ? '#ff3b5c' : '#00d2ff';
-
-    el.play.addEventListener('click', () => mixer.toggle(id));
-
-    el.rate.addEventListener('input', (e) => {
-      const val = parseFloat(e.target.value);
-      el.rateLabel.textContent = `${val.toFixed(2)}×`;
-      mixer.setPlaybackRate(id, val);
-    });
-
-    el.cues.forEach((btn) => {
-      const cueIdx = parseInt(btn.dataset.cue, 10);
-      let holdTimer = null;
-      let isHold = false;
-
-      btn.addEventListener('pointerdown', () => {
-        isHold = false;
-        holdTimer = setTimeout(() => {
-          isHold = true;
-          mixer.clearHotCue(id, cueIdx);
-        }, 800);
-      });
-
-      btn.addEventListener('pointerup', () => {
-        clearTimeout(holdTimer);
-        if (isHold) return;
-        const cues = mixer.decks[id].cues;
-        if (typeof cues[cueIdx] === 'number') {
-          mixer.triggerHotCue(id, cueIdx);
-        } else {
-          mixer.setHotCue(id, cueIdx);
-        }
-      });
-
-      btn.addEventListener('pointercancel', () => clearTimeout(holdTimer));
-    });
-
-    // Waveform seek
-    el.wave.addEventListener('click', (e) => {
-      const rect = el.wave.getBoundingClientRect();
-      const pos = (e.clientX - rect.left) / rect.width;
-      const dur = mixer.decks[id].audio.duration;
-      if (dur && isFinite(dur)) {
-        mixer.seek(id, pos * dur);
-      }
-    });
-
-    drawWaveform(el.wave, 0, color);
-  });
-
-  // EQ Sliders
-  document.querySelectorAll('.vslider').forEach((slider) => {
-    slider.addEventListener('input', (e) => {
-      const deck = e.target.closest('.eq').dataset.deck;
-      const band = e.target.dataset.eq;
-      mixer.setEQ(deck, band, parseFloat(e.target.value));
-    });
-  });
-
-  // Crossfader
-  const xfader = document.getElementById('crossfader');
-  xfader.addEventListener('input', (e) => {
-    mixer.setCrossfader(parseFloat(e.target.value));
-  });
-
-  // Mixer engine events
-  mixer.on('time', ({ deck, currentTime, duration }) => {
-    const el = deckEls[deck];
-    el.cur.textContent = formatTime(currentTime);
-    const prog = duration > 0 ? currentTime / duration : 0;
-    drawWaveform(el.wave, prog, deck === 'A' ? '#ff3b5c' : '#00d2ff');
-  });
-
-  mixer.on('loaded', ({ deck, duration }) => {
-    deckEls[deck].dur.textContent = formatTime(duration);
-  });
-
-  mixer.on('state', ({ deck, playing }) => {
-    const el = deckEls[deck];
-    if (playing) {
-      el.play.textContent = '❚❚';
-      el.play.classList.add('playing');
-    } else {
-      el.play.textContent = '▶';
-      el.play.classList.remove('playing');
-    }
-  });
-
-  mixer.on('track', ({ deck, meta, cues }) => {
-    deckEls[deck].title.textContent = meta.title || 'Untitled';
-    updateCueButtons(deck, cues);
-  });
-
-  mixer.on('cues', ({ deck, cues }) => {
-    updateCueButtons(deck, cues);
-  });
-
-  function updateCueButtons(deck, cues) {
-    deckEls[deck].cues.forEach((btn, idx) => {
-      if (typeof cues[idx] === 'number') {
-        btn.classList.add('active');
-        btn.title = `Cue ${idx + 1}: ${formatTime(cues[idx])} (Hold to clear)`;
-      } else {
-        btn.classList.remove('active');
-        btn.title = `Set Cue ${idx + 1}`;
-      }
-    });
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // CRATE DRAWER & PODCAST FEED BROWSER
-  // ─────────────────────────────────────────────────────────────────────────
-
-  const crateToggle = document.getElementById('crate-toggle');
-  const crateEl = document.getElementById('crate');
-  const crateCount = document.getElementById('crate-count');
-  const crateSearchInput = document.getElementById('crate-search-input');
-  const btnClearCrateSearch = document.getElementById('btn-clear-crate-search');
-  const crateTabs = document.querySelectorAll('.crate-tab');
-  const crateAdd = document.getElementById('crate-add');
-  const crateUrl = document.getElementById('crate-url');
-
-  // Views
-  const crateFeedsView = document.getElementById('crate-feeds-view');
-  const crateFeedsGrid = document.getElementById('crate-feeds-grid');
-  const crateDetailView = document.getElementById('crate-detail-view');
-  const crateDetailArt = document.getElementById('crate-detail-art');
-  const crateDetailTitle = document.getElementById('crate-detail-title');
-  const crateDetailEpCount = document.getElementById('crate-detail-ep-count');
-  const crateDetailList = document.getElementById('crate-detail-list');
-  const btnCrateBack = document.getElementById('btn-crate-back');
-  const crateEpisodesView = document.getElementById('crate-episodes-view');
-  const crateSearchFeedMatches = document.getElementById('crate-search-feed-matches');
-  const crateList = document.getElementById('crate-list');
-
-  const state = {
-    activeTab: 'feeds', // 'feeds' | 'queue' | 'favorites' | 'cached'
-    selectedFeedUrl: null,
-    searchQuery: '',
-    feeds: [],
-    feedMetadata: {},
-    cachedEpisodes: [],
-    queue: [],
-    favorites: [],
-    feedEpisodesCache: {},
-    loadingFeedUrl: null
-  };
-
-  // Toggle Crate drawer
-  crateToggle.addEventListener('click', () => {
-    const open = crateEl.classList.toggle('open');
-    crateToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-    updateCrateCountBadge();
-  });
-
-  function updateCrateCountBadge() {
-    let count = 0;
-    if (state.activeTab === 'feeds') {
-      count = state.feeds.length;
-    } else if (state.activeTab === 'queue') {
-      count = state.queue.length;
-    } else if (state.activeTab === 'favorites') {
-      count = state.favorites.length;
-    } else if (state.activeTab === 'cached') {
-      count = state.cachedEpisodes.length;
-    }
-    const open = crateEl.classList.contains('open');
-    crateToggle.innerHTML = `${open ? '▼' : '▲'} Crate <span id="crate-count">${count}</span>`;
+    if (str.includes(':')) return str;
+    const s = parseFloat(str);
+    return isNaN(s) ? str : formatTime(s);
   }
 
   function escapeHtml(str) {
@@ -309,584 +103,920 @@
       .replace(/'/g, '&#039;');
   }
 
-  function highlightText(str, query) {
-    if (!str) return '';
-    const safe = escapeHtml(str);
-    if (!query || query.trim().length < 2) return safe;
-    const terms = query.trim().toLowerCase().split(/\s+/).filter(t => t.length >= 2);
-    if (terms.length === 0) return safe;
-    const pattern = terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-    return safe.replace(new RegExp(`(${pattern})`, 'gi'), '<mark style="background:#ffcc00;color:#000;border-radius:2px;padding:0 2px;">$1</mark>');
+  function parseDurationSeconds(dur) {
+    if (!dur) return 0;
+    if (typeof dur === 'number') return dur;
+    const parts = String(dur).split(':').map(Number);
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    const s = parseFloat(dur);
+    return isNaN(s) ? 0 : s;
   }
 
-  // Load storage data from Anypod keys
-  function loadCrateFromStorage() {
+  function estimateBpm(track, idx) {
+    if (track.bpm && typeof track.bpm === 'number') return track.bpm;
+    // Pseudo-consistent deterministic BPM from track title length/hash
+    const hash = (track.title || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), idx * 7);
+    return 120 + (hash % 16);
+  }
+
+  function estimateKey(track, idx) {
+    if (track.key) return track.key;
+    const keys = ['1A', '2A', '3A', '4A', '5A', '6A', '7A', '8A', '9A', '10A', '11A', '12A', '8m', '9m', '10m', '11m'];
+    const hash = (track.title || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), idx * 3);
+    return keys[hash % keys.length];
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // STORAGE HYDRATION (LOCALSTORAGE + INDEXEDDB COMPREHENSIVE IMPORT)
+  // ─────────────────────────────────────────────────────────────────────────
+  async function hydrateCollection() {
+    const epMap = new Map();
+
+    // 1. Load Live App Current Track
     try {
-      // 1. Feeds
-      const rawFeeds = JSON.parse(localStorage.getItem('anypod_feeds') || '[]');
-      state.feeds = Array.isArray(rawFeeds) && rawFeeds.length > 0 ? rawFeeds : DEFAULT_STARTER_FEEDS.slice();
+      const rawLive = localStorage.getItem('anypod_last_active_episode');
+      if (rawLive) state.liveAppTrack = JSON.parse(rawLive);
+    } catch (_) {}
 
-      // 2. Metadata
-      const rawMeta = JSON.parse(localStorage.getItem('anypod_cached_metadata') || '{}');
-      state.feedMetadata = Object.assign({}, STARTER_METADATA, rawMeta);
+    // 2. Load Feeds & Metadata
+    try {
+      state.feeds = JSON.parse(localStorage.getItem('anypod_feeds') || '[]');
+      state.feedMetadata = JSON.parse(localStorage.getItem('anypod_cached_metadata') || '{}');
+      state.queue = JSON.parse(localStorage.getItem('anypod_playback_queue') || '[]');
+      state.favorites = JSON.parse(localStorage.getItem('anypod_favorites') || '[]');
+    } catch (_) {}
 
-      // 3. Cached Episodes (can be Array or Map object)
-      const rawEps = JSON.parse(localStorage.getItem('anypod_cached_episodes') || '[]');
-      state.cachedEpisodes = [];
-      const epMap = new Map();
-
-      const addEp = (ep) => {
-        if (!ep) return;
-        const url = ep.audioUrl || ep.url;
-        if (!url) return;
-        const normalized = {
-          guid: ep.guid || url,
-          title: ep.title || 'Untitled Track',
-          podcastTitle: ep.podcastTitle || ep.author || (state.feedMetadata[ep.feedUrl]?.title) || '',
-          audioUrl: url,
-          feedUrl: ep.feedUrl || '',
-          duration: ep.duration || 0,
-          pubDate: ep.pubDate || ep.timestamp || '',
-          description: ep.description || ep.content || '',
-          content: ep.content || ''
-        };
-        state.cachedEpisodes.push(normalized);
-        if (normalized.guid) epMap.set(normalized.guid, normalized);
-        epMap.set(url, normalized);
-
-        if (normalized.feedUrl) {
-          if (!state.feedEpisodesCache[normalized.feedUrl]) {
-            state.feedEpisodesCache[normalized.feedUrl] = [];
+    // 2b. Load Downloaded Episodes & Offline Files from app.js
+    try {
+      const rawDownloads = JSON.parse(localStorage.getItem('anypod_downloads') || '{}');
+      if (rawDownloads && typeof rawDownloads === 'object') {
+        Object.values(rawDownloads).forEach(ep => {
+          if (ep) {
+            ep.isDownloaded = true;
+            addTrack(ep);
           }
-          state.feedEpisodesCache[normalized.feedUrl].push(normalized);
-        }
+        });
+      }
+    } catch (_) {}
+
+    const addTrack = (ep) => {
+      if (!ep) return;
+      const key = ep.guid || ep.videoId || ep.audioUrl || ep.url;
+      if (!key || epMap.has(key)) return;
+
+      const isYt = !!ep.isYouTube || !!ep.videoId || String(ep.audioUrl || '').includes('youtube.com') || String(ep.audioUrl || '').includes('youtu.be');
+      const vId = ep.videoId || (isYt ? (ep.audioUrl || '').match(/v=([\w-]{11})/)?.[1] : null);
+
+      const norm = {
+        guid: ep.guid || key,
+        title: ep.title || 'Untitled Track',
+        podcastTitle: ep.podcastTitle || ep.author || (state.feedMetadata[ep.feedUrl]?.title) || 'Podcast',
+        artwork: ep.artwork || (state.feedMetadata[ep.feedUrl]?.artwork) || '/icon-192.png',
+        audioUrl: ep.audioUrl || ep.url || '',
+        feedUrl: ep.feedUrl || '',
+        duration: ep.duration || 0,
+        durSec: parseDurationSeconds(ep.duration),
+        isYouTube: isYt,
+        videoId: vId,
+        isSample: !!ep.isSample || (ep.guid && ep.guid.startsWith('sample-')),
+        isDownloaded: !!ep.isDownloaded,
+        bpm: estimateBpm(ep, epMap.size),
+        key: estimateKey(ep, epMap.size)
       };
 
-      if (Array.isArray(rawEps)) {
-        rawEps.forEach(addEp);
-      } else if (rawEps && typeof rawEps === 'object') {
-        Object.values(rawEps).forEach(addEp);
-      }
+      epMap.set(key, norm);
+      if (norm.guid) epMap.set(norm.guid, norm);
+    };
 
-      // 4. Queue
-      const rawQ = JSON.parse(localStorage.getItem('anypod_playback_queue') || '[]');
-      state.queue = [];
-      if (Array.isArray(rawQ)) {
-        rawQ.forEach(item => {
-          const ep = epMap.get(item.guid) || epMap.get(item.audioUrl) || item;
-          if (ep && (ep.audioUrl || ep.url)) {
-            state.queue.push({
-              guid: ep.guid || ep.url,
-              title: ep.title || 'Queued Track',
-              podcastTitle: ep.podcastTitle || 'Queue',
-              audioUrl: ep.audioUrl || ep.url,
-              duration: ep.duration || 0,
-              pubDate: ep.pubDate || ep.timestamp || '',
-              description: ep.description || '',
-              source: 'queue'
-            });
-          }
-        });
-      }
-
-      // 5. Favorites
-      const rawFavs = JSON.parse(localStorage.getItem('anypod_favorites') || '[]');
-      state.favorites = [];
-      if (Array.isArray(rawFavs)) {
-        rawFavs.forEach(item => {
-          const ep = epMap.get(item.guid) || epMap.get(item.audioUrl) || item;
-          if (ep && (ep.audioUrl || ep.url)) {
-            state.favorites.push({
-              guid: ep.guid || ep.url,
-              title: ep.title || 'Favorite Track',
-              podcastTitle: ep.podcastTitle || 'Favorites',
-              audioUrl: ep.audioUrl || ep.url,
-              duration: ep.duration || 0,
-              pubDate: ep.pubDate || ep.timestamp || '',
-              description: ep.description || '',
-              source: 'favorites'
-            });
-          }
-        });
-      }
-
-      // Sample pack fallback if no cached tracks exist at all
-      if (state.cachedEpisodes.length === 0) {
-        const sample1 = {
-          guid: 'sample-1',
-          title: 'Synth Loop Beat (120 BPM)',
-          podcastTitle: 'Sample Pack',
-          audioUrl: 'https://cdn.freesound.org/previews/381/381382_1676145-lq.mp3',
-          duration: 30,
-          description: 'Electronic synth loop',
-          source: 'sample'
-        };
-        const sample2 = {
-          guid: 'sample-2',
-          title: 'Funk Drum Groove',
-          podcastTitle: 'Sample Pack',
-          audioUrl: 'https://cdn.freesound.org/previews/242/242857_4284968-lq.mp3',
-          duration: 25,
-          description: 'Funky drum breaks',
-          source: 'sample'
-        };
-        state.cachedEpisodes.push(sample1, sample2);
-        state.queue.push(sample1, sample2);
-      }
-    } catch (e) {
-      console.warn('[dj] Error loading storage:', e);
-    }
-
-    renderCrate();
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // FEED PICKER & DETAIL VIEWS
-  // ─────────────────────────────────────────────────────────────────────────
-
-  function renderCrate() {
-    updateCrateCountBadge();
-
-    // 1. If currently inside a Feed's detail view
-    if (state.selectedFeedUrl) {
-      showView('detail');
-      renderFeedDetail(state.selectedFeedUrl);
-      return;
-    }
-
-    // 2. If viewing the Feed Picker (Podcasts tab)
-    if (state.activeTab === 'feeds') {
-      showView('feeds');
-      renderFeedsGrid();
-      return;
-    }
-
-    // 3. If viewing Queue, Favorites, All Episodes, or Global Search
-    showView('episodes');
-    renderEpisodesList();
-  }
-
-  function showView(viewName) {
-    crateFeedsView.classList.toggle('hidden', viewName !== 'feeds');
-    crateDetailView.classList.toggle('hidden', viewName !== 'detail');
-    crateEpisodesView.classList.toggle('hidden', viewName !== 'episodes');
-  }
-
-  // Render Grid of Subscribed Podcasts
-  function renderFeedsGrid() {
-    crateFeedsGrid.innerHTML = '';
-    const q = state.searchQuery.toLowerCase().trim();
-
-    let list = state.feeds;
-    if (q) {
-      const terms = q.split(/\s+/).filter(Boolean);
-      list = list.filter(url => {
-        const meta = state.feedMetadata[url] || {};
-        const title = (meta.title || '').toLowerCase();
-        const author = (meta.author || '').toLowerCase();
-        const desc = (meta.description || '').toLowerCase();
-        return terms.every(t => title.includes(t) || author.includes(t) || desc.includes(t) || url.toLowerCase().includes(t));
-      });
-    }
-
-    if (list.length === 0) {
-      crateFeedsGrid.innerHTML = `
-        <div style="grid-column: 1 / -1; padding: 24px 10px; text-align: center; color: var(--muted); font-size: 11px;">
-          ${q ? `No podcasts matching "${escapeHtml(state.searchQuery)}"` : 'No podcasts found. Try searching or paste an RSS feed URL.'}
-        </div>
-      `;
-      return;
-    }
-
-    list.forEach(feedUrl => {
-      const meta = state.feedMetadata[feedUrl] || {};
-      const card = document.createElement('div');
-      card.className = 'crate-feed-card';
-      const count = meta.episodesCount || (state.feedEpisodesCache[feedUrl]?.length) || '';
-
-      card.innerHTML = `
-        <img class="crate-feed-art" src="${escapeHtml(meta.artwork || FALLBACK_ARTWORK)}" alt="" loading="lazy">
-        <span class="crate-feed-title">${highlightText(meta.title || 'Untitled Podcast', state.searchQuery)}</span>
-        <span class="crate-feed-meta">${count ? `${count} episodes` : (meta.author ? escapeHtml(meta.author) : 'Podcast')}</span>
-      `;
-
-      card.addEventListener('click', () => {
-        openCrateFeed(feedUrl);
-      });
-
-      crateFeedsGrid.appendChild(card);
-    });
-  }
-
-  // Open Feed Detail View
-  async function openCrateFeed(feedUrl) {
-    state.selectedFeedUrl = feedUrl;
-    showView('detail');
-    renderFeedDetail(feedUrl);
-
-    // If no episodes cached yet for this feed, fetch them from /api/feed
-    const cached = state.feedEpisodesCache[feedUrl];
-    if (!cached || cached.length === 0) {
-      await fetchFeedEpisodes(feedUrl);
-    }
-  }
-
-  // Fetch episodes from API
-  async function fetchFeedEpisodes(feedUrl) {
-    state.loadingFeedUrl = feedUrl;
-    renderFeedDetail(feedUrl);
-
+    // 3. Fast sync from localStorage cached episodes
     try {
-      const sessionToken = localStorage.getItem('anypod_session_token');
-      const headers = sessionToken ? { 'X-Session-Token': sessionToken } : {};
-      const res = await fetch(`/api/feed?url=${encodeURIComponent(feedUrl)}`, { headers });
+      const rawCached = JSON.parse(localStorage.getItem('anypod_cached_episodes') || '[]');
+      if (Array.isArray(rawCached)) rawCached.forEach(addTrack);
+    } catch (_) {}
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-
-      if (data && Array.isArray(data.episodes)) {
-        const epList = data.episodes.map(item => ({
-          guid: item.guid || item.audioUrl || item.url,
-          title: item.title || 'Untitled Episode',
-          podcastTitle: data.title || state.feedMetadata[feedUrl]?.title || '',
-          audioUrl: item.audioUrl || item.url,
-          feedUrl: feedUrl,
-          duration: item.duration || 0,
-          pubDate: item.pubDate || item.timestamp || '',
-          description: item.description || item.content || ''
-        }));
-
-        state.feedEpisodesCache[feedUrl] = epList;
-
-        // Merge into cachedEpisodes
-        epList.forEach(ep => {
-          if (!state.cachedEpisodes.some(e => (e.guid && e.guid === ep.guid) || e.audioUrl === ep.audioUrl)) {
-            state.cachedEpisodes.push(ep);
-          }
-        });
-
-        // Update metadata
-        state.feedMetadata[feedUrl] = Object.assign({}, state.feedMetadata[feedUrl], {
-          title: data.title || state.feedMetadata[feedUrl]?.title,
-          artwork: data.artwork || state.feedMetadata[feedUrl]?.artwork,
-          episodesCount: data.episodesCount || epList.length,
-          description: data.description || state.feedMetadata[feedUrl]?.description
-        });
-      }
-    } catch (err) {
-      console.warn('[dj] Error fetching feed episodes:', err);
-    } finally {
-      state.loadingFeedUrl = null;
-      if (state.selectedFeedUrl === feedUrl) {
-        renderFeedDetail(feedUrl);
-      }
-    }
-  }
-
-  // Render Feed Detail View
-  function renderFeedDetail(feedUrl) {
-    const meta = state.feedMetadata[feedUrl] || {};
-    crateDetailArt.src = meta.artwork || FALLBACK_ARTWORK;
-    crateDetailTitle.textContent = meta.title || 'Untitled Podcast';
-
-    let episodes = state.feedEpisodesCache[feedUrl] || [];
-    const totalCount = episodes.length;
-
-    // Filter by search query if present
-    const q = state.searchQuery.toLowerCase().trim();
-    if (q) {
-      const terms = q.split(/\s+/).filter(Boolean);
-      episodes = episodes.filter(ep => {
-        const title = (ep.title || '').toLowerCase();
-        const desc = (ep.description || ep.content || '').toLowerCase();
-        return terms.every(t => title.includes(t) || desc.includes(t));
-      });
-    }
-
-    crateDetailEpCount.textContent = q ? `${episodes.length} of ${totalCount} episodes` : `${totalCount} episodes`;
-    crateDetailList.innerHTML = '';
-
-    if (state.loadingFeedUrl === feedUrl && totalCount === 0) {
-      crateDetailList.innerHTML = `
-        <li class="crate-loading">
-          <span class="crate-spinner"></span>
-          <span>Fetching show episodes...</span>
-        </li>
-      `;
-      return;
-    }
-
-    if (episodes.length === 0) {
-      crateDetailList.innerHTML = `
-        <li style="padding: 24px 10px; text-align: center; color: var(--muted); font-size: 11px;">
-          ${q ? `No episodes matching "${escapeHtml(state.searchQuery)}"` : 'No episodes available for this feed.'}
-        </li>
-      `;
-      return;
-    }
-
-    episodes.forEach(ep => {
-      crateDetailList.appendChild(createEpisodeListItem(ep, meta));
-    });
-  }
-
-  // Back button in Feed Detail View
-  btnCrateBack.addEventListener('click', () => {
-    state.selectedFeedUrl = null;
-    renderCrate();
-  });
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // EPISODE LIST (QUEUE / FAVORITES / ALL EPISODES / SEARCH)
-  // ─────────────────────────────────────────────────────────────────────────
-
-  function renderEpisodesList() {
-    crateList.innerHTML = '';
-    crateSearchFeedMatches.innerHTML = '';
-    crateSearchFeedMatches.classList.add('hidden');
-
-    let list = [];
-    if (state.activeTab === 'queue') {
-      list = state.queue;
-    } else if (state.activeTab === 'favorites') {
-      list = state.favorites;
-    } else {
-      list = state.cachedEpisodes;
-    }
-
-    const q = state.searchQuery.toLowerCase().trim();
-
-    // Check matching feeds if user searched
-    if (q) {
-      const terms = q.split(/\s+/).filter(Boolean);
-      const matchingFeeds = state.feeds.filter(url => {
-        const meta = state.feedMetadata[url] || {};
-        const title = (meta.title || '').toLowerCase();
-        const author = (meta.author || '').toLowerCase();
-        return terms.some(t => title.includes(t) || author.includes(t));
-      });
-
-      if (matchingFeeds.length > 0) {
-        crateSearchFeedMatches.classList.remove('hidden');
-        crateSearchFeedMatches.innerHTML = `
-          <div class="crate-search-matches-header">Matching Podcasts (${matchingFeeds.length})</div>
-          <div class="crate-search-feed-chips">
-            ${matchingFeeds.map(url => {
-              const meta = state.feedMetadata[url] || {};
-              return `
-                <div class="crate-mini-feed-chip" data-feed="${escapeHtml(url)}">
-                  <img src="${escapeHtml(meta.artwork || FALLBACK_ARTWORK)}" alt="">
-                  <span>${escapeHtml(meta.title || 'Podcast')}</span>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        `;
-
-        crateSearchFeedMatches.querySelectorAll('.crate-mini-feed-chip').forEach(chip => {
-          chip.addEventListener('click', () => {
-            const feedUrl = chip.dataset.feed;
-            openCrateFeed(feedUrl);
-          });
-        });
-      }
-
-      // Filter episodes
-      list = list.filter(t => {
-        const title = (t.title || '').toLowerCase();
-        const pod = (t.podcastTitle || '').toLowerCase();
-        const desc = (t.content || t.description || '').toLowerCase();
-        const url = (t.audioUrl || t.url || '').toLowerCase();
-        return terms.every(term => title.includes(term) || pod.includes(term) || desc.includes(term) || url.includes(term));
-      });
-    }
-
-    if (list.length === 0) {
-      crateList.innerHTML = `
-        <li style="padding: 24px 10px; text-align: center; color: var(--muted); font-size: 11px;">
-          ${q ? `No episodes matching "${escapeHtml(state.searchQuery)}"` : 'No episodes in this section. Browse "Podcasts" tab to select a show.'}
-        </li>
-      `;
-      return;
-    }
-
-    list.forEach(ep => {
-      crateList.appendChild(createEpisodeListItem(ep, state.feedMetadata[ep.feedUrl]));
-    });
-  }
-
-  // Create Episode Row Component with "Load A" and "Load B"
-  function createEpisodeListItem(ep, meta) {
-    const li = document.createElement('li');
-    li.className = 'crate-item';
-
-    const podTitle = ep.podcastTitle || meta?.title || '';
-    const dateStr = formatEpDate(ep.pubDate);
-    const durStr = formatEpDuration(ep.duration);
-    const subParts = [];
-    if (podTitle) subParts.push(highlightText(podTitle, state.searchQuery));
-    if (dateStr) subParts.push(dateStr);
-    if (durStr) subParts.push(`⏱ ${durStr}`);
-
-    li.innerHTML = `
-      <div class="crate-item-main">
-        <span class="crate-item-title">${highlightText(ep.title, state.searchQuery)}</span>
-        <span class="crate-item-meta">${subParts.join(' • ')}</span>
-      </div>
-      <div class="crate-item-actions">
-        <button class="btn-load btn-load-a" data-action="load-a">Load A</button>
-        <button class="btn-load btn-load-b" data-action="load-b">Load B</button>
-      </div>
-    `;
-
-    const btnA = li.querySelector('[data-action="load-a"]');
-    btnA.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const trackUrl = ep.audioUrl || ep.url;
-      mixer.loadTrack('A', trackUrl, {
-        title: ep.title,
-        artist: podTitle,
-        artwork: meta?.artwork || FALLBACK_ARTWORK
-      });
-      btnA.classList.add('loaded');
-      btnA.textContent = '✓ Deck A';
-      setTimeout(() => {
-        btnA.classList.remove('loaded');
-        btnA.textContent = 'Load A';
-      }, 1400);
-    });
-
-    const btnB = li.querySelector('[data-action="load-b"]');
-    btnB.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const trackUrl = ep.audioUrl || ep.url;
-      mixer.loadTrack('B', trackUrl, {
-        title: ep.title,
-        artist: podTitle,
-        artwork: meta?.artwork || FALLBACK_ARTWORK
-      });
-      btnB.classList.add('loaded');
-      btnB.textContent = '✓ Deck B';
-      setTimeout(() => {
-        btnB.classList.remove('loaded');
-        btnB.textContent = 'Load B';
-      }, 1400);
-    });
-
-    return li;
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // SEARCH & TABS LISTENERS
-  // ─────────────────────────────────────────────────────────────────────────
-
-  let searchDebounce = null;
-  if (crateSearchInput) {
-    crateSearchInput.addEventListener('input', (e) => {
-      const val = e.target.value.trim();
-      state.searchQuery = val;
-      if (btnClearCrateSearch) {
-        btnClearCrateSearch.classList.toggle('hidden', !val);
-      }
-      clearTimeout(searchDebounce);
-      searchDebounce = setTimeout(renderCrate, 200);
-    });
-
-    if (btnClearCrateSearch) {
-      btnClearCrateSearch.addEventListener('click', () => {
-        crateSearchInput.value = '';
-        state.searchQuery = '';
-        btnClearCrateSearch.classList.add('hidden');
-        renderCrate();
-        crateSearchInput.focus();
-      });
-    }
-  }
-
-  // Tabs Click
-  crateTabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      crateTabs.forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      state.activeTab = tab.dataset.tab;
-      // If user switches tab away from detail, reset feed selection
-      if (state.activeTab !== 'feeds') {
-        state.selectedFeedUrl = null;
-      }
-      renderCrate();
-    });
-  });
-
-  // Custom Audio URL submission
-  if (crateAdd && crateUrl) {
-    crateAdd.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const url = crateUrl.value.trim();
-      if (!url) return;
-      const title = url.split('/').pop().split('?')[0] || 'Custom Track';
-      const customTrack = {
-        guid: 'custom-' + Date.now(),
-        title,
-        podcastTitle: 'Custom Stream',
-        audioUrl: url,
-        url: url,
-        source: 'queue'
-      };
-      state.queue.unshift(customTrack);
-      state.cachedEpisodes.unshift(customTrack);
-      crateUrl.value = '';
-      state.activeTab = 'queue';
-      crateTabs.forEach(t => t.classList.toggle('active', t.dataset.tab === 'queue'));
-      renderCrate();
-    });
-  }
-
-  async function hydrateSessionAndFeeds() {
+    // 4. Asynchronous Deep Hydration from IndexedDB 'anypod_store_v1'
     try {
-      const res = await fetch('/api/sync/feeds', { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
-        let changed = false;
+      if (window.indexedDB) {
+        const idbTracks = await new Promise((resolve) => {
+          const req = window.indexedDB.open('anypod_store_v1', 1);
+          req.onsuccess = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains('keyval')) return resolve([]);
+            const tx = db.transaction('keyval', 'readonly');
+            const getReq = tx.objectStore('keyval').get('anypod_cached_episodes');
+            getReq.onsuccess = () => resolve(getReq.result || []);
+            getReq.onerror = () => resolve([]);
+          };
+          req.onerror = () => resolve([]);
+        });
 
-        if (data.sessionToken && !localStorage.getItem('anypod_session_token')) {
-          localStorage.setItem('anypod_session_token', data.sessionToken);
+        if (Array.isArray(idbTracks)) {
+          idbTracks.forEach(addTrack);
         }
-        if (data.userEmail && !localStorage.getItem('anypod_user_email')) {
-          localStorage.setItem('anypod_user_email', data.userEmail);
-        }
+      }
+    } catch (_) {}
 
-        if (Array.isArray(data.feeds) && data.feeds.length > 0) {
-          const remoteUrls = data.feeds.map(f => f.feed_url);
-          const isOnlyDefault = state.feeds.length === DEFAULT_STARTER_FEEDS.length &&
-            state.feeds.every((u, i) => u === DEFAULT_STARTER_FEEDS[i]);
+    // 5. Add Queue & Favorites to ensure complete visibility
+    state.queue.forEach(addTrack);
+    state.favorites.forEach(addTrack);
 
-          if (isOnlyDefault || state.feeds.length === 0) {
-            state.feeds = remoteUrls;
-            localStorage.setItem('anypod_feeds', JSON.stringify(state.feeds));
-            changed = true;
-          }
+    // 6. Include Sample Pack if empty
+    SAMPLE_TRACKS.forEach(addTrack);
 
-          data.feeds.forEach(f => {
-            if (f.feed_url && !state.feedMetadata[f.feed_url]) {
-              state.feedMetadata[f.feed_url] = {
-                title: f.title || '',
-                artwork: f.artwork || ''
-              };
-              changed = true;
+    // If live track exists, add it too
+    if (state.liveAppTrack) addTrack(state.liveAppTrack);
+
+    state.allTracks = Array.from(new Set(epMap.values()));
+    updateCounts();
+    filterAndRenderTable();
+
+    // 7. Auto-fetch subscribed feeds if no episodes are cached yet
+    if (Array.isArray(state.feeds) && state.feeds.length > 0) {
+      const realPodcasts = state.allTracks.filter(t => !t.isYouTube && !t.isSample);
+      if (realPodcasts.length === 0) {
+        state.feeds.slice(0, 8).forEach(async (feedUrl) => {
+          try {
+            const res = await fetch(`/api/feed?url=${encodeURIComponent(feedUrl)}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (Array.isArray(data.episodes)) {
+                data.episodes.slice(0, 20).forEach(ep => {
+                  ep.feedUrl = feedUrl;
+                  if (data.title && !ep.podcastTitle) ep.podcastTitle = data.title;
+                  if (data.artwork && !ep.artwork) ep.artwork = data.artwork;
+                  addTrack(ep);
+                });
+                state.allTracks = Array.from(new Set(epMap.values()));
+                updateCounts();
+                filterAndRenderTable();
+              }
             }
-          });
-
-          if (changed) {
-            localStorage.setItem('anypod_cached_metadata', JSON.stringify(state.feedMetadata));
-            renderCrate();
-          }
-        }
+          } catch (_) {}
+        });
       }
-    } catch (_) {
-      // Guest or offline
     }
   }
 
-  loadCrateFromStorage();
-  hydrateSessionAndFeeds();
+  function updateCounts() {
+    const countAll = document.getElementById('count-all');
+    const countYt = document.getElementById('count-yt');
+    const countPodcasts = document.getElementById('count-podcasts');
+    const countDownloads = document.getElementById('count-downloads');
+    const countQueue = document.getElementById('count-queue');
+    const countFavs = document.getElementById('count-favs');
+
+    if (countAll) countAll.textContent = state.allTracks.length;
+    if (countYt) countYt.textContent = state.allTracks.filter(t => t.isYouTube).length;
+    if (countPodcasts) countPodcasts.textContent = state.allTracks.filter(t => !t.isYouTube && !t.isSample).length;
+    if (countDownloads) countDownloads.textContent = state.allTracks.filter(t => t.isDownloaded).length;
+    if (countQueue) countQueue.textContent = state.queue.length;
+    if (countFavs) countFavs.textContent = state.favorites.length;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // TRACK BROWSER & TABLE RENDERING
+  // ─────────────────────────────────────────────────────────────────────────
+  function filterAndRenderTable() {
+    let list = state.allTracks;
+
+    // Apply category filter
+    if (state.activeFilter === 'youtube') {
+      list = list.filter(t => t.isYouTube);
+    } else if (state.activeFilter === 'podcasts') {
+      list = list.filter(t => !t.isYouTube && !t.isSample);
+    } else if (state.activeFilter === 'downloads') {
+      list = list.filter(t => t.isDownloaded);
+    } else if (state.activeFilter === 'queue') {
+      const qGuids = new Set(state.queue.map(q => q.guid || q.audioUrl));
+      list = list.filter(t => qGuids.has(t.guid) || qGuids.has(t.audioUrl));
+    } else if (state.activeFilter === 'favorites') {
+      const favGuids = new Set(state.favorites.map(f => f.guid || f.audioUrl));
+      list = list.filter(t => favGuids.has(t.guid) || favGuids.has(t.audioUrl));
+    } else if (state.activeFilter === 'live-now') {
+      list = state.liveAppTrack ? [state.liveAppTrack] : [];
+    } else if (state.activeFilter === 'samples') {
+      list = list.filter(t => t.isSample);
+    }
+
+    // Apply search query
+    if (state.searchQuery) {
+      const q = state.searchQuery.toLowerCase();
+      list = list.filter(t => 
+        (t.title && t.title.toLowerCase().includes(q)) ||
+        (t.podcastTitle && t.podcastTitle.toLowerCase().includes(q))
+      );
+    }
+
+    state.filteredTracks = list;
+
+    const tbody = document.getElementById('track-table-body');
+    const viewTitle = document.getElementById('table-view-title');
+    const showingCount = document.getElementById('table-showing-count');
+
+    if (viewTitle) {
+      const titles = {
+        all: 'All Tracks Collection',
+        youtube: 'YouTube Playlists & Videos',
+        podcasts: 'Subscribed Podcast Feeds',
+        downloads: 'Downloaded Offline Episodes',
+        queue: 'Up Next Queue',
+        favorites: 'Starred Favorites',
+        'live-now': 'Now Playing in Live Player',
+        samples: 'DJ Beats & Loops'
+      };
+      viewTitle.textContent = titles[state.activeFilter] || 'Tracks';
+    }
+
+    if (showingCount) {
+      showingCount.textContent = `${list.length} tracks`;
+    }
+
+    if (!tbody) return;
+
+    if (list.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="10" style="text-align: center; padding: 36px; color: var(--text-muted);">
+            No tracks found in this category. Paste a YouTube playlist or RSS URL on the left to add songs.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+
+    list.forEach((track, idx) => {
+      const tr = document.createElement('tr');
+      tr.className = 'track-row';
+      const isLoadedA = state.loadedDeckA && state.loadedDeckA.guid === track.guid;
+      const isLoadedB = state.loadedDeckB && state.loadedDeckB.guid === track.guid;
+      if (isLoadedA) tr.classList.add('is-loaded-a');
+      if (isLoadedB) tr.classList.add('is-loaded-b');
+
+      let deckBadgeHtml = '-';
+      if (isLoadedA) deckBadgeHtml = '<span class="deck-loaded-badge deck-a">A</span>';
+      else if (isLoadedB) deckBadgeHtml = '<span class="deck-loaded-badge deck-b">B</span>';
+
+      const fmtBadge = track.isYouTube
+        ? '<span class="fmt-badge yt">YouTube</span>'
+        : '<span class="fmt-badge audio">Audio</span>';
+
+      tr.innerHTML = `
+        <td class="td-num">${idx + 1}</td>
+        <td class="td-deck">${deckBadgeHtml}</td>
+        <td class="td-art"><img src="${escapeHtml(track.artwork || '/icon-192.png')}" class="track-thumb" alt="" loading="lazy"></td>
+        <td class="td-title" title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</td>
+        <td class="td-artist" title="${escapeHtml(track.podcastTitle)}">${escapeHtml(track.podcastTitle)}</td>
+        <td class="td-bpm">${track.bpm ? track.bpm.toFixed(1) : '126.0'}</td>
+        <td class="td-key">${escapeHtml(track.key || '8m')}</td>
+        <td class="td-time">${formatDuration(track.duration)}</td>
+        <td class="td-fmt">${fmtBadge}</td>
+        <td class="td-actions">
+          <div class="load-btn-group">
+            <button type="button" class="btn-load btn-load-a" data-act="load-a">◄ LOAD A</button>
+            <button type="button" class="btn-load btn-load-b" data-act="load-b">LOAD B ►</button>
+          </div>
+        </td>
+      `;
+
+      // Event Listeners for Load
+      tr.querySelector('[data-act="load-a"]').addEventListener('click', (e) => {
+        e.stopPropagation();
+        loadTrackIntoDeck('A', track);
+      });
+      tr.querySelector('[data-act="load-b"]').addEventListener('click', (e) => {
+        e.stopPropagation();
+        loadTrackIntoDeck('B', track);
+      });
+      tr.addEventListener('dblclick', () => {
+        loadTrackIntoDeck('A', track);
+      });
+
+      fragment.appendChild(tr);
+    });
+
+    tbody.innerHTML = '';
+    tbody.appendChild(fragment);
+  }
+
+  function loadTrackIntoDeck(deckId, track) {
+    mixer.loadTrack(deckId, track);
+
+    if (deckId === 'A') state.loadedDeckA = track;
+    if (deckId === 'B') state.loadedDeckB = track;
+
+    // Update Deck Header Display
+    const titleEl = document.getElementById(`deck-${deckId.toLowerCase()}-title`);
+    const artistEl = document.getElementById(`deck-${deckId.toLowerCase()}-artist`);
+    const keyEl = document.getElementById(`deck-${deckId.toLowerCase()}-key`);
+    const bpmEl = document.getElementById(`deck-${deckId.toLowerCase()}-bpm`);
+
+    if (titleEl) titleEl.textContent = track.title;
+    if (artistEl) artistEl.textContent = `${track.isYouTube ? '🔴 ' : '🎙️ '}${track.podcastTitle || 'Traktor Pro'}`;
+    if (keyEl) keyEl.textContent = track.key || '8m';
+    if (bpmEl) bpmEl.textContent = (track.bpm || 128.00).toFixed(2);
+
+    filterAndRenderTable();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // DYNAMIC MULTI-BAND WAVEFORM RENDERING (TRAKTOR PRO RGB STYLE)
+  // ─────────────────────────────────────────────────────────────────────────
+  const waveCanvases = {
+    A: document.getElementById('wave-canvas-a'),
+    B: document.getElementById('wave-canvas-b')
+  };
+  const overviewCanvases = {
+    A: document.getElementById('overview-canvas-a'),
+    B: document.getElementById('overview-canvas-b')
+  };
+
+  function renderWaveformFrame(deckId, progress, isPlaying) {
+    const canvas = waveCanvases[deckId];
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = (canvas.width = canvas.clientWidth);
+    const h = (canvas.height = canvas.clientHeight);
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#09090e';
+    ctx.fillRect(0, 0, w, h);
+
+    // Multi-band frequency visualizer
+    const barWidth = 3;
+    const barGap = 1;
+    const totalBars = Math.floor(w / (barWidth + barGap));
+    const centerY = h / 2;
+
+    const deckColor = deckId === 'A' ? '#ff3b5c' : '#00d2ff';
+
+    // Animated playhead phase
+    const track = deckId === 'A' ? state.loadedDeckA : state.loadedDeckB;
+    const seed = (track?.title || deckId).charCodeAt(0) || 42;
+
+    for (let i = 0; i < totalBars; i++) {
+      const x = i * (barWidth + barGap);
+      const normX = x / w;
+      
+      // Calculate 3 frequency bands
+      const waveLow = (Math.sin(i * 0.12 + seed) + Math.cos(i * 0.05) + 2) / 4;
+      const waveMid = (Math.sin(i * 0.28 + seed * 2) + 1) / 2;
+      const waveHigh = (Math.sin(i * 0.65 + seed * 3) + 1) / 2;
+
+      const barHeightLow = Math.max(4, waveLow * (h * 0.88));
+      const barHeightMid = Math.max(2, waveMid * (h * 0.55));
+      const barHeightHigh = Math.max(2, waveHigh * (h * 0.3));
+
+      const isPlayed = normX <= 0.5; // Waveform scrolls through center playhead
+
+      // Multi-band RGB layer 1: Bass / Kick (Warm Orange/Red)
+      ctx.fillStyle = isPlayed ? deckColor : 'rgba(255, 75, 75, 0.35)';
+      ctx.fillRect(x, centerY - barHeightLow / 2, barWidth, barHeightLow);
+
+      // Multi-band RGB layer 2: Midrange / Vocals (Green / Cyan)
+      ctx.fillStyle = isPlayed ? '#22c55e' : 'rgba(34, 197, 94, 0.4)';
+      ctx.fillRect(x, centerY - barHeightMid / 2, barWidth, barHeightMid);
+
+      // Multi-band RGB layer 3: Highs / Hi-hats (Electric Blue / White)
+      ctx.fillStyle = isPlayed ? '#ffffff' : 'rgba(255, 255, 255, 0.5)';
+      ctx.fillRect(x, centerY - barHeightHigh / 2, barWidth, barHeightHigh);
+
+      // Beatgrid vertical marker lines every 16 bars
+      if (i % 16 === 0) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.fillRect(x, 0, 1, h);
+      }
+    }
+
+    // Center Playhead Marker
+    const needle = document.getElementById(`playhead-needle-${deckId.toLowerCase()}`);
+    if (needle) needle.style.left = '50%';
+  }
+
+  function renderOverviewStripe(deckId, progress) {
+    const canvas = overviewCanvases[deckId];
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = (canvas.width = canvas.clientWidth);
+    const h = (canvas.height = canvas.clientHeight);
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#0b0b12';
+    ctx.fillRect(0, 0, w, h);
+
+    const centerY = h / 2;
+    const bars = Math.floor(w / 2);
+    const deckColor = deckId === 'A' ? '#ff3b5c' : '#00d2ff';
+
+    for (let i = 0; i < bars; i++) {
+      const x = i * 2;
+      const barProgress = x / w;
+      const amp = (Math.sin(i * 0.15) + Math.cos(i * 0.08) + 2) / 4;
+      const barH = Math.max(2, amp * (h - 4));
+
+      ctx.fillStyle = barProgress <= progress ? deckColor : '#222232';
+      ctx.fillRect(x, centerY - barH / 2, 1.5, barH);
+    }
+
+    // Playhead needle
+    const playhead = document.getElementById(`overview-playhead-${deckId.toLowerCase()}`);
+    if (playhead) {
+      playhead.style.left = `${Math.min(100, Math.max(0, progress * 100))}%`;
+    }
+  }
+
+  function updateCueMarkerFlags(deckId, cues, duration) {
+    const container = document.getElementById(`cue-markers-${deckId.toLowerCase()}`);
+    if (!container || !duration || duration <= 0) return;
+
+    container.innerHTML = '';
+    cues.forEach((time, idx) => {
+      if (typeof time === 'number' && time >= 0) {
+        const pct = (time / duration) * 100;
+        const flag = document.createElement('div');
+        flag.className = 'cue-flag';
+        flag.style.left = `${pct}%`;
+        flag.innerHTML = `<span class="cue-flag-label">${idx + 1}</span>`;
+        container.appendChild(flag);
+      }
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // REALISTIC HARDWARE ROTARY KNOBS INTERACTION
+  // ─────────────────────────────────────────────────────────────────────────
+  function initRotaryKnobs() {
+    document.querySelectorAll('.knob-wrap').forEach((wrap) => {
+      const min = parseFloat(wrap.dataset.min ?? -24);
+      const max = parseFloat(wrap.dataset.max ?? 12);
+      const def = parseFloat(wrap.dataset.default ?? 0);
+      const knobName = wrap.dataset.knob || '';
+      let currentVal = def;
+
+      const dial = wrap.querySelector('.knob-dial');
+
+      function updateKnobDisplay(val) {
+        currentVal = Math.max(min, Math.min(max, val));
+        const norm = (currentVal - min) / (max - min); // 0.0 to 1.0
+        const angle = -135 + norm * 270; // -135deg to +135deg
+        if (dial) dial.style.transform = `rotate(${angle}deg)`;
+      }
+
+      updateKnobDisplay(def);
+
+      // Pointer drag interaction (vertical & horizontal movement)
+      let startY = 0;
+      let startVal = def;
+      let isDragging = false;
+
+      wrap.addEventListener('pointerdown', (e) => {
+        isDragging = true;
+        startY = e.clientY;
+        startVal = currentVal;
+        wrap.setPointerCapture(e.pointerId);
+      });
+
+      wrap.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        const deltaY = startY - e.clientY; // drag up = positive
+        const sensitivity = (max - min) / 120; // 120px drag across full range
+        const newVal = startVal + deltaY * sensitivity;
+        updateKnobDisplay(newVal);
+        dispatchKnobChange(knobName, currentVal);
+      });
+
+      const endDrag = (e) => {
+        if (isDragging) {
+          isDragging = false;
+          try { wrap.releasePointerCapture(e.pointerId); } catch (_) {}
+        }
+      };
+      wrap.addEventListener('pointerup', endDrag);
+      wrap.addEventListener('pointercancel', endDrag);
+
+      // Double-click resets to default (center detent)
+      wrap.addEventListener('dblclick', () => {
+        updateKnobDisplay(def);
+        dispatchKnobChange(knobName, def);
+      });
+    });
+  }
+
+  function dispatchKnobChange(name, val) {
+    if (name.startsWith('gain-')) {
+      const deck = name.split('-')[1];
+      mixer.setGain(deck, val);
+    } else if (name.startsWith('eq-')) {
+      const parts = name.split('-'); // eq, hi/mid/low, A/B
+      const band = parts[1] === 'hi' ? 'high' : parts[1];
+      const deck = parts[2];
+      mixer.setEQ(deck, band, val);
+    } else if (name.startsWith('filter-')) {
+      const deck = name.split('-')[1];
+      mixer.setFilter(deck, val / 100); // normalize -100..100 to -1..1
+    } else if (name === 'master-vol') {
+      if (mixer.master) mixer.master.threshold.value = -30 + (val / 100) * 20;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CHANNEL FADERS, CROSSFADER & PITCH CONTROLS
+  // ─────────────────────────────────────────────────────────────────────────
+  function initMixerControls() {
+    // Channel Volume Faders
+    const volA = document.getElementById('vol-fader-a');
+    const volB = document.getElementById('vol-fader-b');
+    if (volA) volA.addEventListener('input', (e) => mixer.setVolume('A', parseFloat(e.target.value)));
+    if (volB) volB.addEventListener('input', (e) => mixer.setVolume('B', parseFloat(e.target.value)));
+
+    // Crossfader
+    const xfader = document.getElementById('crossfader');
+    if (xfader) xfader.addEventListener('input', (e) => mixer.setCrossfader(parseFloat(e.target.value)));
+
+    // Pitch Faders
+    ['A', 'B'].forEach((id) => {
+      const slider = document.getElementById(`pitch-slider-${id.toLowerCase()}`);
+      const pctEl = document.getElementById(`pitch-pct-${id.toLowerCase()}`);
+      const btnDown = document.getElementById(`pitch-${id.toLowerCase()}-down`);
+      const btnUp = document.getElementById(`pitch-${id.toLowerCase()}-up`);
+
+      const applyRate = (rate) => {
+        state.deckPitch[id] = rate;
+        mixer.setPlaybackRate(id, rate);
+        if (pctEl) {
+          const pct = ((rate - 1.0) * 100).toFixed(2);
+          pctEl.textContent = `${pct >= 0 ? '+' : ''}${pct}%`;
+        }
+        if (slider) slider.value = rate;
+      };
+
+      if (slider) {
+        slider.addEventListener('input', (e) => applyRate(parseFloat(e.target.value)));
+      }
+      if (btnDown) {
+        btnDown.addEventListener('click', () => applyRate(Math.max(0.8, state.deckPitch[id] - 0.005)));
+      }
+      if (btnUp) {
+        btnUp.addEventListener('click', () => applyRate(Math.min(1.2, state.deckPitch[id] + 0.005)));
+      }
+    });
+
+    // PFL Cue Buttons
+    ['A', 'B'].forEach((id) => {
+      const btn = document.getElementById(`pfl-${id.toLowerCase()}`);
+      if (btn) btn.addEventListener('click', () => btn.classList.toggle('active'));
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // TRANSPORT, CUES & LOOPS WIRING
+  // ─────────────────────────────────────────────────────────────────────────
+  function initTransportAndCues() {
+    ['A', 'B'].forEach((id) => {
+      const btnPlay = document.getElementById(`btn-play-${id.toLowerCase()}`);
+      const btnCue = document.getElementById(`btn-cue-${id.toLowerCase()}`);
+      const btnCup = document.getElementById(`btn-cup-${id.toLowerCase()}`);
+
+      if (btnPlay) {
+        btnPlay.addEventListener('click', () => mixer.toggle(id));
+      }
+      if (btnCue) {
+        btnCue.addEventListener('pointerdown', () => {
+          mixer.pause(id);
+          mixer.triggerHotCue(id, 0);
+        });
+      }
+      if (btnCup) {
+        btnCup.addEventListener('click', () => {
+          mixer.triggerHotCue(id, 0);
+          mixer.play(id);
+        });
+      }
+
+      // Hot Cue Pads 1 - 4
+      for (let c = 0; c < 4; c++) {
+        const pad = document.getElementById(`cue-${id.toLowerCase()}-${c}`);
+        if (!pad) continue;
+
+        let holdTimer = null;
+        let isHold = false;
+
+        pad.addEventListener('pointerdown', () => {
+          isHold = false;
+          holdTimer = setTimeout(() => {
+            isHold = true;
+            mixer.clearHotCue(id, c);
+          }, 700);
+        });
+
+        pad.addEventListener('pointerup', () => {
+          clearTimeout(holdTimer);
+          if (isHold) return;
+          const cues = mixer.decks[id].cues;
+          if (typeof cues[c] === 'number') {
+            mixer.triggerHotCue(id, c);
+          } else {
+            mixer.setHotCue(id, c);
+          }
+        });
+
+        pad.addEventListener('pointercancel', () => clearTimeout(holdTimer));
+      }
+
+      // Loop Controls
+      const loopActive = document.getElementById(`loop-${id.toLowerCase()}-active`);
+      if (loopActive) {
+        loopActive.addEventListener('click', () => {
+          const d = mixer.decks[id];
+          d.loop.active = !d.loop.active;
+          loopActive.classList.toggle('active', d.loop.active);
+          if (d.loop.active) {
+            d.loop.start = mixer.getCurrentTime(id);
+            // 4 beats at 128 BPM ≈ 1.875s
+            d.loop.end = d.loop.start + 1.875;
+          }
+        });
+      }
+
+      // Waveform click to scrub/seek
+      const waveWrap = document.getElementById(`waveform-wrap-${id.toLowerCase()}`);
+      if (waveWrap) {
+        waveWrap.addEventListener('click', (e) => {
+          const rect = waveWrap.getBoundingClientRect();
+          const pos = (e.clientX - rect.left) / rect.width;
+          const dur = mixer.getDuration(id);
+          if (dur > 0) mixer.seek(id, pos * dur);
+        });
+      }
+
+      // Overview stripe click to jump
+      const overviewWrap = document.getElementById(`overview-wrap-${id.toLowerCase()}`);
+      if (overviewWrap) {
+        overviewWrap.addEventListener('click', (e) => {
+          const rect = overviewWrap.getBoundingClientRect();
+          const pos = (e.clientX - rect.left) / rect.width;
+          const dur = mixer.getDuration(id);
+          if (dur > 0) mixer.seek(id, pos * dur);
+        });
+      }
+    });
+
+    // Master BPM TAP Tempo
+    const btnTap = document.getElementById('btn-bpm-tap');
+    const masterBpmVal = document.getElementById('master-bpm-val');
+    if (btnTap) {
+      btnTap.addEventListener('click', () => {
+        const now = Date.now();
+        state.tapTimes.push(now);
+        if (state.tapTimes.length > 5) state.tapTimes.shift();
+        if (state.tapTimes.length >= 2) {
+          const diffs = [];
+          for (let i = 1; i < state.tapTimes.length; i++) {
+            diffs.push(state.tapTimes[i] - state.tapTimes[i - 1]);
+          }
+          const avgMs = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+          const bpm = Math.round(60000 / avgMs);
+          if (bpm >= 60 && bpm <= 190) {
+            state.masterBpm = bpm;
+            if (masterBpmVal) masterBpmVal.textContent = bpm.toFixed(2);
+          }
+        }
+      });
+    }
+
+    // Master SYNC button
+    const btnSync = document.getElementById('btn-master-sync');
+    if (btnSync) {
+      btnSync.addEventListener('click', () => {
+        btnSync.classList.toggle('active');
+        // Match both decks to Master BPM
+        ['A', 'B'].forEach((id) => {
+          const track = id === 'A' ? state.loadedDeckA : state.loadedDeckB;
+          const baseBpm = track?.bpm || 128;
+          const targetRate = state.masterBpm / baseBpm;
+          mixer.setPlaybackRate(id, targetRate);
+        });
+      });
+    }
+
+    // Fullscreen Toggle
+    const btnFs = document.getElementById('btn-fullscreen');
+    if (btnFs) {
+      btnFs.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      });
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MIXER ENGINE EVENT LISTENERS
+  // ─────────────────────────────────────────────────────────────────────────
+  function initMixerEngineEvents() {
+    mixer.on('time', ({ deck, currentTime, duration }) => {
+      const curEl = document.getElementById(`deck-${deck.toLowerCase()}-cur`);
+      const remEl = document.getElementById(`deck-${deck.toLowerCase()}-rem`);
+      if (curEl) curEl.textContent = formatTime(currentTime);
+      if (remEl && duration > 0) remEl.textContent = `-${formatTime(Math.max(0, duration - currentTime))}`;
+
+      const prog = duration > 0 ? (currentTime / duration) : 0;
+      renderWaveformFrame(deck, prog, mixer.isPlaying(deck));
+      renderOverviewStripe(deck, prog);
+    });
+
+    mixer.on('state', ({ deck, playing }) => {
+      const btn = document.getElementById(`btn-play-${deck.toLowerCase()}`);
+      if (btn) {
+        btn.classList.toggle('playing', !!playing);
+        btn.textContent = playing ? '❚❚' : '▶';
+      }
+    });
+
+    mixer.on('cues', ({ deck, cues }) => {
+      cues.forEach((time, idx) => {
+        const pad = document.getElementById(`cue-${deck.toLowerCase()}-${idx}`);
+        if (pad) {
+          const isSet = typeof time === 'number' && time >= 0;
+          pad.classList.toggle('active', isSet);
+        }
+      });
+      const dur = mixer.getDuration(deck);
+      updateCueMarkerFlags(deck, cues, dur);
+    });
+
+    mixer.on('levels', ({ A, B, master }) => {
+      updateMeterLeds('vu-meter-a', A);
+      updateMeterLeds('vu-meter-b', B);
+      updateMeterLeds('master-meter-l', master * 0.95);
+      updateMeterLeds('master-meter-r', master * 1.05);
+    });
+  }
+
+  function updateMeterLeds(containerId, level) {
+    const cont = document.getElementById(containerId);
+    if (!cont) return;
+    const leds = cont.querySelectorAll('.meter-led, .vu-segment');
+    const litCount = Math.round(level * leds.length * 1.6);
+    leds.forEach((led, idx) => {
+      led.classList.toggle('lit', idx < litCount);
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SEARCH & TREE NAVIGATION
+  // ─────────────────────────────────────────────────────────────────────────
+  function initSearchAndSidebar() {
+    // Tree Navigation
+    document.querySelectorAll('.tree-item').forEach((item) => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.tree-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        state.activeFilter = item.dataset.filter || 'all';
+        filterAndRenderTable();
+      });
+    });
+
+    // Search Bar
+    const searchInput = document.getElementById('browser-search-input');
+    const clearBtn = document.getElementById('btn-clear-search');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        state.searchQuery = e.target.value.trim();
+        if (clearBtn) clearBtn.classList.toggle('hidden', !state.searchQuery);
+        filterAndRenderTable();
+      });
+    }
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        if (searchInput) searchInput.value = '';
+        state.searchQuery = '';
+        clearBtn.classList.add('hidden');
+        filterAndRenderTable();
+      });
+    }
+
+    // Quick Add Form (YouTube Playlist or RSS Feed)
+    const addForm = document.getElementById('form-quick-add');
+    const addInput = document.getElementById('input-add-url');
+    if (addForm && addInput) {
+      addForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const url = addInput.value.trim();
+        if (!url) return;
+        addInput.value = '';
+        addInput.placeholder = 'Fetching feed...';
+
+        try {
+          const res = await fetch(`/api/feed?url=${encodeURIComponent(url)}`);
+          if (res.ok) {
+            const feedData = await res.json();
+            if (feedData.episodes && feedData.episodes.length > 0) {
+              // Add feed to local storage
+              const curFeeds = JSON.parse(localStorage.getItem('anypod_feeds') || '[]');
+              if (!curFeeds.includes(url)) {
+                curFeeds.unshift(url);
+                localStorage.setItem('anypod_feeds', JSON.stringify(curFeeds));
+              }
+              // Save metadata
+              const curMeta = JSON.parse(localStorage.getItem('anypod_cached_metadata') || '{}');
+              curMeta[url] = {
+                title: feedData.title,
+                artwork: feedData.artwork,
+                episodesCount: feedData.episodes.length,
+                isYouTube: feedData.isYouTube
+              };
+              localStorage.setItem('anypod_cached_metadata', JSON.stringify(curMeta));
+
+              // Rehydrate
+              await hydrateCollection();
+            }
+          }
+        } catch (_) {}
+
+        addInput.placeholder = 'Paste YouTube playlist or RSS URL...';
+      });
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BOOTSTRAP
+  // ─────────────────────────────────────────────────────────────────────────
+  window.addEventListener('DOMContentLoaded', () => {
+    initRotaryKnobs();
+    initMixerControls();
+    initTransportAndCues();
+    initMixerEngineEvents();
+    initSearchAndSidebar();
+    hydrateCollection();
+
+    // Initial dummy waveform draw
+    renderWaveformFrame('A', 0, false);
+    renderWaveformFrame('B', 0, false);
+    renderOverviewStripe('A', 0);
+    renderOverviewStripe('B', 0);
+
+    // Auto-load sample tracks if decks are idle
+    setTimeout(() => {
+      if (!state.loadedDeckA && state.allTracks[0]) loadTrackIntoDeck('A', state.allTracks[0]);
+      if (!state.loadedDeckB && state.allTracks[1]) loadTrackIntoDeck('B', state.allTracks[1]);
+    }, 400);
+
+    // Cross-app sync with Workout DJ Sequencer (sets.anypod.org)
+    try {
+      if ('BroadcastChannel' in window) {
+        const syncChannel = new BroadcastChannel('anypod_workout_sync');
+        syncChannel.addEventListener('message', (e) => {
+          if (e.data?.type === 'WORKOUT_ACTIVE') {
+            if (mixer.isPlaying('A')) mixer.pause('A');
+            if (mixer.isPlaying('B')) mixer.pause('B');
+          }
+        });
+
+        const storageChannel = new BroadcastChannel('anypod_storage_channel');
+        storageChannel.addEventListener('message', (e) => {
+          if (e.data?.type === 'UPDATE_STORAGE') {
+            hydrateCollection();
+          }
+        });
+      }
+    } catch (_) {}
+
+    // Cross-subdomain Storage Bridge (syncs with anypod.org if on dj.anypod.org)
+    try {
+      const isSubdomain = location.hostname.endsWith('.anypod.org') && location.hostname !== 'anypod.org';
+      const bridgeOrigin = isSubdomain ? 'https://anypod.org' : '';
+      const iframe = document.createElement('iframe');
+      iframe.src = `${bridgeOrigin}/storage-bridge.html`;
+      iframe.style.display = 'none';
+      iframe.title = 'Storage Bridge';
+      document.body.appendChild(iframe);
+
+      window.addEventListener('message', (event) => {
+        if (event.data?.type === 'ANYPOD_STORAGE_READY' || event.data?.type === 'ANYPOD_STORAGE_RESPONSE' || event.data?.type === 'ANYPOD_STORAGE_UPDATE') {
+          const payload = event.data.payload;
+          if (payload && typeof payload === 'object') {
+            let hasNew = false;
+            Object.keys(payload).forEach(k => {
+              const cur = localStorage.getItem(k);
+              if (payload[k] && cur !== payload[k]) {
+                try {
+                  localStorage.setItem(k, payload[k]);
+                  hasNew = true;
+                } catch (_) {}
+              }
+            });
+            if (hasNew) {
+              hydrateCollection();
+            }
+          }
+        }
+      });
+    } catch (_) {}
+  });
+
 })();

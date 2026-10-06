@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Anypod Storage Bridge</title>
+</head>
+<body>
+<script>
+(function() {
+  'use strict';
+
+  // Allowed parent origins for cross-subdomain communication
+  function isAllowedOrigin(origin) {
+    if (!origin) return false;
+    try {
+      const u = new URL(origin);
+      const h = u.hostname.toLowerCase();
+      return h === 'anypod.org' ||
+             h.endsWith('.anypod.org') ||
+             h === 'localhost' ||
+             h === '127.0.0.1';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  const STORAGE_KEYS = [
+    'anypod_feeds',
+    'anypod_cached_episodes',
+    'anypod_cached_metadata',
+    'anypod_downloads',
+    'anypod_playback_queue',
+    'anypod_favorites',
+    'anypod_last_active_episode',
+    'anypod_playback_positions',
+    'anypod_dj_cues',
+    'anypod_active_routine'
+  ];
+
+  function getStorageDump() {
+    const data = {};
+    STORAGE_KEYS.forEach(k => {
+      try {
+        const val = localStorage.getItem(k);
+        if (val !== null) data[k] = val;
+      } catch (_) {}
+    });
+    return data;
+  }
+
+  function handleMessage(event) {
+    if (!isAllowedOrigin(event.origin)) return;
+    const msg = event.data;
+    if (!msg || typeof msg !== 'object') return;
+
+    if (msg.type === 'ANYPOD_STORAGE_REQUEST') {
+      const dump = getStorageDump();
+      event.source.postMessage({
+        type: 'ANYPOD_STORAGE_RESPONSE',
+        payload: dump
+      }, event.origin);
+    } else if (msg.type === 'ANYPOD_STORAGE_WRITE') {
+      if (msg.key && typeof msg.key === 'string' && STORAGE_KEYS.includes(msg.key)) {
+        try {
+          if (msg.value === null) {
+            localStorage.removeItem(msg.key);
+          } else {
+            localStorage.setItem(msg.key, String(msg.value));
+          }
+        } catch (_) {}
+      }
+    }
+  }
+
+  window.addEventListener('message', handleMessage);
+
+  // Auto-respond if parent exists
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({
+      type: 'ANYPOD_STORAGE_READY',
+      payload: getStorageDump()
+    }, '*');
+  }
+
+  // BroadcastChannel for same-origin tabs
+  try {
+    if ('BroadcastChannel' in window) {
+      const bc = new BroadcastChannel('anypod_storage_channel');
+      bc.addEventListener('message', (e) => {
+        if (e.data?.type === 'UPDATE_STORAGE') {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({
+              type: 'ANYPOD_STORAGE_UPDATE',
+              payload: getStorageDump()
+            }, '*');
+          }
+        }
+      });
+    }
+  } catch (_) {}
+
+})();
+</script>
+</body>
+</html>

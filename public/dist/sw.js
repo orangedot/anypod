@@ -1,4 +1,4 @@
-const CACHE_NAME = 'anypod-v9';
+const CACHE_NAME = 'anypod-v10';
 const AUDIO_CACHE_NAME = 'anypod-audio-v1';
 
 const APP_SHELL = [
@@ -25,10 +25,11 @@ async function refreshAudioCacheKeys() {
 refreshAudioCacheKeys();
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(APP_SHELL);
-    }).then(() => self.skipWaiting())
+    })
   );
 });
 
@@ -64,21 +65,26 @@ self.addEventListener('fetch', (event) => {
   // - ALL live online audio streams MUST bypass the Service Worker completely!
   //   Returning without calling event.respondWith lets the native browser engine stream
   //   directly. This prevents OS background sleep from killing the connection after 30-90s.
-  const isAudioRequest = req.headers.get('range') ||
+  const isAudioRequest = req.destination === 'audio' ||
+    Boolean(req.headers.get('range')) ||
     url.pathname.endsWith('.mp3') ||
     url.pathname.endsWith('.m4a') ||
     url.pathname.endsWith('.aac') ||
     url.pathname.endsWith('.ogg') ||
     url.pathname.endsWith('.wav') ||
-    req.destination === 'audio';
+    url.pathname.includes('/audio-proxy') ||
+    url.pathname.includes('/audio') ||
+    url.searchParams.has('audioUrl') ||
+    url.searchParams.has('url');
 
   if (isAudioRequest) {
-    const isCachedOffline = url.searchParams.has('offline') || cachedAudioUrls.has(req.url);
+    const isCachedOffline = url.searchParams.has('offline') || (typeof cachedAudioUrls !== 'undefined' && cachedAudioUrls.has(req.url));
     if (isCachedOffline) {
       event.respondWith(handleCachedAudioRequest(req));
       return;
     }
-    // Live streaming audio: ALWAYS bypass the Service Worker completely!
+    // Live streaming audio: Return with NO event.respondWith() call.
+    // This allows the native browser engine to stream byte ranges directly.
     return;
   }
 
