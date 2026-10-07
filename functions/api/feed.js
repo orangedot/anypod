@@ -451,19 +451,24 @@ async function fetchAndParseFeed(inputUrl) {
 
     if (batchData && batchData.episodes && batchData.episodes.length > 0) {
       const firstEp = batchData.episodes[0];
-      const title = meta?.title || firstEp.podcastTitle || 'YouTube Playlist';
+      const playlistTitle = meta?.title || 'YouTube Playlist';
       const artwork = firstEp.artwork || 'https://i.ytimg.com/vi/default.jpg';
       const totalCount = meta?.totalCount || batchData.episodes.length;
 
       batchData.episodes.forEach(ep => {
-        ep.podcastTitle = title;
+        // Retain original video author/artist (channel name) as ep.author or ep.channel
+        const channelName = ep.podcastTitle || '';
+        ep.playlistTitle = playlistTitle;
+        // ep.podcastTitle represents the artist/channel for cards, or playlist if channel unavailable
+        ep.podcastTitle = channelName || playlistTitle;
+        ep.author = channelName || playlistTitle;
         ep.feedUrl = inputUrl;
       });
 
       return {
-        title,
+        title: playlistTitle,
         description: `YouTube Playlist (${playlistId})`,
-        author: firstEp.podcastTitle || 'YouTube Creator',
+        author: firstEp.author || firstEp.podcastTitle || playlistTitle,
         artwork,
         link: inputUrl,
         feedUrl: inputUrl,

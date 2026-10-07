@@ -5250,8 +5250,9 @@
 
     // 2. Clickable Podcast Feed Name (larger & links to full show detail)
     if (elements.showNotesPodcastTitle) {
+      const showName = ep.playlistTitle || ep.podcastTitle || 'Podcast';
       elements.showNotesPodcastTitle.innerHTML = `
-        <span>${escapeHtml(ep.podcastTitle || 'Podcast')}</span>
+        <span>${escapeHtml(showName)}</span>
         <span class="podcast-link-arrow">→</span>
       `;
       elements.showNotesPodcastTitle.onclick = (e) => {
