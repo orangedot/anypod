@@ -1969,12 +1969,27 @@
         const nxt = timeline[currentIdx + 1];
 
         if (cur) {
-          const artwork = cur.block.audioSegment?.artwork || '/icon-192.png';
+          const origin = window.location.origin;
+          const art = cur.block.audioSegment?.artwork;
+          const fallback192 = new URL('/icon-192.png', origin).href;
+          const fallback512 = new URL('/icon-512.png', origin).href;
+          const resolvedArt = art ? new URL(art, origin).href : fallback512;
+
+          const artworkList = [
+            { src: fallback192, sizes: '96x96', type: 'image/png' },
+            { src: fallback192, sizes: '128x128', type: 'image/png' },
+            { src: fallback192, sizes: '192x192', type: 'image/png' },
+            { src: resolvedArt, sizes: '256x256' },
+            { src: resolvedArt, sizes: '384x384' },
+            { src: resolvedArt, sizes: '512x512' },
+            { src: fallback512, sizes: '512x512', type: 'image/png' }
+          ];
+
           navigator.mediaSession.metadata = new MediaMetadata({
             title: `${cur.block.label} [${cur.iteration}/${cur.totalIterations}]`,
             artist: `Anypod Sets • ${cur.block.type.toUpperCase()}`,
             album: `${routine.title} (Next: ${nxt ? nxt.block.label : 'Done'})`,
-            artwork: [{ src: artwork, sizes: '192x192', type: 'image/png' }]
+            artwork: artworkList
           });
         }
         navigator.mediaSession.playbackState = state === 'running' ? 'playing' : 'paused';

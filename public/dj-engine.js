@@ -569,11 +569,30 @@
     _setMediaSession(d) {
       if (!('mediaSession' in navigator)) return;
       try {
+        const origin = window.location.origin;
+        const art = d.meta.artwork;
+        const fallback192 = new URL('/icon-192.png', origin).href;
+        const fallback512 = new URL('/icon-512.png', origin).href;
+        const resolvedArt = art ? new URL(art, origin).href : fallback512;
+
+        const artworkList = [
+          { src: fallback192, sizes: '96x96', type: 'image/png' },
+          { src: fallback192, sizes: '128x128', type: 'image/png' },
+          { src: fallback192, sizes: '192x192', type: 'image/png' },
+          { src: resolvedArt, sizes: '256x256' },
+          { src: resolvedArt, sizes: '384x384' },
+          { src: resolvedArt, sizes: '512x512' },
+          { src: fallback512, sizes: '512x512', type: 'image/png' }
+        ];
+
         navigator.mediaSession.metadata = new MediaMetadata({
           title: d.meta.title || 'Anypod DJ',
           artist: d.meta.podcastTitle || 'Traktor Pro DJ',
-          artwork: d.meta.artwork ? [{ src: d.meta.artwork }] : [{ src: '/icon-192.png' }]
+          album: 'Anypod DJ Mixer',
+          artwork: artworkList
         });
+
+        navigator.mediaSession.playbackState = 'playing';
       } catch (_) {}
     }
 

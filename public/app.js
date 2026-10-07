@@ -6812,14 +6812,17 @@
 
     audio.addEventListener('error', () => {
       if (state.activeEngine === 'audio') {
-        // 5. Ensure valid src before attempting proxy fallback
+        const err = elements.audio.error;
+        const isNetworkErr = err && err.code === MediaError.MEDIA_ERR_NETWORK;
+        const savedTime = elements.audio.currentTime || 0;
+
+        // 1. If not already proxied, fall back to /api/audio-proxy immediately
         if (state.currentEpisode && elements.audio.src && !elements.audio.src.includes('/api/audio-proxy')) {
           state.playbackStatus = 'loading';
           syncPlaybackButtons();
           const proxySrc = `/api/audio-proxy?url=${encodeURIComponent(state.currentEpisode.audioUrl)}`;
           window.__ANYPOD_CURRENT_STREAM_URL = proxySrc;
           console.log('[Anypod Audio Stream URL (Proxy Fallback)]:', proxySrc);
-          const savedTime = audio.currentTime;
           elements.audio.src = proxySrc;
           // Restore position after proxy load, then play
           elements.audio.addEventListener('loadedmetadata', function _onProxyMeta() {
@@ -6833,6 +6836,32 @@
           elements.audio.load();
           return;
         }
+
+        // 2. If already proxied and encountered a transient network drop (Code 2), reload and resume seamlessly
+        if (isNetworkErr && state.currentEpisode && elements.audio.src) {
+          state.playbackStatus = 'loading';
+          syncPlaybackButtons();
+          console.warn(`[Anypod Audio Watchdog] Stream disconnect at ${savedTime.toFixed(1)}s. Auto-reconnecting...`);
+          const currentSrc = elements.audio.src;
+          setTimeout(() => {
+            elements.audio.src = currentSrc;
+            elements.audio.addEventListener('loadedmetadata', function _onRecoverMeta() {
+              elements.audio.removeEventListener('loadedmetadata', _onRecoverMeta);
+              if (savedTime > 1) elements.audio.currentTime = savedTime;
+              elements.audio.play().then(() => {
+                state.playbackStatus = 'playing';
+                syncPlaybackButtons();
+                syncMediaSession(state.currentEpisode, true);
+              }).catch(() => {
+                state.playbackStatus = 'paused';
+                syncPlaybackButtons();
+              });
+            }, { once: true });
+            elements.audio.load();
+          }, 500);
+          return;
+        }
+
         state.playbackStatus = 'paused';
         syncPlaybackButtons();
       }
