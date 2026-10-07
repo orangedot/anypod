@@ -361,13 +361,23 @@
           <div class="experimental-status" id="experimental-status"></div>
         </div>
 
-        <div class="settings-card">
-          <h3>diagnostics &amp; tools</h3>
-          <p>test mobile background audio playback continuity, inspect live audio streams, and diagnose lock-screen stalls.</p>
-          <div class="settings-actions">
+        <div class="settings-card" id="card-diagnostics">
+          <h3>diagnostics &amp; live session logs</h3>
+          <p>record real-time audio pipeline events, player holds, background transitions, and YouTube errors. copy the report with one tap to debug playback issues.</p>
+          <div class="diagnostics-telemetry" id="settings-telemetry" style="margin: 0.75rem 0; padding: 0.75rem; background: var(--bg-surface-elevated, rgba(255,255,255,0.03)); border: 1px solid var(--border-light, rgba(255,255,255,0.08)); border-radius: var(--radius-sm, 8px); font-size: 0.75rem; font-family: monospace; line-height: 1.5; color: var(--text-secondary, #94a3b8);">
+            <div><strong>Engine:</strong> <span id="diag-engine">idle</span> | <strong>Status:</strong> <span id="diag-status">idle</span></div>
+            <div><strong>Active Track:</strong> <span id="diag-track">none</span></div>
+            <div><strong>Buffer Ahead:</strong> <span id="diag-buffer">0.0s</span> | <strong>Lockscreen:</strong> <span id="diag-mediasession">ready</span></div>
+          </div>
+          <div class="settings-actions" style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
+            <button type="button" class="btn btn-primary" id="btn-copy-diag-report" style="display:inline-flex; align-items:center; gap:0.5rem;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              copy diagnostic report
+            </button>
+            <button type="button" class="btn btn-secondary" id="btn-clear-diag-logs">clear logs</button>
             <a href="/audio.html" class="btn btn-secondary" id="btn-open-audio-test" style="text-decoration:none; display:inline-flex; align-items:center; gap:0.5rem;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-              standalone background audio test harness
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              audio.html testbed
             </a>
           </div>
         </div>
@@ -854,6 +864,6 @@
 
   <!-- Experimental defaults – must load before app.js -->
   <script src="scripts/settings.js?v=20260925b" defer></script>
-  <script src="app.min.js?v=1791397470053" defer></script>
+  <script src="app.min.js?v=1791399511926" defer></script>
 </body>
 </html>

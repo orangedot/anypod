@@ -1169,7 +1169,94 @@
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // SECTION 4 · YouTube Player
+  // SECTION 3.5 · Player Diagnostics & Session Logger
+  // Records background state transitions, buffering holds, YouTube events,
+  // and network disconnects for easy one-tap copying from the Settings tab.
+  // ─────────────────────────────────────────────────────────────────────────
+  const playerDiagnosticLogs = [];
+  const MAX_DIAGNOSTIC_LOGS = 250;
+
+  function logPlayerDiagnostic(event, details = '') {
+    const ts = new Date().toTimeString().split(' ')[0] + '.' + String(Date.now() % 1000).padStart(3, '0');
+    const bgTag = document.hidden ? '[BG]' : '[FG]';
+    const logLine = `[${ts}] ${bgTag} ${event}: ${details}`;
+    playerDiagnosticLogs.push(logLine);
+    if (playerDiagnosticLogs.length > MAX_DIAGNOSTIC_LOGS) {
+      playerDiagnosticLogs.shift();
+    }
+    updateSettingsTelemetryUI();
+    console.log(`[Anypod Diag] ${logLine}`);
+  }
+
+  function updateSettingsTelemetryUI() {
+    const elEngine = document.getElementById('diag-engine');
+    const elStatus = document.getElementById('diag-status');
+    const elTrack = document.getElementById('diag-track');
+    const elBuffer = document.getElementById('diag-buffer');
+    const elMs = document.getElementById('diag-mediasession');
+    if (!elEngine) return;
+
+    elEngine.textContent = state.activeEngine || 'idle';
+    elStatus.textContent = state.playbackStatus || 'idle';
+    elTrack.textContent = state.currentEpisode ? `${state.currentEpisode.title} (${state.currentEpisode.podcastTitle || ''})` : 'none';
+
+    let ahead = 0;
+    if (state.activeEngine === 'audio' && elements.audio && elements.audio.buffered.length > 0) {
+      const cur = elements.audio.currentTime || 0;
+      for (let i = 0; i < elements.audio.buffered.length; i++) {
+        const start = elements.audio.buffered.start(i);
+        const end = elements.audio.buffered.end(i);
+        if (cur >= start && cur <= end) {
+          ahead = Math.max(0, end - cur);
+          break;
+        }
+      }
+    }
+    if (elBuffer) elBuffer.textContent = `${ahead.toFixed(1)}s`;
+    if (elMs) elMs.textContent = ('mediaSession' in navigator) ? navigator.mediaSession.playbackState : 'unsupported';
+  }
+
+  function generatePlayerDiagnosticReport() {
+    const ep = state.currentEpisode;
+    let dur = 0;
+    let cur = 0;
+    const bufRanges = [];
+
+    if (state.activeEngine === 'audio' && elements.audio) {
+      dur = elements.audio.duration || 0;
+      cur = elements.audio.currentTime || 0;
+      for (let i = 0; i < elements.audio.buffered.length; i++) {
+        bufRanges.push(`[${elements.audio.buffered.start(i).toFixed(1)}s - ${elements.audio.buffered.end(i).toFixed(1)}s]`);
+      }
+    } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
+      if (typeof state.ytPlayer.getDuration === 'function') dur = state.ytPlayer.getDuration() || 0;
+      if (typeof state.ytPlayer.getCurrentTime === 'function') cur = state.ytPlayer.getCurrentTime() || 0;
+    }
+
+    const lines = [
+      '====================================================',
+      'ANYPOD LIVE PLAYER DIAGNOSTIC REPORT',
+      `Generated: ${new Date().toISOString()}`,
+      `User Agent: ${navigator.userAgent}`,
+      `Visibility: ${document.visibilityState} (Hidden: ${document.hidden})`,
+      `Active Engine: ${state.activeEngine}`,
+      `Playback Status: ${state.playbackStatus}`,
+      '----------------------------------------------------',
+      `Episode Title: "${ep ? ep.title : 'none'}"`,
+      `Episode Podcast: "${ep ? (ep.podcastTitle || '') : 'none'}"`,
+      `Audio/Video URL: ${ep ? (ep.audioUrl || window.__ANYPOD_CURRENT_STREAM_URL || '') : 'none'}`,
+      `Position: ${cur.toFixed(2)}s / ${dur.toFixed(2)}s`,
+      `Buffered Ranges (${bufRanges.length}): ${bufRanges.join(', ') || 'n/a'}`,
+      `MediaSession State: ${('mediaSession' in navigator) ? navigator.mediaSession.playbackState : 'unsupported'}`,
+      `Queue Length: ${state.queue.length}`,
+      '====================================================',
+      'CHRONOLOGICAL EVENT LOG (Last 250 entries):',
+      ...(playerDiagnosticLogs.length > 0 ? playerDiagnosticLogs : ['(No player events recorded yet)']),
+      '====================================================',
+      'END OF REPORT'
+    ];
+    return lines.join('\n');
+  }
   // Initialises the YouTube IFrame API player inside #yt-player.
   // handleYouTubeStateChange — maps YT.PlayerState to state.playbackStatus.
   // window.onYouTubeIframeAPIReady — global callback required by the API.
@@ -1201,9 +1288,13 @@
       } else if (event.data === ytPaused) {
         state.playbackStatus = 'paused';
         syncPlaybackButtons();
+        logPlayerDiagnostic('youtube.pause', 'YouTube player paused');
       } else if (event.data === ytEnded) {
-        state.playbackStatus = 'idle';
+        // Prevent Android OS from dropping background priority during changeovers:
+        // Set playbackStatus = 'loading' rather than 'idle' while advancing
+        state.playbackStatus = 'loading';
         syncPlaybackButtons();
+        logPlayerDiagnostic('youtube.ended', `Video finished naturally: "${state.currentEpisode?.title || ''}" -> Advancing queue`);
         onEpisodeEnded();
       } else if (event.data === ytCued) {
         // Video is loaded and ready — trigger playback
@@ -5086,7 +5177,7 @@
       currentSec = state.ytPlayer.getCurrentTime() || 0;
     }
 
-    cuesList.innerHTML = filteredCues.map((c, idx) => {
+    const cuesHtml = filteredCues.map((c, idx) => {
       const isActive = currentSec >= c.start && currentSec <= c.end;
       let textHtml = escapeHtml(c.text || '');
       if (query) {
@@ -5103,6 +5194,31 @@
         </div>
       `;
     }).join('');
+
+    const ep = state.activeNotesEpisode || state.currentEpisode;
+    const isYt = !!(ep?.isYouTube || ep?.guid?.startsWith('yt:'));
+    const clearLyricsBar = isYt ? `
+      <div style="display: flex; justify-content: flex-end; margin-bottom: 0.5rem; padding-bottom: 0.25rem;">
+        <button type="button" class="inline-link" id="btn-clear-lyrics" style="font-size: 0.72rem; color: var(--text-muted, #94a3b8);">
+          ✕ wrong lyrics? clear &amp; retry
+        </button>
+      </div>
+    ` : '';
+
+    cuesList.innerHTML = clearLyricsBar + cuesHtml;
+
+    const btnClearLyrics = cuesList.querySelector('#btn-clear-lyrics');
+    if (btnClearLyrics && ep) {
+      btnClearLyrics.addEventListener('click', () => {
+        const cacheKey = 'anypod_timeline_v4_' + ep.guid;
+        try { localStorage.removeItem(cacheKey); } catch (_) {}
+        state.episodeTimeline.cues = [];
+        state.episodeTimeline.transcriptSource = '';
+        renderWaveformChart();
+        renderTranscriptView();
+        showStatus('Lyrics cleared for this track');
+      });
+    }
 
     cuesList.querySelectorAll('.transcript-cue-time').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -5153,7 +5269,7 @@
       elements.showNotesEpisodeTitle.textContent = ep.title || 'Untitled Episode';
     }
 
-    // 4. Centered Rich Meta: Relative Date • Exact Date • Duration • Resume info
+    // 4. Centered Rich Meta: Artist • Track • Relative Date • Exact Date • Duration • Resume info
     if (elements.showNotesMeta) {
       const dateInput = ep.timestamp || ep.pubDate;
       const relDate = dateInput ? formatHumanRelativeDate(dateInput) : '';
@@ -5168,14 +5284,41 @@
       const hasProgress = savedPos && !savedPos.completed && savedPos.position > 2;
       const resumeStr = hasProgress ? `resumes at ${formatTime(savedPos.position)}` : '';
 
-      const parts = [
+      // Extract music track info if available (e.g. from YouTube or music feeds)
+      const musicInfo = parseMusicTrackInfo(ep.title || '', ep.podcastTitle || '');
+      const musicParts = [];
+      if (musicInfo.artist && musicInfo.track) {
+        musicParts.push(`<span class="meta-music-artist" style="font-weight: 600; color: var(--text-primary, #fff);">🎤 ${escapeHtml(musicInfo.artist)}</span>`);
+        musicParts.push(`<span class="meta-music-track" style="color: var(--accent, #3b82f6);">🎵 ${escapeHtml(musicInfo.track)}</span>`);
+      }
+
+      // Check description for Album / Year hints (common in music descriptions: "Album: ...", "Released: 2024")
+      const descText = ep.content || ep.description || '';
+      const albumMatch = descText.match(/\b(?:album|from the album)[:\s]+([^,\n\r\.\<]+)/i);
+      const yearMatch = descText.match(/\b(?:released|release date|year|℗|©)[:\s]*(?:[a-z]+\s+\d{1,2},?\s+)?(19\d{2}|20\d{2})\b/i);
+      if (albumMatch && albumMatch[1] && albumMatch[1].trim().length < 50) {
+        musicParts.push(`<span class="meta-music-album">💿 ${escapeHtml(albumMatch[1].trim())}</span>`);
+      }
+      if (yearMatch && yearMatch[1]) {
+        musicParts.push(`<span class="meta-music-year">📅 ${escapeHtml(yearMatch[1].trim())}</span>`);
+      }
+
+      const standardParts = [
         relDate ? `<span class="meta-rel-date">${escapeHtml(relDate)}</span>` : '',
         fullDate ? `<span class="meta-full-date">${escapeHtml(fullDate)}</span>` : '',
         dur ? `<span class="meta-dur">${escapeHtml(dur)}</span>` : '',
         resumeStr ? `<span class="meta-resume" style="color: var(--primary, #f97316);">${escapeHtml(resumeStr)}</span>` : ''
       ].filter(Boolean);
 
-      elements.showNotesMeta.innerHTML = parts.join('<span class="meta-sep">•</span>');
+      const allRows = [];
+      if (musicParts.length > 0) {
+        allRows.push(`<div class="show-notes-music-row" style="margin-bottom: 0.25rem;">${musicParts.join('<span class="meta-sep" style="margin: 0 0.35rem; opacity: 0.5;">•</span>')}</div>`);
+      }
+      if (standardParts.length > 0) {
+        allRows.push(`<div>${standardParts.join('<span class="meta-sep" style="margin: 0 0.35rem; opacity: 0.5;">•</span>')}</div>`);
+      }
+
+      elements.showNotesMeta.innerHTML = allRows.join('');
     }
 
     // 5. Notes Content
@@ -6822,6 +6965,7 @@
           syncPlaybackButtons();
           const proxySrc = `/api/audio-proxy?url=${encodeURIComponent(state.currentEpisode.audioUrl)}`;
           window.__ANYPOD_CURRENT_STREAM_URL = proxySrc;
+          logPlayerDiagnostic('audio.error_proxy_fallback', `Code ${err?.code || 'unknown'}: ${err?.message || ''}. Switching to proxy URL`);
           console.log('[Anypod Audio Stream URL (Proxy Fallback)]:', proxySrc);
           elements.audio.src = proxySrc;
           // Restore position after proxy load, then play
@@ -6831,6 +6975,7 @@
             elements.audio.play().catch(() => {
               state.playbackStatus = 'paused';
               syncPlaybackButtons();
+              logPlayerDiagnostic('audio.play_failed_after_fallback');
             });
           }, { once: true });
           elements.audio.load();
@@ -6841,6 +6986,7 @@
         if (isNetworkErr && state.currentEpisode && elements.audio.src) {
           state.playbackStatus = 'loading';
           syncPlaybackButtons();
+          logPlayerDiagnostic('audio.reconnect_watchdog', `Transient disconnect at ${savedTime.toFixed(1)}s. Re-binding stream`);
           console.warn(`[Anypod Audio Watchdog] Stream disconnect at ${savedTime.toFixed(1)}s. Auto-reconnecting...`);
           const currentSrc = elements.audio.src;
           setTimeout(() => {
@@ -9602,6 +9748,29 @@ function setPlayerCollapsed(collapsed, save = true) {
       });
     }
 
+    // Diagnostics & Live Session Logs in Settings
+    const btnCopyDiagReport = document.getElementById('btn-copy-diag-report');
+    if (btnCopyDiagReport) {
+      btnCopyDiagReport.addEventListener('click', () => {
+        const report = generatePlayerDiagnosticReport();
+        navigator.clipboard.writeText(report).then(() => {
+          showStatus('Copied live diagnostic report to clipboard');
+          logPlayerDiagnostic('diagnostics.copied', 'User copied report from settings');
+        }).catch(() => {
+          window.prompt('Copy diagnostic report:', report);
+        });
+      });
+    }
+
+    const btnClearDiagLogs = document.getElementById('btn-clear-diag-logs');
+    if (btnClearDiagLogs) {
+      btnClearDiagLogs.addEventListener('click', () => {
+        playerDiagnosticLogs.length = 0;
+        updateSettingsTelemetryUI();
+        showStatus('Diagnostic logs cleared');
+      });
+    }
+
     // Replace elements.btnClearStorage listener:
     if (elements.btnClearStorage) {
       elements.btnClearStorage.addEventListener('click', () => {
@@ -10342,14 +10511,31 @@ function setPlayerCollapsed(collapsed, save = true) {
         }
       }
 
-      // 2. If not found, try full-text search
+      // 2. If not found, try full-text search with strict duration verification
       if (!data || (!data.syncedLyrics && !data.plainLyrics)) {
         const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(query || episode.title)}`;
         const res = await fetch(searchUrl);
         if (res.ok) {
           const results = await res.json();
           if (Array.isArray(results) && results.length > 0) {
-            data = results.find(r => r.syncedLyrics || r.plainLyrics) || results[0];
+            // Filter candidates with valid lyrics
+            const candidates = results.filter(r => r.syncedLyrics || r.plainLyrics);
+            if (candidates.length > 0) {
+              // If episode has duration, find candidate within +- 8 seconds tolerance
+              if (duration && duration > 20) {
+                data = candidates.find(r => r.duration && Math.abs(r.duration - duration) <= 8);
+              }
+              // If no duration match, only accept candidate if artist or track matches query terms
+              if (!data && artist && track) {
+                const artLower = artist.toLowerCase();
+                const trkLower = track.toLowerCase();
+                data = candidates.find(r => 
+                  (r.artistName && r.artistName.toLowerCase().includes(artLower)) &&
+                  (r.trackName && r.trackName.toLowerCase().includes(trkLower))
+                );
+              }
+              // If still no confident match, do NOT grab a completely random song
+            }
           }
         }
       }
