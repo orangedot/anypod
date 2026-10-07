@@ -574,6 +574,10 @@
         </div>
         <div class="modal-tabs show-notes-tabs">
           <button class="modal-tab-btn active" id="tab-btn-notes" type="button">show notes</button>
+          <button class="modal-tab-btn hidden" id="tab-btn-chapters" type="button">
+            <span>chapters</span>
+            <span class="transcript-source-pill hidden" id="chapters-source-pill">0</span>
+          </button>
           <button class="modal-tab-btn" id="tab-btn-transcript" type="button">
             <span>transcript</span>
             <span class="transcript-source-pill hidden" id="transcript-source-pill">rss</span>
@@ -581,6 +585,13 @@
         </div>
         <div class="modal-body show-notes-modal-body">
           <div class="show-notes-content" id="show-notes-content"></div>
+          <div class="show-chapters-content hidden" id="show-chapters-content">
+            <div class="chapters-header-bar" id="chapters-header-bar">
+              <span class="chapters-source-label" id="chapters-source-label">Podcasting 2.0 Chapters</span>
+              <span class="chapters-count-text" id="chapters-count-text"></span>
+            </div>
+            <div class="chapters-list" id="chapters-list"></div>
+          </div>
           <div class="show-transcript-content hidden" id="show-transcript-content">
             <div class="transcript-toolbar">
               <!-- <input type="text" id="transcript-search-input" class="transcript-search-input" placeholder="search transcript..."> -->
@@ -632,6 +643,7 @@
         <div class="waveform-progress-overlay" id="waveform-progress-overlay"></div>
         <div class="waveform-playhead-line" id="waveform-playhead-line"></div>
         <div class="waveform-hover-cursor" id="waveform-hover-cursor"></div>
+        <div class="waveform-chapter-ticks hidden" id="waveform-chapter-ticks"></div>
         <div class="waveform-tooltip hidden" id="waveform-tooltip">0:00</div>
         <input type="range" id="seek-bar" min="0" max="100" value="0" step="0.1" class="sr-only-range" aria-label="seek position">
         <div class="waveform-time-row" id="waveform-time-row">
@@ -651,6 +663,10 @@
           <div class="track-text">
             <div class="track-title" id="player-title">select an episode to play</div>
             <div class="track-podcast" id="player-podcast">anypod</div>
+            <div class="track-chapter hidden" id="player-chapter-bar" title="Current chapter">
+              <span class="chapter-dot"></span>
+              <span class="chapter-title-text" id="player-chapter-title"></span>
+            </div>
           </div>
           <div class="timeline-legend" id="timeline-legend">
             <button type="button" class="legend-btn legend-speech" id="btn-jump-speech" title="jump to next talking segment">

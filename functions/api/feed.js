@@ -728,6 +728,9 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
       const transcriptUrl = getAttribute(itemXml, 'podcast:transcript', 'url') || getAttribute(itemXml, 'transcript', 'url');
       const transcriptType = getAttribute(itemXml, 'podcast:transcript', 'type') || getAttribute(itemXml, 'transcript', 'type') || 'text/vtt';
 
+      const chaptersUrl = getAttribute(itemXml, 'podcast:chapters', 'url') || getAttribute(itemXml, 'chapters', 'url');
+      const chaptersType = getAttribute(itemXml, 'podcast:chapters', 'type') || getAttribute(itemXml, 'chapters', 'type') || 'application/json+chapters';
+
       let timestamp = 0;
       if (epPubDate) {
         const parsed = Date.parse(epPubDate);
@@ -748,7 +751,9 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
           podcastTitle: title,
           feedUrl: originalUrl,
           transcriptUrl: transcriptUrl || '',
-          transcriptType: transcriptType || ''
+          transcriptType: transcriptType || '',
+          chaptersUrl: chaptersUrl || '',
+          chaptersType: chaptersType || ''
         });
       }
     }

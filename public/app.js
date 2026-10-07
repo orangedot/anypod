@@ -685,6 +685,8 @@
     filteredEpisodes: [],
     playbackPositions: {},
     currentEpisode: null,
+    episodeChapters: [],
+    currentChapter: null,
     playbackSpeed: 1.0,
     sortOrder: 'newest',
     isShuffle: localStorage.getItem('anypod_shuffle') === 'true',
@@ -880,6 +882,12 @@
     btnAutoplayToggle: document.getElementById('btn-autoplay-toggle'),
     showNotesContent: document.getElementById('show-notes-content'),
     tabBtnNotes: document.getElementById('tab-btn-notes'),
+    tabBtnChapters: document.getElementById('tab-btn-chapters'),
+    chaptersSourcePill: document.getElementById('chapters-source-pill'),
+    showChaptersContent: document.getElementById('show-chapters-content'),
+    chaptersList: document.getElementById('chapters-list'),
+    chaptersSourceLabel: document.getElementById('chapters-source-label'),
+    chaptersCountText: document.getElementById('chapters-count-text'),
     tabBtnTranscript: document.getElementById('tab-btn-transcript'),
     transcriptSourcePill: document.getElementById('transcript-source-pill'),
     showTranscriptContent: document.getElementById('show-transcript-content'),
@@ -893,6 +901,8 @@
     playerArtwork: document.getElementById('player-artwork'),
     playerTitle: document.getElementById('player-title'),
     playerPodcast: document.getElementById('player-podcast'),
+    playerChapterBar: document.getElementById('player-chapter-bar'),
+    playerChapterTitle: document.getElementById('player-chapter-title'),
     btnPlayToggle: document.getElementById('btn-play-toggle'),
     iconPlay: document.querySelector('.icon-play'),
     iconPause: document.querySelector('.icon-pause'),
@@ -938,6 +948,7 @@
     waveformProgressOverlay: document.getElementById('waveform-progress-overlay'),
     waveformPlayheadLine: document.getElementById('waveform-playhead-line'),
     waveformHoverCursor: document.getElementById('waveform-hover-cursor'),
+    waveformChapterTicks: document.getElementById('waveform-chapter-ticks'),
     waveformTooltip: document.getElementById('waveform-tooltip'),
     btnJumpSpeech: document.getElementById('btn-jump-speech'),
     btnJumpMusic: document.getElementById('btn-jump-music'),
@@ -4896,19 +4907,27 @@
     }
   }
 
-  function switchShowNotesTab(tab) {
+  function switchShowNotesTab(tab = 'notes') {
     const isNotes = tab === 'notes';
+    const isChapters = tab === 'chapters';
+    const isTranscript = tab === 'transcript';
+
     if (elements.tabBtnNotes) elements.tabBtnNotes.classList.toggle('active', isNotes);
+    if (elements.tabBtnChapters) elements.tabBtnChapters.classList.toggle('active', isChapters);
     if (elements.tabBtnTranscript) {
-      elements.tabBtnTranscript.classList.toggle('active', !isNotes);
+      elements.tabBtnTranscript.classList.toggle('active', isTranscript);
       const isYt = !!(state.activeNotesEpisode?.isYouTube || state.activeNotesEpisode?.guid?.startsWith('yt:'));
       const span = elements.tabBtnTranscript.querySelector('span');
       if (span) span.textContent = isYt ? 'lyrics' : 'transcript';
     }
-    if (elements.showNotesContent) elements.showNotesContent.classList.toggle('hidden', !isNotes);
-    if (elements.showTranscriptContent) elements.showTranscriptContent.classList.toggle('hidden', isNotes);
 
-    if (!isNotes) {
+    if (elements.showNotesContent) elements.showNotesContent.classList.toggle('hidden', !isNotes);
+    if (elements.showChaptersContent) elements.showChaptersContent.classList.toggle('hidden', !isChapters);
+    if (elements.showTranscriptContent) elements.showTranscriptContent.classList.toggle('hidden', !isTranscript);
+
+    if (isChapters) {
+      renderChaptersTab();
+    } else if (isTranscript) {
       if ((!state.episodeTimeline.cues || state.episodeTimeline.cues.length === 0) && state.activeNotesEpisode) {
         const ep = state.activeNotesEpisode;
         if (ep.isYouTube || ep.videoId || ep.guid?.startsWith('yt:')) {
@@ -5195,6 +5214,7 @@
       };
     }
 
+    loadEpisodeChapters(ep);
     switchShowNotesTab(defaultTab);
     elements.showNotesModal.classList.remove('hidden');
     window.history.pushState({ modal: 'showNotes' }, '', window.location.hash);
@@ -5207,6 +5227,293 @@
       window.history.back();
     } else if (elements.showNotesModal) {
       elements.showNotesModal.classList.add('hidden');
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // PODCASTING 2.0 & FALLBACK CHAPTERS SUBSYSTEM
+  // ─────────────────────────────────────────────────────────────────────────
+
+  function extractChaptersFromShowNotes(rawText) {
+    if (!rawText) return [];
+    const chapters = [];
+    const lines = rawText.split(/\r?\n/);
+    const timeRegex = /\b(?:(\d{1,2}):)?([0-5]?\d):([0-5]\d)\b/;
+
+    for (let line of lines) {
+      const cleanLine = line.replace(/<[^>]+>/g, ' ').trim();
+      const match = cleanLine.match(timeRegex);
+      if (match) {
+        const h = match[1] ? parseInt(match[1], 10) : 0;
+        const m = parseInt(match[2], 10);
+        const s = parseInt(match[3], 10);
+        const totalSec = (h * 3600) + (m * 60) + s;
+
+        let title = cleanLine.replace(match[0], '').replace(/^[\s\-–—:|.]+/, '').replace(/[\s\-–—:|.]+$/, '').trim();
+        if (!title) title = `Chapter at ${match[0]}`;
+
+        chapters.push({
+          startTime: totalSec,
+          title: title,
+          img: '',
+          url: '',
+          source: 'show-notes'
+        });
+      }
+    }
+
+    chapters.sort((a, b) => a.startTime - b.startTime);
+    const unique = [];
+    for (const ch of chapters) {
+      if (unique.length === 0 || unique[unique.length - 1].startTime !== ch.startTime) {
+        unique.push(ch);
+      }
+    }
+    return unique;
+  }
+
+  async function loadEpisodeChapters(episode) {
+    if (!episode) return;
+    state.episodeChapters = [];
+    state.currentChapter = null;
+    if (elements.playerChapterBar) elements.playerChapterBar.classList.add('hidden');
+
+    let chapters = [];
+    let source = '';
+
+    // 1. TIER 1: Podcasting 2.0 <podcast:chapters> JSON
+    if (episode.chaptersUrl) {
+      try {
+        const proxyUrl = `/api/chapters-proxy?url=${encodeURIComponent(episode.chaptersUrl)}`;
+        const res = await fetch(proxyUrl);
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.chapters) && json.chapters.length > 0) {
+            chapters = json.chapters.map((c, i) => {
+              const start = typeof c.startTime === 'number' ? c.startTime : parseDurationSeconds(String(c.startTime || 0));
+              const end = typeof c.endTime === 'number' ? c.endTime : (c.endTime ? parseDurationSeconds(String(c.endTime)) : 0);
+              return {
+                id: i,
+                startTime: start,
+                endTime: end,
+                title: (c.title || `Chapter ${i + 1}`).trim(),
+                img: c.img || '',
+                url: c.url || '',
+                source: 'podcast:chapters'
+              };
+            });
+            source = 'Podcasting 2.0';
+          }
+        }
+      } catch (err) {
+        console.warn('[Chapters] Failed to fetch Podcasting 2.0 chapters:', err);
+      }
+    }
+
+    // 2. TIER 2: Fallback to Show Notes Regex Timestamps
+    if (!chapters.length) {
+      const rawNotes = episode.content || episode.description || '';
+      const fallbackChapters = extractChaptersFromShowNotes(rawNotes);
+      if (fallbackChapters.length > 0) {
+        chapters = fallbackChapters.map((c, i) => ({
+          id: i,
+          startTime: c.startTime,
+          endTime: 0,
+          title: c.title,
+          img: '',
+          url: '',
+          source: 'show-notes'
+        }));
+        source = 'Show Notes';
+      }
+    }
+
+    // 3. Compute chapter endTimes if not provided
+    if (chapters.length > 0) {
+      chapters.sort((a, b) => a.startTime - b.startTime);
+      const totalDur = episode.duration ? parseDurationSeconds(episode.duration) : 0;
+      for (let i = 0; i < chapters.length; i++) {
+        if (!chapters[i].endTime || chapters[i].endTime <= chapters[i].startTime) {
+          chapters[i].endTime = (i < chapters.length - 1) ? chapters[i + 1].startTime : totalDur;
+        }
+      }
+    }
+
+    state.episodeChapters = chapters;
+
+    // 4. Update UI
+    updateChaptersTabBadge(source);
+    renderChaptersTab();
+    renderChapterTicksOnWaveform();
+
+    // 5. Assert current chapter
+    const curTime = (state.activeEngine === 'audio' && elements.audio) ? (elements.audio.currentTime || 0) : 0;
+    updateActiveChapter(curTime);
+  }
+
+  function updateChaptersTabBadge(source = '') {
+    const hasChapters = state.episodeChapters.length > 0;
+    if (elements.tabBtnChapters) {
+      elements.tabBtnChapters.classList.toggle('hidden', !hasChapters);
+    }
+    if (elements.chaptersSourcePill) {
+      if (hasChapters) {
+        elements.chaptersSourcePill.textContent = `${state.episodeChapters.length}`;
+        elements.chaptersSourcePill.classList.remove('hidden');
+        elements.chaptersSourcePill.title = source ? `Source: ${source}` : '';
+      } else {
+        elements.chaptersSourcePill.classList.add('hidden');
+      }
+    }
+    if (elements.chaptersSourceLabel && source) {
+      elements.chaptersSourceLabel.textContent = source === 'Podcasting 2.0' ? '✨ Podcasting 2.0 Chapters' : '📝 Show Notes Timestamps';
+    }
+    if (elements.chaptersCountText) {
+      elements.chaptersCountText.textContent = hasChapters ? `${state.episodeChapters.length} chapters` : '';
+    }
+  }
+
+  function renderChaptersTab() {
+    const listEl = elements.chaptersList;
+    if (!listEl) return;
+    listEl.innerHTML = '';
+
+    const chapters = state.episodeChapters || [];
+    if (!chapters.length) {
+      listEl.innerHTML = '<div style="padding:1.5rem; text-align:center; color:var(--text-muted); font-size:0.85rem;">No chapters available for this episode.</div>';
+      return;
+    }
+
+    chapters.forEach((ch, idx) => {
+      const row = document.createElement('div');
+      const isActive = state.currentChapter && state.currentChapter.startTime === ch.startTime;
+      row.className = `chapter-row ${isActive ? 'is-active' : ''}`;
+      row.dataset.index = idx;
+      row.dataset.start = ch.startTime;
+
+      const durText = (ch.endTime && ch.endTime > ch.startTime)
+        ? `(${formatTime(ch.endTime - ch.startTime)})`
+        : '';
+
+      const thumbHtml = ch.img
+        ? `<img class="chapter-thumb" src="${ch.img}" alt="" onerror="this.style.display='none'">`
+        : '';
+
+      const linkHtml = ch.url
+        ? `<a href="${ch.url}" target="_blank" rel="noopener noreferrer" class="chapter-link-btn" title="Open chapter link" onclick="event.stopPropagation()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+           </a>`
+        : '';
+
+      row.innerHTML = `
+        <div class="chapter-left">
+          <span class="chapter-idx">${idx + 1}</span>
+          ${thumbHtml}
+          <div class="chapter-meta">
+            <div class="chapter-title">${escapeHtml(ch.title)}</div>
+            <div class="chapter-times">
+              <span>${formatTime(ch.startTime)}</span>
+              ${durText ? `<span>${durText}</span>` : ''}
+              ${isActive ? '<span class="active-badge">playing</span>' : ''}
+            </div>
+          </div>
+        </div>
+        <div class="chapter-actions">
+          ${linkHtml}
+        </div>
+      `;
+
+      row.addEventListener('click', () => {
+        seekToExactTime(ch.startTime);
+        if (state.playbackStatus !== 'playing') resumeCurrentEngine();
+      });
+
+      listEl.appendChild(row);
+    });
+  }
+
+  function renderChapterTicksOnWaveform() {
+    const ticksWrap = elements.waveformChapterTicks;
+    if (!ticksWrap) return;
+
+    ticksWrap.innerHTML = '';
+    const chapters = state.episodeChapters || [];
+    const dur = (elements.audio?.duration && isFinite(elements.audio.duration) && elements.audio.duration > 0)
+      ? elements.audio.duration
+      : (state.episodeTimeline.duration || (state.currentEpisode?.duration ? parseDurationSeconds(state.currentEpisode.duration) : 0));
+
+    if (!chapters.length || !dur) {
+      ticksWrap.classList.add('hidden');
+      return;
+    }
+
+    ticksWrap.classList.remove('hidden');
+    chapters.forEach(ch => {
+      if (ch.startTime > 0 && ch.startTime < dur) {
+        const pct = (ch.startTime / dur) * 100;
+        const tick = document.createElement('div');
+        tick.className = 'waveform-chapter-tick';
+        tick.style.left = `${pct}%`;
+        tick.title = `${formatTime(ch.startTime)} - ${ch.title}`;
+        ticksWrap.appendChild(tick);
+      }
+    });
+  }
+
+  function updateActiveChapter(currentTime) {
+    if (!state.episodeChapters || state.episodeChapters.length === 0) {
+      if (elements.playerChapterBar) elements.playerChapterBar.classList.add('hidden');
+      return;
+    }
+
+    const cur = typeof currentTime === 'number' ? currentTime : (elements.audio?.currentTime || 0);
+    const chapters = state.episodeChapters;
+    let active = null;
+
+    for (let i = chapters.length - 1; i >= 0; i--) {
+      if (cur >= chapters[i].startTime) {
+        active = chapters[i];
+        break;
+      }
+    }
+    if (!active) active = chapters[0];
+
+    if (state.currentChapter !== active) {
+      state.currentChapter = active;
+
+      // 1. Update Player bar label
+      if (elements.playerChapterBar && elements.playerChapterTitle) {
+        elements.playerChapterTitle.textContent = active.title;
+        elements.playerChapterBar.classList.remove('hidden');
+      }
+
+      // 2. Dynamic Chapter Artwork Swap
+      if (active.img && elements.playerArtwork) {
+        elements.playerArtwork.src = active.img;
+      } else if (state.currentEpisode && elements.playerArtwork) {
+        elements.playerArtwork.src = state.currentEpisode.artwork || FALLBACK_ARTWORK;
+      }
+
+      // 3. Highlight row in chapters list
+      if (elements.chaptersList) {
+        const rows = elements.chaptersList.querySelectorAll('.chapter-row');
+        rows.forEach((r, idx) => {
+          const isRowActive = (chapters[idx] && chapters[idx].startTime === active.startTime);
+          r.classList.toggle('is-active', isRowActive);
+          const badge = r.querySelector('.active-badge');
+          if (isRowActive && !badge) {
+            const times = r.querySelector('.chapter-times');
+            if (times) {
+              const b = document.createElement('span');
+              b.className = 'active-badge';
+              b.textContent = 'playing';
+              times.appendChild(b);
+            }
+          } else if (!isRowActive && badge) {
+            badge.remove();
+          }
+        });
+      }
     }
   }
 
@@ -6994,6 +7301,7 @@
     syncPlaybackButtons();
     updateAutoplayButtonUI();
     updateShuffleButtonUI();
+    loadEpisodeChapters(episode);
 
     if (!document.hidden) {
       renderContinueShelf();
@@ -7197,6 +7505,8 @@
     if (document.hidden || !state.isTabActive) {
       return;
     }
+
+    updateActiveChapter(current);
 
     const currentInt = Math.floor(current);
     if (updateProgress._lastDomSync !== currentInt) {
@@ -8884,6 +9194,9 @@ function setPlayerCollapsed(collapsed, save = true) {
     if (elements.tabBtnNotes) {
       elements.tabBtnNotes.addEventListener('click', () => switchShowNotesTab('notes'));
     }
+    if (elements.tabBtnChapters) {
+      elements.tabBtnChapters.addEventListener('click', () => switchShowNotesTab('chapters'));
+    }
     if (elements.tabBtnTranscript) {
       elements.tabBtnTranscript.addEventListener('click', () => switchShowNotesTab('transcript'));
     }
@@ -9775,6 +10088,7 @@ function setPlayerCollapsed(collapsed, save = true) {
     if (!episode || !episode.guid) return;
     if (!state.experimentalSettings.enableVisualizer) return;
     const dur = (duration && duration > 0) ? duration : 1800; // fallback 30m if unknown
+    renderChapterTicksOnWaveform();
 
     if (state.episodeTimeline.guid === episode.guid && state.episodeTimeline.bars.length > 0) {
       state.episodeTimeline.duration = dur;
