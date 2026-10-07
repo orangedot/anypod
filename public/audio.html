@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0b0d13">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Anypod Audio Diagnostic Testbed</title>
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
+  <style>
+    :root {
+      --bg: #0b0d13;
+      --card-bg: rgba(21, 25, 36, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #ef4444;
+      --purple: #8b5cf6;
+      --radius: 14px;
+      --radius-sm: 8px;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      min-height: 100dvh;
+      padding: env(safe-area-inset-top, 16px) 16px env(safe-area-inset-bottom, 24px) 16px;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.88rem;
+      padding: 6px 10px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      transition: all 0.2s ease;
+    }
+    .back-btn:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .brand-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: rgba(59, 130, 246, 0.18);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 18px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+    .card-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Track display */
+    .track-info {
+      margin-bottom: 14px;
+    }
+    .track-index {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 2px;
+    }
+    .track-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      line-height: 1.3;
+      margin-bottom: 2px;
+      word-break: break-word;
+    }
+    .track-artist {
+      font-size: 0.92rem;
+      color: var(--text-muted);
+    }
+
+    /* Progress & Scrubber */
+    .progress-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+    .seek-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      outline: none;
+      cursor: pointer;
+    }
+    .seek-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.6);
+      cursor: pointer;
+    }
+    .seek-slider::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: none;
+      cursor: pointer;
+    }
+    .time-row {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    /* Controls */
+    .controls-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .btn-ctrl {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-ctrl:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .btn-ctrl:active {
+      transform: scale(0.94);
+    }
+    .btn-ctrl-primary {
+      width: 62px;
+      height: 62px;
+      background: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 4px 18px rgba(59, 130, 246, 0.4);
+    }
+    .btn-ctrl-primary:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+    .btn-ctrl svg {
+      width: 22px;
+      height: 22px;
+      fill: currentColor;
+    }
+    .btn-ctrl-primary svg {
+      width: 26px;
+      height: 26px;
+    }
+
+    .speed-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .speed-btn {
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .speed-btn.active, .speed-btn:hover {
+      background: rgba(59, 130, 246, 0.2);
+      border-color: var(--accent);
+      color: #93c5fd;
+    }
+
+    /* URL Box */
+    .stream-url-box {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .stream-url-text {
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      color: #cbd5e1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+    }
+    .btn-copy {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+    .btn-copy:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+    .btn-copy:active {
+      transform: scale(0.96);
+    }
+
+    /* Toggles Grid */
+    .toggles-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    .toggle-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .toggle-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .toggle-label-text {
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .toggle-desc {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      line-height: 1.35;
+    }
+
+    /* Switch Component */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(255, 255, 255, 0.15);
+      transition: .25s ease;
+      border-radius: 24px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .25s ease;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: var(--accent);
+    }
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+
+    /* Metrics Grid */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    @media (min-width: 600px) {
+      .metrics-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+    .metric-pill {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .metric-name {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+    .metric-val {
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    .dot-green { background: var(--emerald); box-shadow: 0 0 8px var(--emerald); }
+    .dot-amber { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+    .dot-red { background: var(--rose); box-shadow: 0 0 8px var(--rose); }
+    .dot-blue { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+    /* Diagnostic Log Section */
+    .log-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .log-console {
+      background: #06070a;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      height: 260px;
+      overflow-y: auto;
+      padding: 10px;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      scroll-behavior: smooth;
+    }
+    .log-entry {
+      line-height: 1.4;
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      word-break: break-all;
+    }
+    .log-ts {
+      color: #64748b;
+      flex-shrink: 0;
+    }
+    .log-tag {
+      font-weight: 700;
+      padding: 0 4px;
+      border-radius: 3px;
+      font-size: 0.65rem;
+      flex-shrink: 0;
+    }
+    .tag-fg { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
+    .tag-bg { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
+    .tag-event { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
+    .tag-error { background: rgba(239, 68, 68, 0.25); color: #fca5a5; }
+    .tag-wait { background: rgba(217, 119, 6, 0.25); color: #fde68a; }
+    .log-msg {
+      color: #cbd5e1;
+    }
+
+    .log-footer-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .log-autoscroll-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    /* Playlist Items */
+    .playlist-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .playlist-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .playlist-item:hover {
+      background: rgba(255, 255, 255, 0.07);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+    .playlist-item.active {
+      background: rgba(59, 130, 246, 0.15);
+      border-color: var(--accent);
+    }
+    .item-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      overflow: hidden;
+    }
+    .item-idx {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      width: 20px;
+    }
+    .playlist-item.active .item-idx {
+      color: var(--accent);
+    }
+    .item-texts {
+      overflow: hidden;
+    }
+    .item-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .item-artist {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .item-badge {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: var(--accent);
+      background: rgba(59, 130, 246, 0.2);
+      padding: 2px 8px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    /* Collapsible JSON Editor */
+    details.editor-details {
+      margin-top: 10px;
+    }
+    details.editor-details summary {
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      padding: 6px 0;
+      user-select: none;
+    }
+    details.editor-details summary:hover {
+      color: var(--text);
+    }
+    .editor-body {
+      padding-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .json-textarea {
+      width: 100%;
+      height: 140px;
+      background: #06070a;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      color: #e2e8f0;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      padding: 8px;
+      resize: vertical;
+    }
+    .editor-btn-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(30px);
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: white;
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-size: 0.84rem;
+      font-weight: 500;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      pointer-events: none;
+      opacity: 0;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 9999;
+    }
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="header-left">
+        <a href="/" class="back-btn" title="Back to main player">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+          Anypod
+        </a>
+        <h1 class="brand-title">Audio Diagnostics <span class="badge">Harness</span></h1>
+      </div>
+      <div>
+        <span class="badge" id="pill-os-exempt" title="Bypasses Service Worker directly for native foreground streaming">SW Bypass</span>
+      </div>
+    </header>
+
+    <!-- Hidden Native Audio Engine -->
+    <audio id="test-audio" playsinline preload="auto"></audio>
+
+    <!-- 1. Active Player Card -->
+    <section class="card" aria-label="Playback Controller">
+      <div class="card-title">
+        <span>Active Playback</span>
+        <span id="player-engine-label" style="color: var(--emerald); font-size:0.75rem;">Pure HTML5 Engine</span>
+      </div>
+
+      <div class="track-info">
+        <div class="track-index" id="current-track-index">Track 1 of 3</div>
+        <div class="track-title" id="current-track-title">NASA's Curious Universe - Ep 1</div>
+        <div class="track-artist" id="current-track-artist">NASA</div>
+      </div>
+
+      <!-- Scrubber -->
+      <div class="progress-wrap">
+        <input type="range" class="seek-slider" id="seek-slider" min="0" max="100" value="0" step="0.1">
+        <div class="time-row">
+          <span id="label-cur-time">0:00</span>
+          <span id="label-dur-time">0:00</span>
+        </div>
+      </div>
+
+      <!-- Transport Controls -->
+      <div class="controls-row">
+        <button class="btn-ctrl" id="btn-prev" title="Previous Track" aria-label="previous track">
+          <svg viewBox="0 0 24 24"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2"></line></svg>
+        </button>
+        <button class="btn-ctrl btn-ctrl-primary" id="btn-play-pause" title="Play / Pause" aria-label="play and pause">
+          <svg id="icon-play" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          <svg id="icon-pause" viewBox="0 0 24 24" style="display:none;"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+        </button>
+        <button class="btn-ctrl" id="btn-next" title="Next Track" aria-label="next track">
+          <svg viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2"></line></svg>
+        </button>
+      </div>
+
+      <!-- Speed Selector -->
+      <div class="speed-row">
+        <button class="speed-btn" data-speed="0.75">0.75x</button>
+        <button class="speed-btn active" data-speed="1.0">1.0x</button>
+        <button class="speed-btn" data-speed="1.25">1.25x</button>
+        <button class="speed-btn" data-speed="1.5">1.5x</button>
+        <button class="speed-btn" data-speed="2.0">2.0x</button>
+      </div>
+
+      <!-- Stream URL Inspection -->
+      <div class="stream-url-box">
+        <div class="stream-url-text" id="stream-url-display" title="Active audio element src">https://...</div>
+        <button class="btn-copy" id="btn-copy-url" title="Copy exact stream URL to clipboard">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          Copy URL
+        </button>
+      </div>
+    </section>
+
+    <!-- 2. Pipeline Configuration Toggles -->
+    <section class="card" aria-label="Pipeline Options">
+      <div class="card-title">Pipeline Toggles</div>
+      <div class="toggles-grid">
+        <!-- Toggle 1: Proxy vs Direct -->
+        <div class="toggle-card">
+          <div class="toggle-header">
+            <div>
+              <div class="toggle-label-text">Audio Proxy Mode</div>
+              <div class="toggle-desc">Wrap through <code>/api/audio-proxy</code> vs direct CDN URL</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="toggle-proxy">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Toggle 2: Continuous Loop -->
+        <div class="toggle-card">
+          <div class="toggle-header">
+            <div>
+              <div class="toggle-label-text">Continuous Loop</div>
+              <div class="toggle-desc">Loop back to Track 1 indefinitely after final track ends</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="toggle-loop" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Toggle 3: Screen Wake Lock -->
+        <div class="toggle-card">
+          <div class="toggle-header">
+            <div>
+              <div class="toggle-label-text">Screen WakeLock</div>
+              <div class="toggle-desc">Test <code>navigator.wakeLock</code> vs pure lock-screen background exemptions</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="toggle-wakelock">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Real-time Telemetry Dashboard -->
+    <section class="card" aria-label="Live Diagnostics">
+      <div class="card-title">Realtime Telemetry</div>
+      <div class="metrics-grid">
+        <div class="metric-pill">
+          <span class="metric-name">State</span>
+          <span class="metric-val" id="metric-state"><span class="status-dot dot-amber"></span>IDLE</span>
+        </div>
+        <div class="metric-pill">
+          <span class="metric-name">Buffer Ahead</span>
+          <span class="metric-val" id="metric-buffer">0.0s</span>
+        </div>
+        <div class="metric-pill">
+          <span class="metric-name">Screen Visibility</span>
+          <span class="metric-val" id="metric-visibility"><span class="status-dot dot-green"></span>Visible</span>
+        </div>
+        <div class="metric-pill">
+          <span class="metric-name">Wake Lock</span>
+          <span class="metric-val" id="metric-wakelock">Inactive</span>
+        </div>
+        <div class="metric-pill">
+          <span class="metric-name">Session Timer</span>
+          <span class="metric-val" id="metric-session">00:00:00</span>
+        </div>
+        <div class="metric-pill">
+          <span class="metric-name">Completed</span>
+          <span class="metric-val" id="metric-completed">0 tracks</span>
+        </div>
+        <div class="metric-pill">
+          <span class="metric-name">Buffer Stalls</span>
+          <span class="metric-val" id="metric-stalls">0</span>
+        </div>
+        <div class="metric-pill">
+          <span class="metric-name">Ready State</span>
+          <span class="metric-val" id="metric-readystate">0 (HAVE_NOTHING)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Diagnostic Event Log Console -->
+    <section class="card" aria-label="Event Log">
+      <div class="card-title">
+        <span>Diagnostic Event Log</span>
+        <div class="log-header-actions">
+          <button class="btn-copy" id="btn-copy-logs" title="Copy full diagnostic report">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            Copy Logs
+          </button>
+          <button class="btn-copy" id="btn-clear-logs" title="Clear console">Clear</button>
+          <button class="btn-copy" id="btn-download-logs" title="Download log file">Download</button>
+        </div>
+      </div>
+
+      <div class="log-console" id="log-console" role="log" aria-live="polite">
+        <!-- Event rows appended here dynamically -->
+      </div>
+
+      <div class="log-footer-bar">
+        <label class="log-autoscroll-label">
+          <input type="checkbox" id="chk-autoscroll" checked> Auto-scroll to bottom
+        </label>
+        <span id="log-counter">0 events logged</span>
+      </div>
+    </section>
+
+    <!-- 5. Default Playlist & Editor -->
+    <section class="card" aria-label="Playlist Configuration">
+      <div class="card-title">
+        <span>Test Playlist (<span id="playlist-count">3</span> items)</span>
+      </div>
+      <div class="playlist-list" id="playlist-list">
+        <!-- Rendered items -->
+      </div>
+
+      <details class="editor-details" id="editor-details">
+        <summary>Edit Playlist (JSON)</summary>
+        <div class="editor-body">
+          <textarea class="json-textarea" id="playlist-json" spellcheck="false"></textarea>
+          <div class="editor-btn-row">
+            <button class="btn-copy" id="btn-save-playlist">Save &amp; Apply Playlist</button>
+            <button class="btn-copy" id="btn-reset-playlist">Reset to Defaults</button>
+          </div>
+        </div>
+      </details>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status">Notification</div>
+
+  <script>
+    (function() {
+      'use strict';
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // 1. DEFAULT PLAYLIST
+      // ─────────────────────────────────────────────────────────────────────────
+      const DEFAULT_PLAYLIST = [
+        {
+          title: "NASA's Curious Universe - Ep 1",
+          artist: "NASA",
+          url: "https://www.nasa.gov/wp-content/uploads/2023/03/curiousuniverse_ep1.mp3",
+          artwork: "/icon-512.png"
+        },
+        {
+          title: "DLF Forschung aktuell - Kurzbeitrag",
+          artist: "Deutschlandfunk",
+          url: "https://podcast-mp3.dradio.de/podcast/2024/01/01/dlf_beitrag.mp3",
+          artwork: "/icon-512.png"
+        },
+        {
+          title: "Radiolab Short Slice",
+          artist: "WNYC Studios",
+          url: "https://chrt.fm/track/53A61E/pdst.fm/e/dts.podtrac.com/pts/redirect.mp3/feed.wnyc.org/radiolab.mp3",
+          artwork: "/icon-512.png"
+        }
+      ];
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // 2. STATE & DOM ELEMENTS
+      // ─────────────────────────────────────────────────────────────────────────
+      let playlist = [];
+      let currentIndex = 0;
+      let sessionStartTime = Date.now();
+      let sessionTimerInterval = null;
+      let completedTracksCount = 0;
+      let stallEventsCount = 0;
+      let wakeLockSentinel = null;
+      let isSeeking = false;
+      let lastPositionUpdate = 0;
+      let lastTimeupdateLog = 0;
+      let logEventsArray = [];
+
+      const audio = document.getElementById('test-audio');
+      const seekSlider = document.getElementById('seek-slider');
+      const curTimeLabel = document.getElementById('label-cur-time');
+      const durTimeLabel = document.getElementById('label-dur-time');
+      const playPauseBtn = document.getElementById('btn-play-pause');
+      const iconPlay = document.getElementById('icon-play');
+      const iconPause = document.getElementById('icon-pause');
+      const prevBtn = document.getElementById('btn-prev');
+      const nextBtn = document.getElementById('btn-next');
+      const streamUrlDisplay = document.getElementById('stream-url-display');
+      const btnCopyUrl = document.getElementById('btn-copy-url');
+
+      const toggleProxy = document.getElementById('toggle-proxy');
+      const toggleLoop = document.getElementById('toggle-loop');
+      const toggleWakeLock = document.getElementById('toggle-wakelock');
+
+      const metricState = document.getElementById('metric-state');
+      const metricBuffer = document.getElementById('metric-buffer');
+      const metricVisibility = document.getElementById('metric-visibility');
+      const metricWakeLock = document.getElementById('metric-wakelock');
+      const metricSession = document.getElementById('metric-session');
+      const metricCompleted = document.getElementById('metric-completed');
+      const metricStalls = document.getElementById('metric-stalls');
+      const metricReadyState = document.getElementById('metric-readystate');
+
+      const logConsole = document.getElementById('log-console');
+      const chkAutoscroll = document.getElementById('chk-autoscroll');
+      const logCounter = document.getElementById('log-counter');
+      const btnCopyLogs = document.getElementById('btn-copy-logs');
+      const btnClearLogs = document.getElementById('btn-clear-logs');
+      const btnDownloadLogs = document.getElementById('btn-download-logs');
+
+      const playlistList = document.getElementById('playlist-list');
+      const playlistCount = document.getElementById('playlist-count');
+      const playlistJson = document.getElementById('playlist-json');
+      const btnSavePlaylist = document.getElementById('btn-save-playlist');
+      const btnResetPlaylist = document.getElementById('btn-reset-playlist');
+      const toast = document.getElementById('toast');
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // 3. LOGGING SUBSYSTEM
+      // ─────────────────────────────────────────────────────────────────────────
+      function formatTimestamp(d = new Date()) {
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        const ss = String(d.getSeconds()).padStart(2, '0');
+        const ms = String(d.getMilliseconds()).padStart(3, '0');
+        return `${hh}:${mm}:${ss}.${ms}`;
+      }
+
+      function getElapsedSecString() {
+        const sec = ((Date.now() - sessionStartTime) / 1000).toFixed(1);
+        return `+${sec}s`;
+      }
+
+      function logEvent(type, message, tagClass = 'tag-event', tagLabel = 'EVENT') {
+        const now = new Date();
+        const ts = formatTimestamp(now);
+        const elapsed = getElapsedSecString();
+        const visTag = document.hidden ? 'BG' : 'FG';
+
+        const rawLine = `[${ts}] [${elapsed}] [${visTag}] ${type}: ${message}`;
+        logEventsArray.push(rawLine);
+        if (logEventsArray.length > 1500) logEventsArray.shift();
+
+        // DOM representation
+        const row = document.createElement('div');
+        row.className = 'log-entry';
+
+        const tsSpan = document.createElement('span');
+        tsSpan.className = 'log-ts';
+        tsSpan.textContent = `[${ts}] [${elapsed}]`;
+
+        const visSpan = document.createElement('span');
+        visSpan.className = `log-tag ${document.hidden ? 'tag-bg' : 'tag-fg'}`;
+        visSpan.textContent = visTag;
+
+        const typeSpan = document.createElement('span');
+        typeSpan.className = `log-tag ${tagClass}`;
+        typeSpan.textContent = tagLabel;
+
+        const msgSpan = document.createElement('span');
+        msgSpan.className = 'log-msg';
+        msgSpan.textContent = `${type}: ${message}`;
+
+        row.appendChild(tsSpan);
+        row.appendChild(visSpan);
+        row.appendChild(typeSpan);
+        row.appendChild(msgSpan);
+
+        logConsole.appendChild(row);
+        logCounter.textContent = `${logEventsArray.length} events logged`;
+
+        if (chkAutoscroll.checked) {
+          logConsole.scrollTop = logConsole.scrollHeight;
+        }
+
+        console.log(`[AudioTest] ${rawLine}`);
+      }
+
+      function showToast(msg) {
+        toast.textContent = msg;
+        toast.classList.add('show');
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => {
+          toast.classList.remove('show');
+        }, 2200);
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // 4. PLAYLIST & RESOLUTION
+      // ─────────────────────────────────────────────────────────────────────────
+      function loadSavedPlaylist() {
+        try {
+          const saved = localStorage.getItem('anypod_audio_test_playlist');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              playlist = parsed;
+              return;
+            }
+          }
+        } catch (_) {}
+        playlist = JSON.parse(JSON.stringify(DEFAULT_PLAYLIST));
+      }
+
+      function savePlaylist(newList) {
+        playlist = newList;
+        localStorage.setItem('anypod_audio_test_playlist', JSON.stringify(playlist, null, 2));
+        renderPlaylistUI();
+        showToast('Playlist updated');
+        logEvent('playlist.updated', `${playlist.length} tracks configured`);
+      }
+
+      function resolveStreamUrl(rawUrl) {
+        if (!rawUrl) return '';
+        const useProxy = toggleProxy.checked;
+        if (useProxy) {
+          return `${window.location.origin}/api/audio-proxy?url=${encodeURIComponent(rawUrl)}`;
+        }
+        return rawUrl;
+      }
+
+      function renderPlaylistUI() {
+        playlistList.innerHTML = '';
+        playlistCount.textContent = playlist.length;
+        playlistJson.value = JSON.stringify(playlist, null, 2);
+
+        playlist.forEach((item, idx) => {
+          const div = document.createElement('div');
+          div.className = `playlist-item ${idx === currentIndex ? 'active' : ''}`;
+          div.setAttribute('role', 'button');
+          div.tabIndex = 0;
+
+          div.innerHTML = `
+            <div class="item-meta">
+              <span class="item-idx">${idx + 1}</span>
+              <div class="item-texts">
+                <div class="item-title">${escapeHtml(item.title || 'Untitled Track')}</div>
+                <div class="item-artist">${escapeHtml(item.artist || 'Unknown Artist')}</div>
+              </div>
+            </div>
+            ${idx === currentIndex ? '<span class="item-badge">Active</span>' : ''}
+          `;
+
+          div.addEventListener('click', () => {
+            if (currentIndex !== idx || audio.paused) {
+              loadTrack(idx, true);
+            }
+          });
+
+          playlistList.appendChild(div);
+        });
+      }
+
+      function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // 5. AUDIO ENGINE PLAYBACK & TRANSITION
+      // ─────────────────────────────────────────────────────────────────────────
+      function loadTrack(index, autoPlay = true) {
+        if (index < 0 || index >= playlist.length) return;
+        currentIndex = index;
+        const track = playlist[currentIndex];
+
+        document.getElementById('current-track-index').textContent = `Track ${currentIndex + 1} of ${playlist.length}`;
+        document.getElementById('current-track-title').textContent = track.title || 'Untitled Track';
+        document.getElementById('current-track-artist').textContent = track.artist || 'Unknown Artist';
+
+        const streamUrl = resolveStreamUrl(track.url);
+        streamUrlDisplay.textContent = streamUrl;
+        streamUrlDisplay.title = streamUrl;
+
+        logEvent('track.change', `Track ${currentIndex + 1}/${playlist.length} ("${track.title}") -> Assigning src`, 'tag-event', 'TRACK');
+
+        // Seamless transition sequence matching production app:
+        // 1. Assign source directly without calling audio.pause()
+        audio.src = streamUrl;
+
+        // 2. Immediate load() forces socket to connect before background throttling
+        audio.load();
+
+        // 3. Immediately assert MediaSession for Android SystemUI
+        syncMediaSession(track);
+
+        // 4. Update UI
+        renderPlaylistUI();
+        updateProgress();
+
+        if (autoPlay) {
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            playPromise.then(() => {
+              logEvent('play.resolved', `Playback started for track ${currentIndex + 1}`, 'tag-event', 'PLAY');
+              updateUIPlayState(true);
+            }).catch(err => {
+              logEvent('play.rejected', `Error: ${err.name} - ${err.message}`, 'tag-error', 'ERR');
+              updateUIPlayState(false);
+            });
+          }
+        }
+      }
+
+      function advanceToNextTrack(reason = 'ended') {
+        const nextIndex = currentIndex + 1;
+        const loop = toggleLoop.checked;
+
+        logEvent('track.advance', `Reason: ${reason}. Current: ${currentIndex + 1}, Loop: ${loop}`, 'tag-event', 'ADVANCE');
+
+        if (nextIndex < playlist.length) {
+          loadTrack(nextIndex, true);
+        } else if (loop && playlist.length > 0) {
+          logEvent('track.loop', `Playlist end reached -> Looping to track 1`, 'tag-event', 'LOOP');
+          loadTrack(0, true);
+        } else {
+          logEvent('track.finished', `Playlist finished, stopped.`, 'tag-event', 'STOP');
+          updateUIPlayState(false);
+        }
+      }
+
+      function updateUIPlayState(isPlaying) {
+        if (isPlaying) {
+          iconPlay.style.display = 'none';
+          iconPause.style.display = 'block';
+          metricState.innerHTML = '<span class="status-dot dot-green"></span>PLAYING';
+        } else {
+          iconPlay.style.display = 'block';
+          iconPause.style.display = 'none';
+          metricState.innerHTML = '<span class="status-dot dot-amber"></span>PAUSED';
+        }
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // 6. MEDIASESSION INTEGRATION
+      // ─────────────────────────────────────────────────────────────────────────
+      function syncMediaSession(track) {
+        if (!('mediaSession' in navigator) || !track) return;
+
+        try {
+          const artworkUrl = track.artwork || '/icon-512.png';
+          const resolvedArt = new URL(artworkUrl, window.location.origin).href;
+          const fallbackArt = new URL('/icon-512.png', window.location.origin).href;
+
+          navigator.mediaSession.metadata = new MediaMetadata({
+            title: track.title || 'Diagnostic Track',
+            artist: track.artist || 'Anypod Testbed',
+            album: 'Anypod Standalone Diagnostics',
+            artwork: [
+              { src: resolvedArt, sizes: '512x512' },
+              { src: fallbackArt, sizes: '512x512', type: 'image/png' }
+            ]
+          });
+
+          navigator.mediaSession.playbackState = audio.paused ? 'paused' : 'playing';
+
+          logEvent('mediasession.synced', `Title: "${track.title}", State: ${navigator.mediaSession.playbackState}`);
+        } catch (err) {
+          logEvent('mediasession.error', err.message, 'tag-error', 'ERR');
+        }
+      }
+
+      function setupMediaSessionHandlers() {
+        if (!('mediaSession' in navigator)) return;
+
+        navigator.mediaSession.setActionHandler('play', () => {
+          logEvent('mediasession.action', 'play received from lock-screen');
+          audio.play().catch(() => {});
+        });
+
+        navigator.mediaSession.setActionHandler('pause', () => {
+          logEvent('mediasession.action', 'pause received from lock-screen');
+          audio.pause();
+        });
+
+        navigator.mediaSession.setActionHandler('previoustrack', () => {
+          logEvent('mediasession.action', 'previoustrack received');
+          if (audio.currentTime > 4) {
+            audio.currentTime = 0;
+          } else {
+            const prevIdx = currentIndex > 0 ? currentIndex - 1 : (toggleLoop.checked ? playlist.length - 1 : 0);
+            loadTrack(prevIdx, true);
+          }
+        });
+
+        navigator.mediaSession.setActionHandler('nexttrack', () => {
+          logEvent('mediasession.action', 'nexttrack received from lock-screen');
+          advanceToNextTrack('mediasession:nexttrack');
+        });
+
+        navigator.mediaSession.setActionHandler('seekforward', (details) => {
+          const offset = details.seekOffset || 15;
+          logEvent('mediasession.action', `seekforward +${offset}s`);
+          if (audio.duration) audio.currentTime = Math.min(audio.duration, audio.currentTime + offset);
+        });
+
+        navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+          const offset = details.seekOffset || 15;
+          logEvent('mediasession.action', `seekbackward -${offset}s`);
+          audio.currentTime = Math.max(0, audio.currentTime - offset);
+        });
+
+        try {
+          navigator.mediaSession.setActionHandler('seekto', (details) => {
+            logEvent('mediasession.action', `seekto ${details.seekTime}s`);
+            if (details.seekTime !== undefined) audio.currentTime = details.seekTime;
+          });
+        } catch (_) {}
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // 7. WAKE LOCK
+      // ─────────────────────────────────────────────────────────────────────────
+      async function requestWakeLock() {
+        if (!('wakeLock' in navigator)) {
+          metricWakeLock.textContent = 'Unsupported';
+          logEvent('wakelock.unsupported', 'navigator.wakeLock not available on this device');
+          return;
+        }
+        try {
+          wakeLockSentinel = await navigator.wakeLock.request('screen');
+          metricWakeLock.innerHTML = '<span class="status-dot dot-green"></span>Active (Screen On)';
+          logEvent('wakelock.acquired', 'Screen WakeLock active');
+
+          wakeLockSentinel.addEventListener('release', () => {
+            logEvent('wakelock.released', 'Screen WakeLock released');
+            if (!toggleWakeLock.checked) {
+              metricWakeLock.textContent = 'Inactive';
+            }
+          });
+        } catch (err) {
+          metricWakeLock.innerHTML = '<span class="status-dot dot-red"></span>Error';
+          logEvent('wakelock.error', `${err.name}: ${err.message}`, 'tag-error', 'ERR');
+        }
+      }
+
+      function releaseWakeLock() {
+        if (wakeLockSentinel) {
+          wakeLockSentinel.release().catch(() => {});
+          wakeLockSentinel = null;
+        }
+        metricWakeLock.textContent = 'Inactive';
+        logEvent('wakelock.turned_off', 'WakeLock disabled by user toggle');
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // 8. AUDIO EVENT LISTENERS & LIFECYCLE TRACKING
+      // ─────────────────────────────────────────────────────────────────────────
+      function formatTime(sec) {
+        if (isNaN(sec) || !isFinite(sec) || sec < 0) return '0:00';
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+      }
+
+      function updateProgress() {
+        const cur = audio.currentTime || 0;
+        const dur = (audio.duration && isFinite(audio.duration)) ? audio.duration : 0;
+
+        curTimeLabel.textContent = formatTime(cur);
+        durTimeLabel.textContent = formatTime(dur);
+
+        if (!isSeeking && dur > 0) {
+          seekSlider.value = (cur / dur) * 100;
+        }
+
+        // Buffer calculation
+        let aheadSec = 0;
+        if (audio.buffered.length > 0) {
+          for (let i = 0; i < audio.buffered.length; i++) {
+            const start = audio.buffered.start(i);
+            const end = audio.buffered.end(i);
+            if (cur >= start && cur <= end) {
+              aheadSec = Math.max(0, end - cur);
+              break;
+            }
+          }
+        }
+        metricBuffer.textContent = `${aheadSec.toFixed(1)}s (ranges: ${audio.buffered.length})`;
+
+        // Throttled MediaSession setPositionState
+        if ('setPositionState' in navigator.mediaSession && dur > 0 && cur <= dur) {
+          const now = Date.now();
+          if (now - lastPositionUpdate >= 3000) {
+            lastPositionUpdate = now;
+            try {
+              navigator.mediaSession.setPositionState({
+                duration: Math.max(0.1, dur),
+                playbackRate: audio.playbackRate || 1.0,
+                position: cur
+              });
+            } catch (_) {}
+          }
+        }
+      }
+
+      // Audio Event Hooks
+      audio.addEventListener('loadstart', () => {
+        logEvent('audio.loadstart', `src=${audio.src}`);
+        metricState.innerHTML = '<span class="status-dot dot-amber"></span>LOADING';
+      });
+
+      audio.addEventListener('loadedmetadata', () => {
+        logEvent('audio.loadedmetadata', `duration=${audio.duration?.toFixed(2)}s`);
+        updateProgress();
+      });
+
+      audio.addEventListener('loadeddata', () => {
+        logEvent('audio.loadeddata', `readyState=${audio.readyState}`);
+      });
+
+      audio.addEventListener('canplay', () => {
+        logEvent('audio.canplay', `readyState=${audio.readyState}`);
+      });
+
+      audio.addEventListener('canplaythrough', () => {
+        logEvent('audio.canplaythrough', 'Full buffer estimated ready');
+      });
+
+      audio.addEventListener('play', () => {
+        logEvent('audio.play', 'play() requested');
+        updateUIPlayState(true);
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+      });
+
+      audio.addEventListener('playing', () => {
+        const cur = audio.currentTime.toFixed(2);
+        logEvent('audio.playing', `Playback active at cur=${cur}s, readyState=${audio.readyState}`);
+        updateUIPlayState(true);
+      });
+
+      audio.addEventListener('pause', () => {
+        // Guard spurious pause on track completion
+        if (audio.ended) {
+          logEvent('audio.pause', 'Ignored: track already ended (transitioning)', 'tag-wait', 'GUARD');
+          return;
+        }
+        logEvent('audio.pause', `Paused at cur=${audio.currentTime.toFixed(2)}s`);
+        updateUIPlayState(false);
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+      });
+
+      audio.addEventListener('waiting', () => {
+        logEvent('audio.waiting', `Buffering starved! readyState=${audio.readyState}, networkState=${audio.networkState}`, 'tag-wait', 'WAIT');
+        metricState.innerHTML = '<span class="status-dot dot-amber"></span>BUFFERING';
+      });
+
+      audio.addEventListener('stalled', () => {
+        stallEventsCount++;
+        metricStalls.textContent = stallEventsCount;
+        logEvent('audio.stalled', `Socket stalled! Buffer ahead: ${metricBuffer.textContent}`, 'tag-error', 'STALL');
+      });
+
+      audio.addEventListener('suspend', () => {
+        logEvent('audio.suspend', 'Browser suspended chunk downloads (buffer full or background policy)');
+      });
+
+      audio.addEventListener('emptied', () => {
+        logEvent('audio.emptied', 'Audio source buffer cleared');
+      });
+
+      audio.addEventListener('timeupdate', () => {
+        updateProgress();
+        const now = Date.now();
+        if (now - lastTimeupdateLog >= 4000) {
+          lastTimeupdateLog = now;
+          const cur = audio.currentTime.toFixed(1);
+          const dur = audio.duration ? audio.duration.toFixed(1) : '?';
+          logEvent('audio.timeupdate', `pos=${cur}/${dur}s | ${metricBuffer.textContent}`, 'tag-fg', 'TICK');
+        }
+      });
+
+      audio.addEventListener('ended', () => {
+        completedTracksCount++;
+        metricCompleted.textContent = `${completedTracksCount} tracks`;
+        logEvent('audio.ended', `Track ${currentIndex + 1} completed naturally`, 'tag-event', 'ENDED');
+        advanceToNextTrack('ended');
+      });
+
+      audio.addEventListener('error', (e) => {
+        const err = audio.error;
+        const msg = err ? `Code ${err.code}: ${err.message}` : 'Unknown audio error';
+        logEvent('audio.error', msg, 'tag-error', 'ERROR');
+        metricState.innerHTML = '<span class="status-dot dot-red"></span>ERROR';
+      });
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // 9. BROWSER LIFECYCLE & VISIBILITY EVENTS
+      // ─────────────────────────────────────────────────────────────────────────
+      document.addEventListener('visibilitychange', () => {
+        const isHidden = document.hidden;
+        if (isHidden) {
+          metricVisibility.innerHTML = '<span class="status-dot dot-amber"></span>Hidden (Screen Off)';
+          logEvent('visibility.hidden', `Screen locked or user switched apps (${document.visibilityState})`, 'tag-bg', 'BG');
+        } else {
+          metricVisibility.innerHTML = '<span class="status-dot dot-green"></span>Visible';
+          logEvent('visibility.visible', `Returned to foreground (${document.visibilityState})`, 'tag-fg', 'FG');
+          // Re-acquire wakeLock if requested
+          if (toggleWakeLock.checked && !wakeLockSentinel) {
+            requestWakeLock();
+          }
+        }
+      });
+
+      window.addEventListener('pagehide', () => {
+        logEvent('lifecycle.pagehide', 'Page hide event fired by mobile OS');
+      });
+
+      window.addEventListener('pageshow', () => {
+        logEvent('lifecycle.pageshow', 'Page show event restored');
+      });
+
+      window.addEventListener('online', () => {
+        logEvent('network.online', 'Device back online', 'tag-event', 'NET');
+      });
+
+      window.addEventListener('offline', () => {
+        logEvent('network.offline', 'Device connection lost!', 'tag-error', 'OFFLINE');
+      });
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // 10. CONTROLS INTERACTION
+      // ─────────────────────────────────────────────────────────────────────────
+      playPauseBtn.addEventListener('click', () => {
+        if (audio.paused) {
+          if (!audio.src) {
+            loadTrack(currentIndex, true);
+          } else {
+            audio.play().catch(e => {
+              logEvent('play.click_err', e.message, 'tag-error', 'ERR');
+            });
+          }
+        } else {
+          audio.pause();
+        }
+      });
+
+      prevBtn.addEventListener('click', () => {
+        if (audio.currentTime > 4) {
+          audio.currentTime = 0;
+        } else {
+          const prevIdx = currentIndex > 0 ? currentIndex - 1 : (toggleLoop.checked ? playlist.length - 1 : 0);
+          loadTrack(prevIdx, true);
+        }
+      });
+
+      nextBtn.addEventListener('click', () => {
+        advanceToNextTrack('manual:next_button');
+      });
+
+      seekSlider.addEventListener('input', () => {
+        isSeeking = true;
+        if (audio.duration) {
+          const target = (seekSlider.value / 100) * audio.duration;
+          curTimeLabel.textContent = formatTime(target);
+        }
+      });
+
+      seekSlider.addEventListener('change', () => {
+        isSeeking = false;
+        if (audio.duration) {
+          const target = (seekSlider.value / 100) * audio.duration;
+          audio.currentTime = target;
+          logEvent('seek.manual', `User scrubbed to ${target.toFixed(2)}s`);
+        }
+      });
+
+      document.querySelectorAll('.speed-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+          e.target.classList.add('active');
+          const speed = parseFloat(e.target.dataset.speed);
+          audio.playbackRate = speed;
+          logEvent('speed.changed', `Playback speed set to ${speed}x`);
+        });
+      });
+
+      btnCopyUrl.addEventListener('click', () => {
+        const streamUrl = streamUrlDisplay.textContent;
+        if (!streamUrl || streamUrl === 'https://...') {
+          showToast('No active stream URL');
+          return;
+        }
+        navigator.clipboard.writeText(streamUrl).then(() => {
+          showToast('Copied stream URL to clipboard');
+          logEvent('clipboard.url_copied', streamUrl);
+        }).catch(() => {
+          window.prompt('Copy audio stream URL:', streamUrl);
+        });
+      });
+
+      // Toggles
+      toggleProxy.addEventListener('change', () => {
+        const useProxy = toggleProxy.checked;
+        logEvent('toggle.proxy', `Proxy mode: ${useProxy ? 'ENABLED (/api/audio-proxy)' : 'DISABLED (direct raw CDN)'}`);
+        showToast(useProxy ? 'Audio Proxy: ON' : 'Audio Proxy: OFF');
+        // Reload current track with new URL wrapper while preserving playback position
+        if (playlist.length > 0) {
+          const savedTime = audio.currentTime;
+          const wasPlaying = !audio.paused;
+          loadTrack(currentIndex, wasPlaying);
+          if (savedTime > 1) {
+            audio.addEventListener('loadedmetadata', function _onProxyRe() {
+              audio.removeEventListener('loadedmetadata', _onProxyRe);
+              audio.currentTime = savedTime;
+            }, { once: true });
+          }
+        }
+      });
+
+      toggleLoop.addEventListener('change', () => {
+        logEvent('toggle.loop', `Continuous loop: ${toggleLoop.checked ? 'ENABLED' : 'DISABLED'}`);
+      });
+
+      toggleWakeLock.addEventListener('change', () => {
+        if (toggleWakeLock.checked) {
+          requestWakeLock();
+        } else {
+          releaseWakeLock();
+        }
+      });
+
+      // Diagnostics Log Actions
+      btnCopyLogs.addEventListener('click', () => {
+        const report = generateDiagnosticReport();
+        navigator.clipboard.writeText(report).then(() => {
+          showToast('Copied full diagnostic report to clipboard');
+          logEvent('clipboard.logs_copied', `${logEventsArray.length} entries copied`);
+        }).catch(() => {
+          window.prompt('Copy diagnostic report:', report);
+        });
+      });
+
+      btnClearLogs.addEventListener('click', () => {
+        logEventsArray = [];
+        logConsole.innerHTML = '';
+        logCounter.textContent = '0 events logged';
+        showToast('Logs cleared');
+      });
+
+      btnDownloadLogs.addEventListener('click', () => {
+        const report = generateDiagnosticReport();
+        const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `anypod-audio-diagnostic-${Date.now()}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('Downloaded log file');
+      });
+
+      function generateDiagnosticReport() {
+        const track = playlist[currentIndex] || {};
+        const dur = audio.duration || 0;
+        const cur = audio.currentTime || 0;
+        const bufferedSummary = [];
+        for (let i = 0; i < audio.buffered.length; i++) {
+          bufferedSummary.push(`[${audio.buffered.start(i).toFixed(2)}s - ${audio.buffered.end(i).toFixed(2)}s]`);
+        }
+
+        const header = [
+          '====================================================',
+          'ANYPOD BACKGROUND AUDIO DIAGNOSTIC REPORT',
+          `Generated: ${new Date().toISOString()}`,
+          `Device User Agent: ${navigator.userAgent}`,
+          `Platform: ${navigator.platform || 'unknown'}`,
+          `Screen: ${window.screen.width}x${window.screen.height} (Orientation: ${window.screen.orientation?.type || 'unknown'})`,
+          `Screen Visibility: ${document.visibilityState} (Hidden: ${document.hidden})`,
+          `Network: Online=${navigator.onLine}, EffectiveType=${navigator.connection?.effectiveType || 'unknown'}, Downlink=${navigator.connection?.downlink || 'unknown'}Mbps`,
+          `WakeLock Mode: ${toggleWakeLock.checked ? 'Enabled' : 'Disabled'} (Active: ${Boolean(wakeLockSentinel)})`,
+          `Audio Proxy Mode: ${toggleProxy.checked ? 'Enabled (/api/audio-proxy)' : 'Disabled (Direct URL)'}`,
+          `Continuous Loop: ${toggleLoop.checked ? 'Enabled' : 'Disabled'}`,
+          '----------------------------------------------------',
+          `Active Track Index: ${currentIndex + 1} of ${playlist.length}`,
+          `Active Track Title: "${track.title || 'Untitled'}"`,
+          `Active Track Artist: "${track.artist || 'Unknown'}"`,
+          `Assigned audio.src: ${audio.src || 'none'}`,
+          `Audio Position: ${cur.toFixed(2)}s / ${dur.toFixed(2)}s (${dur > 0 ? ((cur/dur)*100).toFixed(1) : 0}%)`,
+          `Audio States: paused=${audio.paused}, ended=${audio.ended}, readyState=${audio.readyState}, networkState=${audio.networkState}`,
+          `Buffered Ranges (${audio.buffered.length}): ${bufferedSummary.join(', ') || 'none'}`,
+          `Stall Count: ${stallEventsCount} | Completed Tracks: ${completedTracksCount}`,
+          `Session Elapsed: ${((Date.now() - sessionStartTime)/1000).toFixed(1)}s`,
+          '====================================================',
+          'CHRONOLOGICAL EVENT LOG:',
+          ...logEventsArray,
+          '====================================================',
+          'END OF REPORT'
+        ].join('\n');
+
+        return header;
+      }
+
+      // Playlist JSON Editor
+      btnSavePlaylist.addEventListener('click', () => {
+        try {
+          const parsed = JSON.parse(playlistJson.value);
+          if (!Array.isArray(parsed) || parsed.length === 0) {
+            alert('Playlist must be a non-empty array of track objects [{title, artist, url}].');
+            return;
+          }
+          for (const item of parsed) {
+            if (!item.url) {
+              alert('Each track item must have a valid "url" field.');
+              return;
+            }
+          }
+          savePlaylist(parsed);
+          currentIndex = 0;
+          loadTrack(0, false);
+          document.getElementById('editor-details').open = false;
+        } catch (err) {
+          alert(`Invalid JSON format: ${err.message}`);
+        }
+      });
+
+      btnResetPlaylist.addEventListener('click', () => {
+        if (confirm('Reset playlist to default NASA/DLF/Radiolab test tracks?')) {
+          localStorage.removeItem('anypod_audio_test_playlist');
+          loadSavedPlaylist();
+          renderPlaylistUI();
+          currentIndex = 0;
+          loadTrack(0, false);
+          showToast('Playlist reset to defaults');
+        }
+      });
+
+      // Session Timer Loop
+      function startSessionTimer() {
+        sessionTimerInterval = setInterval(() => {
+          const elapsedMs = Date.now() - sessionStartTime;
+          const totalSec = Math.floor(elapsedMs / 1000);
+          const hh = String(Math.floor(totalSec / 3600)).padStart(2, '0');
+          const mm = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
+          const ss = String(totalSec % 60).padStart(2, '0');
+          metricSession.textContent = `${hh}:${mm}:${ss}`;
+
+          // State readyState label
+          const states = ['0 (HAVE_NOTHING)', '1 (HAVE_METADATA)', '2 (HAVE_CURRENT_DATA)', '3 (HAVE_FUTURE_DATA)', '4 (HAVE_ENOUGH_DATA)'];
+          metricReadyState.textContent = states[audio.readyState] || audio.readyState;
+        }, 1000);
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // 11. INITIALIZATION
+      // ─────────────────────────────────────────────────────────────────────────
+      function init() {
+        loadSavedPlaylist();
+        renderPlaylistUI();
+        setupMediaSessionHandlers();
+        startSessionTimer();
+
+        logEvent('session.init', `Standalone testbed started with ${playlist.length} tracks. UA: ${navigator.userAgent.slice(0, 50)}...`);
+
+        // Load first track (ready to play)
+        if (playlist.length > 0) {
+          loadTrack(0, false);
+        }
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>

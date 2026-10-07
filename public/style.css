@@ -348,6 +348,24 @@ input::placeholder,
   height: 20px;
 }
 
+/* One-tap Copy Stream URL button in player */
+.btn-copy-stream-url {
+  opacity: 0.65;
+  transition: opacity 0.2s, color 0.2s, transform 0.15s ease;
+  margin-right: 0.15rem;
+}
+
+.btn-copy-stream-url:hover {
+  opacity: 1;
+  color: var(--accent, #3b82f6);
+}
+
+.btn-copy-stream-url.is-copied {
+  opacity: 1;
+  color: #10b981;
+  transform: scale(1.15);
+}
+
 /* App Toast Notification (Apple-style HUD) */
 .app-toast {
   position: fixed;
@@ -1237,13 +1255,20 @@ body.has-active-episode .continue-shelf.is-expanded .continue-toggle-wrap {
   padding: 0.45rem 1rem;
 }
 
-/* Settings gear icon in header */
-.btn-header-settings {
+/* Settings gear icon & DJ Console in header */
+.btn-header-settings,
+.btn-header-dj {
   opacity: 0.7;
   transition: opacity 0.2s, color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  text-decoration: none;
 }
 .btn-header-settings:hover,
-.btn-header-settings.is-active {
+.btn-header-settings.is-active,
+.btn-header-dj:hover {
   opacity: 1;
   color: var(--text-primary);
 }
@@ -6589,6 +6614,15 @@ body.has-active-episode.has-mini-player .player-mini {
     color: #a1a1aa;
     background: rgba(255, 255, 255, 0.1);
   }
+}
+
+.waveform-time-label.time-elapsed {
+  cursor: pointer;
+}
+
+.waveform-time-label.time-elapsed:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .waveform-time-label.time-remaining {

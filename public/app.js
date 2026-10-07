@@ -905,6 +905,7 @@
     btnPlayerNotes: document.getElementById('btn-player-notes'),
     btnPlayerShare: document.getElementById('btn-player-share'),
     playerStatusBadges: document.getElementById('player-status-badges'),
+    btnCopyStreamUrl: document.getElementById('btn-copy-stream-url'),
     btnCollapsePlayer: document.getElementById('btn-collapse-player'),
     playerMini: document.getElementById('player-mini'),
     miniExpandZone: document.getElementById('mini-expand-zone'),
@@ -6459,6 +6460,8 @@
           // After repeated failed attempts, fall back to audio proxy URL
           if (state.currentEpisode && elements.audio.src && !elements.audio.src.includes('/api/audio-proxy')) {
             const proxySrc = `/api/audio-proxy?url=${encodeURIComponent(state.currentEpisode.audioUrl)}`;
+            window.__ANYPOD_CURRENT_STREAM_URL = proxySrc;
+            console.log('[Anypod Audio Stream URL (Proxy Fallback)]:', proxySrc);
             const savedTime = audio.currentTime;
             elements.audio.src = proxySrc;
             elements.audio.addEventListener('loadedmetadata', function _onStallProxy() {
@@ -6507,6 +6510,8 @@
           state.playbackStatus = 'loading';
           syncPlaybackButtons();
           const proxySrc = `/api/audio-proxy?url=${encodeURIComponent(state.currentEpisode.audioUrl)}`;
+          window.__ANYPOD_CURRENT_STREAM_URL = proxySrc;
+          console.log('[Anypod Audio Stream URL (Proxy Fallback)]:', proxySrc);
           const savedTime = audio.currentTime;
           elements.audio.src = proxySrc;
           // Restore position after proxy load, then play
@@ -6934,6 +6939,10 @@
       } else if (window.location.protocol === 'https:' && streamUrl.startsWith('http://')) {
         streamUrl = `/api/audio-proxy?url=${encodeURIComponent(streamUrl)}`;
       }
+
+      window.__ANYPOD_CURRENT_STREAM_URL = streamUrl;
+      window.__ANYPOD_CURRENT_EPISODE = episode;
+      console.log('[Anypod Audio Stream URL]:', streamUrl);
 
       if (typeof liveAudioCtx !== 'undefined' && liveAudioCtx && liveAudioCtx.state === 'suspended') {
         liveAudioCtx.resume().catch(() => {});
@@ -8809,9 +8818,59 @@ function setPlayerCollapsed(collapsed, save = true) {
       });
     }
 
+    function copyActiveStreamUrl() {
+      const streamUrl = window.__ANYPOD_CURRENT_STREAM_URL || (elements.audio ? elements.audio.src : '') || '';
+      if (!streamUrl) {
+        showToast('No active audio stream URL');
+        return;
+      }
+
+      if (elements.audio && elements.audio.buffered && elements.audio.buffered.length > 0) {
+        try {
+          console.log(`[Buffer Info] 0 to ${elements.audio.buffered.end(0)}s of ${elements.audio.duration}s`);
+          for (let i = 0; i < elements.audio.buffered.length; i++) {
+            console.log(`[Buffer Detail ${i}] ${elements.audio.buffered.start(i).toFixed(2)}s to ${elements.audio.buffered.end(i).toFixed(2)}s`);
+          }
+        } catch (bufErr) {
+          console.warn('[Buffer Info Error]:', bufErr);
+        }
+      } else if (elements.audio) {
+        console.log(`[Buffer Info] No buffered ranges (duration: ${elements.audio.duration}s, readyState: ${elements.audio.readyState})`);
+      }
+
+      const onCopied = () => {
+        showToast('Copied active stream URL to clipboard');
+        if (elements.btnCopyStreamUrl) {
+          elements.btnCopyStreamUrl.classList.add('is-copied');
+          setTimeout(() => {
+            elements.btnCopyStreamUrl?.classList.remove('is-copied');
+          }, 1500);
+        }
+      };
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(streamUrl).then(onCopied).catch(() => {
+          window.prompt('Copy active stream URL:', streamUrl);
+          onCopied();
+        });
+      } else {
+        window.prompt('Copy active stream URL:', streamUrl);
+        onCopied();
+      }
+    }
+
     if (elements.currentTimeLabel) {
+      elements.currentTimeLabel.title = 'Click to copy active stream URL';
       elements.currentTimeLabel.addEventListener('click', (e) => {
         e.stopPropagation();
+        copyActiveStreamUrl();
+      });
+    }
+
+    if (elements.btnCopyStreamUrl) {
+      elements.btnCopyStreamUrl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        copyActiveStreamUrl();
       });
     }
 

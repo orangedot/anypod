@@ -27,10 +27,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://is1-ssl.mzstatic.com" crossorigin>
 
-  <!-- External Font Preconnects -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
   <!-- Google Fonts (Non-blocking via print switch) -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" media="print" id="google-fonts-link">
   <noscript>
@@ -140,6 +136,23 @@
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
           </svg>
         </button>
+
+        <!-- DJ Studio Pro link -->
+        <a href="/dj.html" class="btn-icon btn-header-dj" id="btn-open-dj" title="DJ Studio (Traktor Mode)" aria-label="open DJ studio">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <circle cx="12" cy="12" r="3"></circle>
+            <line x1="12" y1="2" x2="12" y2="5"></line>
+            <line x1="12" y1="19" x2="12" y2="22"></line>
+          </svg>
+        </a>
+
+        <!-- Sets Workout Sequencer link -->
+        <a href="/sets.html" class="btn-icon btn-header-sets" id="btn-open-sets" title="Workout Sets Sequencer (Pulse Mode)" aria-label="open workout sequencer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+        </a>
 
         <div class="user-status-pill" id="user-status-pill" tabindex="0" role="button" aria-label="user account">
           <span class="status-indicator" id="status-indicator"></span>
@@ -344,6 +357,17 @@
           </div>
 
           <div class="experimental-status" id="experimental-status"></div>
+        </div>
+
+        <div class="settings-card">
+          <h3>diagnostics &amp; tools</h3>
+          <p>test mobile background audio playback continuity, inspect live audio streams, and diagnose lock-screen stalls.</p>
+          <div class="settings-actions">
+            <a href="/audio.html" class="btn btn-secondary" id="btn-open-audio-test" style="text-decoration:none; display:inline-flex; align-items:center; gap:0.5rem;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              standalone background audio test harness
+            </a>
+          </div>
         </div>
 
         <div class="settings-card danger-zone">
@@ -750,6 +774,9 @@
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="14" y2="12"></line><line x1="4" y1="18" x2="11" y2="18"></line></svg>
             </span>
           </div>
+          <button class="btn-icon btn-copy-stream-url" id="btn-copy-stream-url" title="Copy active stream URL" aria-label="copy active stream URL">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          </button>
           <button class="btn-icon" id="btn-collapse-player" title="minimize player" aria-label="minimize player">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </button>
@@ -809,6 +836,6 @@
 
   <!-- Experimental defaults – must load before app.js -->
   <script src="scripts/settings.js?v=20260925b" defer></script>
-  <script src="app.js?v=20260925_player_v5" defer></script>
+  <script src="app.js?v=20261006_bgfix_v2" defer></script>
 </body>
 </html>

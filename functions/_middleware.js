@@ -27,5 +27,25 @@ export async function onRequest(context) {
     }
   }
 
+  // 3. sets.anypod.org & pulse.anypod.org bedienen den Workout Interval DJ Sequencer an der Root
+  if (hostname === 'sets.anypod.org' || hostname === 'pulse.anypod.org') {
+    if (url.pathname === '/' || url.pathname === '/index.html') {
+      const assetUrl = new URL('/sets.html', url.origin);
+      return context.env.ASSETS.fetch(assetUrl);
+    }
+  }
+
+  // 4. /dj, /dj/, and /dj.html rewrite directly to /dj/index.html
+  if (url.pathname === '/dj' || url.pathname === '/dj/' || url.pathname === '/dj.html') {
+    const assetUrl = new URL('/dj/index.html', url.origin);
+    return context.env.ASSETS.fetch(assetUrl);
+  }
+
+  // 5. /audio and /audio/ rewrite directly to /audio.html
+  if (url.pathname === '/audio' || url.pathname === '/audio/') {
+    const assetUrl = new URL('/audio.html', url.origin);
+    return context.env.ASSETS.fetch(assetUrl);
+  }
+
   return context.next();
 }
