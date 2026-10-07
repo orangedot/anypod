@@ -4,7 +4,12 @@
   X-Frame-Options: SAMEORIGIN
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: microphone=(), camera=(), geolocation=()
-  Content-Security-Policy: default-src 'self'; media-src 'self' blob: http: https:; img-src 'self' data: http: https:; script-src 'self' 'unsafe-inline' https://www.youtube.com https://s.ytimg.com; frame-src https://www.youtube.com; connect-src 'self' http: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;
+  Content-Security-Policy: default-src 'self'; media-src 'self' blob: http: https:; img-src 'self' data: http: https:; script-src 'self' 'unsafe-inline' https://www.youtube.com https://s.ytimg.com; frame-src 'self' https://*.anypod.org https://www.youtube.com; connect-src 'self' http: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;
+
+/storage-bridge.html
+  X-Frame-Options: ALLOWALL
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; frame-ancestors 'self' https://*.anypod.org https://anypod.org http://localhost:* http://127.0.0.1:*
+  Cache-Control: no-cache, no-store, must-revalidate
 
 # HTML documents must revalidate to pick up newly deployed hashes immediately
 /index.html
@@ -25,14 +30,11 @@
 
 /style.css
   Cache-Control: no-cache, no-store, must-revalidate
-/dj.html
+
+/sets.html
   Cache-Control: no-cache, no-store, must-revalidate
 
-/dj.css
+/dist/sets.html
   Cache-Control: no-cache, no-store, must-revalidate
 
-/dj-engine.js
-  Cache-Control: no-cache, no-store, must-revalidate
 
-/dj-ui.js
-  Cache-Control: no-cache, no-store, must-revalidate

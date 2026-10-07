@@ -37,20 +37,6 @@ await esbuild.build({
 });
 
 // 3. Prepare production HTML in public/dist/index.html
-// const rawHtml = fs.readFileSync(path.join(publicDir, 'index.html'), 'utf-8');
-// const v = Date.now();
-
-// let prodHtml = rawHtml
-//   // Safely replace style.css (with or without leading slash, with or without query param)
-//   .replace(/href="\/?style\.css(\?[^"]*)?"/g, `href="style.min.css?v=${v}"`)
-//   // Safely replace app.js (with or without leading slash, with or without query param)
-//   .replace(/src="\/?app\.js(\?[^"]*)?"/g, `src="app.min.js?v=${v}"`)
-//   // Fix duplicate rel attributes if present
-//   .replace(/rel="preload"\s+rel="stylesheet"/g, 'rel="preload"');
-
-// fs.writeFileSync(path.join(distDir, 'index.html'), prodHtml, 'utf-8');
-
-// 3. Prepare production HTML in public/dist/index.html
 const rawHtml = fs.readFileSync(path.join(publicDir, 'index.html'), 'utf-8');
 const minCss = fs.readFileSync(path.join(distDir, 'style.min.css'), 'utf-8');
 const v = Date.now();
@@ -60,8 +46,8 @@ let prodHtml = rawHtml
   .replace(/<link[^>]*href=["']\/?style\.css(\?[^"']*)?["'][^>]*>/i, `<style>${minCss}</style>`)
   // 2. Safely replace app.js with cache-busted minified bundle
   .replace(/src=["']\/?app\.js(\?[^"']*)?["']/g, `src="app.min.js?v=${v}"`)
-  // 3. Strip any leftover duplicate rel attributes
-  .replace(/rel="preload"\s+rel="stylesheet"/g, 'rel="preload"');
+  // 3. Normalize any duplicate rel attributes to standard rel="stylesheet"
+  .replace(/rel=["']?preload["']?\s+rel=["']?stylesheet["']?/g, 'rel="stylesheet"');
 
 fs.writeFileSync(path.join(distDir, 'index.html'), prodHtml, 'utf-8');
 
