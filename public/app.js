@@ -1297,6 +1297,9 @@
         syncPlaybackButtons();
         const curTime = (state.ytPlayer && typeof state.ytPlayer.getCurrentTime === 'function') ? (state.ytPlayer.getCurrentTime() || 0) : 0;
         logPlayerDiagnostic('youtube.playing', `Playback active at cur=${curTime.toFixed(2)}s`);
+        if (elements.audio && elements.audio.src.includes('/silent.mp3') && elements.audio.paused) {
+          elements.audio.play().catch(() => {});
+        }
         if (state.currentEpisode) {
           const needsReassert = state._nowPlayingActiveGuid !== state.currentEpisode.guid;
           if (needsReassert) {
@@ -1350,6 +1353,9 @@
         // 3. User intentional pause or retry limit exceeded
         state.playbackStatus = 'paused';
         syncPlaybackButtons();
+        if (elements.audio && elements.audio.src.includes('/silent.mp3') && !elements.audio.paused) {
+          elements.audio.pause();
+        }
         logPlayerDiagnostic('youtube.pause', `YouTube player paused at pos=${cur.toFixed(2)}s (userIntentional=${Boolean(state._userIntentionalPause)})`);
       } else if (event.data === ytEnded) {
         // Prevent Android OS from dropping background priority during changeovers:
@@ -7386,8 +7392,13 @@
           }
         });
       }
-    } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
-      state.ytPlayer.playVideo();
+    } else if (state.activeEngine === 'youtube') {
+      if (elements.audio && elements.audio.src.includes('/silent.mp3') && elements.audio.paused) {
+        elements.audio.play().catch(() => {});
+      }
+      if (state.ytPlayer && typeof state.ytPlayer.playVideo === 'function') {
+        state.ytPlayer.playVideo();
+      }
     }
   }
 
@@ -7395,8 +7406,13 @@
     state._userIntentionalPause = true;
     if (state.activeEngine === 'audio') {
       elements.audio.pause();
-    } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
-      state.ytPlayer.pauseVideo();
+    } else if (state.activeEngine === 'youtube') {
+      if (elements.audio && elements.audio.src.includes('/silent.mp3') && !elements.audio.paused) {
+        elements.audio.pause();
+      }
+      if (state.ytPlayer && typeof state.ytPlayer.pauseVideo === 'function') {
+        state.ytPlayer.pauseVideo();
+      }
     }
   }
 
@@ -7475,10 +7491,14 @@
     }
 
     if (episode.isYouTube || episode.videoId || episode.playlistId) {
-      // 1. Stop native audio element so streams do not conflict
+      // 1. Maintain a silent audio anchor on elements.audio so Android lockscreen MediaSession stays pinned
       if (elements.audio) {
-        elements.audio.pause();
-        elements.audio.removeAttribute('src');
+        if (!elements.audio.src.includes('/silent.mp3')) {
+          elements.audio.src = '/silent.mp3';
+          elements.audio.loop = true;
+          elements.audio.load();
+        }
+        elements.audio.play().catch(() => {});
       }
 
       state.activeEngine = 'youtube';
@@ -7545,6 +7565,9 @@
       }
     } else {
       state.activeEngine = 'audio';
+      if (elements.audio) {
+        elements.audio.loop = false;
+      }
       let streamUrl = episode.audioUrl;
       const isDownloaded = !!state.downloadedEpisodes[episode.guid];
       if (isDownloaded) {

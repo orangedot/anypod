@@ -1,4 +1,4 @@
-const CACHE_NAME = 'anypod-v10';
+const CACHE_NAME = 'anypod-v11';
 const AUDIO_CACHE_NAME = 'anypod-audio-v1';
 
 const APP_SHELL = [
@@ -6,6 +6,7 @@ const APP_SHELL = [
   '/index.html',
   '/style.css',
   '/app.js',
+  '/silent.mp3',
   '/manifest.webmanifest',
   '/icon.svg',
   '/icon-192.png',
