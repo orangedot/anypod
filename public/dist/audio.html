@@ -778,6 +778,10 @@
           <span class="metric-name">Ready State</span>
           <span class="metric-val" id="metric-readystate">0 (HAVE_NOTHING)</span>
         </div>
+        <div class="metric-pill">
+          <span class="metric-name">Lockscreen Player</span>
+          <span class="metric-val" id="metric-mediasession"><span class="status-dot dot-amber"></span>Ready</span>
+        </div>
       </div>
     </section>
 
@@ -898,6 +902,7 @@
       const metricCompleted = document.getElementById('metric-completed');
       const metricStalls = document.getElementById('metric-stalls');
       const metricReadyState = document.getElementById('metric-readystate');
+      const metricMediaSession = document.getElementById('metric-mediasession');
 
       const logConsole = document.getElementById('log-console');
       const chkAutoscroll = document.getElementById('chk-autoscroll');
@@ -1131,31 +1136,52 @@
       }
 
       // ─────────────────────────────────────────────────────────────────────────
-      // 6. MEDIASESSION INTEGRATION
+      // 6. MEDIASESSION INTEGRATION & LOCKSCREEN METADATA
       // ─────────────────────────────────────────────────────────────────────────
-      function syncMediaSession(track) {
-        if (!('mediaSession' in navigator) || !track) return;
+      function syncMediaSession(track, forceReassert = false) {
+        if (!('mediaSession' in navigator)) {
+          if (metricMediaSession) metricMediaSession.innerHTML = '<span class="status-dot dot-red"></span>Unsupported';
+          return;
+        }
+        if (!track) return;
 
         try {
           const artworkUrl = track.artwork || '/icon-512.png';
           const resolvedArt = new URL(artworkUrl, window.location.origin).href;
-          const fallbackArt = new URL('/icon-512.png', window.location.origin).href;
+          const fallback512 = new URL('/icon-512.png', window.location.origin).href;
+          const fallback192 = new URL('/icon-192.png', window.location.origin).href;
+
+          // Android Chromium SystemUI Notification requires comprehensive icon sizes
+          const artworkList = [
+            { src: fallback192, sizes: '96x96', type: 'image/png' },
+            { src: fallback192, sizes: '128x128', type: 'image/png' },
+            { src: fallback192, sizes: '192x192', type: 'image/png' },
+            { src: resolvedArt, sizes: '256x256' },
+            { src: resolvedArt, sizes: '384x384' },
+            { src: resolvedArt, sizes: '512x512' },
+            { src: fallback512, sizes: '512x512', type: 'image/png' }
+          ];
 
           navigator.mediaSession.metadata = new MediaMetadata({
             title: track.title || 'Diagnostic Track',
             artist: track.artist || 'Anypod Testbed',
             album: 'Anypod Standalone Diagnostics',
-            artwork: [
-              { src: resolvedArt, sizes: '512x512' },
-              { src: fallbackArt, sizes: '512x512', type: 'image/png' }
-            ]
+            artwork: artworkList
           });
 
-          navigator.mediaSession.playbackState = audio.paused ? 'paused' : 'playing';
+          const pbState = audio.paused ? 'paused' : 'playing';
+          navigator.mediaSession.playbackState = pbState;
 
-          logEvent('mediasession.synced', `Title: "${track.title}", State: ${navigator.mediaSession.playbackState}`);
+          if (metricMediaSession) {
+            metricMediaSession.innerHTML = pbState === 'playing'
+              ? '<span class="status-dot dot-green"></span>Active (Playing)'
+              : '<span class="status-dot dot-amber"></span>Active (Paused)';
+          }
+
+          logEvent('mediasession.synced', `Title: "${track.title}", Artist: "${track.artist}", PlaybackState: ${pbState}, ArtworkCount: ${artworkList.length}, Force: ${forceReassert}`, 'tag-event', 'LOCK');
         } catch (err) {
-          logEvent('mediasession.error', err.message, 'tag-error', 'ERR');
+          if (metricMediaSession) metricMediaSession.innerHTML = '<span class="status-dot dot-red"></span>Error';
+          logEvent('mediasession.error', `${err.name}: ${err.message}`, 'tag-error', 'ERR');
         }
       }
 
@@ -1319,13 +1345,24 @@
       audio.addEventListener('play', () => {
         logEvent('audio.play', 'play() requested');
         updateUIPlayState(true);
-        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+        if ('mediaSession' in navigator) {
+          navigator.mediaSession.playbackState = 'playing';
+          if (metricMediaSession) metricMediaSession.innerHTML = '<span class="status-dot dot-green"></span>Active (Playing)';
+        }
       });
 
       audio.addEventListener('playing', () => {
         const cur = audio.currentTime.toFixed(2);
         logEvent('audio.playing', `Playback active at cur=${cur}s, readyState=${audio.readyState}`);
         updateUIPlayState(true);
+        if ('mediaSession' in navigator) {
+          navigator.mediaSession.playbackState = 'playing';
+          if (metricMediaSession) metricMediaSession.innerHTML = '<span class="status-dot dot-green"></span>Active (Playing)';
+          // Re-assert on actual audio output start so Android OS foreground notification binds properly
+          if (playlist[currentIndex]) {
+            syncMediaSession(playlist[currentIndex], false);
+          }
+        }
       });
 
       audio.addEventListener('pause', () => {
@@ -1336,7 +1373,10 @@
         }
         logEvent('audio.pause', `Paused at cur=${audio.currentTime.toFixed(2)}s`);
         updateUIPlayState(false);
-        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+        if ('mediaSession' in navigator) {
+          navigator.mediaSession.playbackState = 'paused';
+          if (metricMediaSession) metricMediaSession.innerHTML = '<span class="status-dot dot-amber"></span>Active (Paused)';
+        }
       });
 
       audio.addEventListener('waiting', () => {
@@ -1376,11 +1416,61 @@
         advanceToNextTrack('ended');
       });
 
+      // Recovery watchdog for network pipeline errors (Code 2 / PIPELINE_ERROR_READ)
+      let networkErrorRecoveries = 0;
+      let isRecoveringNetwork = false;
+
       audio.addEventListener('error', (e) => {
         const err = audio.error;
         const msg = err ? `Code ${err.code}: ${err.message}` : 'Unknown audio error';
         logEvent('audio.error', msg, 'tag-error', 'ERROR');
         metricState.innerHTML = '<span class="status-dot dot-red"></span>ERROR';
+
+        // Fix 2: Auto-recover transient CDN disconnects / FFmpegDemuxer read errors
+        if (err && err.code === MediaError.MEDIA_ERR_NETWORK && !isRecoveringNetwork) {
+          isRecoveringNetwork = true;
+          networkErrorRecoveries++;
+          const resumePos = Math.max(0, audio.currentTime || 0);
+          const currentSrc = audio.src;
+
+          logEvent('watchdog.recovery', `[Auto-Recovery #${networkErrorRecoveries}] CDN drop at ${resumePos.toFixed(2)}s. Re-binding stream...`, 'tag-wait', 'RECOVER');
+          metricState.innerHTML = '<span class="status-dot dot-amber"></span>RECOVERING';
+
+          setTimeout(() => {
+            if (!currentSrc) {
+              isRecoveringNetwork = false;
+              return;
+            }
+            audio.src = currentSrc;
+            audio.load();
+
+            const onCanPlayResume = () => {
+              audio.removeEventListener('canplay', onCanPlayResume);
+              try {
+                if (resumePos > 0) {
+                  audio.currentTime = resumePos;
+                }
+              } catch (_) {}
+
+              const resumePromise = audio.play();
+              if (resumePromise !== undefined) {
+                resumePromise.then(() => {
+                  isRecoveringNetwork = false;
+                  logEvent('watchdog.success', `Stream successfully recovered at ${resumePos.toFixed(2)}s`, 'tag-event', 'RECOVERED');
+                  updateUIPlayState(true);
+                  syncMediaSession(playlist[currentIndex], true);
+                }).catch(playErr => {
+                  isRecoveringNetwork = false;
+                  logEvent('watchdog.failed', `Auto-play resume failed: ${playErr.name} - ${playErr.message}`, 'tag-error', 'ERR');
+                });
+              } else {
+                isRecoveringNetwork = false;
+              }
+            };
+
+            audio.addEventListener('canplay', onCanPlayResume);
+          }, 600);
+        }
       });
 
       // ─────────────────────────────────────────────────────────────────────────
@@ -1577,10 +1667,12 @@
           `Active Track Title: "${track.title || 'Untitled'}"`,
           `Active Track Artist: "${track.artist || 'Unknown'}"`,
           `Assigned audio.src: ${audio.src || 'none'}`,
+          `MediaSession API: Supported=${'mediaSession' in navigator}, State=${('mediaSession' in navigator) ? navigator.mediaSession.playbackState : 'n/a'}`,
+          `MediaSession Meta: Title="${navigator.mediaSession?.metadata?.title || 'none'}", Artist="${navigator.mediaSession?.metadata?.artist || 'none'}", ArtCount=${navigator.mediaSession?.metadata?.artwork?.length || 0}`,
           `Audio Position: ${cur.toFixed(2)}s / ${dur.toFixed(2)}s (${dur > 0 ? ((cur/dur)*100).toFixed(1) : 0}%)`,
           `Audio States: paused=${audio.paused}, ended=${audio.ended}, readyState=${audio.readyState}, networkState=${audio.networkState}`,
           `Buffered Ranges (${audio.buffered.length}): ${bufferedSummary.join(', ') || 'none'}`,
-          `Stall Count: ${stallEventsCount} | Completed Tracks: ${completedTracksCount}`,
+          `Network Recoveries: ${networkErrorRecoveries} | Buffer Stalls: ${stallEventsCount} | Completed Tracks: ${completedTracksCount}`,
           `Session Elapsed: ${((Date.now() - sessionStartTime)/1000).toFixed(1)}s`,
           '====================================================',
           'CHRONOLOGICAL EVENT LOG:',
