@@ -697,6 +697,8 @@
     ytReady: false,
     activeEngine: 'audio',
     playbackStatus: 'idle',
+    _userIntentionalPause: false,
+    _ytSpuriousPauseRetries: 0,
     timelinePage: 1,
     pageSize: 30,
     activeFeedDetailUrl: null,
@@ -1045,6 +1047,16 @@
           state.playbackStatus = 'paused';
           syncPlaybackButtons();
         });
+      } else if (
+        state.activeEngine === 'youtube' &&
+        !state._userIntentionalPause &&
+        (state.playbackStatus === 'playing' || state.playbackStatus === 'loading') &&
+        state.ytPlayer &&
+        typeof state.ytPlayer.getPlayerState === 'function' &&
+        state.ytPlayer.getPlayerState() !== (window.YT ? YT.PlayerState.PLAYING : 1)
+      ) {
+        logPlayerDiagnostic('youtube.visibility_resume', 'Tab visible again, resuming paused YouTube playback');
+        state.ytPlayer.playVideo();
       }
       // Re-sync MediaSession so lock-screen controls reappear
       if (state.currentEpisode && 'mediaSession' in navigator) {
@@ -1248,6 +1260,9 @@
       `Position: ${cur.toFixed(2)}s / ${dur.toFixed(2)}s`,
       `Buffered Ranges (${bufRanges.length}): ${bufRanges.join(', ') || 'n/a'}`,
       `MediaSession State: ${('mediaSession' in navigator) ? navigator.mediaSession.playbackState : 'unsupported'}`,
+      `MediaSession Meta: ${('mediaSession' in navigator && navigator.mediaSession.metadata) ? `Title="${navigator.mediaSession.metadata.title}", Artist="${navigator.mediaSession.metadata.artist}", ArtworkCount=${navigator.mediaSession.metadata.artwork?.length || 0}` : 'none'}`,
+      `User Intentional Pause: ${Boolean(state._userIntentionalPause)}`,
+      `YT Spurious Pause Retries: ${state._ytSpuriousPauseRetries || 0}`,
       `Queue Length: ${state.queue.length}`,
       '====================================================',
       'CHRONOLOGICAL EVENT LOG (Last 250 entries):',
@@ -1257,6 +1272,7 @@
     ];
     return lines.join('\n');
   }
+
   // Initialises the YouTube IFrame API player inside #yt-player.
   // handleYouTubeStateChange — maps YT.PlayerState to state.playbackStatus.
   // window.onYouTubeIframeAPIReady — global callback required by the API.
@@ -1273,9 +1289,14 @@
       if (event.data === ytBuffering) {
         state.playbackStatus = 'loading';
         syncPlaybackButtons();
+        logPlayerDiagnostic('youtube.buffering', 'YouTube player buffering');
       } else if (event.data === ytPlaying) {
+        state._ytSpuriousPauseRetries = 0;
+        state._userIntentionalPause = false;
         state.playbackStatus = 'playing';
         syncPlaybackButtons();
+        const curTime = (state.ytPlayer && typeof state.ytPlayer.getCurrentTime === 'function') ? (state.ytPlayer.getCurrentTime() || 0) : 0;
+        logPlayerDiagnostic('youtube.playing', `Playback active at cur=${curTime.toFixed(2)}s`);
         if (state.currentEpisode) {
           const needsReassert = state._nowPlayingActiveGuid !== state.currentEpisode.guid;
           if (needsReassert) {
@@ -1286,17 +1307,60 @@
           }
         }
       } else if (event.data === ytPaused) {
+        let cur = 0;
+        let dur = 0;
+        try {
+          if (state.ytPlayer && typeof state.ytPlayer.getCurrentTime === 'function') cur = state.ytPlayer.getCurrentTime() || 0;
+          if (state.ytPlayer && typeof state.ytPlayer.getDuration === 'function') dur = state.ytPlayer.getDuration() || 0;
+        } catch (_) {}
+
+        // 1. Check if pause occurred near the end of video (natural track completion)
+        if (dur > 5 && cur >= Math.max(1, dur - 1.5)) {
+          logPlayerDiagnostic('youtube.ended_near_end', `Near-end pause detected at cur=${cur.toFixed(1)}s/${dur.toFixed(1)}s -> Advancing queue`);
+          state.playbackStatus = 'loading';
+          syncPlaybackButtons();
+          onEpisodeEnded();
+          return;
+        }
+
+        // 2. Spurious background/startup pause check:
+        // If user didn't explicitly pause, and we are either loading, starting up (cur <= 0.5s), or hidden:
+        const isSpurious = !state._userIntentionalPause && (state.playbackStatus === 'loading' || cur <= 0.5 || document.hidden);
+
+        if (isSpurious) {
+          state._ytSpuriousPauseRetries = (state._ytSpuriousPauseRetries || 0) + 1;
+          logPlayerDiagnostic('youtube.spurious_pause', `Ignored background/startup pause at cur=${cur.toFixed(2)}s (retry ${state._ytSpuriousPauseRetries}/5)`);
+
+          if (state._ytSpuriousPauseRetries <= 5) {
+            // Keep playbackStatus as loading so UI and OS MediaSession stay alive
+            state.playbackStatus = 'loading';
+            syncPlaybackButtons();
+
+            const delay = Math.min(1000, 150 * state._ytSpuriousPauseRetries);
+            setTimeout(() => {
+              if (state.activeEngine === 'youtube' && !state._userIntentionalPause && state.ytPlayer && typeof state.ytPlayer.playVideo === 'function') {
+                logPlayerDiagnostic('youtube.retry_play', `Auto-reasserting playVideo() (attempt ${state._ytSpuriousPauseRetries})`);
+                state.ytPlayer.playVideo();
+              }
+            }, delay);
+            return;
+          }
+        }
+
+        // 3. User intentional pause or retry limit exceeded
         state.playbackStatus = 'paused';
         syncPlaybackButtons();
-        logPlayerDiagnostic('youtube.pause', 'YouTube player paused');
+        logPlayerDiagnostic('youtube.pause', `YouTube player paused at pos=${cur.toFixed(2)}s (userIntentional=${Boolean(state._userIntentionalPause)})`);
       } else if (event.data === ytEnded) {
         // Prevent Android OS from dropping background priority during changeovers:
         // Set playbackStatus = 'loading' rather than 'idle' while advancing
+        state._ytSpuriousPauseRetries = 0;
         state.playbackStatus = 'loading';
         syncPlaybackButtons();
         logPlayerDiagnostic('youtube.ended', `Video finished naturally: "${state.currentEpisode?.title || ''}" -> Advancing queue`);
         onEpisodeEnded();
       } else if (event.data === ytCued) {
+        logPlayerDiagnostic('youtube.cued', 'YouTube video cued -> Calling playVideo()');
         // Video is loaded and ready — trigger playback
         if (state.ytPlayer && state.ytPlayer.playVideo) {
           state.ytPlayer.playVideo();
@@ -6480,6 +6544,7 @@
               <button class="feed-link-badge" id="btn-copy-link" title="Copy Podcast Link to Clipboard">Copy Link</button>
               <button class="feed-link-badge" id="btn-share-feed-link" title="Share Podcast">Share Feed</button>
               <button class="feed-link-badge" id="btn-copy-rss" title="Copy RSS Feed URL">Copy RSS</button>
+              <button class="feed-link-badge" id="btn-refresh-feed-detail" title="Fetch latest metadata & tracks from source">↻ Refresh</button>
               <span class="feed-link-badge ${isPartial && !isPaging ? 'feed-sync-resumable' : ''}" id="feed-episodes-badge" style="cursor: ${isPartial && !isPaging ? 'pointer' : 'default'};" title="${isPartial && !isPaging ? 'Click to resume syncing remaining episodes' : isPaging ? 'Sync in progress' : ''}">${badgeText}</span>
               ${isSubbed && isMuted ? `<span class="feed-link-badge feed-muted-badge" style="cursor: default;">Timeline Muted</span>` : ''}
             </div>
@@ -6490,6 +6555,44 @@
       header.querySelector('#btn-feed-back').addEventListener('click', () => {
         navigateBack();
       });
+
+      const refreshFeedBtn = header.querySelector('#btn-refresh-feed-detail');
+      if (refreshFeedBtn) {
+        refreshFeedBtn.addEventListener('click', async () => {
+          showStatus('Refreshing feed metadata & tracks...');
+          refreshFeedBtn.textContent = '↻ Syncing...';
+          try {
+            const incoming = [];
+            const updatedMeta = { ...state.feedMetadata };
+            await fetchSingleFeed(feedUrl, incoming, updatedMeta);
+            if (incoming.length > 0) {
+              const epMap = new Map();
+              incoming.forEach(ep => { if (ep && ep.guid) epMap.set(ep.guid, ep); });
+              state.allEpisodes.forEach(ep => {
+                if (ep && ep.guid && !epMap.has(ep.guid) && state.feeds.includes(ep.feedUrl)) {
+                  epMap.set(ep.guid, ep);
+                }
+              });
+              state.allEpisodes = Array.from(epMap.values());
+              state.feedMetadata = updatedMeta;
+              saveCacheToStorage();
+              processAndSortEpisodes();
+              header.dataset.feedUrl = '';
+              renderFeedDetail(feedUrl);
+              renderTimeline();
+              showStatus('Feed updated with latest metadata!');
+            } else {
+              showStatus('Feed checked: up to date.');
+            }
+          } catch (err) {
+            console.error('[Feed Refresh Error]:', err);
+            showStatus('Failed to refresh feed.');
+          } finally {
+            if (refreshFeedBtn) refreshFeedBtn.textContent = '↻ Refresh';
+            setTimeout(hideStatus, 2000);
+          }
+        });
+      }
 
       const playAllBtn = header.querySelector('#btn-feed-play-all');
       if (playAllBtn) {
@@ -6737,6 +6840,27 @@
       // If track is > 5s and currentTime is within 0.75s of the end (or past it):
       if (dur > 5 && cur >= Math.max(1, dur - 0.75)) {
         triggerEpisodeEnd('watchdog: near-end');
+      }
+    }
+
+    function checkYouTubeEndWatchdog() {
+      if (state.activeEngine !== 'youtube' || !state.ytPlayer || !state.currentEpisode) return;
+      if (state._episodeEndedTriggered) return;
+      if (state.playbackStatus !== 'playing') return;
+
+      let cur = 0;
+      let dur = 0;
+      try {
+        if (typeof state.ytPlayer.getCurrentTime === 'function') cur = state.ytPlayer.getCurrentTime() || 0;
+        if (typeof state.ytPlayer.getDuration === 'function') dur = state.ytPlayer.getDuration() || 0;
+      } catch (_) {}
+
+      if (dur > 5 && cur >= Math.max(1, dur - 0.75)) {
+        state._episodeEndedTriggered = true;
+        logPlayerDiagnostic('youtube.watchdog_ended', `Watchdog detected track end at cur=${cur.toFixed(1)}s/${dur.toFixed(1)}s -> Advancing queue`);
+        state.playbackStatus = 'loading';
+        syncPlaybackButtons();
+        onEpisodeEnded();
       }
     }
 
@@ -7125,6 +7249,7 @@
       } else if (state.activeEngine === 'youtube' && isEnginePlaying() && state.ytPlayer && state.ytPlayer.getCurrentTime) {
         updateProgress();
         updateDuration();
+        checkYouTubeEndWatchdog();
       }
     }, 1000);
 
@@ -7232,6 +7357,8 @@
   }
 
   function playCurrentEngine() {
+    state._userIntentionalPause = false;
+    state._ytSpuriousPauseRetries = 0;
     if (state.activeEngine === 'audio' && elements.audio) {
       // 1. Resume suspended Web Audio context if waking up from sleep
       if (typeof liveAudioCtx !== 'undefined' && liveAudioCtx && liveAudioCtx.state === 'suspended') {
@@ -7265,6 +7392,7 @@
   }
 
   function pauseCurrentEngine() {
+    state._userIntentionalPause = true;
     if (state.activeEngine === 'audio') {
       elements.audio.pause();
     } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
@@ -7292,6 +7420,8 @@
   }
 
   function playEpisode(episode, overrideStartTime, context = null) {
+    state._userIntentionalPause = false;
+    state._ytSpuriousPauseRetries = 0;
     state._episodeEndedTriggered = false;
     state._nowPlayingActiveGuid = null;
     state.currentEpisode = episode;
@@ -8031,6 +8161,7 @@
           album: artistStr,
           artwork: artworkList
         });
+        logPlayerDiagnostic('mediasession.synced', `Title: "${titleStr}", Artist: "${artistStr}", ArtCount: ${artworkList.length}`);
       }
 
       // Maintain playing state during transitions to keep lockscreen alive
@@ -9723,6 +9854,22 @@ function setPlayerCollapsed(collapsed, save = true) {
             clearAllDownloads();
           }
         });
+      });
+    }
+
+    const btnRefreshAllFeeds = document.getElementById('btn-refresh-all-feeds');
+    if (btnRefreshAllFeeds) {
+      btnRefreshAllFeeds.addEventListener('click', async () => {
+        showStatus('Updating all feeds & metadata from source...');
+        try {
+          await refreshAllFeeds();
+          showStatus('All feeds & metadata updated successfully!');
+        } catch (err) {
+          console.error('[Refresh All Feeds Error]:', err);
+          showStatus('Failed to update some feeds.');
+        } finally {
+          setTimeout(hideStatus, 2500);
+        }
       });
     }
 

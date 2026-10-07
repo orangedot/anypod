@@ -690,6 +690,8 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
         if (!isNaN(parsed)) timestamp = parsed;
       }
 
+      const entryAuthor = getTagContent(entryXml, 'name') || author;
+
       if (audioUrl) {
         items.push({
           guid: epGuid,
@@ -701,7 +703,8 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
           audioUrl: audioUrl,
           duration: '',
           artwork: epThumb || artwork,
-          podcastTitle: title,
+          podcastTitle: entryAuthor || title,
+          author: entryAuthor || author,
           feedUrl: originalUrl,
           isYouTube: true,
           videoId: epVideoId
