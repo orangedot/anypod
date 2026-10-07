@@ -1297,9 +1297,6 @@
         syncPlaybackButtons();
         const curTime = (state.ytPlayer && typeof state.ytPlayer.getCurrentTime === 'function') ? (state.ytPlayer.getCurrentTime() || 0) : 0;
         logPlayerDiagnostic('youtube.playing', `Playback active at cur=${curTime.toFixed(2)}s`);
-        if (elements.audio && elements.audio.src.includes('/silent.mp3') && elements.audio.paused) {
-          elements.audio.play().catch(() => {});
-        }
         if (state.currentEpisode) {
           const needsReassert = state._nowPlayingActiveGuid !== state.currentEpisode.guid;
           if (needsReassert) {
@@ -1326,36 +1323,24 @@
           return;
         }
 
-        // 2. Spurious background/startup pause check:
-        // If user didn't explicitly pause, and we are either loading, starting up (cur <= 0.5s), or hidden:
-        const isSpurious = !state._userIntentionalPause && (state.playbackStatus === 'loading' || cur <= 0.5 || document.hidden);
+        // 2. Only guard the initial track transition (first 0.3s after changeover)
+        // Never retry more than once per track, and never loop if track is already in progress
+        const isStartupSpurious = !state._userIntentionalPause && state.playbackStatus === 'loading' && cur <= 0.3;
 
-        if (isSpurious) {
-          state._ytSpuriousPauseRetries = (state._ytSpuriousPauseRetries || 0) + 1;
-          logPlayerDiagnostic('youtube.spurious_pause', `Ignored background/startup pause at cur=${cur.toFixed(2)}s (retry ${state._ytSpuriousPauseRetries}/5)`);
-
-          if (state._ytSpuriousPauseRetries <= 5) {
-            // Keep playbackStatus as loading so UI and OS MediaSession stay alive
-            state.playbackStatus = 'loading';
-            syncPlaybackButtons();
-
-            const delay = Math.min(1000, 150 * state._ytSpuriousPauseRetries);
-            setTimeout(() => {
-              if (state.activeEngine === 'youtube' && !state._userIntentionalPause && state.ytPlayer && typeof state.ytPlayer.playVideo === 'function') {
-                logPlayerDiagnostic('youtube.retry_play', `Auto-reasserting playVideo() (attempt ${state._ytSpuriousPauseRetries})`);
-                state.ytPlayer.playVideo();
-              }
-            }, delay);
-            return;
-          }
+        if (isStartupSpurious && (state._ytSpuriousPauseRetries || 0) < 1) {
+          state._ytSpuriousPauseRetries = 1;
+          logPlayerDiagnostic('youtube.spurious_pause', `Ignored transition pause at cur=${cur.toFixed(2)}s -> Resuming once`);
+          setTimeout(() => {
+            if (state.activeEngine === 'youtube' && !state._userIntentionalPause && state.ytPlayer && typeof state.ytPlayer.playVideo === 'function') {
+              state.ytPlayer.playVideo();
+            }
+          }, 300);
+          return;
         }
 
-        // 3. User intentional pause or retry limit exceeded
+        // 3. User intentional pause or normal pause
         state.playbackStatus = 'paused';
         syncPlaybackButtons();
-        if (elements.audio && elements.audio.src.includes('/silent.mp3') && !elements.audio.paused) {
-          elements.audio.pause();
-        }
         logPlayerDiagnostic('youtube.pause', `YouTube player paused at pos=${cur.toFixed(2)}s (userIntentional=${Boolean(state._userIntentionalPause)})`);
       } else if (event.data === ytEnded) {
         // Prevent Android OS from dropping background priority during changeovers:
@@ -7392,13 +7377,8 @@
           }
         });
       }
-    } else if (state.activeEngine === 'youtube') {
-      if (elements.audio && elements.audio.src.includes('/silent.mp3') && elements.audio.paused) {
-        elements.audio.play().catch(() => {});
-      }
-      if (state.ytPlayer && typeof state.ytPlayer.playVideo === 'function') {
-        state.ytPlayer.playVideo();
-      }
+    } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
+      state.ytPlayer.playVideo();
     }
   }
 
@@ -7406,13 +7386,8 @@
     state._userIntentionalPause = true;
     if (state.activeEngine === 'audio') {
       elements.audio.pause();
-    } else if (state.activeEngine === 'youtube') {
-      if (elements.audio && elements.audio.src.includes('/silent.mp3') && !elements.audio.paused) {
-        elements.audio.pause();
-      }
-      if (state.ytPlayer && typeof state.ytPlayer.pauseVideo === 'function') {
-        state.ytPlayer.pauseVideo();
-      }
+    } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
+      state.ytPlayer.pauseVideo();
     }
   }
 
@@ -7491,14 +7466,10 @@
     }
 
     if (episode.isYouTube || episode.videoId || episode.playlistId) {
-      // 1. Maintain a silent audio anchor on elements.audio so Android lockscreen MediaSession stays pinned
+      // 1. Stop native audio element completely so YouTube iframe has exclusive audio focus
       if (elements.audio) {
-        if (!elements.audio.src.includes('/silent.mp3')) {
-          elements.audio.src = '/silent.mp3';
-          elements.audio.loop = true;
-          elements.audio.load();
-        }
-        elements.audio.play().catch(() => {});
+        elements.audio.pause();
+        elements.audio.removeAttribute('src');
       }
 
       state.activeEngine = 'youtube';
