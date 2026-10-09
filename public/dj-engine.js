@@ -209,12 +209,15 @@
         if (deck.engine === 'audio') {
           const rawUrl = deck.meta?.url;
           console.warn(`[dj-engine] Audio error on deck ${id}:`, audio.error?.message, audio.src);
-          // If direct CDN stream failed with format or CORS error, automatically fallback to audio-proxy:
-          if (rawUrl && !audio.src.includes('/api/audio-proxy')) {
+          // If direct CDN stream failed with format or CORS error, try audio-proxy fallback once:
+          if (rawUrl && !audio.src.includes('/api/audio-proxy') && !deck.hasTriedProxy) {
+            deck.hasTriedProxy = true;
             console.log(`[dj-engine] Deck ${id} switching to /api/audio-proxy fallback`);
             audio.src = '/api/audio-proxy?url=' + encodeURIComponent(rawUrl);
             audio.play().catch(() => {});
+            return;
           }
+          console.warn(`[dj-engine] Deck ${id} stream unplayable.`);
           this._emit('error', { deck: id });
         }
       });
@@ -226,10 +229,10 @@
     _emit(evt, data) { (this.listeners[evt] || []).forEach((fn) => fn(data)); }
 
     _resolveUrl(url) {
+      if (!url) return '';
       try {
         const u = new URL(url, location.href);
-        if (u.origin === location.origin || u.protocol === 'blob:') return u.href;
-        return '/api/audio-proxy?url=' + encodeURIComponent(u.href);
+        return u.href;
       } catch (_) { return url; }
     }
 
@@ -241,6 +244,7 @@
       const d = this.decks[deckId];
       if (!d) return;
 
+      d.hasTriedProxy = false;
       const rawUrl = track.audioUrl || track.url || '';
       const ytId = track.videoId || extractYouTubeId(rawUrl);
       const isYt = !!track.isYouTube || !!ytId;
@@ -276,16 +280,6 @@
         this.activeEngines[deckId] = 'audio';
         d.audio.pause();
         d.audio.src = this._resolveUrl(rawUrl);
-
-        // Fallback: If proxy fails (404/502), fall back to direct stream URL
-        const onProxyError = () => {
-          d.audio.removeEventListener('error', onProxyError);
-          if (d.audio.src && d.audio.src.includes('/api/audio-proxy') && rawUrl) {
-            console.warn(`[dj-engine] Audio proxy failed on deck ${deckId}, falling back to direct URL:`, rawUrl);
-            d.audio.src = rawUrl;
-          }
-        };
-        d.audio.addEventListener('error', onProxyError, { once: true });
 
         // Offline Cache: Check Cache API (anypod-audio-v1) for downloaded audio files
         if ('caches' in window && rawUrl) {

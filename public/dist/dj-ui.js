@@ -20,16 +20,94 @@
     feedMetadata: {},
     queue: [],
     favorites: [],
-    liveAppTrack: null
+    liveAppTrack: null,
+    collapsedGroups: new Set()
   };
+
+  // Procedural WAV synthesizer for 100% offline, un-expirable sample decks
+  function createSynthBeatBlobUrl(bpm = 128, style = 'house') {
+    try {
+      const sampleRate = 22050;
+      const beatSec = 60 / bpm;
+      const totalBars = 4;
+      const totalSec = beatSec * 4 * totalBars;
+      const totalSamples = Math.floor(sampleRate * totalSec);
+      const buffer = new Int16Array(totalSamples);
+
+      for (let i = 0; i < totalSamples; i++) {
+        const t = i / sampleRate;
+        const beatIndex = (t / beatSec) % 4;
+        const beatFraction = beatIndex % 1;
+        let sample = 0;
+
+        // Kick drum on every beat (4/4)
+        if (beatFraction < 0.25) {
+          const kickT = beatFraction * beatSec;
+          const kickFreq = 150 * Math.exp(-kickT * 32);
+          const kickEnv = Math.exp(-kickT * 18);
+          sample += Math.sin(2 * Math.PI * kickFreq * kickT) * kickEnv * 0.7;
+        }
+
+        // Snare / clap on beats 2 & 4
+        const beatNum = Math.floor(beatIndex);
+        if ((beatNum === 1 || beatNum === 3) && beatFraction < 0.3) {
+          const snareT = beatFraction * beatSec;
+          const noise = (Math.random() * 2 - 1) * Math.exp(-snareT * 22);
+          sample += noise * 0.4;
+        }
+
+        // Hi-hat on offbeats
+        const offbeat = ((beatIndex + 0.5) % 1);
+        if (offbeat < 0.15) {
+          const hatT = offbeat * beatSec;
+          sample += (Math.random() * 2 - 1) * Math.exp(-hatT * 40) * 0.25;
+        }
+
+        // Bassline pulse
+        if (style === 'acid') {
+          const noteFreq = [55, 65.4, 73.4, 82.4][Math.floor(t / (beatSec / 2)) % 4];
+          const bassEnv = Math.exp(-(beatFraction % 0.5) * 8);
+          sample += Math.sin(2 * Math.PI * noteFreq * t) * bassEnv * 0.35;
+        }
+
+        buffer[i] = Math.max(-32767, Math.min(32767, Math.floor(sample * 28000)));
+      }
+
+      const wavBuffer = new ArrayBuffer(44 + buffer.byteLength);
+      const view = new DataView(wavBuffer);
+      const writeStr = (offset, str) => {
+        for (let j = 0; j < str.length; j++) view.setUint8(offset + j, str.charCodeAt(j));
+      };
+
+      writeStr(0, 'RIFF');
+      view.setUint32(4, 36 + buffer.byteLength, true);
+      writeStr(8, 'WAVE');
+      writeStr(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true); // PCM
+      view.setUint16(22, 1, true); // Mono
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeStr(36, 'data');
+      view.setUint32(40, buffer.byteLength, true);
+
+      new Uint8Array(wavBuffer, 44).set(new Uint8Array(buffer.buffer));
+      const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+      return URL.createObjectURL(blob);
+    } catch (_) {
+      return '';
+    }
+  }
 
   const SAMPLE_TRACKS = [
     {
       guid: 'sample-909-kit',
       title: '909 Deep Tech Beat (128 BPM)',
-      podcastTitle: 'DJ Anypod Tools',
+      podcastTitle: 'DJ Beats & Loops',
       artwork: 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=160&auto=format&fit=crop&q=80',
-      audioUrl: 'https://cdn.freesound.org/previews/381/381382_1676145-lq.mp3',
+      audioUrl: createSynthBeatBlobUrl(128, 'house'),
       duration: 32,
       bpm: 128,
       key: '8m',
@@ -39,9 +117,9 @@
     {
       guid: 'sample-funk-groove',
       title: 'Funk Breakbeat & Bassline',
-      podcastTitle: 'DJ Anypod Tools',
+      podcastTitle: 'DJ Beats & Loops',
       artwork: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=160&auto=format&fit=crop&q=80',
-      audioUrl: 'https://cdn.freesound.org/previews/242/242857_4284968-lq.mp3',
+      audioUrl: createSynthBeatBlobUrl(124, 'house'),
       duration: 28,
       bpm: 124,
       key: '10m',
@@ -51,9 +129,9 @@
     {
       guid: 'sample-acid-synth',
       title: 'Acid Resonance Bassline (130 BPM)',
-      podcastTitle: 'DJ Anypod Tools',
+      podcastTitle: 'DJ Beats & Loops',
       artwork: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=160&auto=format&fit=crop&q=80',
-      audioUrl: 'https://cdn.freesound.org/previews/450/450621_649468-lq.mp3',
+      audioUrl: createSynthBeatBlobUrl(130, 'acid'),
       duration: 30,
       bpm: 130,
       key: '6m',
@@ -62,10 +140,10 @@
     },
     {
       guid: 'sample-vocal-drop',
-      title: 'Hypnotic Vocal FX Stems',
-      podcastTitle: 'DJ Anypod Tools',
+      title: 'Hypnotic Deep Pulse (126 BPM)',
+      podcastTitle: 'DJ Beats & Loops',
       artwork: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=160&auto=format&fit=crop&q=80',
-      audioUrl: 'https://cdn.freesound.org/previews/173/173859_321967-lq.mp3',
+      audioUrl: createSynthBeatBlobUrl(126, 'acid'),
       duration: 20,
       bpm: 126,
       key: '11m',
@@ -136,7 +214,7 @@
     syncMissingFeedsPromise = (async () => {
       // 1. Check D1 /api/sync/feeds to ensure all subscriptions are discovered
       try {
-        const syncRes = await fetch('/api/sync/feeds');
+        const syncRes = await fetch('/api/sync/feeds', { credentials: 'include' });
         if (syncRes.ok) {
           const syncData = await syncRes.json();
           if (Array.isArray(syncData.feeds)) {
@@ -173,34 +251,74 @@
         if (feedsToFetch.length > 0) {
           let hasNewTracks = false;
           const newlyFetched = [];
+          const fetchedUrls = new Set();
 
-          await Promise.allSettled(feedsToFetch.slice(0, 15).map(async (feedUrl) => {
-            try {
-              const res = await fetch(`/api/feed?url=${encodeURIComponent(feedUrl)}`);
-              if (res.ok) {
-                const data = await res.json();
-                if (Array.isArray(data.episodes) && data.episodes.length > 0) {
-                  const isYt = !!(data.isYouTube || data.isYouTubePlaylist || feedUrl.includes('youtube.com') || feedUrl.includes('youtu.be') || feedUrl.includes('list='));
-                  if (data.title && !state.feedMetadata[feedUrl]) {
-                    state.feedMetadata[feedUrl] = {
-                      title: data.title,
-                      artwork: data.artwork,
-                      isYouTube: isYt
-                    };
-                    localStorage.setItem('anypod_cached_metadata', JSON.stringify(state.feedMetadata));
+          // Try batch POST fetch first for maximum speed
+          try {
+            const batchRes = await fetch('/api/feed', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ urls: feedsToFetch.slice(0, 20) })
+            });
+            if (batchRes.ok) {
+              const batchData = await batchRes.json();
+              if (Array.isArray(batchData.feeds)) {
+                batchData.feeds.forEach(feedData => {
+                  const feedUrl = feedData.feedUrl || '';
+                  if (feedUrl) fetchedUrls.add(feedUrl);
+                  if (Array.isArray(feedData.episodes) && feedData.episodes.length > 0) {
+                    const isYt = !!(feedData.isYouTube || feedData.isYouTubePlaylist || feedUrl.includes('youtube.com') || feedUrl.includes('youtu.be') || feedUrl.includes('list='));
+                    if (feedData.title && feedUrl && !state.feedMetadata[feedUrl]) {
+                      state.feedMetadata[feedUrl] = {
+                        title: feedData.title,
+                        artwork: feedData.artwork,
+                        isYouTube: isYt
+                      };
+                    }
+                    feedData.episodes.forEach(ep => {
+                      if (feedUrl) ep.feedUrl = feedUrl;
+                      if (isYt) ep.isYouTube = true;
+                      if (feedData.title && !ep.podcastTitle) ep.podcastTitle = feedData.title;
+                      if (feedData.artwork && !ep.artwork) ep.artwork = feedData.artwork;
+                      newlyFetched.push(ep);
+                      hasNewTracks = true;
+                    });
                   }
-                  data.episodes.forEach(ep => {
-                    ep.feedUrl = feedUrl;
-                    if (isYt) ep.isYouTube = true;
-                    if (data.title && !ep.podcastTitle) ep.podcastTitle = data.title;
-                    if (data.artwork && !ep.artwork) ep.artwork = data.artwork;
-                    newlyFetched.push(ep);
-                    hasNewTracks = true;
-                  });
-                }
+                });
               }
-            } catch (_) {}
-          }));
+            }
+          } catch (_) {}
+
+          // Fallback fetch for any remaining feeds not covered in batch
+          const remainingFeeds = feedsToFetch.filter(u => !fetchedUrls.has(u)).slice(0, 15);
+          if (remainingFeeds.length > 0) {
+            await Promise.allSettled(remainingFeeds.map(async (feedUrl) => {
+              try {
+                const res = await fetch(`/api/feed?url=${encodeURIComponent(feedUrl)}`);
+                if (res.ok) {
+                  const data = await res.json();
+                  if (Array.isArray(data.episodes) && data.episodes.length > 0) {
+                    const isYt = !!(data.isYouTube || data.isYouTubePlaylist || feedUrl.includes('youtube.com') || feedUrl.includes('youtu.be') || feedUrl.includes('list='));
+                    if (data.title && !state.feedMetadata[feedUrl]) {
+                      state.feedMetadata[feedUrl] = {
+                        title: data.title,
+                        artwork: data.artwork,
+                        isYouTube: isYt
+                      };
+                    }
+                    data.episodes.forEach(ep => {
+                      ep.feedUrl = feedUrl;
+                      if (isYt) ep.isYouTube = true;
+                      if (data.title && !ep.podcastTitle) ep.podcastTitle = data.title;
+                      if (data.artwork && !ep.artwork) ep.artwork = data.artwork;
+                      newlyFetched.push(ep);
+                      hasNewTracks = true;
+                    });
+                  }
+                }
+              } catch (_) {}
+            }));
+          }
 
           if (hasNewTracks) {
             try {
@@ -438,56 +556,122 @@
       return;
     }
 
+    // Group tracks by Feed / Playlist Folder
+    const groupMap = new Map();
+    list.forEach(track => {
+      const gName = track.podcastTitle || (track.isYouTube ? 'YouTube Playlist' : 'Podcast');
+      if (!groupMap.has(gName)) {
+        groupMap.set(gName, {
+          name: gName,
+          isYouTube: track.isYouTube,
+          isSample: track.isSample,
+          artwork: track.artwork || (state.feedMetadata[track.feedUrl]?.artwork) || '/icon-192.png',
+          tracks: []
+        });
+      }
+      groupMap.get(gName).tracks.push(track);
+    });
+
+    const isSearching = !!state.searchQuery;
+    const allGroupIds = Array.from(groupMap.keys()).map(name => 'grp_' + encodeURIComponent(name).replace(/[^a-zA-Z0-9_]/g, '_'));
+    const isAllCollapsed = allGroupIds.length > 0 && allGroupIds.every(id => state.collapsedGroups.has(id));
+
+    const btnToggleFolders = document.getElementById('btn-toggle-folders');
+    if (btnToggleFolders) {
+      btnToggleFolders.textContent = isAllCollapsed ? '📂 Expand All' : '📁 Collapse All';
+    }
+
     const fragment = document.createDocumentFragment();
 
-    list.forEach((track, idx) => {
-      const tr = document.createElement('tr');
-      tr.className = 'track-row';
-      const isLoadedA = state.loadedDeckA && state.loadedDeckA.guid === track.guid;
-      const isLoadedB = state.loadedDeckB && state.loadedDeckB.guid === track.guid;
-      if (isLoadedA) tr.classList.add('is-loaded-a');
-      if (isLoadedB) tr.classList.add('is-loaded-b');
+    groupMap.forEach((group) => {
+      const groupId = 'grp_' + encodeURIComponent(group.name).replace(/[^a-zA-Z0-9_]/g, '_');
+      const isCollapsed = !isSearching && state.collapsedGroups.has(groupId);
 
-      let deckBadgeHtml = '-';
-      if (isLoadedA) deckBadgeHtml = '<span class="deck-loaded-badge deck-a">A</span>';
-      else if (isLoadedB) deckBadgeHtml = '<span class="deck-loaded-badge deck-b">B</span>';
+      // Render Folder Header Row
+      const headerTr = document.createElement('tr');
+      headerTr.className = `folder-header-row ${isCollapsed ? 'is-collapsed' : ''}`;
+      headerTr.dataset.groupId = groupId;
 
-      const fmtBadge = track.isYouTube
-        ? '<span class="fmt-badge yt">YouTube</span>'
-        : '<span class="fmt-badge audio">Audio</span>';
+      const typeBadge = group.isYouTube
+        ? '<span class="folder-type-tag yt">YouTube</span>'
+        : (group.isSample ? '<span class="folder-type-tag sample">Sample</span>' : '<span class="folder-type-tag podcast">Feed</span>');
 
-      tr.innerHTML = `
-        <td class="td-num">${idx + 1}</td>
-        <td class="td-deck">${deckBadgeHtml}</td>
-        <td class="td-art"><img src="${escapeHtml(track.artwork || '/icon-192.png')}" class="track-thumb" alt="" loading="lazy"></td>
-        <td class="td-title" title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</td>
-        <td class="td-artist" title="${escapeHtml(track.podcastTitle)}">${escapeHtml(track.podcastTitle)}</td>
-        <td class="td-bpm">${track.bpm ? track.bpm.toFixed(1) : '126.0'}</td>
-        <td class="td-key">${escapeHtml(track.key || '8m')}</td>
-        <td class="td-time">${formatDuration(track.duration)}</td>
-        <td class="td-fmt">${fmtBadge}</td>
-        <td class="td-actions">
-          <div class="load-btn-group">
-            <button type="button" class="btn-load btn-load-a" data-act="load-a">◄ LOAD A</button>
-            <button type="button" class="btn-load btn-load-b" data-act="load-b">LOAD B ►</button>
+      headerTr.innerHTML = `
+        <td colspan="10" class="folder-header-cell">
+          <div class="folder-header-content">
+            <span class="folder-toggle-icon">${isCollapsed ? '▶' : '▼'}</span>
+            <img src="${escapeHtml(group.artwork)}" class="folder-artwork" alt="" loading="lazy">
+            <span class="folder-name">${escapeHtml(group.name)}</span>
+            ${typeBadge}
+            <span class="folder-count-badge">${group.tracks.length} track${group.tracks.length === 1 ? '' : 's'}</span>
           </div>
         </td>
       `;
 
-      // Event Listeners for Load
-      tr.querySelector('[data-act="load-a"]').addEventListener('click', (e) => {
+      headerTr.addEventListener('click', (e) => {
         e.stopPropagation();
-        loadTrackIntoDeck('A', track);
-      });
-      tr.querySelector('[data-act="load-b"]').addEventListener('click', (e) => {
-        e.stopPropagation();
-        loadTrackIntoDeck('B', track);
-      });
-      tr.addEventListener('dblclick', () => {
-        loadTrackIntoDeck('A', track);
+        if (state.collapsedGroups.has(groupId)) {
+          state.collapsedGroups.delete(groupId);
+        } else {
+          state.collapsedGroups.add(groupId);
+        }
+        filterAndRenderTable();
       });
 
-      fragment.appendChild(tr);
+      fragment.appendChild(headerTr);
+
+      // Render tracks belonging to this folder if not collapsed
+      if (!isCollapsed) {
+        group.tracks.forEach((track, idx) => {
+          const tr = document.createElement('tr');
+          tr.className = 'track-row';
+          const isLoadedA = state.loadedDeckA && state.loadedDeckA.guid === track.guid;
+          const isLoadedB = state.loadedDeckB && state.loadedDeckB.guid === track.guid;
+          if (isLoadedA) tr.classList.add('is-loaded-a');
+          if (isLoadedB) tr.classList.add('is-loaded-b');
+
+          let deckBadgeHtml = '-';
+          if (isLoadedA) deckBadgeHtml = '<span class="deck-loaded-badge deck-a">A</span>';
+          else if (isLoadedB) deckBadgeHtml = '<span class="deck-loaded-badge deck-b">B</span>';
+
+          const fmtBadge = track.isYouTube
+            ? '<span class="fmt-badge yt">YouTube</span>'
+            : '<span class="fmt-badge audio">Audio</span>';
+
+          tr.innerHTML = `
+            <td class="td-num">${idx + 1}</td>
+            <td class="td-deck">${deckBadgeHtml}</td>
+            <td class="td-art"><img src="${escapeHtml(track.artwork || '/icon-192.png')}" class="track-thumb" alt="" loading="lazy"></td>
+            <td class="td-title" title="${escapeHtml(track.title)}">${escapeHtml(track.title)}</td>
+            <td class="td-artist" title="${escapeHtml(track.podcastTitle)}">${escapeHtml(track.podcastTitle)}</td>
+            <td class="td-bpm">${track.bpm ? track.bpm.toFixed(1) : '126.0'}</td>
+            <td class="td-key">${escapeHtml(track.key || '8m')}</td>
+            <td class="td-time">${formatDuration(track.duration)}</td>
+            <td class="td-fmt">${fmtBadge}</td>
+            <td class="td-actions">
+              <div class="load-btn-group">
+                <button type="button" class="btn-load btn-load-a" data-act="load-a">◄ LOAD A</button>
+                <button type="button" class="btn-load btn-load-b" data-act="load-b">LOAD B ►</button>
+              </div>
+            </td>
+          `;
+
+          // Event Listeners for Load
+          tr.querySelector('[data-act="load-a"]').addEventListener('click', (e) => {
+            e.stopPropagation();
+            loadTrackIntoDeck('A', track);
+          });
+          tr.querySelector('[data-act="load-b"]').addEventListener('click', (e) => {
+            e.stopPropagation();
+            loadTrackIntoDeck('B', track);
+          });
+          tr.addEventListener('dblclick', () => {
+            loadTrackIntoDeck('A', track);
+          });
+
+          fragment.appendChild(tr);
+        });
+      }
     });
 
     tbody.innerHTML = '';
@@ -1000,6 +1184,22 @@
       });
     }
 
+    // Toggle All Folders Button
+    const btnToggleFolders = document.getElementById('btn-toggle-folders');
+    if (btnToggleFolders) {
+      btnToggleFolders.addEventListener('click', () => {
+        const groupHeaders = document.querySelectorAll('.folder-header-row');
+        const ids = Array.from(groupHeaders).map(h => h.dataset.groupId).filter(Boolean);
+        const isAllCollapsed = ids.length > 0 && ids.every(id => state.collapsedGroups.has(id));
+        if (isAllCollapsed) {
+          state.collapsedGroups.clear();
+        } else {
+          ids.forEach(id => state.collapsedGroups.add(id));
+        }
+        filterAndRenderTable();
+      });
+    }
+
     // Quick Add Form (YouTube Playlist or RSS Feed)
     const addForm = document.getElementById('form-quick-add');
     const addInput = document.getElementById('input-add-url');
@@ -1115,6 +1315,11 @@
       iframe.src = `${bridgeOrigin}/storage-bridge.html`;
       iframe.style.display = 'none';
       iframe.title = 'Storage Bridge';
+      iframe.addEventListener('load', () => {
+        try {
+          iframe.contentWindow?.postMessage({ type: 'ANYPOD_STORAGE_REQUEST' }, '*');
+        } catch (_) {}
+      });
       document.body.appendChild(iframe);
 
       window.addEventListener('message', (event) => {

@@ -983,6 +983,106 @@ html, body {
 .th-fmt { width: 70px; text-align: center; }
 .th-actions { width: 140px; text-align: right; padding-right: 12px; }
 
+.btn-toggle-folders {
+  background: #1c1c28;
+  color: #94a3b8;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: inherit;
+  font-weight: 600;
+  padding: 3px 8px;
+  cursor: pointer;
+  margin-right: 8px;
+  transition: all 0.15s ease;
+}
+.btn-toggle-folders:hover {
+  background: #272738;
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Feed & Playlist Folder Group Row */
+.folder-header-row {
+  background: #151522;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+.folder-header-row:hover {
+  background: #1c1c2e;
+}
+.folder-header-cell {
+  padding: 6px 10px !important;
+  color: #fff;
+}
+.folder-header-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.folder-toggle-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-size: 9px;
+  color: var(--accent);
+  transition: transform 0.15s ease;
+}
+.folder-header-row.is-collapsed .folder-toggle-icon {
+  transform: rotate(-90deg);
+}
+.folder-artwork {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  object-fit: cover;
+  background: #252538;
+  display: block;
+}
+.folder-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #f1f5f9;
+  letter-spacing: 0.02em;
+}
+.folder-count-badge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.folder-type-tag {
+  font-size: 8px;
+  text-transform: uppercase;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 2px;
+  letter-spacing: 0.05em;
+}
+.folder-type-tag.yt {
+  background: rgba(255, 59, 92, 0.2);
+  color: #ff3b5c;
+  border: 1px solid rgba(255, 59, 92, 0.3);
+}
+.folder-type-tag.podcast {
+  background: rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+.folder-type-tag.sample {
+  background: rgba(0, 210, 255, 0.2);
+  color: #00d2ff;
+  border: 1px solid rgba(0, 210, 255, 0.3);
+}
+
 .track-row {
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
   transition: background 0.1s ease;
