@@ -2557,23 +2557,41 @@
     const queuedGuids = new Set((state.queue || []).map(ep => ep.guid));
     queuedGuids.add(currentGuid);
 
-    let candidates = [];
+    const isCurrentYouTube = Boolean(state.currentEpisode.isYouTube || state.currentEpisode.videoId || state.currentEpisode.playlistId || state.activeEngine === 'youtube');
+    const isBackground = Boolean(document.hidden || !state.isTabActive);
 
-    // 0. Shuffle Mode: Random selection from current playback context or global pool
+    // Engine Compatibility & Background Safety Guard:
+    // 1. In background (screen locked / pocket), NEVER auto-queue YouTube videos because mobile browsers strictly block iframe autoplay without direct user interaction.
+    // 2. If playing native audio, keep autoplaying native audio (never jump unexpectedly to a YouTube iframe).
+    // 3. If playing YouTube, keep autoplaying YouTube items.
+    const isCompatible = (ep) => {
+      if (!ep || !ep.guid || queuedGuids.has(ep.guid)) return false;
+      const isYt = Boolean(ep.isYouTube || ep.videoId || ep.playlistId);
+      if (isBackground && isYt) return false;
+      if (!isCurrentYouTube && isYt) return false;
+      if (isCurrentYouTube && !isYt) return false;
+      return true;
+    };
+
+    // 0. Shuffle Mode: Random selection from current playback context or pool
     if (state.isShuffle) {
       let pool = [];
       if (state.playbackContext && Array.isArray(state.playbackContext.items) && state.playbackContext.items.length > 0) {
-        pool = state.playbackContext.items.filter(ep => !queuedGuids.has(ep.guid));
-      } else if (state.filteredEpisodes.length > 0) {
-        pool = state.filteredEpisodes.filter(ep => !queuedGuids.has(ep.guid));
-      } else {
-        pool = state.allEpisodes.filter(ep => !queuedGuids.has(ep.guid));
+        pool = state.playbackContext.items.filter(isCompatible);
+      } else if (state.currentEpisode.feedUrl) {
+        pool = state.allEpisodes.filter(ep => ep.feedUrl === state.currentEpisode.feedUrl && isCompatible(ep));
+      }
+      if (pool.length === 0 && state.filteredEpisodes.length > 0) {
+        pool = state.filteredEpisodes.filter(isCompatible);
+      }
+      if (pool.length === 0) {
+        pool = state.allEpisodes.filter(isCompatible);
       }
 
-      // If all unqueued items have been exhausted, fall back to any track from context except currently playing
+      // If all unqueued items have been exhausted, fall back to any compatible track from context except currently playing
       if (pool.length === 0) {
         const fullList = (state.playbackContext?.items?.length) ? state.playbackContext.items : state.allEpisodes;
-        pool = fullList.filter(ep => ep.guid !== currentGuid);
+        pool = fullList.filter(ep => ep.guid !== currentGuid && isCompatible(ep));
       }
 
       const shuffled = [...pool];
@@ -2584,18 +2602,45 @@
       return shuffled.slice(0, limit);
     }
 
-    // 1. Context-specific sequential queueing
+    let candidates = [];
+
+    const pushCandidates = (list) => {
+      for (const ep of list) {
+        if (candidates.length >= limit) break;
+        if (isCompatible(ep) && !candidates.some(c => c.guid === ep.guid)) {
+          candidates.push(ep);
+        }
+      }
+    };
+
+    // 1. Context-specific sequential queueing (e.g. from Feed detail, search, playlist)
     if (state.playbackContext && Array.isArray(state.playbackContext.items) && state.playbackContext.items.length > 0) {
       const ctxItems = state.playbackContext.items;
       const curIdx = ctxItems.findIndex(e => e.guid === currentGuid);
-
       if (curIdx !== -1 && curIdx + 1 < ctxItems.length) {
-        const after = ctxItems.slice(curIdx + 1);
-        candidates.push(...after.filter(ep => !queuedGuids.has(ep.guid)));
+        pushCandidates(ctxItems.slice(curIdx + 1));
       }
     }
 
-    // 2. Fallback: Continue list if in continue mode
+    // 2. Same Feed Continuation:
+    // If the user is listening to an episode of a podcast show, prioritize remaining episodes from the SAME show!
+    if (candidates.length < limit && state.currentEpisode.feedUrl) {
+      const sameFeedEpisodes = state.allEpisodes.filter(ep => ep.feedUrl === state.currentEpisode.feedUrl);
+      const curFeedIdx = sameFeedEpisodes.findIndex(e => e.guid === currentGuid);
+      if (curFeedIdx !== -1 && curFeedIdx + 1 < sameFeedEpisodes.length) {
+        pushCandidates(sameFeedEpisodes.slice(curFeedIdx + 1));
+      }
+      // If we're at the end of subsequent episodes in the feed, check for any other unplayed episodes in the same show
+      if (candidates.length < limit) {
+        const unplayedInFeed = sameFeedEpisodes.filter(ep => {
+          const pos = state.playbackPositions[ep.guid];
+          return !pos || !pos.completed;
+        });
+        pushCandidates(unplayedInFeed);
+      }
+    }
+
+    // 3. Fallback: Continue list if in continue mode
     if (candidates.length < limit && state.filterMode === 'continue') {
       const continueList = state.allEpisodes.filter(ep => {
         const pos = state.playbackPositions[ep.guid];
@@ -2603,26 +2648,30 @@
       });
       const idx = continueList.findIndex(e => e.guid === currentGuid);
       if (idx !== -1) {
-        const after = continueList.slice(idx + 1);
-        candidates.push(...after.filter(ep => !queuedGuids.has(ep.guid) && !candidates.some(c => c.guid === ep.guid)));
+        pushCandidates(continueList.slice(idx + 1));
+      } else {
+        pushCandidates(continueList);
       }
     }
 
-    // 3. Fallback: Filtered timeline list
+    // 4. Fallback: Filtered timeline list
     if (candidates.length < limit && state.filteredEpisodes.length > 0) {
       const idx = state.filteredEpisodes.findIndex(e => e.guid === currentGuid);
       if (idx !== -1) {
-        const after = state.filteredEpisodes.slice(idx + 1);
-        candidates.push(...after.filter(ep => !queuedGuids.has(ep.guid) && !candidates.some(c => c.guid === ep.guid)));
+        pushCandidates(state.filteredEpisodes.slice(idx + 1));
+      } else {
+        pushCandidates(state.filteredEpisodes);
       }
     }
 
-    // 4. Fallback: Global episodes list
+    // 5. Fallback: Global episodes list
     if (candidates.length < limit && state.allEpisodes.length > 0) {
       const allIdx = state.allEpisodes.findIndex(e => e.guid === currentGuid);
       if (allIdx !== -1) {
-        const after = state.allEpisodes.slice(allIdx + 1);
-        candidates.push(...after.filter(ep => !queuedGuids.has(ep.guid) && !candidates.some(c => c.guid === ep.guid)));
+        pushCandidates(state.allEpisodes.slice(allIdx + 1));
+      }
+      if (candidates.length < limit) {
+        pushCandidates(state.allEpisodes);
       }
     }
 
@@ -6876,7 +6925,7 @@
       if (state.activeEngine === 'audio') {
         updateDuration();
         if (state.currentEpisode) {
-          syncMediaSession(state.currentEpisode, false);
+          syncMediaSession(state.currentEpisode, true);
         }
       }
     });
@@ -6920,10 +6969,16 @@
         if (!audio.paused) {
           state.playbackStatus = 'playing';
           syncPlaybackButtons();
+          if (state.currentEpisode) {
+            syncMediaSession(state.currentEpisode, true);
+          }
         } else if (state.playbackStatus === 'loading' || state.playbackStatus === 'playing') {
           audio.play().then(() => {
             state.playbackStatus = 'playing';
             syncPlaybackButtons();
+            if (state.currentEpisode) {
+              syncMediaSession(state.currentEpisode, true);
+            }
           }).catch(() => {});
         }
       }
@@ -6938,15 +6993,14 @@
         syncPlaybackButtons();
 
         if (state.currentEpisode) {
-          const needsReassert = state._nowPlayingActiveGuid !== state.currentEpisode.guid;
-          if (needsReassert) {
-            state._nowPlayingActiveGuid = state.currentEpisode.guid;
-            syncMediaSession(state.currentEpisode, true);
-          } else {
-            syncMediaSession(state.currentEpisode, false);
-          }
+          state._nowPlayingActiveGuid = state.currentEpisode.guid;
+          // CRITICAL: Always reassert MediaSession metadata and playbackState on 'playing'!
+          // When continuous playback advances in background/lockscreen on mobile Android,
+          // the notification for the ended track gets torn down by Android's System UI.
+          // Setting new MediaMetadata when the new track is actively outputting PCM audio
+          // forces Android's NotificationManager to post and display the Lockscreen Media Player!
+          syncMediaSession(state.currentEpisode, true);
 
-          // Force lockscreen state to 'playing' as soon as audio outputs
           if ('mediaSession' in navigator) {
             navigator.mediaSession.playbackState = 'playing';
           }
@@ -7471,7 +7525,7 @@
     state._ytSpuriousPauseRetries = 0;
     state._audioSpuriousPauseRetries = 0;
     state._episodeEndedTriggered = false;
-    state._nowPlayingActiveGuid = episode.guid;
+    state._nowPlayingActiveGuid = null;
     state.currentEpisode = episode;
     state.playbackStatus = 'loading';
 
@@ -8059,10 +8113,25 @@
 
     // 1. Manual user queue always takes priority
     if (state.queue && state.queue.length > 0) {
-      nextEp = state.queue.shift();
-      saveQueueToStorage();
-      updateQueueUI();
-    } else if (state.autoplayEnabled) {
+      if (document.hidden) {
+        // If device is in background (screen off / pocket), iframe YouTube playback will fail and freeze.
+        // Prefer the first compatible native audio track from the queue.
+        const audioIdx = state.queue.findIndex(ep => !ep.isYouTube && !ep.videoId && !ep.playlistId);
+        if (audioIdx !== -1) {
+          nextEp = state.queue.splice(audioIdx, 1)[0];
+          saveQueueToStorage();
+          updateQueueUI();
+        } else {
+          logPlayerDiagnostic('audio.bg_yt_skipped', `Skipped background YouTube queue tracks to avoid mobile playback freeze`);
+        }
+      } else {
+        nextEp = state.queue.shift();
+        saveQueueToStorage();
+        updateQueueUI();
+      }
+    }
+    
+    if (!nextEp && state.autoplayEnabled) {
       // 2. Only pull auto-play candidate if autoplay is enabled
       const autoList = getAutoQueueEpisodes(1);
       if (autoList.length > 0) {
