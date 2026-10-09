@@ -130,7 +130,110 @@
   // ─────────────────────────────────────────────────────────────────────────
   // STORAGE HYDRATION (LOCALSTORAGE + INDEXEDDB COMPREHENSIVE IMPORT)
   // ─────────────────────────────────────────────────────────────────────────
-  async function hydrateCollection() {
+  let syncMissingFeedsPromise = null;
+  async function syncMissingFeeds() {
+    if (syncMissingFeedsPromise) return syncMissingFeedsPromise;
+    syncMissingFeedsPromise = (async () => {
+      // 1. Check D1 /api/sync/feeds to ensure all subscriptions are discovered
+      try {
+        const syncRes = await fetch('/api/sync/feeds');
+        if (syncRes.ok) {
+          const syncData = await syncRes.json();
+          if (Array.isArray(syncData.feeds)) {
+            let metaUpdated = false;
+            syncData.feeds.forEach(f => {
+              if (f.feed_url && !state.feeds.includes(f.feed_url)) {
+                state.feeds.push(f.feed_url);
+              }
+              if (f.feed_url && !state.feedMetadata[f.feed_url]) {
+                state.feedMetadata[f.feed_url] = {
+                  title: f.title,
+                  artwork: f.artwork,
+                  isYouTube: f.feed_url.includes('youtube.com') || f.feed_url.includes('youtu.be') || f.feed_url.includes('list=')
+                };
+                metaUpdated = true;
+              }
+            });
+            localStorage.setItem('anypod_feeds', JSON.stringify(state.feeds));
+            if (metaUpdated) {
+              localStorage.setItem('anypod_cached_metadata', JSON.stringify(state.feedMetadata));
+            }
+          }
+        }
+      } catch (_) {}
+
+      // 2. Identify feeds that need track fetching (all YouTube feeds or feeds with no cached tracks)
+      if (Array.isArray(state.feeds) && state.feeds.length > 0) {
+        const feedsToFetch = state.feeds.filter(feedUrl => {
+          const isYt = feedUrl.includes('youtube.com') || feedUrl.includes('youtu.be') || feedUrl.includes('list=') || !!state.feedMetadata[feedUrl]?.isYouTube || !!state.feedMetadata[feedUrl]?.isYouTubePlaylist;
+          const trackCount = state.allTracks.filter(t => t.feedUrl === feedUrl).length;
+          return isYt ? trackCount < 5 : trackCount === 0;
+        });
+
+        if (feedsToFetch.length > 0) {
+          let hasNewTracks = false;
+          const newlyFetched = [];
+
+          await Promise.allSettled(feedsToFetch.slice(0, 15).map(async (feedUrl) => {
+            try {
+              const res = await fetch(`/api/feed?url=${encodeURIComponent(feedUrl)}`);
+              if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data.episodes) && data.episodes.length > 0) {
+                  const isYt = !!(data.isYouTube || data.isYouTubePlaylist || feedUrl.includes('youtube.com') || feedUrl.includes('youtu.be') || feedUrl.includes('list='));
+                  if (data.title && !state.feedMetadata[feedUrl]) {
+                    state.feedMetadata[feedUrl] = {
+                      title: data.title,
+                      artwork: data.artwork,
+                      isYouTube: isYt
+                    };
+                    localStorage.setItem('anypod_cached_metadata', JSON.stringify(state.feedMetadata));
+                  }
+                  data.episodes.forEach(ep => {
+                    ep.feedUrl = feedUrl;
+                    if (isYt) ep.isYouTube = true;
+                    if (data.title && !ep.podcastTitle) ep.podcastTitle = data.title;
+                    if (data.artwork && !ep.artwork) ep.artwork = data.artwork;
+                    newlyFetched.push(ep);
+                    hasNewTracks = true;
+                  });
+                }
+              }
+            } catch (_) {}
+          }));
+
+          if (hasNewTracks) {
+            try {
+              const existingCached = JSON.parse(localStorage.getItem('anypod_cached_episodes') || '[]');
+              const existingMap = new Map();
+              existingCached.forEach(ep => {
+                const key = ep.guid || ep.videoId || ep.audioUrl || ep.url;
+                if (key) existingMap.set(key, ep);
+              });
+              newlyFetched.forEach(ep => {
+                const key = ep.guid || ep.videoId || ep.audioUrl || ep.url;
+                if (key && !existingMap.has(key)) {
+                  existingMap.set(key, ep);
+                }
+              });
+              const merged = Array.from(existingMap.values()).slice(0, 1500);
+              localStorage.setItem('anypod_cached_episodes', JSON.stringify(merged));
+            } catch (_) {}
+
+            await hydrateCollection(false);
+          }
+        }
+      }
+    })().finally(() => {
+      syncMissingFeedsPromise = null;
+    });
+    return syncMissingFeedsPromise;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // STORAGE HYDRATION (LOCALSTORAGE + INDEXEDDB COMPREHENSIVE IMPORT)
+  // ─────────────────────────────────────────────────────────────────────────
+  async function hydrateCollection(triggerSync = true) {
     const epMap = new Map();
 
     // 1. Load Live App Current Track
@@ -165,13 +268,24 @@
       const key = ep.guid || ep.videoId || ep.audioUrl || ep.url;
       if (!key || epMap.has(key)) return;
 
-      const isYt = !!ep.isYouTube || !!ep.videoId || String(ep.audioUrl || '').includes('youtube.com') || String(ep.audioUrl || '').includes('youtu.be');
-      const vId = ep.videoId || (isYt ? (ep.audioUrl || '').match(/v=([\w-]{11})/)?.[1] : null);
+      const isYt = !!ep.isYouTube || !!ep.videoId ||
+        String(ep.audioUrl || '').includes('youtube.com') || String(ep.audioUrl || '').includes('youtu.be') ||
+        String(ep.feedUrl || '').includes('youtube.com') || String(ep.feedUrl || '').includes('youtu.be') ||
+        String(ep.feedUrl || '').includes('list=') ||
+        String(ep.link || '').includes('youtube.com') || String(ep.link || '').includes('youtu.be') ||
+        String(ep.guid || '').includes('youtube.com') || String(ep.guid || '').includes('youtu.be') ||
+        !!(state.feedMetadata[ep.feedUrl]?.isYouTube || state.feedMetadata[ep.feedUrl]?.isYouTubePlaylist);
+
+      const vId = ep.videoId || (isYt ? (
+        (ep.audioUrl || '').match(/(?:v=|\/embed\/|\/watch\?v=|youtu\.be\/)([\w-]{11})/)?.[1] ||
+        (ep.link || '').match(/(?:v=|\/embed\/|\/watch\?v=|youtu\.be\/)([\w-]{11})/)?.[1] ||
+        (String(key).match(/(?:v=|\/embed\/|\/watch\?v=|youtu\.be\/)([\w-]{11})/)?.[1])
+      ) : null);
 
       const norm = {
         guid: ep.guid || key,
         title: ep.title || 'Untitled Track',
-        podcastTitle: ep.podcastTitle || ep.author || (state.feedMetadata[ep.feedUrl]?.title) || 'Podcast',
+        podcastTitle: ep.podcastTitle || ep.author || (state.feedMetadata[ep.feedUrl]?.title) || (isYt ? 'YouTube' : 'Podcast'),
         artwork: ep.artwork || (state.feedMetadata[ep.feedUrl]?.artwork) || '/icon-192.png',
         audioUrl: ep.audioUrl || ep.url || '',
         feedUrl: ep.feedUrl || '',
@@ -231,30 +345,9 @@
     updateCounts();
     filterAndRenderTable();
 
-    // 7. Auto-fetch subscribed feeds if no episodes are cached yet
-    if (Array.isArray(state.feeds) && state.feeds.length > 0) {
-      const realPodcasts = state.allTracks.filter(t => !t.isYouTube && !t.isSample);
-      if (realPodcasts.length === 0) {
-        state.feeds.slice(0, 8).forEach(async (feedUrl) => {
-          try {
-            const res = await fetch(`/api/feed?url=${encodeURIComponent(feedUrl)}`);
-            if (res.ok) {
-              const data = await res.json();
-              if (Array.isArray(data.episodes)) {
-                data.episodes.slice(0, 20).forEach(ep => {
-                  ep.feedUrl = feedUrl;
-                  if (data.title && !ep.podcastTitle) ep.podcastTitle = data.title;
-                  if (data.artwork && !ep.artwork) ep.artwork = data.artwork;
-                  addTrack(ep);
-                });
-                state.allTracks = Array.from(new Set(epMap.values()));
-                updateCounts();
-                filterAndRenderTable();
-              }
-            }
-          } catch (_) {}
-        });
-      }
+    // 7. Auto-fetch subscribed YouTube playlists & missing feeds if requested
+    if (triggerSync) {
+      syncMissingFeeds();
     }
   }
 
@@ -878,6 +971,13 @@
         item.classList.add('active');
         state.activeFilter = item.dataset.filter || 'all';
         filterAndRenderTable();
+
+        if (state.activeFilter === 'youtube') {
+          const ytCount = state.allTracks.filter(t => t.isYouTube).length;
+          if (ytCount === 0) {
+            syncMissingFeeds();
+          }
+        }
       });
     });
 
@@ -916,6 +1016,8 @@
           if (res.ok) {
             const feedData = await res.json();
             if (feedData.episodes && feedData.episodes.length > 0) {
+              const isYt = !!(feedData.isYouTube || feedData.isYouTubePlaylist || url.includes('youtube.com') || url.includes('youtu.be') || url.includes('list='));
+
               // Add feed to local storage
               const curFeeds = JSON.parse(localStorage.getItem('anypod_feeds') || '[]');
               if (!curFeeds.includes(url)) {
@@ -925,15 +1027,34 @@
               // Save metadata
               const curMeta = JSON.parse(localStorage.getItem('anypod_cached_metadata') || '{}');
               curMeta[url] = {
-                title: feedData.title,
-                artwork: feedData.artwork,
+                title: feedData.title || (isYt ? 'YouTube Playlist' : 'Podcast'),
+                artwork: feedData.artwork || '/icon-192.png',
                 episodesCount: feedData.episodes.length,
-                isYouTube: feedData.isYouTube
+                isYouTube: isYt,
+                isYouTubePlaylist: isYt
               };
               localStorage.setItem('anypod_cached_metadata', JSON.stringify(curMeta));
 
+              // Cache new episodes into anypod_cached_episodes
+              const existingCached = JSON.parse(localStorage.getItem('anypod_cached_episodes') || '[]');
+              const newEpisodes = feedData.episodes.map(ep => ({
+                ...ep,
+                feedUrl: url,
+                isYouTube: isYt,
+                podcastTitle: feedData.title || ep.podcastTitle || (isYt ? 'YouTube' : 'Podcast'),
+                artwork: ep.artwork || feedData.artwork || '/icon-192.png'
+              }));
+              const merged = [...newEpisodes, ...existingCached].slice(0, 1500);
+              localStorage.setItem('anypod_cached_episodes', JSON.stringify(merged));
+
+              // If YouTube, automatically switch to youtube view
+              if (isYt) {
+                state.activeFilter = 'youtube';
+                document.querySelectorAll('.tree-item').forEach(i => i.classList.toggle('active', i.dataset.filter === 'youtube'));
+              }
+
               // Rehydrate
-              await hydrateCollection();
+              await hydrateCollection(false);
             }
           }
         } catch (_) {}

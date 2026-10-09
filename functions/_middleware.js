@@ -35,9 +35,9 @@ export async function onRequest(context) {
     }
   }
 
-  // 4. /dj, /dj/, and /dj.html rewrite directly to /dj/index.html
+  // 4. /dj, /dj/, and /dj.html rewrite directly to /dj.html
   if (url.pathname === '/dj' || url.pathname === '/dj/' || url.pathname === '/dj.html') {
-    const assetUrl = new URL('/dj/index.html', url.origin);
+    const assetUrl = new URL('/dj.html', url.origin);
     return context.env.ASSETS.fetch(assetUrl);
   }
 

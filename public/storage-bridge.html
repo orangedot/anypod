@@ -48,13 +48,41 @@
     return data;
   }
 
-  function handleMessage(event) {
+  async function getFullStorageDump() {
+    const data = getStorageDump();
+    try {
+      if (window.indexedDB) {
+        const idbEpisodes = await new Promise(resolve => {
+          const req = window.indexedDB.open('anypod_store_v1', 1);
+          req.onsuccess = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains('keyval')) return resolve(null);
+            const tx = db.transaction('keyval', 'readonly');
+            const getReq = tx.objectStore('keyval').get('anypod_cached_episodes');
+            getReq.onsuccess = () => resolve(getReq.result || null);
+            getReq.onerror = () => resolve(null);
+          };
+          req.onerror = () => resolve(null);
+        });
+
+        if (Array.isArray(idbEpisodes) && idbEpisodes.length > 0) {
+          const curLocal = JSON.parse(data['anypod_cached_episodes'] || '[]');
+          if (idbEpisodes.length > curLocal.length) {
+            data['anypod_cached_episodes'] = JSON.stringify(idbEpisodes);
+          }
+        }
+      }
+    } catch (_) {}
+    return data;
+  }
+
+  async function handleMessage(event) {
     if (!isAllowedOrigin(event.origin)) return;
     const msg = event.data;
     if (!msg || typeof msg !== 'object') return;
 
     if (msg.type === 'ANYPOD_STORAGE_REQUEST') {
-      const dump = getStorageDump();
+      const dump = await getFullStorageDump();
       event.source.postMessage({
         type: 'ANYPOD_STORAGE_RESPONSE',
         payload: dump
@@ -74,12 +102,19 @@
 
   window.addEventListener('message', handleMessage);
 
-  // Auto-respond if parent exists
+  // Auto-respond with quick dump, then follow up with full IDB dump
   if (window.parent && window.parent !== window) {
     window.parent.postMessage({
       type: 'ANYPOD_STORAGE_READY',
       payload: getStorageDump()
     }, '*');
+
+    getFullStorageDump().then(fullDump => {
+      window.parent.postMessage({
+        type: 'ANYPOD_STORAGE_UPDATE',
+        payload: fullDump
+      }, '*');
+    }).catch(() => {});
   }
 
   // BroadcastChannel for same-origin tabs

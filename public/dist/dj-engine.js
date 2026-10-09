@@ -74,6 +74,7 @@
 
       // Real-time animation loop for VU meters & YouTube time tracking
       this._startMeteringLoop();
+      this._setupMediaSessionHandlers();
     }
 
     _buildDeck(id) {
@@ -167,19 +168,55 @@
         }
       });
       audio.addEventListener('play', () => {
-        if (deck.engine === 'audio') this._emit('state', { deck: id, playing: true });
+        if (deck.engine === 'audio') {
+          this._emit('state', { deck: id, playing: true });
+          this._setMediaSession(deck, true);
+        }
       });
-      audio.addEventListener('pause', () => {
-        if (deck.engine === 'audio') this._emit('state', { deck: id, playing: false });
+      audio.addEventListener('playing', () => {
+        if (deck.engine === 'audio') {
+          this._setMediaSession(deck, true);
+        }
       });
-      audio.addEventListener('ended', () => {
-        if (deck.engine === 'audio') this._emit('state', { deck: id, playing: false, ended: true });
+      audio.addEventListener('canplay', () => {
+        if (deck.engine === 'audio' && !audio.paused) {
+          this._setMediaSession(deck, true);
+        }
       });
       audio.addEventListener('loadedmetadata', () => {
-        if (deck.engine === 'audio') this._emit('loaded', { deck: id, duration: audio.duration });
+        if (deck.engine === 'audio') {
+          this._emit('loaded', { deck: id, duration: audio.duration });
+          this._setMediaSession(deck, true);
+        }
+      });
+      audio.addEventListener('pause', () => {
+        if (deck.engine === 'audio') {
+          this._emit('state', { deck: id, playing: false });
+          if (!this.isPlaying('A') && !this.isPlaying('B') && 'mediaSession' in navigator) {
+            navigator.mediaSession.playbackState = 'paused';
+          }
+        }
+      });
+      audio.addEventListener('ended', () => {
+        if (deck.engine === 'audio') {
+          this._emit('state', { deck: id, playing: false, ended: true });
+          if (!this.isPlaying('A') && !this.isPlaying('B') && 'mediaSession' in navigator) {
+            navigator.mediaSession.playbackState = 'paused';
+          }
+        }
       });
       audio.addEventListener('error', () => {
-        if (deck.engine === 'audio') this._emit('error', { deck: id });
+        if (deck.engine === 'audio') {
+          const rawUrl = deck.meta?.url;
+          console.warn(`[dj-engine] Audio error on deck ${id}:`, audio.error?.message, audio.src);
+          // If direct CDN stream failed with format or CORS error, automatically fallback to audio-proxy:
+          if (rawUrl && !audio.src.includes('/api/audio-proxy')) {
+            console.log(`[dj-engine] Deck ${id} switching to /api/audio-proxy fallback`);
+            audio.src = '/api/audio-proxy?url=' + encodeURIComponent(rawUrl);
+            audio.play().catch(() => {});
+          }
+          this._emit('error', { deck: id });
+        }
       });
 
       this.decks[id] = deck;
@@ -239,7 +276,6 @@
         this.activeEngines[deckId] = 'audio';
         d.audio.pause();
         d.audio.src = this._resolveUrl(rawUrl);
-        d.audio.load();
 
         // Fallback: If proxy fails (404/502), fall back to direct stream URL
         const onProxyError = () => {
@@ -247,7 +283,6 @@
           if (d.audio.src && d.audio.src.includes('/api/audio-proxy') && rawUrl) {
             console.warn(`[dj-engine] Audio proxy failed on deck ${deckId}, falling back to direct URL:`, rawUrl);
             d.audio.src = rawUrl;
-            d.audio.load();
           }
         };
         d.audio.addEventListener('error', onProxyError, { once: true });
@@ -261,7 +296,6 @@
               const blobUrl = URL.createObjectURL(blob);
               if (d.meta && d.meta.url === rawUrl) {
                 d.audio.src = blobUrl;
-                d.audio.load();
               }
             }
           }).catch(() => {});
@@ -321,6 +355,11 @@
               const state = event.data;
               const isPlaying = state === global.YT.PlayerState.PLAYING;
               this._emit('state', { deck: deckId, playing: isPlaying });
+              if (isPlaying) {
+                this._setMediaSession(d, true);
+              } else if ((state === global.YT.PlayerState.PAUSED || state === global.YT.PlayerState.ENDED) && !this.isPlaying('A') && !this.isPlaying('B') && 'mediaSession' in navigator) {
+                navigator.mediaSession.playbackState = 'paused';
+              }
             }
           }
         });
@@ -566,33 +605,112 @@
       } catch (_) {}
     }
 
-    _setMediaSession(d) {
-      if (!('mediaSession' in navigator)) return;
+    _setMediaSession(d, forceReassert = false) {
+      if (!('mediaSession' in navigator) || !d || !d.meta) return;
       try {
         const origin = window.location.origin;
         const art = d.meta.artwork;
         const fallback192 = new URL('/icon-192.png', origin).href;
         const fallback512 = new URL('/icon-512.png', origin).href;
-        const resolvedArt = art ? new URL(art, origin).href : fallback512;
+        let resolvedArt = fallback512;
+        if (art) {
+          try {
+            if (window.location.protocol === 'https:' && art.startsWith('http://')) {
+              resolvedArt = new URL('/api/audio-proxy?url=' + encodeURIComponent(art), origin).href;
+            } else {
+              resolvedArt = new URL(art, origin).href;
+            }
+          } catch (_) {
+            resolvedArt = fallback512;
+          }
+        }
 
         const artworkList = [
-          { src: fallback192, sizes: '96x96', type: 'image/png' },
-          { src: fallback192, sizes: '128x128', type: 'image/png' },
-          { src: fallback192, sizes: '192x192', type: 'image/png' },
-          { src: resolvedArt, sizes: '256x256' },
-          { src: resolvedArt, sizes: '384x384' },
           { src: resolvedArt, sizes: '512x512' },
+          { src: resolvedArt, sizes: '384x384' },
+          { src: resolvedArt, sizes: '256x256' },
+          { src: fallback192, sizes: '192x192', type: 'image/png' },
           { src: fallback512, sizes: '512x512', type: 'image/png' }
         ];
 
         navigator.mediaSession.metadata = new MediaMetadata({
-          title: d.meta.title || 'Anypod DJ',
-          artist: d.meta.podcastTitle || 'Traktor Pro DJ',
-          album: 'Anypod DJ Mixer',
+          title: d.meta.title || `Deck ${d.id} Track`,
+          artist: d.meta.podcastTitle || (d.meta.isYouTube ? 'YouTube' : 'DJ Anypod Studio'),
+          album: `Deck ${d.id} • DJ Studio`,
           artwork: artworkList
         });
 
         navigator.mediaSession.playbackState = 'playing';
+
+        const dur = this.getDuration(d.id);
+        const cur = this.getCurrentTime(d.id);
+        if (dur > 0 && isFinite(dur) && 'setPositionState' in navigator.mediaSession) {
+          try {
+            navigator.mediaSession.setPositionState({
+              duration: Math.max(0.1, dur),
+              playbackRate: d.playbackRate || 1.0,
+              position: Math.min(Math.max(0, cur), dur)
+            });
+          } catch (_) {}
+        }
+      } catch (_) {}
+    }
+
+    _setupMediaSessionHandlers() {
+      if (!('mediaSession' in navigator)) return;
+      try {
+        const getActiveDeck = () => {
+          if (this.isPlaying('A')) return this.decks['A'];
+          if (this.isPlaying('B')) return this.decks['B'];
+          return this.decks['A']?.meta ? this.decks['A'] : this.decks['B'];
+        };
+
+        navigator.mediaSession.setActionHandler('play', () => {
+          const d = getActiveDeck();
+          if (d) this.play(d.id);
+        });
+        navigator.mediaSession.setActionHandler('pause', () => {
+          if (this.isPlaying('A')) this.pause('A');
+          if (this.isPlaying('B')) this.pause('B');
+        });
+        navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+          const d = getActiveDeck();
+          if (!d) return;
+          const skip = details?.seekOffset || 15;
+          const cur = this.getCurrentTime(d.id);
+          this.seek(d.id, Math.max(0, cur - skip));
+        });
+        navigator.mediaSession.setActionHandler('seekforward', (details) => {
+          const d = getActiveDeck();
+          if (!d) return;
+          const skip = details?.seekOffset || 15;
+          const cur = this.getCurrentTime(d.id);
+          const dur = this.getDuration(d.id);
+          this.seek(d.id, Math.min(dur || 99999, cur + skip));
+        });
+        navigator.mediaSession.setActionHandler('previoustrack', () => {
+          const d = getActiveDeck();
+          if (d) this.seek(d.id, 0);
+        });
+        navigator.mediaSession.setActionHandler('nexttrack', () => {
+          if (this.isPlaying('A') && this.decks['B']?.meta) {
+            this.play('B');
+            this.setCrossfader(1.0);
+          } else if (this.isPlaying('B') && this.decks['A']?.meta) {
+            this.play('A');
+            this.setCrossfader(0.0);
+          }
+        });
+        navigator.mediaSession.setActionHandler('stop', () => {
+          this.pause('A');
+          this.pause('B');
+        });
+        navigator.mediaSession.setActionHandler('seekto', (details) => {
+          const d = getActiveDeck();
+          if (d && details?.seekTime !== undefined && !isNaN(details.seekTime)) {
+            this.seek(d.id, details.seekTime);
+          }
+        });
       } catch (_) {}
     }
 
@@ -600,6 +718,7 @@
       const dataA = new Uint8Array(32);
       const dataB = new Uint8Array(32);
       const dataM = new Uint8Array(32);
+      let lastPosStateUpdate = 0;
 
       const tick = () => {
         // 1. YouTube periodic timeupdate fallback
@@ -611,6 +730,26 @@
             this._emit('time', { deck: id, currentTime: cur, duration: dur });
           }
         });
+
+        // 2. Lock-screen Scrubber Telemetry
+        const now = Date.now();
+        if (now - lastPosStateUpdate > 2500 && 'mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
+          lastPosStateUpdate = now;
+          const activeDeck = this.isPlaying('A') ? this.decks['A'] : (this.isPlaying('B') ? this.decks['B'] : null);
+          if (activeDeck && activeDeck.meta) {
+            const dur = this.getDuration(activeDeck.id);
+            const cur = this.getCurrentTime(activeDeck.id);
+            if (dur > 0 && isFinite(dur)) {
+              try {
+                navigator.mediaSession.setPositionState({
+                  duration: Math.max(0.1, dur),
+                  playbackRate: activeDeck.playbackRate || 1.0,
+                  position: Math.min(Math.max(0, cur), dur)
+                });
+              } catch (_) {}
+            }
+          }
+        }
 
         // 2. VU Meter Levels
         let lvlA = 0;
