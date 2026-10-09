@@ -747,7 +747,8 @@
     },
     _mediaSessionGuid: null,
     _nowPlayingActiveGuid: null,
-    _episodeEndedTriggered: false
+    _episodeEndedTriggered: false,
+    _audioSpuriousPauseRetries: 0
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -6810,6 +6811,7 @@
       if (state._episodeEndedTriggered) return;
       state._episodeEndedTriggered = true;
       if (state.activeEngine === 'audio') {
+        logPlayerDiagnostic('audio.ended', `Track finished (${reason}): "${state.currentEpisode?.title || ''}" -> Advancing queue`);
         state.playbackStatus = 'loading';
         syncPlaybackButtons();
         onEpisodeEnded();
@@ -6898,6 +6900,7 @@
           triggerEpisodeEnd('waiting-near-end');
           return;
         }
+        logPlayerDiagnostic('audio.waiting', `Buffering at cur=${cur.toFixed(2)}s`);
         state.playbackStatus = 'loading';
         syncPlaybackButtons();
       }
@@ -6906,6 +6909,7 @@
     audio.addEventListener('canplay', () => {
       applyPendingAudioSeek();
       if (state.activeEngine === 'audio') {
+        logPlayerDiagnostic('audio.canplay', `ReadyState: ${audio.readyState}, paused: ${audio.paused}`);
         if (!audio.paused) {
           state.playbackStatus = 'playing';
           syncPlaybackButtons();
@@ -6921,6 +6925,8 @@
     audio.addEventListener('playing', () => {
       applyPendingAudioSeek();
       if (state.activeEngine === 'audio') {
+        const curTime = audio.currentTime || 0;
+        logPlayerDiagnostic('audio.playing', `Playback active at cur=${curTime.toFixed(2)}s`);
         state.playbackStatus = 'playing';
         syncPlaybackButtons();
 
@@ -6943,6 +6949,7 @@
 
     audio.addEventListener('play', () => {
       if (state.activeEngine === 'audio') {
+        logPlayerDiagnostic('audio.play', `Play triggered (paused=${audio.paused}, status=${state.playbackStatus})`);
         if (state.playbackStatus !== 'playing') {
           state.playbackStatus = 'loading';
         }
@@ -6959,6 +6966,7 @@
         // 4. CRITICAL: Ignore browser pause events triggered by track completion (audio.ended)
         // or by elements.audio.src reassignments during track transitions (loading)
         if (audio.ended || state.playbackStatus === 'loading' || state._episodeEndedTriggered) {
+          logPlayerDiagnostic('audio.pause_ignored', `Ignored transition pause (ended=${audio.ended}, loading=${state.playbackStatus === 'loading'}, endedTriggered=${state._episodeEndedTriggered})`);
           return;
         }
 
@@ -6972,10 +6980,28 @@
           return;
         }
 
+        // Spurious background pause guard:
+        // On mobile Android/iOS, switching tracks in the background can cause a transient pause
+        // during initial buffer allocation (first 1.0s) when the user did NOT intentionally pause!
+        if (document.hidden && !state._userIntentionalPause && cur <= 1.0 && (state._audioSpuriousPauseRetries || 0) < 3) {
+          state._audioSpuriousPauseRetries = (state._audioSpuriousPauseRetries || 0) + 1;
+          logPlayerDiagnostic('audio.spurious_pause', `Ignored background/startup pause at cur=${cur.toFixed(2)}s (retry ${state._audioSpuriousPauseRetries}/3)`);
+          setTimeout(() => {
+            if (state.activeEngine === 'audio' && !state._userIntentionalPause && elements.audio && elements.audio.paused) {
+              logPlayerDiagnostic('audio.retry_play', `Auto-reasserting audio.play() (attempt ${state._audioSpuriousPauseRetries})`);
+              elements.audio.play().catch(err => {
+                logPlayerDiagnostic('audio.retry_play_failed', err?.message || 'blocked');
+              });
+            }
+          }, 300);
+          return;
+        }
+
         state.playbackStatus = 'paused';
         syncPlaybackButtons();
         syncMediaSession(state.currentEpisode, false);
         liveTranscription.onPlayStateChange(false);
+        logPlayerDiagnostic('audio.pause', `Audio paused at cur=${cur.toFixed(2)}s (userIntentional=${Boolean(state._userIntentionalPause)})`);
 
         if (state.currentEpisode && audio.currentTime > 2) {
           savePlaybackPositionToD1(state.currentEpisode.guid, audio.currentTime, false);
@@ -7436,6 +7462,7 @@
   function playEpisode(episode, overrideStartTime, context = null) {
     state._userIntentionalPause = false;
     state._ytSpuriousPauseRetries = 0;
+    state._audioSpuriousPauseRetries = 0;
     state._episodeEndedTriggered = false;
     state._nowPlayingActiveGuid = null;
     state.currentEpisode = episode;
@@ -7579,16 +7606,36 @@
       }
       state.pendingStartTime = startTime > 0 ? startTime : null;
       elements.audio.src = streamUrl;
-      elements.audio.load(); // Force socket open to beat background throttling
+      // Do NOT call audio.load() here! Calling load() while hidden resets the user activation token and halts background playback
       elements.audio.playbackRate = state.playbackSpeed || 1.0;
 
       // Sync lock screen AFTER resetting audio so the old duration is cleared
       syncMediaSession(episode, true);
 
+      logPlayerDiagnostic('audio.play_start', `Starting "${episode.title}" via ${streamUrl.startsWith('/api/') ? 'proxy' : 'direct CDN'}`);
       const playPromise = elements.audio.play();
       if (playPromise !== undefined) {
-        playPromise.catch((err) => {
+        playPromise.then(() => {
+          logPlayerDiagnostic('audio.play_promise_resolved', `Playback active for "${episode.title}"`);
+        }).catch((err) => {
+          logPlayerDiagnostic('audio.play_rejected', `${err?.name}: ${err?.message || ''}`);
           if (err && err.name === 'AbortError') return;
+          // If direct play was rejected or blocked on mobile, attempt immediate audio-proxy fallback:
+          if (!streamUrl.includes('/api/audio-proxy') && episode.audioUrl) {
+            const proxySrc = `/api/audio-proxy?url=${encodeURIComponent(episode.audioUrl)}`;
+            logPlayerDiagnostic('audio.play_proxy_fallback', `Direct play rejected; retrying with audio-proxy`);
+            elements.audio.src = proxySrc;
+            elements.audio.playbackRate = state.playbackSpeed || 1.0;
+            elements.audio.play().then(() => {
+              state.playbackStatus = 'playing';
+              syncPlaybackButtons();
+            }).catch(proxyErr => {
+              logPlayerDiagnostic('audio.proxy_play_failed', proxyErr?.message || 'blocked');
+              state.playbackStatus = 'paused';
+              syncPlaybackButtons();
+            });
+            return;
+          }
           if (state.playbackStatus === 'loading') return;
           state.playbackStatus = 'paused';
           syncPlaybackButtons();
@@ -8018,6 +8065,7 @@
 
     // 3. Play next or stop engine completely
     if (nextEp) {
+      logPlayerDiagnostic('audio.advance_next', `Advancing queue to: "${nextEp.title}" (autoplay=${Boolean(state.autoplayEnabled)}, queueLeft=${state.queue?.length || 0})`);
       playEpisode(nextEp, null, state.playbackContext);
       if (!document.hidden) {
         processAndSortEpisodes();
