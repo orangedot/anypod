@@ -6851,7 +6851,7 @@
     const audio = elements.audio;
 
     const applyPendingAudioSeek = () => {
-      if (state.pendingStartTime === null || state.pendingStartTime === undefined || state.pendingStartTime <= 0) return;
+      if (state.pendingStartTime === null || state.pendingStartTime === undefined || state.pendingStartTime <= 1) return;
       const target = state.pendingStartTime;
       try {
         if (elements.audio.seekable && elements.audio.seekable.length > 0) {
@@ -6873,6 +6873,17 @@
       // belongs to the prior track and must be ignored.
       if (state._trackStartTime && (Date.now() - state._trackStartTime < 1500)) {
         logPlayerDiagnostic('audio.end_ignored', `Ignored premature ${reason} within 1.5s of track start`, true);
+        if (state.activeEngine === 'audio' && elements.audio && !state._userIntentionalPause) {
+          setTimeout(() => {
+            if (state.activeEngine === 'audio' && !state._userIntentionalPause && (state.playbackStatus === 'loading' || state.playbackStatus === 'playing') && elements.audio && elements.audio.paused) {
+              logPlayerDiagnostic('audio.resume_after_prior_ended', `Resuming play for incoming track after prior EOF`, true);
+              elements.audio.play().then(() => {
+                state.playbackStatus = 'playing';
+                syncPlaybackButtons();
+              }).catch(() => {});
+            }
+          }, 150);
+        }
         return;
       }
       // For synthetic / watchdog / near-end reasons: enforce strict 4.0s startup grace period and status === 'playing'
@@ -6950,6 +6961,12 @@
         updateDuration();
         if (state.currentEpisode) {
           syncMediaSession(state.currentEpisode, true);
+        }
+        if (!state._userIntentionalPause && (state.playbackStatus === 'loading' || state.playbackStatus === 'playing') && audio.paused) {
+          audio.play().then(() => {
+            state.playbackStatus = 'playing';
+            syncPlaybackButtons();
+          }).catch(() => {});
         }
       }
     });
@@ -7052,6 +7069,17 @@
         // or by elements.audio.src reassignments during track transitions (loading)
         if (audio.ended || state.playbackStatus === 'loading' || state._episodeEndedTriggered) {
           logPlayerDiagnostic('audio.pause_ignored', `Ignored transition pause (ended=${audio.ended}, loading=${state.playbackStatus === 'loading'}, endedTriggered=${state._episodeEndedTriggered})`, true);
+          if (!state._userIntentionalPause && (state.playbackStatus === 'loading' || state.playbackStatus === 'playing')) {
+            setTimeout(() => {
+              if (state.activeEngine === 'audio' && !state._userIntentionalPause && (state.playbackStatus === 'loading' || state.playbackStatus === 'playing') && elements.audio && elements.audio.paused) {
+                logPlayerDiagnostic('audio.resume_after_transition_pause', `Auto-reasserting audio.play() after transition pause`, true);
+                elements.audio.play().then(() => {
+                  state.playbackStatus = 'playing';
+                  syncPlaybackButtons();
+                }).catch(() => {});
+              }
+            }, 150);
+          }
           return;
         }
 
@@ -7617,14 +7645,20 @@
 
     const savedPos = state.playbackPositions[episode.guid];
     let startTime = 0;
+    const epDur = episode.duration ? parseDurationSeconds(episode.duration) : 0;
+    const isCompleted = savedPos && (savedPos.completed === true || savedPos.completed === 1);
+    const isNearEnd = savedPos && epDur > 10 && savedPos.position >= epDur - 5;
+
     if (typeof overrideStartTime === 'number') {
       startTime = overrideStartTime;
+    } else if (savedPos && savedPos.position > 1 && !isCompleted && !isNearEnd) {
+      startTime = savedPos.position;
     } else {
-      startTime = (savedPos && savedPos.position > 1) ? savedPos.position : 0;
+      startTime = 0;
     }
 
     state.playbackPositions[episode.guid] = {
-      position: startTime || 2,
+      position: startTime || 0,
       completed: false,
       lastListenedAt: Math.floor(Date.now() / 1000)
     };
@@ -7727,10 +7761,7 @@
         liveAudioCtx.resume().catch(() => {});
       }
       _isProxyFallbackInProgress = false;
-      state.pendingStartTime = startTime > 0 ? startTime : null;
-      try {
-        elements.audio.currentTime = startTime || 0;
-      } catch (_) {}
+      state.pendingStartTime = (startTime > 1) ? startTime : null;
       elements.audio.src = streamUrl;
       // Do NOT call audio.load() here! Calling load() while hidden resets the user activation token and halts background playback
       elements.audio.playbackRate = state.playbackSpeed || 1.0;
@@ -7745,7 +7776,26 @@
           logPlayerDiagnostic('audio.play_promise_resolved', `Playback active for "${episode.title}"`, true);
         }).catch((err) => {
           logPlayerDiagnostic('audio.play_rejected', `${err?.name}: ${err?.message || ''}`);
-          if (err && err.name === 'AbortError') return;
+          if (err && err.name === 'AbortError') {
+            // CRITICAL: On background track advance, browser media pipeline resets can cause transient AbortError.
+            // Retry play() after 150ms so background playback does not stall!
+            setTimeout(() => {
+              if (state.activeEngine === 'audio' && !state._userIntentionalPause && elements.audio && elements.audio.paused) {
+                logPlayerDiagnostic('audio.abort_retry', `Retrying audio.play() after AbortError for "${episode.title}"`, true);
+                elements.audio.play().then(() => {
+                  state.playbackStatus = 'playing';
+                  syncPlaybackButtons();
+                }).catch(retryErr => {
+                  if (retryErr && retryErr.name === 'AbortError') return;
+                  logPlayerDiagnostic('audio.abort_retry_failed', retryErr?.message || 'blocked', true);
+                  if (!elements.audio.src.includes('/api/audio-proxy') && episode.audioUrl) {
+                    triggerAudioProxyFallback(`AbortError retry failed (${retryErr?.message || 'blocked'})`);
+                  }
+                });
+              }
+            }, 150);
+            return;
+          }
           // If direct play was rejected or blocked on mobile, invoke unified audio-proxy fallback:
           if (!elements.audio.src.includes('/api/audio-proxy') && episode.audioUrl) {
             triggerAudioProxyFallback(`Direct play rejected (${err?.name || 'error'})`);
