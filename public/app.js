@@ -1323,7 +1323,7 @@
         } catch (_) {}
 
         // 1. Check if pause occurred near the end of video (natural track completion)
-        if (dur > 5 && cur >= Math.max(1, dur - 1.5)) {
+        if (state.playbackStatus === 'playing' && (!state._trackStartTime || Date.now() - state._trackStartTime >= 4000) && cur > 2.0 && dur > 5 && cur >= Math.max(1, dur - 1.5)) {
           logPlayerDiagnostic('youtube.ended_near_end', `Near-end pause detected at cur=${cur.toFixed(1)}s/${dur.toFixed(1)}s -> Advancing queue`);
           state.playbackStatus = 'loading';
           syncPlaybackButtons();
@@ -1351,6 +1351,11 @@
         syncPlaybackButtons();
         logPlayerDiagnostic('youtube.pause', `YouTube player paused at pos=${cur.toFixed(2)}s (userIntentional=${Boolean(state._userIntentionalPause)})`);
       } else if (event.data === ytEnded) {
+        // Guard against premature / delayed ended event from prior video during track transition:
+        if (state._trackStartTime && (Date.now() - state._trackStartTime < 2000)) {
+          logPlayerDiagnostic('youtube.end_ignored', `Ignored delayed ended event within 2.0s of video start`, true);
+          return;
+        }
         // Prevent Android OS from dropping background priority during changeovers:
         // Set playbackStatus = 'loading' rather than 'idle' while advancing
         state._ytSpuriousPauseRetries = 0;
@@ -6864,6 +6869,17 @@
 
     function triggerEpisodeEnd(reason = 'ended') {
       if (state._episodeEndedTriggered) return;
+      // Stale event guard: If a track started less than 1.5s ago, ANY end event (even 'ended')
+      // belongs to the prior track and must be ignored.
+      if (state._trackStartTime && (Date.now() - state._trackStartTime < 1500)) {
+        logPlayerDiagnostic('audio.end_ignored', `Ignored premature ${reason} within 1.5s of track start`, true);
+        return;
+      }
+      // For synthetic / watchdog / near-end reasons: enforce strict 4.0s startup grace period and status === 'playing'
+      if (reason !== 'event: ended') {
+        if (state.playbackStatus === 'loading') return;
+        if (state._trackStartTime && (Date.now() - state._trackStartTime < 4000)) return;
+      }
       state._episodeEndedTriggered = true;
       if (state.activeEngine === 'audio') {
         logPlayerDiagnostic('audio.ended', `Track finished (${reason}): "${state.currentEpisode?.title || ''}" -> Advancing queue`);
@@ -6876,10 +6892,17 @@
     function checkEpisodeEndWatchdog() {
       if (state.activeEngine !== 'audio' || !elements.audio || !state.currentEpisode) return;
       if (state._episodeEndedTriggered) return;
-      if (state.playbackStatus !== 'playing' && state.playbackStatus !== 'loading') return;
+      // CRITICAL: Watchdog must NEVER run while loading a new track or paused.
+      if (state.playbackStatus !== 'playing') return;
+      if (elements.audio.paused) return;
+      if (elements.audio.readyState < 2) return;
+      // Stale currentTime guard: ensure track has been playing for at least 4 seconds
+      if (state._trackStartTime && (Date.now() - state._trackStartTime < 4000)) return;
 
       const audio = elements.audio;
       const cur = audio.currentTime || 0;
+      if (cur < 2.0) return;
+
       const rawDur = audio.duration;
       const dur = (rawDur && isFinite(rawDur) && rawDur > 0)
         ? rawDur
@@ -6895,6 +6918,7 @@
       if (state.activeEngine !== 'youtube' || !state.ytPlayer || !state.currentEpisode) return;
       if (state._episodeEndedTriggered) return;
       if (state.playbackStatus !== 'playing') return;
+      if (state._trackStartTime && (Date.now() - state._trackStartTime < 4000)) return;
 
       let cur = 0;
       let dur = 0;
@@ -6903,6 +6927,7 @@
         if (typeof state.ytPlayer.getDuration === 'function') dur = state.ytPlayer.getDuration() || 0;
       } catch (_) {}
 
+      if (cur < 2.0) return;
       if (dur > 5 && cur >= Math.max(1, dur - 0.75)) {
         state._episodeEndedTriggered = true;
         logPlayerDiagnostic('youtube.watchdog_ended', `Watchdog detected track end at cur=${cur.toFixed(1)}s/${dur.toFixed(1)}s -> Advancing queue`);
@@ -6951,7 +6976,7 @@
         const dur = (rawDur && isFinite(rawDur) && rawDur > 0)
           ? rawDur
           : (state.currentEpisode?.duration ? parseDurationSeconds(state.currentEpisode.duration) : 0);
-        if (dur > 5 && cur >= Math.max(1, dur - 2.5)) {
+        if (state.playbackStatus === 'playing' && (!state._trackStartTime || Date.now() - state._trackStartTime >= 4000) && cur > 2.0 && dur > 5 && cur >= Math.max(1, dur - 2.5)) {
           triggerEpisodeEnd('waiting-near-end');
           return;
         }
@@ -7035,7 +7060,7 @@
         const dur = (rawDur && isFinite(rawDur) && rawDur > 0)
           ? rawDur
           : (state.currentEpisode?.duration ? parseDurationSeconds(state.currentEpisode.duration) : 0);
-        if (dur > 5 && cur >= Math.max(1, dur - 1.5)) {
+        if (state.playbackStatus === 'playing' && (!state._trackStartTime || Date.now() - state._trackStartTime >= 4000) && cur > 2.0 && dur > 5 && cur >= Math.max(1, dur - 1.5)) {
           triggerEpisodeEnd('pause-near-end');
           return;
         }
@@ -7079,7 +7104,7 @@
       const dur = (rawDur && isFinite(rawDur) && rawDur > 0)
         ? rawDur
         : (state.currentEpisode?.duration ? parseDurationSeconds(state.currentEpisode.duration) : 0);
-      if (dur > 5 && cur >= Math.max(1, dur - 2.5)) {
+      if (state.playbackStatus === 'playing' && (!state._trackStartTime || Date.now() - state._trackStartTime >= 4000) && cur > 2.0 && dur > 5 && cur >= Math.max(1, dur - 2.5)) {
         triggerEpisodeEnd('stalled-near-end');
         return;
       }
@@ -7560,6 +7585,7 @@
     state._audioSpuriousPauseRetries = 0;
     state._episodeEndedTriggered = false;
     state._nowPlayingActiveGuid = null;
+    state._trackStartTime = Date.now();
     state.currentEpisode = episode;
     state.playbackStatus = 'loading';
 
