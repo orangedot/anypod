@@ -6847,6 +6847,69 @@
   // and YouTube poll interval (every 500 ms for progress updates).
   // ─────────────────────────────────────────────────────────────────────────
 
+  let _isProxyFallbackInProgress = false;
+  let _advanceUnplayableTimer = null;
+
+  function handleUnplayableTrackInQueue() {
+    if (_advanceUnplayableTimer) return;
+    if ((state.queue && state.queue.length > 0) || state.autoplayEnabled) {
+      logPlayerDiagnostic('audio.advance_unplayable', `Track failed to load: "${state.currentEpisode?.title || ''}" -> Auto-advancing to next track`);
+      console.warn('[Anypod] Track unplayable. Auto-advancing playlist in 1.5s...');
+      _advanceUnplayableTimer = setTimeout(() => {
+        _advanceUnplayableTimer = null;
+        playNextEpisode();
+      }, 1500);
+    }
+  }
+
+  function triggerAudioProxyFallback(reason) {
+    if (_isProxyFallbackInProgress) return;
+    if (!state.currentEpisode || !state.currentEpisode.audioUrl) return;
+    if (elements.audio && elements.audio.src && elements.audio.src.includes('/api/audio-proxy')) return;
+
+    _isProxyFallbackInProgress = true;
+    state.playbackStatus = 'loading';
+    syncPlaybackButtons();
+
+    const proxySrc = `/api/audio-proxy?url=${encodeURIComponent(state.currentEpisode.audioUrl)}`;
+    window.__ANYPOD_CURRENT_STREAM_URL = proxySrc;
+    logPlayerDiagnostic('audio.error_proxy_fallback', `${reason}. Switching to proxy URL`);
+    console.log('[Anypod Audio Stream URL (Proxy Fallback)]:', proxySrc);
+
+    const savedTime = state.pendingStartTime || (elements.audio ? elements.audio.currentTime : 0) || 0;
+    if (elements.audio) {
+      elements.audio.src = proxySrc;
+      if (savedTime > 1) {
+        try { elements.audio.currentTime = savedTime; } catch (_) {}
+        elements.audio.addEventListener('loadedmetadata', () => {
+          if (savedTime > 1 && Math.abs(elements.audio.currentTime - savedTime) > 2) {
+            elements.audio.currentTime = savedTime;
+          }
+        }, { once: true });
+      } else {
+        try { elements.audio.currentTime = 0; } catch (_) {}
+      }
+
+      elements.audio.playbackRate = state.playbackSpeed || 1.0;
+      const playPromise = elements.audio.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          _isProxyFallbackInProgress = false;
+          state.playbackStatus = 'playing';
+          syncPlaybackButtons();
+          syncMediaSession(state.currentEpisode, true);
+        }).catch(err => {
+          _isProxyFallbackInProgress = false;
+          if (err && err.name === 'AbortError') return;
+          state.playbackStatus = 'paused';
+          syncPlaybackButtons();
+          logPlayerDiagnostic('audio.play_failed_after_fallback', err?.message || 'Playback blocked');
+          handleUnplayableTrackInQueue();
+        });
+      }
+    }
+  }
+
   function setupAudioEngines() {
     const audio = elements.audio;
 
@@ -7211,67 +7274,6 @@
         _stalledRetryTimer = null;
       }
     });
-
-    let _isProxyFallbackInProgress = false;
-    let _advanceUnplayableTimer = null;
-
-    function handleUnplayableTrackInQueue() {
-      if (_advanceUnplayableTimer) return;
-      if ((state.queue && state.queue.length > 0) || state.autoplayEnabled) {
-        logPlayerDiagnostic('audio.advance_unplayable', `Track failed to load: "${state.currentEpisode?.title || ''}" -> Auto-advancing to next track`);
-        console.warn('[Anypod] Track unplayable. Auto-advancing playlist in 1.5s...');
-        _advanceUnplayableTimer = setTimeout(() => {
-          _advanceUnplayableTimer = null;
-          playNextEpisode();
-        }, 1500);
-      }
-    }
-
-    function triggerAudioProxyFallback(reason) {
-      if (_isProxyFallbackInProgress) return;
-      if (!state.currentEpisode || !state.currentEpisode.audioUrl) return;
-      if (elements.audio.src && elements.audio.src.includes('/api/audio-proxy')) return;
-
-      _isProxyFallbackInProgress = true;
-      state.playbackStatus = 'loading';
-      syncPlaybackButtons();
-
-      const proxySrc = `/api/audio-proxy?url=${encodeURIComponent(state.currentEpisode.audioUrl)}`;
-      window.__ANYPOD_CURRENT_STREAM_URL = proxySrc;
-      logPlayerDiagnostic('audio.error_proxy_fallback', `${reason}. Switching to proxy URL`);
-      console.log('[Anypod Audio Stream URL (Proxy Fallback)]:', proxySrc);
-
-      const savedTime = state.pendingStartTime || elements.audio.currentTime || 0;
-      elements.audio.src = proxySrc;
-      if (savedTime > 1) {
-        try { elements.audio.currentTime = savedTime; } catch (_) {}
-        elements.audio.addEventListener('loadedmetadata', () => {
-          if (savedTime > 1 && Math.abs(elements.audio.currentTime - savedTime) > 2) {
-            elements.audio.currentTime = savedTime;
-          }
-        }, { once: true });
-      } else {
-        try { elements.audio.currentTime = 0; } catch (_) {}
-      }
-
-      elements.audio.playbackRate = state.playbackSpeed || 1.0;
-      const playPromise = elements.audio.play();
-      if (playPromise !== undefined) {
-        playPromise.then(() => {
-          _isProxyFallbackInProgress = false;
-          state.playbackStatus = 'playing';
-          syncPlaybackButtons();
-          syncMediaSession(state.currentEpisode, true);
-        }).catch(err => {
-          _isProxyFallbackInProgress = false;
-          if (err && err.name === 'AbortError') return;
-          state.playbackStatus = 'paused';
-          syncPlaybackButtons();
-          logPlayerDiagnostic('audio.play_failed_after_fallback', err?.message || 'Playback blocked');
-          handleUnplayableTrackInQueue();
-        });
-      }
-    }
 
     audio.addEventListener('error', () => {
       if (state.activeEngine === 'audio') {
@@ -11013,6 +11015,10 @@ function setPlayerCollapsed(collapsed, save = true) {
       }
     } catch (err) {
       console.warn('[LRCLIB] Lyrics lookup failed:', err);
+    } finally {
+      if (elements.probeStatusPill && elements.probeStatusPill.textContent === 'Searching lyrics...') {
+        elements.probeStatusPill.classList.add('hidden');
+      }
     }
 
     return false;
