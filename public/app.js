@@ -7030,15 +7030,19 @@
             console.log('[Anypod Audio Stream URL (Proxy Fallback)]:', proxySrc);
             const savedTime = audio.currentTime;
             elements.audio.src = proxySrc;
-            elements.audio.addEventListener('loadedmetadata', function _onStallProxy() {
-              elements.audio.removeEventListener('loadedmetadata', _onStallProxy);
-              if (savedTime > 1) elements.audio.currentTime = savedTime;
-              elements.audio.play().catch(() => {
+            if (savedTime > 1) elements.audio.currentTime = savedTime;
+            elements.audio.playbackRate = state.playbackSpeed || 1.0;
+            const playPromise = elements.audio.play();
+            if (playPromise !== undefined) {
+              playPromise.then(() => {
+                state.playbackStatus = 'playing';
+                syncPlaybackButtons();
+              }).catch(err => {
+                if (err && err.name === 'AbortError') return;
                 state.playbackStatus = 'paused';
                 syncPlaybackButtons();
               });
-            }, { once: true });
-            elements.audio.load();
+            }
           }
           _stalledRetryCount = 0;
           _stalledRetryTimer = null;
@@ -7084,17 +7088,28 @@
           logPlayerDiagnostic('audio.error_proxy_fallback', `Code ${err?.code || 'unknown'}: ${err?.message || ''}. Switching to proxy URL`);
           console.log('[Anypod Audio Stream URL (Proxy Fallback)]:', proxySrc);
           elements.audio.src = proxySrc;
-          // Restore position after proxy load, then play
-          elements.audio.addEventListener('loadedmetadata', function _onProxyMeta() {
-            elements.audio.removeEventListener('loadedmetadata', _onProxyMeta);
-            if (savedTime > 1) elements.audio.currentTime = savedTime;
-            elements.audio.play().catch(() => {
+          if (savedTime > 1) {
+            try { elements.audio.currentTime = savedTime; } catch (_) {}
+            elements.audio.addEventListener('loadedmetadata', () => {
+              if (savedTime > 1 && Math.abs(elements.audio.currentTime - savedTime) > 2) {
+                elements.audio.currentTime = savedTime;
+              }
+            }, { once: true });
+          }
+          elements.audio.playbackRate = state.playbackSpeed || 1.0;
+          const playPromise = elements.audio.play();
+          if (playPromise !== undefined) {
+            playPromise.then(() => {
+              state.playbackStatus = 'playing';
+              syncPlaybackButtons();
+              syncMediaSession(state.currentEpisode, true);
+            }).catch(err => {
+              if (err && err.name === 'AbortError') return;
               state.playbackStatus = 'paused';
               syncPlaybackButtons();
-              logPlayerDiagnostic('audio.play_failed_after_fallback');
+              logPlayerDiagnostic('audio.play_failed_after_fallback', err?.message || 'Playback blocked');
             });
-          }, { once: true });
-          elements.audio.load();
+          }
           return;
         }
 
@@ -7107,19 +7122,27 @@
           const currentSrc = elements.audio.src;
           setTimeout(() => {
             elements.audio.src = currentSrc;
-            elements.audio.addEventListener('loadedmetadata', function _onRecoverMeta() {
-              elements.audio.removeEventListener('loadedmetadata', _onRecoverMeta);
-              if (savedTime > 1) elements.audio.currentTime = savedTime;
-              elements.audio.play().then(() => {
+            if (savedTime > 1) {
+              try { elements.audio.currentTime = savedTime; } catch (_) {}
+              elements.audio.addEventListener('loadedmetadata', () => {
+                if (savedTime > 1 && Math.abs(elements.audio.currentTime - savedTime) > 2) {
+                  elements.audio.currentTime = savedTime;
+                }
+              }, { once: true });
+            }
+            elements.audio.playbackRate = state.playbackSpeed || 1.0;
+            const playPromise = elements.audio.play();
+            if (playPromise !== undefined) {
+              playPromise.then(() => {
                 state.playbackStatus = 'playing';
                 syncPlaybackButtons();
                 syncMediaSession(state.currentEpisode, true);
-              }).catch(() => {
+              }).catch(err => {
+                if (err && err.name === 'AbortError') return;
                 state.playbackStatus = 'paused';
                 syncPlaybackButtons();
               });
-            }, { once: true });
-            elements.audio.load();
+            }
           }, 500);
           return;
         }

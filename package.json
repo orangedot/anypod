@@ -13,6 +13,7 @@
     "deploy": "node scripts/verify-deploy.js && npm run build && wrangler pages deploy public --project-name anypod --commit-dirty=true",
     "deploy-staging": "node scripts/verify-deploy.js && npm run build && wrangler pages deploy public --project-name anypod --branch=staging --commit-dirty=true",
     "test:feeds": "node scripts/check_curated_feeds.js",
+    "test:sources": "node scripts/check_audio_sources.js",
     "screenshots": "node scripts/capture_screenshots.js"
   },
   "devDependencies": {
