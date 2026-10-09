@@ -7159,6 +7159,67 @@
       }
     });
 
+    let _isProxyFallbackInProgress = false;
+    let _advanceUnplayableTimer = null;
+
+    function handleUnplayableTrackInQueue() {
+      if (_advanceUnplayableTimer) return;
+      if ((state.queue && state.queue.length > 0) || state.autoplayEnabled) {
+        logPlayerDiagnostic('audio.advance_unplayable', `Track failed to load: "${state.currentEpisode?.title || ''}" -> Auto-advancing to next track`);
+        console.warn('[Anypod] Track unplayable. Auto-advancing playlist in 1.5s...');
+        _advanceUnplayableTimer = setTimeout(() => {
+          _advanceUnplayableTimer = null;
+          playNextEpisode();
+        }, 1500);
+      }
+    }
+
+    function triggerAudioProxyFallback(reason) {
+      if (_isProxyFallbackInProgress) return;
+      if (!state.currentEpisode || !state.currentEpisode.audioUrl) return;
+      if (elements.audio.src && elements.audio.src.includes('/api/audio-proxy')) return;
+
+      _isProxyFallbackInProgress = true;
+      state.playbackStatus = 'loading';
+      syncPlaybackButtons();
+
+      const proxySrc = `/api/audio-proxy?url=${encodeURIComponent(state.currentEpisode.audioUrl)}`;
+      window.__ANYPOD_CURRENT_STREAM_URL = proxySrc;
+      logPlayerDiagnostic('audio.error_proxy_fallback', `${reason}. Switching to proxy URL`);
+      console.log('[Anypod Audio Stream URL (Proxy Fallback)]:', proxySrc);
+
+      const savedTime = state.pendingStartTime || elements.audio.currentTime || 0;
+      elements.audio.src = proxySrc;
+      if (savedTime > 1) {
+        try { elements.audio.currentTime = savedTime; } catch (_) {}
+        elements.audio.addEventListener('loadedmetadata', () => {
+          if (savedTime > 1 && Math.abs(elements.audio.currentTime - savedTime) > 2) {
+            elements.audio.currentTime = savedTime;
+          }
+        }, { once: true });
+      } else {
+        try { elements.audio.currentTime = 0; } catch (_) {}
+      }
+
+      elements.audio.playbackRate = state.playbackSpeed || 1.0;
+      const playPromise = elements.audio.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          _isProxyFallbackInProgress = false;
+          state.playbackStatus = 'playing';
+          syncPlaybackButtons();
+          syncMediaSession(state.currentEpisode, true);
+        }).catch(err => {
+          _isProxyFallbackInProgress = false;
+          if (err && err.name === 'AbortError') return;
+          state.playbackStatus = 'paused';
+          syncPlaybackButtons();
+          logPlayerDiagnostic('audio.play_failed_after_fallback', err?.message || 'Playback blocked');
+          handleUnplayableTrackInQueue();
+        });
+      }
+    }
+
     audio.addEventListener('error', () => {
       if (state.activeEngine === 'audio') {
         const err = elements.audio.error;
@@ -7167,35 +7228,7 @@
 
         // 1. If not already proxied, fall back to /api/audio-proxy immediately
         if (state.currentEpisode && elements.audio.src && !elements.audio.src.includes('/api/audio-proxy')) {
-          state.playbackStatus = 'loading';
-          syncPlaybackButtons();
-          const proxySrc = `/api/audio-proxy?url=${encodeURIComponent(state.currentEpisode.audioUrl)}`;
-          window.__ANYPOD_CURRENT_STREAM_URL = proxySrc;
-          logPlayerDiagnostic('audio.error_proxy_fallback', `Code ${err?.code || 'unknown'}: ${err?.message || ''}. Switching to proxy URL`);
-          console.log('[Anypod Audio Stream URL (Proxy Fallback)]:', proxySrc);
-          elements.audio.src = proxySrc;
-          if (savedTime > 1) {
-            try { elements.audio.currentTime = savedTime; } catch (_) {}
-            elements.audio.addEventListener('loadedmetadata', () => {
-              if (savedTime > 1 && Math.abs(elements.audio.currentTime - savedTime) > 2) {
-                elements.audio.currentTime = savedTime;
-              }
-            }, { once: true });
-          }
-          elements.audio.playbackRate = state.playbackSpeed || 1.0;
-          const playPromise = elements.audio.play();
-          if (playPromise !== undefined) {
-            playPromise.then(() => {
-              state.playbackStatus = 'playing';
-              syncPlaybackButtons();
-              syncMediaSession(state.currentEpisode, true);
-            }).catch(err => {
-              if (err && err.name === 'AbortError') return;
-              state.playbackStatus = 'paused';
-              syncPlaybackButtons();
-              logPlayerDiagnostic('audio.play_failed_after_fallback', err?.message || 'Playback blocked');
-            });
-          }
+          triggerAudioProxyFallback(`Code ${err?.code || 'unknown'}: ${err?.message || ''}`);
           return;
         }
 
@@ -7227,6 +7260,7 @@
                 if (err && err.name === 'AbortError') return;
                 state.playbackStatus = 'paused';
                 syncPlaybackButtons();
+                handleUnplayableTrackInQueue();
               });
             }
           }, 500);
@@ -7235,6 +7269,7 @@
 
         state.playbackStatus = 'paused';
         syncPlaybackButtons();
+        handleUnplayableTrackInQueue();
       }
     });
 
@@ -7665,7 +7700,11 @@
       if (typeof liveAudioCtx !== 'undefined' && liveAudioCtx && liveAudioCtx.state === 'suspended') {
         liveAudioCtx.resume().catch(() => {});
       }
+      _isProxyFallbackInProgress = false;
       state.pendingStartTime = startTime > 0 ? startTime : null;
+      try {
+        elements.audio.currentTime = startTime || 0;
+      } catch (_) {}
       elements.audio.src = streamUrl;
       // Do NOT call audio.load() here! Calling load() while hidden resets the user activation token and halts background playback
       elements.audio.playbackRate = state.playbackSpeed || 1.0;
@@ -7681,25 +7720,15 @@
         }).catch((err) => {
           logPlayerDiagnostic('audio.play_rejected', `${err?.name}: ${err?.message || ''}`);
           if (err && err.name === 'AbortError') return;
-          // If direct play was rejected or blocked on mobile, attempt immediate audio-proxy fallback:
-          if (!streamUrl.includes('/api/audio-proxy') && episode.audioUrl) {
-            const proxySrc = `/api/audio-proxy?url=${encodeURIComponent(episode.audioUrl)}`;
-            logPlayerDiagnostic('audio.play_proxy_fallback', `Direct play rejected; retrying with audio-proxy`);
-            elements.audio.src = proxySrc;
-            elements.audio.playbackRate = state.playbackSpeed || 1.0;
-            elements.audio.play().then(() => {
-              state.playbackStatus = 'playing';
-              syncPlaybackButtons();
-            }).catch(proxyErr => {
-              logPlayerDiagnostic('audio.proxy_play_failed', proxyErr?.message || 'blocked');
-              state.playbackStatus = 'paused';
-              syncPlaybackButtons();
-            });
+          // If direct play was rejected or blocked on mobile, invoke unified audio-proxy fallback:
+          if (!elements.audio.src.includes('/api/audio-proxy') && episode.audioUrl) {
+            triggerAudioProxyFallback(`Direct play rejected (${err?.name || 'error'})`);
             return;
           }
           if (state.playbackStatus === 'loading') return;
           state.playbackStatus = 'paused';
           syncPlaybackButtons();
+          handleUnplayableTrackInQueue();
         });
       }
     }
