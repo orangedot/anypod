@@ -366,6 +366,17 @@
             <div><strong>Engine:</strong> <span id="diag-engine">idle</span> | <strong>Status:</strong> <span id="diag-status">idle</span></div>
             <div><strong>Active Track:</strong> <span id="diag-track">none</span></div>
             <div><strong>Buffer Ahead:</strong> <span id="diag-buffer">0.0s</span> | <strong>Lockscreen:</strong> <span id="diag-mediasession">ready</span></div>
+          <div class="experimental-row" style="margin: 0.75rem 0; border-top: 1px solid var(--border-light, rgba(255,255,255,0.08)); border-bottom: 1px solid var(--border-light, rgba(255,255,255,0.08)); padding: 0.6rem 0;">
+            <label class="experimental-toggle-label" for="toggle-verbose-diag" style="display:flex; justify-content:space-between; align-items:center; width:100%; cursor:pointer;">
+              <div>
+                <strong>verbose player diagnostic logs</strong>
+                <span style="display:block; font-size:0.75rem; color:var(--text-secondary,#94a3b8); margin-top:0.2rem;">record high-frequency buffer, play, and telemetry events (persists when enabled)</span>
+              </div>
+              <div class="toggle-switch">
+                <input type="checkbox" id="toggle-verbose-diag" role="switch">
+                <span class="toggle-track"></span>
+              </div>
+            </label>
           </div>
           <div class="settings-actions" style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
             <button type="button" class="btn btn-primary" id="btn-copy-diag-report" style="display:inline-flex; align-items:center; gap:0.5rem;">

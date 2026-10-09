@@ -724,7 +724,8 @@
       showJumpButtons: false,
       autoSkipSpeech: false,
       enableTranscript: false,
-      enableLiveTranscript: false
+      enableLiveTranscript: false,
+      enableVerboseDiagnostics: false
     },
     episodeTimeline: {
       guid: null,
@@ -980,6 +981,7 @@
     btnRequestStorage: document.getElementById('btn-request-storage'),
     btnRetryStorage: document.getElementById('btn-retry-storage'),
     btnDismissStorage: document.getElementById('btn-dismiss-storage'),
+    toggleVerboseDiag: document.getElementById('toggle-verbose-diag'),
   };
   document.addEventListener('visibilitychange', () => {
     state.isTabActive = !document.hidden;
@@ -1189,7 +1191,10 @@
   const playerDiagnosticLogs = [];
   const MAX_DIAGNOSTIC_LOGS = 250;
 
-  function logPlayerDiagnostic(event, details = '') {
+  function logPlayerDiagnostic(event, details = '', isVerbose = false) {
+    if (isVerbose && !state.experimentalSettings?.enableVerboseDiagnostics) {
+      return;
+    }
     const ts = new Date().toTimeString().split(' ')[0] + '.' + String(Date.now() % 1000).padStart(3, '0');
     const bgTag = document.hidden ? '[BG]' : '[FG]';
     const logLine = `[${ts}] ${bgTag} ${event}: ${details}`;
@@ -1198,7 +1203,9 @@
       playerDiagnosticLogs.shift();
     }
     updateSettingsTelemetryUI();
-    console.log(`[Anypod Diag] ${logLine}`);
+    if (state.experimentalSettings?.enableVerboseDiagnostics) {
+      console.log(`[Anypod Diag] ${logLine}`);
+    }
   }
 
   function updateSettingsTelemetryUI() {
@@ -1290,14 +1297,14 @@
       if (event.data === ytBuffering) {
         state.playbackStatus = 'loading';
         syncPlaybackButtons();
-        logPlayerDiagnostic('youtube.buffering', 'YouTube player buffering');
+        logPlayerDiagnostic('youtube.buffering', 'YouTube player buffering', true);
       } else if (event.data === ytPlaying) {
         state._ytSpuriousPauseRetries = 0;
         state._userIntentionalPause = false;
         state.playbackStatus = 'playing';
         syncPlaybackButtons();
         const curTime = (state.ytPlayer && typeof state.ytPlayer.getCurrentTime === 'function') ? (state.ytPlayer.getCurrentTime() || 0) : 0;
-        logPlayerDiagnostic('youtube.playing', `Playback active at cur=${curTime.toFixed(2)}s`);
+        logPlayerDiagnostic('youtube.playing', `Playback active at cur=${curTime.toFixed(2)}s`, true);
         if (state.currentEpisode) {
           const needsReassert = state._nowPlayingActiveGuid !== state.currentEpisode.guid;
           if (needsReassert) {
@@ -1352,7 +1359,7 @@
         logPlayerDiagnostic('youtube.ended', `Video finished naturally: "${state.currentEpisode?.title || ''}" -> Advancing queue`);
         onEpisodeEnded();
       } else if (event.data === ytCued) {
-        logPlayerDiagnostic('youtube.cued', 'YouTube video cued -> Calling playVideo()');
+        logPlayerDiagnostic('youtube.cued', 'YouTube video cued -> Calling playVideo()', true);
         // Video is loaded and ready — trigger playback
         if (state.ytPlayer && state.ytPlayer.playVideo) {
           state.ytPlayer.playVideo();
@@ -6900,7 +6907,7 @@
           triggerEpisodeEnd('waiting-near-end');
           return;
         }
-        logPlayerDiagnostic('audio.waiting', `Buffering at cur=${cur.toFixed(2)}s`);
+        logPlayerDiagnostic('audio.waiting', `Buffering at cur=${cur.toFixed(2)}s`, true);
         state.playbackStatus = 'loading';
         syncPlaybackButtons();
       }
@@ -6909,7 +6916,7 @@
     audio.addEventListener('canplay', () => {
       applyPendingAudioSeek();
       if (state.activeEngine === 'audio') {
-        logPlayerDiagnostic('audio.canplay', `ReadyState: ${audio.readyState}, paused: ${audio.paused}`);
+        logPlayerDiagnostic('audio.canplay', `ReadyState: ${audio.readyState}, paused: ${audio.paused}`, true);
         if (!audio.paused) {
           state.playbackStatus = 'playing';
           syncPlaybackButtons();
@@ -6926,7 +6933,7 @@
       applyPendingAudioSeek();
       if (state.activeEngine === 'audio') {
         const curTime = audio.currentTime || 0;
-        logPlayerDiagnostic('audio.playing', `Playback active at cur=${curTime.toFixed(2)}s`);
+        logPlayerDiagnostic('audio.playing', `Playback active at cur=${curTime.toFixed(2)}s`, true);
         state.playbackStatus = 'playing';
         syncPlaybackButtons();
 
@@ -6949,7 +6956,7 @@
 
     audio.addEventListener('play', () => {
       if (state.activeEngine === 'audio') {
-        logPlayerDiagnostic('audio.play', `Play triggered (paused=${audio.paused}, status=${state.playbackStatus})`);
+        logPlayerDiagnostic('audio.play', `Play triggered (paused=${audio.paused}, status=${state.playbackStatus})`, true);
         if (state.playbackStatus !== 'playing') {
           state.playbackStatus = 'loading';
         }
@@ -6966,7 +6973,7 @@
         // 4. CRITICAL: Ignore browser pause events triggered by track completion (audio.ended)
         // or by elements.audio.src reassignments during track transitions (loading)
         if (audio.ended || state.playbackStatus === 'loading' || state._episodeEndedTriggered) {
-          logPlayerDiagnostic('audio.pause_ignored', `Ignored transition pause (ended=${audio.ended}, loading=${state.playbackStatus === 'loading'}, endedTriggered=${state._episodeEndedTriggered})`);
+          logPlayerDiagnostic('audio.pause_ignored', `Ignored transition pause (ended=${audio.ended}, loading=${state.playbackStatus === 'loading'}, endedTriggered=${state._episodeEndedTriggered})`, true);
           return;
         }
 
@@ -7464,7 +7471,7 @@
     state._ytSpuriousPauseRetries = 0;
     state._audioSpuriousPauseRetries = 0;
     state._episodeEndedTriggered = false;
-    state._nowPlayingActiveGuid = null;
+    state._nowPlayingActiveGuid = episode.guid;
     state.currentEpisode = episode;
     state.playbackStatus = 'loading';
 
@@ -7616,7 +7623,7 @@
       const playPromise = elements.audio.play();
       if (playPromise !== undefined) {
         playPromise.then(() => {
-          logPlayerDiagnostic('audio.play_promise_resolved', `Playback active for "${episode.title}"`);
+          logPlayerDiagnostic('audio.play_promise_resolved', `Playback active for "${episode.title}"`, true);
         }).catch((err) => {
           logPlayerDiagnostic('audio.play_rejected', `${err?.name}: ${err?.message || ''}`);
           if (err && err.name === 'AbortError') return;
@@ -8197,13 +8204,16 @@
 
       const artworkList = [];
       if (resolvedArt && !isSvg) {
+        let mime = 'image/jpeg';
+        if (resolvedArt.includes('.png')) mime = 'image/png';
+        else if (resolvedArt.includes('.webp')) mime = 'image/webp';
         artworkList.push(
-          { src: resolvedArt, sizes: '512x512' },
-          { src: resolvedArt, sizes: '384x384' },
-          { src: resolvedArt, sizes: '256x256' },
-          { src: resolvedArt, sizes: '192x192' },
-          { src: resolvedArt, sizes: '128x128' },
-          { src: resolvedArt, sizes: '96x96' }
+          { src: resolvedArt, sizes: '512x512', type: mime },
+          { src: resolvedArt, sizes: '384x384', type: mime },
+          { src: resolvedArt, sizes: '256x256', type: mime },
+          { src: resolvedArt, sizes: '192x192', type: mime },
+          { src: resolvedArt, sizes: '128x128', type: mime },
+          { src: resolvedArt, sizes: '96x96', type: mime }
         );
       }
       artworkList.push(
@@ -8226,7 +8236,7 @@
           album: artistStr,
           artwork: artworkList
         });
-        logPlayerDiagnostic('mediasession.synced', `Title: "${titleStr}", Artist: "${artistStr}", ArtCount: ${artworkList.length}`);
+        logPlayerDiagnostic('mediasession.synced', `Title: "${titleStr}", Artist: "${artistStr}", ArtCount: ${artworkList.length}`, true);
       }
 
       // Maintain playing state during transitions to keep lockscreen alive
@@ -8236,16 +8246,18 @@
         navigator.mediaSession.playbackState = 'playing';
       }
 
-      // Safe setPositionState
-      const isReady = (state.activeEngine === 'audio' && elements.audio && elements.audio.readyState >= 1) ||
-                      (state.activeEngine === 'youtube' && state.ytPlayer && typeof state.ytPlayer.getDuration === 'function');
-
-      if ('setPositionState' in navigator.mediaSession && isReady) {
+      // Always reset or update positionState immediately so Android lockscreen never holds
+      // the previous track's end-of-track (position == duration) state, which causes OS dismissal!
+      if ('setPositionState' in navigator.mediaSession) {
         let durSec = 0;
         let curSec = 0;
 
         if (state.activeEngine === 'audio' && elements.audio) {
-          if (elements.audio.duration && isFinite(elements.audio.duration) && elements.audio.duration > 0) durSec = elements.audio.duration;
+          if (elements.audio.duration && isFinite(elements.audio.duration) && elements.audio.duration > 0) {
+            durSec = elements.audio.duration;
+          } else if (episode.duration) {
+            durSec = parseDurationSeconds(episode.duration);
+          }
           curSec = elements.audio.currentTime || 0;
         } else if (state.activeEngine === 'youtube' && state.ytPlayer) {
           if (typeof state.ytPlayer.getDuration === 'function') {
@@ -8255,20 +8267,31 @@
           if (typeof state.ytPlayer.getCurrentTime === 'function') {
             curSec = state.ytPlayer.getCurrentTime() || 0;
           }
+          if (!durSec && episode.duration) {
+            durSec = parseDurationSeconds(episode.duration);
+          }
         }
 
-        if (durSec > 0 && isFinite(durSec) && curSec >= 0 && curSec <= durSec) {
+        if (durSec > 0 && isFinite(durSec) && curSec >= 0) {
           const now = Date.now();
-          if (now - _lastPositionStateUpdate >= 3000 || forceReassert) {
+          if (now - _lastPositionStateUpdate >= 2500 || forceReassert) {
             _lastPositionStateUpdate = now;
             try {
               navigator.mediaSession.setPositionState({
                 duration: Math.max(0.1, durSec),
                 playbackRate: state.playbackSpeed || 1.0,
-                position: curSec
+                position: Math.min(curSec, durSec)
               });
             } catch (_) {}
           }
+        } else if (forceReassert) {
+          try {
+            navigator.mediaSession.setPositionState({
+              duration: 1.0,
+              playbackRate: state.playbackSpeed || 1.0,
+              position: 0
+            });
+          } catch (_) {}
         }
       }
     } catch (err) {
@@ -10316,6 +10339,9 @@ function setPlayerCollapsed(collapsed, save = true) {
         if (parsed.enableLiveTranscript !== undefined) {
           state.experimentalSettings.enableLiveTranscript = !!parsed.enableLiveTranscript;
         }
+        if (parsed.enableVerboseDiagnostics !== undefined) {
+          state.experimentalSettings.enableVerboseDiagnostics = !!parsed.enableVerboseDiagnostics;
+        }
       }
     } catch (_) {}
     state.experimentalSettings.enableVisualizer = true;
@@ -10336,6 +10362,7 @@ function setPlayerCollapsed(collapsed, save = true) {
     const isTrans = !!es.enableTranscript;
     const isAutoSkip = !!es.autoSkipSpeech;
     const isLiveTrans = !!es.enableLiveTranscript;
+    const isVerboseDiag = !!es.enableVerboseDiagnostics;
 
     const toggleJump = document.getElementById('toggle-jump-buttons');
     if (toggleJump) toggleJump.checked = showButtons;
@@ -10344,6 +10371,7 @@ function setPlayerCollapsed(collapsed, save = true) {
     if (elements.toggleAutoSkip) elements.toggleAutoSkip.checked = !!es.autoSkipSpeech;
     if (elements.toggleTranscript) elements.toggleTranscript.checked = isTrans;
     if (elements.toggleLiveTranscript) elements.toggleLiveTranscript.checked = isLiveTrans;
+    if (elements.toggleVerboseDiag) elements.toggleVerboseDiag.checked = isVerboseDiag;
     // Show live transcript row only when classifier is enabled (needs segment data)
     if (elements.rowLiveTranscript) {
       elements.rowLiveTranscript.style.display = isClass ? '' : 'none';
@@ -10445,6 +10473,13 @@ function setPlayerCollapsed(collapsed, save = true) {
         } else {
           liveTranscription.stop();
         }
+      });
+    }
+    if (elements.toggleVerboseDiag) {
+      elements.toggleVerboseDiag.addEventListener('change', () => {
+        state.experimentalSettings.enableVerboseDiagnostics = elements.toggleVerboseDiag.checked;
+        saveExperimentalSettings();
+        showToast(state.experimentalSettings.enableVerboseDiagnostics ? 'Verbose diagnostic logs ON' : 'Verbose diagnostic logs OFF');
       });
     }
   }
