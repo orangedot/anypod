@@ -2558,19 +2558,18 @@
     queuedGuids.add(currentGuid);
 
     const isCurrentYouTube = Boolean(state.currentEpisode.isYouTube || state.currentEpisode.videoId || state.currentEpisode.playlistId || state.activeEngine === 'youtube');
-    const isBackground = Boolean(document.hidden || !state.isTabActive);
 
-    // Engine Compatibility & Background Safety Guard:
-    // 1. In background (screen locked / pocket), NEVER auto-queue YouTube videos because mobile browsers strictly block iframe autoplay without direct user interaction.
-    // 2. If playing native audio, keep autoplaying native audio (never jump unexpectedly to a YouTube iframe).
-    // 3. If playing YouTube, keep autoplaying YouTube items.
+    // Engine Separation Guard:
+    // 1. If currently playing native audio, keep autoplaying native audio (STRICTLY EXCLUDE YouTube to prevent cross-engine stalls).
+    // 2. If currently playing YouTube, keep autoplaying YouTube videos seamlessly (stay within YouTube playlist/channel).
     const isCompatible = (ep) => {
       if (!ep || !ep.guid || queuedGuids.has(ep.guid)) return false;
       const isYt = Boolean(ep.isYouTube || ep.videoId || ep.playlistId);
-      if (isBackground && isYt) return false;
-      if (!isCurrentYouTube && isYt) return false;
-      if (isCurrentYouTube && !isYt) return false;
-      return true;
+      if (isCurrentYouTube) {
+        return isYt;
+      } else {
+        return !isYt;
+      }
     };
 
     // 0. Shuffle Mode: Random selection from current playback context or pool
@@ -7585,6 +7584,7 @@
 
       state.activeEngine = 'youtube';
       syncMediaSession(episode, true);
+      logPlayerDiagnostic('youtube.play_start', `Starting YouTube playback: "${episode.title}" (videoId=${episode.videoId || episode.playlistId || 'unknown'})`);
 
       if (state.ytPlayer && typeof state.ytPlayer.loadVideoById === 'function') {
         if (episode.videoId) {
@@ -8113,16 +8113,16 @@
 
     // 1. Manual user queue always takes priority
     if (state.queue && state.queue.length > 0) {
-      if (document.hidden) {
-        // If device is in background (screen off / pocket), iframe YouTube playback will fail and freeze.
-        // Prefer the first compatible native audio track from the queue.
+      if (document.hidden && state.activeEngine === 'audio') {
+        // Only if device is playing audio in the background:
+        // skip YouTube tracks to avoid mobile browser iframe autoplay block.
         const audioIdx = state.queue.findIndex(ep => !ep.isYouTube && !ep.videoId && !ep.playlistId);
         if (audioIdx !== -1) {
           nextEp = state.queue.splice(audioIdx, 1)[0];
           saveQueueToStorage();
           updateQueueUI();
         } else {
-          logPlayerDiagnostic('audio.bg_yt_skipped', `Skipped background YouTube queue tracks to avoid mobile playback freeze`);
+          logPlayerDiagnostic('audio.bg_yt_skipped', `Skipped background YouTube queue tracks to avoid mobile audio freeze`);
         }
       } else {
         nextEp = state.queue.shift();
@@ -8141,7 +8141,8 @@
 
     // 3. Play next or stop engine completely
     if (nextEp) {
-      logPlayerDiagnostic('audio.advance_next', `Advancing queue to: "${nextEp.title}" (autoplay=${Boolean(state.autoplayEnabled)}, queueLeft=${state.queue?.length || 0})`);
+      const isYt = Boolean(nextEp.isYouTube || nextEp.videoId || nextEp.playlistId);
+      logPlayerDiagnostic(isYt ? 'youtube.advance_next' : 'audio.advance_next', `Advancing queue to: "${nextEp.title}" (engine=${isYt ? 'youtube' : 'audio'}, autoplay=${Boolean(state.autoplayEnabled)}, queueLeft=${state.queue?.length || 0})`);
       playEpisode(nextEp, null, state.playbackContext);
       if (!document.hidden) {
         processAndSortEpisodes();
