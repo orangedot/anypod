@@ -18,21 +18,18 @@ export async function onRequest(context) {
     return Response.redirect(url.toString(), 301);
   }
 
-  // 2. dj.anypod.org bedient die DJ-App an der Root
+  // 2. Subdomain Redirects to primary origin (ensures unpartitioned IndexedDB / storage access)
   if (hostname === 'dj.anypod.org') {
-    if (url.pathname === '/' || url.pathname === '/index.html') {
-      // Direktes Umschreiben des Pfads auf das Ziel-Asset
-      const assetUrl = new URL('/dj.html', url.origin);
-      return context.env.ASSETS.fetch(assetUrl);
-    }
+    const dest = new URL('/dj', 'https://anypod.org');
+    dest.search = url.search;
+    return Response.redirect(dest.toString(), 301);
   }
 
-  // 3. sets.anypod.org & pulse.anypod.org bedienen den Workout Interval DJ Sequencer an der Root
+  // 3. sets.anypod.org & pulse.anypod.org -> anypod.org/sets
   if (hostname === 'sets.anypod.org' || hostname === 'pulse.anypod.org') {
-    if (url.pathname === '/' || url.pathname === '/index.html') {
-      const assetUrl = new URL('/sets.html', url.origin);
-      return context.env.ASSETS.fetch(assetUrl);
-    }
+    const dest = new URL('/sets', 'https://anypod.org');
+    dest.search = url.search;
+    return Response.redirect(dest.toString(), 301);
   }
 
   // 4. /dj, /dj/, and /dj.html rewrite directly to /dj.html

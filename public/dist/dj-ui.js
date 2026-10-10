@@ -21,7 +21,8 @@
     queue: [],
     favorites: [],
     liveAppTrack: null,
-    collapsedGroups: new Set()
+    collapsedGroups: new Set(),
+    hasInitializedGroupCollapse: false
   };
 
   // Procedural WAV synthesizer for 100% offline, un-expirable sample decks
@@ -572,8 +573,15 @@
       groupMap.get(gName).tracks.push(track);
     });
 
-    const isSearching = !!state.searchQuery;
     const allGroupIds = Array.from(groupMap.keys()).map(name => 'grp_' + encodeURIComponent(name).replace(/[^a-zA-Z0-9_]/g, '_'));
+
+    // Default: all groups start closed / collapsed on initial load
+    if (!state.hasInitializedGroupCollapse && allGroupIds.length > 0) {
+      allGroupIds.forEach(id => state.collapsedGroups.add(id));
+      state.hasInitializedGroupCollapse = true;
+    }
+
+    const isSearching = !!state.searchQuery;
     const isAllCollapsed = allGroupIds.length > 0 && allGroupIds.every(id => state.collapsedGroups.has(id));
 
     const btnToggleFolders = document.getElementById('btn-toggle-folders');

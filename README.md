@@ -137,6 +137,7 @@ Anypod is a free, open-source podcast player that respects you. Open it, search 
 
 ## Guides & Documentation
 
+- 🎧 **[DJ Studio Console Guide & Feature Roadmap](docs/DJ_STUDIO_ROADMAP.md)** — Control-by-control implementation audit, active vs. planned features, and multi-device audio routing (Bluetooth PFL cueing + USB-C/Jack main out).
 - 🎵 **[YouTube Music & Playlist Export Guide](docs/YOUTUBE_MUSIC_EXPORT.md)** — Export your private Liked Music library or YouTube playlists into Anypod using a 1-click console script or range selector.
 - ⏱️ **[Workout Sets & Interval DJ Guide](docs/SETS.md)** — Architecture, dual-deck crossfade curves, and configuration for the interval sequencer.
 - 🚀 **[Self-Hosting Guide](SELF_HOSTING.md)** — Run your own Anypod instance on Cloudflare Pages or Docker.

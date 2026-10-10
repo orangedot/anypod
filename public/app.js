@@ -4750,33 +4750,92 @@
     const quickResults = targetRoot.querySelector('#empty-quick-results');
 
     if (quickInput && quickForm) {
+      const normalizeUrl = (str) => {
+        let u = str.trim();
+        if ((u.startsWith('www.') || u.includes('youtube.com/') || u.includes('youtu.be/')) && !u.startsWith('http://') && !u.startsWith('https://')) {
+          u = 'https://' + u;
+        }
+        return u;
+      };
+
+      const isDirectUrl = (str) => {
+        const u = str.trim().toLowerCase();
+        return u.startsWith('http://') || u.startsWith('https://') || u.startsWith('www.') || u.includes('youtube.com/') || u.includes('youtu.be/');
+      };
+
       quickInput.addEventListener('input', () => {
-        const val = quickInput.value.trim();
+        const raw = quickInput.value.trim();
         if (quickSubmit) {
-          quickSubmit.textContent = (val.startsWith('http://') || val.startsWith('https://')) ? 'Add Feed' : 'Search';
+          quickSubmit.textContent = isDirectUrl(raw) ? 'Add Feed' : 'Search';
         }
         if (emptySearchDebounceTimer) clearTimeout(emptySearchDebounceTimer);
-        if (!val || val.length < 3 || val.startsWith('http://') || val.startsWith('https://')) {
+        if (!raw || raw.length < 3 || isDirectUrl(raw)) {
           if (quickResults) quickResults.innerHTML = '';
           return;
         }
         emptySearchDebounceTimer = setTimeout(() => {
-          if (quickResults) searchPodcastDirectory(val, quickResults);
+          if (quickResults) searchPodcastDirectory(raw, quickResults);
         }, 650);
       });
 
-      quickForm.addEventListener('submit', (e) => {
+      quickForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const val = quickInput.value.trim();
-        if (!val) return;
-        if (val.startsWith('http://') || val.startsWith('https://')) {
-          if (quickSubmit) quickSubmit.textContent = 'Adding...';
-          addFeed(val);
-          quickInput.value = '';
-          if (quickResults) quickResults.innerHTML = '';
+        const raw = quickInput.value.trim();
+        if (!raw) return;
+
+        if (isDirectUrl(raw)) {
+          const val = normalizeUrl(raw);
+          if (quickSubmit) {
+            quickSubmit.textContent = 'adding...';
+            quickSubmit.disabled = true;
+          }
+          try {
+            const added = await addFeed(val);
+            if (added) {
+              const meta = state.feedMetadata[val] || {};
+              if (meta.error) {
+                showToast(`⚠️ Could not load feed: ${meta.error}`, 4000);
+                if (quickSubmit) {
+                  quickSubmit.textContent = 'Add Feed';
+                  quickSubmit.disabled = false;
+                }
+              } else {
+                quickInput.value = '';
+                if (quickResults) quickResults.innerHTML = '';
+                const feedTitle = meta.title || 'podcast';
+                const count = meta.episodesCount || (state.allEpisodes ? state.allEpisodes.filter(ep => ep.feedUrl === val).length : 0);
+                showToast(`✓ Subscribed to "${feedTitle}" (${count} episodes)!`, 3500);
+                if (quickSubmit) {
+                  quickSubmit.textContent = '✓ added';
+                  setTimeout(() => {
+                    if (quickSubmit) {
+                      quickSubmit.textContent = 'search / add';
+                      quickSubmit.disabled = false;
+                    }
+                  }, 2500);
+                }
+                if (typeof _currentView === 'function' && (_currentView().tab === 'discover' || state.feeds.length === 1)) {
+                  if (typeof navigateTo === 'function') {
+                    navigateTo('timeline', null);
+                  }
+                }
+              }
+            } else {
+              if (quickSubmit) {
+                quickSubmit.textContent = 'Add Feed';
+                quickSubmit.disabled = false;
+              }
+            }
+          } catch (err) {
+            showToast(`⚠️ Error adding feed: ${err?.message || 'Network error'}`, 4000);
+            if (quickSubmit) {
+              quickSubmit.textContent = 'Add Feed';
+              quickSubmit.disabled = false;
+            }
+          }
         } else {
           if (emptySearchDebounceTimer) clearTimeout(emptySearchDebounceTimer);
-          if (quickResults) searchPodcastDirectory(val, quickResults);
+          if (quickResults) searchPodcastDirectory(raw, quickResults);
         }
       });
     }
@@ -6107,40 +6166,91 @@
     const quickResults = document.getElementById('feeds-empty-quick-results');
 
     if (quickInput && quickForm) {
+      const normalizeUrl = (str) => {
+        let u = str.trim();
+        if ((u.startsWith('www.') || u.includes('youtube.com/') || u.includes('youtu.be/')) && !u.startsWith('http://') && !u.startsWith('https://')) {
+          u = 'https://' + u;
+        }
+        return u;
+      };
+
+      const isDirectUrl = (str) => {
+        const u = str.trim().toLowerCase();
+        return u.startsWith('http://') || u.startsWith('https://') || u.startsWith('www.') || u.includes('youtube.com/') || u.includes('youtu.be/');
+      };
+
       quickInput.addEventListener('input', () => {
-        const val = quickInput.value.trim();
+        const raw = quickInput.value.trim();
         if (quickSubmit) {
-          if (val.startsWith('http://') || val.startsWith('https://')) {
-            quickSubmit.textContent = 'Add Feed';
-          } else {
-            quickSubmit.textContent = 'Search';
-          }
+          quickSubmit.textContent = isDirectUrl(raw) ? 'Add Feed' : 'Search';
         }
         if (feedsSearchDebounceTimer) clearTimeout(feedsSearchDebounceTimer);
-        if (!val || val.length < 3 || val.startsWith('http://') || val.startsWith('https://')) {
+        if (!raw || raw.length < 3 || isDirectUrl(raw)) {
           if (quickResults) quickResults.innerHTML = '';
           return;
         }
         feedsSearchDebounceTimer = setTimeout(() => {
           if (quickResults) {
-            searchPodcastDirectory(val, quickResults);
+            searchPodcastDirectory(raw, quickResults);
           }
         }, 650);
       });
 
-      quickForm.addEventListener('submit', (e) => {
+      quickForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const val = quickInput.value.trim();
-        if (!val) return;
-        if (val.startsWith('http://') || val.startsWith('https://')) {
-          if (quickSubmit) quickSubmit.textContent = 'Adding...';
-          addFeed(val);
-          quickInput.value = '';
-          if (quickResults) quickResults.innerHTML = '';
+        const raw = quickInput.value.trim();
+        if (!raw) return;
+
+        if (isDirectUrl(raw)) {
+          const val = normalizeUrl(raw);
+          if (quickSubmit) {
+            quickSubmit.textContent = 'adding...';
+            quickSubmit.disabled = true;
+          }
+          try {
+            const added = await addFeed(val);
+            if (added) {
+              const meta = state.feedMetadata[val] || {};
+              if (meta.error) {
+                showToast(`⚠️ Could not load feed: ${meta.error}`, 4000);
+                if (quickSubmit) {
+                  quickSubmit.textContent = 'Add Feed';
+                  quickSubmit.disabled = false;
+                }
+              } else {
+                quickInput.value = '';
+                if (quickResults) quickResults.innerHTML = '';
+                const feedTitle = meta.title || 'podcast';
+                const count = meta.episodesCount || (state.allEpisodes ? state.allEpisodes.filter(ep => ep.feedUrl === val).length : 0);
+                showToast(`✓ Subscribed to "${feedTitle}" (${count} episodes added)!`, 3500);
+                if (quickSubmit) {
+                  quickSubmit.textContent = '✓ added';
+                  setTimeout(() => {
+                    if (quickSubmit) {
+                      quickSubmit.textContent = 'search / add';
+                      quickSubmit.disabled = false;
+                    }
+                  }, 2500);
+                }
+                renderFeedsGrid();
+              }
+            } else {
+              if (quickSubmit) {
+                quickSubmit.textContent = 'Add Feed';
+                quickSubmit.disabled = false;
+              }
+            }
+          } catch (err) {
+            showToast(`⚠️ Error adding feed: ${err?.message || 'Network error'}`, 4000);
+            if (quickSubmit) {
+              quickSubmit.textContent = 'Add Feed';
+              quickSubmit.disabled = false;
+            }
+          }
         } else {
           if (feedsSearchDebounceTimer) clearTimeout(feedsSearchDebounceTimer);
           if (quickResults) {
-            searchPodcastDirectory(val, quickResults);
+            searchPodcastDirectory(raw, quickResults);
           }
         }
       });
@@ -7015,6 +7125,10 @@
       if (state.activeEngine === 'audio') {
         updateProgress();
         checkEpisodeEndWatchdog();
+        const cur = audio.currentTime || 0;
+        if (cur > 2.5 && state._audioSpuriousPauseRetries > 0) {
+          state._audioSpuriousPauseRetries = 0;
+        }
       }
     });
 
@@ -7023,7 +7137,7 @@
       if (state.activeEngine === 'audio') {
         updateDuration();
         if (state.currentEpisode) {
-          syncMediaSession(state.currentEpisode, true);
+          syncMediaSession(state.currentEpisode, false);
         }
         if (!state._userIntentionalPause && (state.playbackStatus === 'loading' || state.playbackStatus === 'playing') && audio.paused) {
           audio.play().then(() => {
@@ -7074,14 +7188,14 @@
           state.playbackStatus = 'playing';
           syncPlaybackButtons();
           if (state.currentEpisode) {
-            syncMediaSession(state.currentEpisode, true);
+            syncMediaSession(state.currentEpisode, false);
           }
         } else if (state.playbackStatus === 'loading' || state.playbackStatus === 'playing') {
           audio.play().then(() => {
             state.playbackStatus = 'playing';
             syncPlaybackButtons();
             if (state.currentEpisode) {
-              syncMediaSession(state.currentEpisode, true);
+              syncMediaSession(state.currentEpisode, false);
             }
           }).catch(() => {});
         }
@@ -7098,12 +7212,8 @@
 
         if (state.currentEpisode) {
           state._nowPlayingActiveGuid = state.currentEpisode.guid;
-          // CRITICAL: Always reassert MediaSession metadata and playbackState on 'playing'!
-          // When continuous playback advances in background/lockscreen on mobile Android,
-          // the notification for the ended track gets torn down by Android's System UI.
-          // Setting new MediaMetadata when the new track is actively outputting PCM audio
-          // forces Android's NotificationManager to post and display the Lockscreen Media Player!
-          syncMediaSession(state.currentEpisode, true);
+          // Reassert playbackState and positionState without re-instantiating redundant MediaMetadata objects
+          syncMediaSession(state.currentEpisode, false);
 
           if ('mediaSession' in navigator) {
             navigator.mediaSession.playbackState = 'playing';
@@ -7157,19 +7267,30 @@
         }
 
         // Spurious background pause guard:
-        // On mobile Android/iOS, switching tracks in the background can cause a transient pause
-        // during initial buffer allocation (first 1.0s) when the user did NOT intentionally pause!
-        if (document.hidden && !state._userIntentionalPause && cur <= 1.0 && (state._audioSpuriousPauseRetries || 0) < 3) {
+        // On mobile Android/iOS, switching tracks in the background can cause transient pauses
+        // during initial buffer allocation and AudioTrack binding when the user did NOT intentionally pause!
+        const isStartupPhase = cur <= 3.0 || (state._trackStartTime && (Date.now() - state._trackStartTime < 12000));
+        if (document.hidden && !state._userIntentionalPause && isStartupPhase && (state._audioSpuriousPauseRetries || 0) < 8) {
           state._audioSpuriousPauseRetries = (state._audioSpuriousPauseRetries || 0) + 1;
-          logPlayerDiagnostic('audio.spurious_pause', `Ignored background/startup pause at cur=${cur.toFixed(2)}s (retry ${state._audioSpuriousPauseRetries}/3)`);
+          logPlayerDiagnostic('audio.spurious_pause', `Ignored background/startup pause at cur=${cur.toFixed(2)}s (retry ${state._audioSpuriousPauseRetries}/8)`);
+
+          // If we have retried 5 times on direct CDN and keep getting background pauses, fall back to audio proxy
+          if (state._audioSpuriousPauseRetries >= 5 && typeof triggerAudioProxyFallback === 'function' && !elements.audio.src.includes('/api/audio-proxy') && state.currentEpisode?.audioUrl) {
+            triggerAudioProxyFallback(`Spurious background pauses (${state._audioSpuriousPauseRetries} retries)`);
+            return;
+          }
+
           setTimeout(() => {
             if (state.activeEngine === 'audio' && !state._userIntentionalPause && elements.audio && elements.audio.paused) {
               logPlayerDiagnostic('audio.retry_play', `Auto-reasserting audio.play() (attempt ${state._audioSpuriousPauseRetries})`);
-              elements.audio.play().catch(err => {
+              elements.audio.play().then(() => {
+                state.playbackStatus = 'playing';
+                syncPlaybackButtons();
+              }).catch(err => {
                 logPlayerDiagnostic('audio.retry_play_failed', err?.message || 'blocked');
               });
             }
-          }, 300);
+          }, 120);
           return;
         }
 
@@ -7764,12 +7885,16 @@
       }
       _isProxyFallbackInProgress = false;
       state.pendingStartTime = (startTime > 1) ? startTime : null;
+      // CRITICAL: Synchronize MediaSession BEFORE reassigning audio.src!
+      // On mobile Android/iOS, if the tab is hidden (lockscreen playback),
+      // swapping audio.src resets the decoder. If MediaSession already holds the
+      // new track metadata and playbackState is 'playing', Android's NotificationManager
+      // maintains the existing lockscreen player continuously instead of tearing it down!
+      syncMediaSession(episode, true);
+
       elements.audio.src = streamUrl;
       // Do NOT call audio.load() here! Calling load() while hidden resets the user activation token and halts background playback
       elements.audio.playbackRate = state.playbackSpeed || 1.0;
-
-      // Sync lock screen AFTER resetting audio so the old duration is cleared
-      syncMediaSession(episode, true);
 
       logPlayerDiagnostic('audio.play_start', `Starting "${episode.title}" via ${streamUrl.startsWith('/api/') ? 'proxy' : 'direct CDN'}`);
       const playPromise = elements.audio.play();
@@ -8403,7 +8528,10 @@
 
       document.title = `${titleStr} • ${artistStr} — anypod`;
 
-      const metadataNeedsUpdate = forceReassert || !navigator.mediaSession.metadata || state._mediaSessionGuid !== episode.guid;
+      // Debounce MediaMetadata: Only instantiate a new MediaMetadata object when the episode actually changes
+      // or if metadata is uninitialized. Recreating MediaMetadata on every audio event (loadedmetadata, canplay, playing)
+      // floods Android's NotificationManager IPC channel and causes system lockscreen controls to be dismissed!
+      const metadataNeedsUpdate = !navigator.mediaSession.metadata || state._mediaSessionGuid !== episode.guid;
 
       if (metadataNeedsUpdate) {
         state._mediaSessionGuid = episode.guid;
@@ -9591,27 +9719,46 @@ function setPlayerCollapsed(collapsed, save = true) {
     if (elements.btnCancelAdd) {
       elements.btnCancelAdd.addEventListener('click', closeAddModal);
     }
-    elements.btnSubmitFeed.addEventListener('click', () => {
-      if (elements.feedUrlInput.value) {
-        addFeed(elements.feedUrlInput.value);
-        const origText = elements.btnSubmitFeed.textContent;
-        elements.btnSubmitFeed.textContent = 'subscribed!';
-        setTimeout(() => {
-          elements.btnSubmitFeed.textContent = origText;
-        }, 2000);
+    const handleModalFeedSubmit = async () => {
+      const val = elements.feedUrlInput ? elements.feedUrlInput.value.trim() : '';
+      if (!val) return;
+      elements.btnSubmitFeed.disabled = true;
+      elements.btnSubmitFeed.textContent = 'adding...';
+      try {
+        const added = await addFeed(val);
+        if (added) {
+          const meta = state.feedMetadata[val] || {};
+          if (meta.error) {
+            showToast(`⚠️ Could not load feed: ${meta.error}`, 4000);
+            elements.btnSubmitFeed.textContent = 'subscribe';
+            elements.btnSubmitFeed.disabled = false;
+          } else {
+            elements.btnSubmitFeed.textContent = '✓ subscribed!';
+            showToast(`✓ Subscribed to "${meta.title || 'podcast'}"!`);
+            closeAddModal();
+            setTimeout(() => {
+              if (elements.btnSubmitFeed) {
+                elements.btnSubmitFeed.textContent = 'subscribe';
+                elements.btnSubmitFeed.disabled = false;
+              }
+            }, 1500);
+          }
+        } else {
+          elements.btnSubmitFeed.textContent = 'subscribe';
+          elements.btnSubmitFeed.disabled = false;
+        }
+      } catch (err) {
+        showToast(`⚠️ Error: ${err?.message || 'Failed to add feed'}`);
+        elements.btnSubmitFeed.textContent = 'subscribe';
+        elements.btnSubmitFeed.disabled = false;
       }
-    });
+    };
+
+    elements.btnSubmitFeed.addEventListener('click', handleModalFeedSubmit);
     elements.feedUrlInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        if (elements.feedUrlInput.value) {
-          addFeed(elements.feedUrlInput.value);
-          const origText = elements.btnSubmitFeed.textContent;
-          elements.btnSubmitFeed.textContent = 'subscribed!';
-          setTimeout(() => {
-            elements.btnSubmitFeed.textContent = origText;
-          }, 2000);
-        }
+        handleModalFeedSubmit();
       }
     });
 
