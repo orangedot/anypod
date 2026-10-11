@@ -839,6 +839,10 @@
           <span class="metric-val" id="metric-stalls">0</span>
         </div>
         <div class="metric-pill">
+          <span class="metric-name">Auto Skips</span>
+          <span class="metric-val" id="metric-autoskips">0</span>
+        </div>
+        <div class="metric-pill">
           <span class="metric-name">Ready State</span>
           <span class="metric-val" id="metric-readystate">0 (HAVE_NOTHING)</span>
         </div>
@@ -989,6 +993,9 @@
       let lastRetryPos = 0;
       let fallbackProxyApplied = false;
       let pendingTransition = null;
+      let autoSkipsCount = 0;
+      let trackLoadStartTime = 0;
+      let trackLoadTimeoutTimer = null;
       const transitions = [];
       const stats = {
         gapSumMs: 0,
@@ -1023,6 +1030,7 @@
       const metricSession = document.getElementById('metric-session');
       const metricCompleted = document.getElementById('metric-completed');
       const metricStalls = document.getElementById('metric-stalls');
+      const metricAutoSkips = document.getElementById('metric-autoskips');
       const metricReadyState = document.getElementById('metric-readystate');
       const metricMediaSession = document.getElementById('metric-mediasession');
       const metricGap = document.getElementById('metric-gap');
@@ -1174,6 +1182,7 @@
         }
         if (metricRetries) metricRetries.textContent = String(stats.pauseRetries);
         if (metricLockLoss) metricLockLoss.textContent = String(stats.lockLosses);
+        if (metricAutoSkips) metricAutoSkips.textContent = String(autoSkipsCount);
       }
 
       // ─────────────────────────────────────────────────────────────────────────
@@ -1286,7 +1295,75 @@
       }
 
       // ─────────────────────────────────────────────────────────────────────────
-      // 5. AUDIO ENGINE PLAYBACK & TRANSITION (LOCKSCREEN-RESILIENT)
+      // 5. AUDIO PIPELINE KEEP-ALIVE & STALL WATCHDOG (BACKGROUND RESILIENCE)
+      // ─────────────────────────────────────────────────────────────────────────
+      // An inaudible WebAudio node keeps Android AudioManager / AudioTrack continuously
+      // active so Android OS Doze does not deprioritize or freeze Chrome's background
+      // network sockets during seeks, buffering, or track changes.
+      let keepAliveCtx = null;
+      function initAudioKeepAlive() {
+        try {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtx) return;
+          if (!keepAliveCtx) {
+            keepAliveCtx = new AudioCtx();
+            const osc = keepAliveCtx.createOscillator();
+            const gain = keepAliveCtx.createGain();
+            // Inaudible gain (0.00001) keeps hardware pipeline open
+            gain.gain.value = 0.00001;
+            osc.connect(gain);
+            gain.connect(keepAliveCtx.destination);
+            osc.start();
+          }
+          if (keepAliveCtx.state === 'suspended') {
+            keepAliveCtx.resume().catch(() => {});
+          }
+        } catch (_) {}
+      }
+
+      let stallRecoveryTimer = null;
+      function clearStallRecoveryTimer() {
+        if (stallRecoveryTimer) {
+          clearTimeout(stallRecoveryTimer);
+          stallRecoveryTimer = null;
+        }
+      }
+
+      function handlePlaybackStall(reason) {
+        if (userPaused || advanceInFlight) return;
+        initAudioKeepAlive();
+
+        logEvent(`audio.${reason}`, `Socket ${reason}! Buffer ahead: ${metricBuffer.textContent}`, 'tag-error', 'STALL');
+
+        if (stallRecoveryTimer) return; // watchdog already running
+
+        stallRecoveryTimer = setTimeout(() => {
+          stallRecoveryTimer = null;
+          if (userPaused || advanceInFlight) return;
+
+          // If still paused or starved of data in background
+          if (audio.paused || audio.readyState < 3) {
+            logEvent('stall.nudge', `Stream starved for 5s in background (${reason}, readyState=${audio.readyState}) -> kicking audio`, 'tag-wait', 'NUDGE');
+            initAudioKeepAlive();
+            const p = audio.play();
+            if (p !== undefined) {
+              p.catch(e => logEvent('stall.nudge_err', e.message, 'tag-error', 'ERR'));
+            }
+
+            stallRecoveryTimer = setTimeout(() => {
+              stallRecoveryTimer = null;
+              if (userPaused || advanceInFlight) return;
+              if (audio.paused || audio.readyState < 3) {
+                logEvent('stall.timeout', `Stall persisted >11s without recovery -> Auto-skipping to keep playlist running`, 'tag-error', 'AUTOSKIP');
+                advanceToNextTrack('stall_recovery_timeout');
+              }
+            }, 6000);
+          }
+        }, 5000);
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // 6. AUDIO ENGINE PLAYBACK & TRANSITION (LOCKSCREEN-RESILIENT)
       // ─────────────────────────────────────────────────────────────────────────
       function loadTrack(index, autoPlay = true, reason = 'manual') {
         if (index < 0 || index >= playlist.length) return;
@@ -1295,6 +1372,7 @@
         fallbackProxyApplied = false;
         pauseRetryCount = 0;
         advanceInFlight = false;
+        clearStallRecoveryTimer();
 
         document.getElementById('current-track-index').textContent = `Track ${currentIndex + 1} of ${playlist.length}`;
         document.getElementById('current-track-title').textContent = track.title || 'Untitled Track';
@@ -1308,14 +1386,30 @@
 
         // CRITICAL FIX FOR ANDROID PIXEL LOCKSCREEN LOSS:
         // 1. Maintain MediaSession state *before* assigning audio.src so Android SystemUI never sees idle/unassociated state.
+        if (autoPlay) {
+          userPaused = false;
+          initAudioKeepAlive();
+        }
         if ('mediaSession' in navigator) {
-          navigator.mediaSession.playbackState = autoPlay ? 'playing' : 'paused';
+          navigator.mediaSession.playbackState = userPaused ? 'paused' : 'playing';
+          if ('setPositionState' in navigator.mediaSession) {
+            try {
+              navigator.mediaSession.setPositionState({
+                duration: 100,
+                playbackRate: 1.0,
+                position: 0
+              });
+            } catch (_) {}
+          }
         }
         syncMediaSession(track, true, false);
 
         // 2. Assign audio.src without calling pause()
         audio.src = streamUrl;
         audio.load();
+
+        trackLoadStartTime = Date.now();
+        clearTimeout(trackLoadTimeoutTimer);
 
         // 3. Mark pending transition for gap timing
         pendingTransition = {
@@ -1334,10 +1428,22 @@
         if (skipSec > 0) {
           const onMeta = () => {
             audio.removeEventListener('loadedmetadata', onMeta);
-            if (audio.duration && audio.duration > skipSec + 2) {
-              const jumpTo = audio.duration - skipSec;
+            const lead = readSetting('nearEndSec');
+            const totalLead = (lead > 0) ? (skipSec + lead) : skipSec;
+            if (audio.duration && audio.duration > totalLead + 2) {
+              const jumpTo = audio.duration - totalLead;
               audio.currentTime = jumpTo;
-              logEvent('soak.skiptoend', `Jumped track to ${jumpTo.toFixed(1)}s (last ${skipSec}s)`, 'tag-wait', 'SKIP');
+              initAudioKeepAlive();
+              if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
+                try {
+                  navigator.mediaSession.setPositionState({
+                    duration: audio.duration,
+                    playbackRate: audio.playbackRate || 1.0,
+                    position: jumpTo
+                  });
+                } catch (_) {}
+              }
+              logEvent('soak.skiptoend', `Jumped track to ${jumpTo.toFixed(1)}s (leaves ${skipSec}s play window before ${lead}s nearend trigger)`, 'tag-wait', 'SKIP');
             }
           };
           audio.addEventListener('loadedmetadata', onMeta);
@@ -1345,14 +1451,40 @@
 
         if (autoPlay) {
           userPaused = false;
+          trackLoadTimeoutTimer = setTimeout(() => {
+            if (advanceInFlight || userPaused) return;
+            const isDead = audio.readyState === 0 || audio.networkState === HTMLMediaElement.NETWORK_NO_SOURCE || audio.networkState === 3;
+            if (isDead) {
+              autoSkipsCount++;
+              updateSoakMetrics();
+              logEvent('track.autoskip', `Track load stalled after 8s (networkState=${audio.networkState}, readyState=${audio.readyState}) -> Auto-skipping in 1.5s`, 'tag-error', 'AUTOSKIP');
+              setTimeout(() => {
+                advanceToNextTrack('network_3_timeout_skip');
+              }, 1500);
+            } else if (audio.readyState < 3 && !audio.ended) {
+              handlePlaybackStall('load_timeout');
+            }
+          }, 8000);
+
           const playPromise = audio.play();
           if (playPromise !== undefined) {
             playPromise.then(() => {
+              clearTimeout(trackLoadTimeoutTimer);
               logEvent('play.resolved', `Playback started for track ${currentIndex + 1}`, 'tag-event', 'PLAY');
               updateUIPlayState(true);
             }).catch(err => {
-              logEvent('play.rejected', `Error: ${err.name} - ${err.message}`, 'tag-error', 'ERR');
+              logEvent('play.rejected', `Error: ${err.name} - ${err.message} (networkState=${audio.networkState})`, 'tag-error', 'ERR');
               updateUIPlayState(false);
+              const isNetwork3 = audio.networkState === HTMLMediaElement.NETWORK_NO_SOURCE || audio.networkState === 3;
+              if (isNetwork3 || err.name === 'NotSupportedError') {
+                clearTimeout(trackLoadTimeoutTimer);
+                autoSkipsCount++;
+                updateSoakMetrics();
+                logEvent('track.autoskip', `Playback rejected on unplayable source (networkState=${audio.networkState}) -> Auto-skipping in 1.5s`, 'tag-error', 'AUTOSKIP');
+                setTimeout(() => {
+                  advanceToNextTrack('network_3_play_error');
+                }, 1500);
+              }
             });
           }
         }
@@ -1361,6 +1493,8 @@
       function advanceToNextTrack(reason = 'ended') {
         if (advanceInFlight) return;
         advanceInFlight = true;
+        clearTimeout(trackLoadTimeoutTimer);
+        clearStallRecoveryTimer();
         const nextIndex = currentIndex + 1;
         const loop = toggleLoop.checked;
 
@@ -1394,39 +1528,48 @@
       // 6. MEDIASESSION INTEGRATION & LOCKSCREEN METADATA (DEBOUNCED & ROBUST)
       // ─────────────────────────────────────────────────────────────────────────
       let mediaSessionDebounceTimer = null;
+      let lastSyncedTrackUrl = '';
 
       function syncMediaSession(track, forceReassert = false, immediate = false) {
-        if (!('mediaSession' in navigator)) {
-          if (metricMediaSession) metricMediaSession.innerHTML = '<span class="status-dot dot-red"></span>Unsupported';
+        if (!('mediaSession' in navigator) || !track) {
+          if (metricMediaSession && !('mediaSession' in navigator)) {
+            metricMediaSession.innerHTML = '<span class="status-dot dot-red"></span>Unsupported';
+          }
           return;
         }
-        if (!track) return;
 
         const applySync = () => {
           try {
-            const artworkUrl = track.artwork || '/icon-512.png';
-            const resolvedArt = new URL(artworkUrl, window.location.origin).href;
-            const fallback512 = new URL('/icon-512.png', window.location.origin).href;
-            const fallback192 = new URL('/icon-192.png', window.location.origin).href;
+            const trackNeedsUpdate = !navigator.mediaSession.metadata || lastSyncedTrackUrl !== track.url || forceReassert;
+            if (trackNeedsUpdate) {
+              lastSyncedTrackUrl = track.url;
+              const artworkUrl = track.artwork || '/icon-512.png';
+              const resolvedArt = new URL(artworkUrl, window.location.origin).href;
+              const fallback512 = new URL('/icon-512.png', window.location.origin).href;
+              const fallback192 = new URL('/icon-192.png', window.location.origin).href;
 
-            const artworkList = [
-              { src: fallback192, sizes: '96x96', type: 'image/png' },
-              { src: fallback192, sizes: '128x128', type: 'image/png' },
-              { src: fallback192, sizes: '192x192', type: 'image/png' },
-              { src: resolvedArt, sizes: '256x256' },
-              { src: resolvedArt, sizes: '384x384' },
-              { src: resolvedArt, sizes: '512x512' },
-              { src: fallback512, sizes: '512x512', type: 'image/png' }
-            ];
+              const artworkList = [
+                { src: fallback192, sizes: '96x96', type: 'image/png' },
+                { src: fallback192, sizes: '128x128', type: 'image/png' },
+                { src: fallback192, sizes: '192x192', type: 'image/png' },
+                { src: resolvedArt, sizes: '256x256' },
+                { src: resolvedArt, sizes: '384x384' },
+                { src: resolvedArt, sizes: '512x512' },
+                { src: fallback512, sizes: '512x512', type: 'image/png' }
+              ];
 
-            navigator.mediaSession.metadata = new MediaMetadata({
-              title: track.title || 'Diagnostic Track',
-              artist: track.artist || 'Anypod Testbed',
-              album: feedMeta.title || 'Anypod Feed Soak Test',
-              artwork: artworkList
-            });
+              navigator.mediaSession.metadata = new MediaMetadata({
+                title: track.title || 'Diagnostic Track',
+                artist: track.artist || 'Anypod Testbed',
+                album: feedMeta.title || 'Anypod Feed Soak Test',
+                artwork: artworkList
+              });
+            }
 
-            const pbState = audio.paused ? 'paused' : 'playing';
+            // CRITICAL FOR ANDROID LOCKSCREEN: Never set playbackState to 'paused'
+            // unless the user intentionally clicked Pause! Setting 'paused' during transitions
+            // causes Android to immediately dismiss the lockscreen player and revoke background audio priority.
+            const pbState = userPaused ? 'paused' : 'playing';
             navigator.mediaSession.playbackState = pbState;
 
             if (metricMediaSession) {
@@ -1435,10 +1578,23 @@
                 : '<span class="status-dot dot-amber"></span>Active (Paused)';
             }
 
-            // Reset position state for fresh track
+            // Reset position state for fresh track so Android never holds previous track's end state
             lastPositionUpdate = 0;
+            if ('setPositionState' in navigator.mediaSession) {
+              const durSec = (audio.duration && isFinite(audio.duration) && audio.duration > 0) ? audio.duration : 100;
+              const curSec = (audio.currentTime && isFinite(audio.currentTime)) ? audio.currentTime : 0;
+              try {
+                navigator.mediaSession.setPositionState({
+                  duration: Math.max(1, durSec),
+                  playbackRate: audio.playbackRate || 1.0,
+                  position: Math.min(curSec, durSec > 1 ? durSec - 0.1 : 0)
+                });
+              } catch (_) {}
+            }
 
-            logEvent('mediasession.synced', `Title: "${track.title}", PlaybackState: ${pbState}, Force: ${forceReassert}`, 'tag-event', 'LOCK');
+            if (forceReassert) {
+              logEvent('mediasession.synced', `Title: "${track.title}", PlaybackState: ${pbState}, Force: ${forceReassert}`, 'tag-event', 'LOCK');
+            }
           } catch (err) {
             if (metricMediaSession) metricMediaSession.innerHTML = '<span class="status-dot dot-red"></span>Error';
             logEvent('mediasession.error', `${err.name}: ${err.message}`, 'tag-error', 'ERR');
@@ -1459,11 +1615,14 @@
 
         navigator.mediaSession.setActionHandler('play', () => {
           logEvent('mediasession.action', 'play received from lock-screen');
+          userPaused = false;
+          initAudioKeepAlive();
           audio.play().catch(() => {});
         });
 
         navigator.mediaSession.setActionHandler('pause', () => {
           logEvent('mediasession.action', 'pause received from lock-screen');
+          userPaused = true;
           audio.pause();
         });
 
@@ -1590,29 +1749,22 @@
 
       // Audio Event Hooks
       audio.addEventListener('loadstart', () => {
-        logEvent('audio.loadstart', `src=${audio.src}`);
         metricState.innerHTML = '<span class="status-dot dot-amber"></span>LOADING';
       });
 
       audio.addEventListener('loadedmetadata', () => {
-        logEvent('audio.loadedmetadata', `duration=${audio.duration?.toFixed(2)}s`);
         updateProgress();
       });
 
-      audio.addEventListener('loadeddata', () => {
-        logEvent('audio.loadeddata', `readyState=${audio.readyState}`);
-      });
+      audio.addEventListener('loadeddata', () => {});
 
       audio.addEventListener('canplay', () => {
-        logEvent('audio.canplay', `readyState=${audio.readyState}`);
+        clearTimeout(trackLoadTimeoutTimer);
       });
 
-      audio.addEventListener('canplaythrough', () => {
-        logEvent('audio.canplaythrough', 'Full buffer estimated ready');
-      });
+      audio.addEventListener('canplaythrough', () => {});
 
       audio.addEventListener('play', () => {
-        logEvent('audio.play', 'play() requested');
         updateUIPlayState(true);
         if ('mediaSession' in navigator) {
           navigator.mediaSession.playbackState = 'playing';
@@ -1621,6 +1773,8 @@
       });
 
       audio.addEventListener('playing', () => {
+        clearTimeout(trackLoadTimeoutTimer);
+        clearStallRecoveryTimer();
         const cur = audio.currentTime.toFixed(2);
         logEvent('audio.playing', `Playback active at cur=${cur}s, readyState=${audio.readyState}`);
         updateUIPlayState(true);
@@ -1645,14 +1799,10 @@
         if ('mediaSession' in navigator) {
           navigator.mediaSession.playbackState = 'playing';
           if (metricMediaSession) metricMediaSession.innerHTML = '<span class="status-dot dot-green"></span>Active (Playing)';
-          // Re-assert on actual audio output start so Android OS foreground notification binds properly
-          if (playlist[currentIndex]) {
-            syncMediaSession(playlist[currentIndex], false);
-          }
         }
         setTimeout(() => {
-          if (!audio.paused && audio.currentTime > lastRetryPos + 2.5) pauseRetryCount = 0;
-        }, 3000);
+          if (!audio.paused) pauseRetryCount = 0;
+        }, 1500);
         lastRetryPos = audio.currentTime;
       });
 
@@ -1668,59 +1818,67 @@
         }
 
         const maxRetries = readSetting('maxPauseRetries');
-        if (!userPaused && document.hidden && maxRetries > 0 && pauseRetryCount < maxRetries) {
-          pauseRetryCount++;
-          stats.pauseRetries++;
-          updateSoakMetrics();
-          logEvent('audio.pause.spurious', `Unexpected BG pause at ${audio.currentTime.toFixed(2)}s -> retry ${pauseRetryCount}/${maxRetries}`, 'tag-wait', 'RETRY');
-          if (pauseRetryCount > readSetting('proxyFallbackAfter') && !toggleProxy.checked && !fallbackProxyApplied) {
-            fallbackProxyApplied = true;
-            logEvent('audio.proxy.fallback', 'Switching to proxy after repeated spurious pauses', 'tag-wait', 'RETRY');
-            const pos = audio.currentTime;
-            audio.src = resolveStreamUrl(playlist[currentIndex].url, true);
-            audio.addEventListener('loadedmetadata', () => { try { audio.currentTime = pos; } catch (_) {} }, { once: true });
+        if (!userPaused && document.hidden && maxRetries > 0) {
+          if (pauseRetryCount < maxRetries) {
+            pauseRetryCount++;
+            stats.pauseRetries++;
+            updateSoakMetrics();
+            logEvent('audio.pause.spurious', `Unexpected BG pause at ${audio.currentTime.toFixed(2)}s -> retry ${pauseRetryCount}/${maxRetries}`, 'tag-wait', 'RETRY');
+            if (pauseRetryCount > readSetting('proxyFallbackAfter') && toggleProxy.checked && !fallbackProxyApplied) {
+              fallbackProxyApplied = true;
+              logEvent('audio.proxy.fallback', 'Switching to proxy after repeated spurious pauses', 'tag-wait', 'RETRY');
+              const pos = audio.currentTime;
+              audio.src = resolveStreamUrl(playlist[currentIndex].url, true);
+              audio.addEventListener('loadedmetadata', () => { try { audio.currentTime = pos; } catch (_) {} }, { once: true });
+            }
+            // Progressive backoff: gives Android audio hardware buffer time to settle
+            const baseDelay = readSetting('retryDelayMs') || 150;
+            const delay = Math.min(1500, baseDelay + (pauseRetryCount * 120));
+            setTimeout(() => {
+              if (!userPaused && audio.paused) {
+                initAudioKeepAlive();
+                audio.play().catch(err => logEvent('audio.retry.rejected', `${err.name}: ${err.message}`, 'tag-error', 'ERR'));
+              }
+            }, delay);
+            return;
+          } else {
+            // Retries exceeded: Auto-skip to keep playlist alive rather than dying in silence
+            logEvent('audio.pause.exhausted', `Exceeded ${maxRetries} pause retries -> Auto-advancing playlist`, 'tag-error', 'EXHAUSTED');
+            pauseRetryCount = 0;
+            advanceToNextTrack('pause_retries_exhausted');
+            return;
           }
-          setTimeout(() => {
-            if (!userPaused && audio.paused) audio.play().catch(err => logEvent('audio.retry.rejected', `${err.name}: ${err.message}`, 'tag-error', 'ERR'));
-          }, readSetting('retryDelayMs'));
-          return;
         }
 
-        logEvent('audio.pause', `Paused at cur=${audio.currentTime.toFixed(2)}s (userPaused=${userPaused})`);
+        if (userPaused) {
+          logEvent('audio.pause', `Paused at cur=${audio.currentTime.toFixed(2)}s (userPaused=true)`);
+        }
         updateUIPlayState(false);
-        if ('mediaSession' in navigator) {
+        if ('mediaSession' in navigator && userPaused) {
           navigator.mediaSession.playbackState = 'paused';
           if (metricMediaSession) metricMediaSession.innerHTML = '<span class="status-dot dot-amber"></span>Active (Paused)';
         }
       });
 
       audio.addEventListener('waiting', () => {
-        logEvent('audio.waiting', `Buffering starved! readyState=${audio.readyState}, networkState=${audio.networkState}`, 'tag-wait', 'WAIT');
         metricState.innerHTML = '<span class="status-dot dot-amber"></span>BUFFERING';
+        handlePlaybackStall('waiting');
       });
 
       audio.addEventListener('stalled', () => {
         stallEventsCount++;
         metricStalls.textContent = stallEventsCount;
-        logEvent('audio.stalled', `Socket stalled! Buffer ahead: ${metricBuffer.textContent}`, 'tag-error', 'STALL');
+        handlePlaybackStall('stalled');
       });
 
-      audio.addEventListener('suspend', () => {
-        logEvent('audio.suspend', 'Browser suspended chunk downloads (buffer full or background policy)');
-      });
+      audio.addEventListener('suspend', () => {});
 
-      audio.addEventListener('emptied', () => {
-        logEvent('audio.emptied', 'Audio source buffer cleared');
-      });
+      audio.addEventListener('emptied', () => {});
 
       audio.addEventListener('timeupdate', () => {
         updateProgress();
-        const now = Date.now();
-        if (now - lastTimeupdateLog >= 4000) {
-          lastTimeupdateLog = now;
-          const cur = audio.currentTime.toFixed(1);
-          const dur = audio.duration ? audio.duration.toFixed(1) : '?';
-          logEvent('audio.timeupdate', `pos=${cur}/${dur}s | ${metricBuffer.textContent}`, 'tag-fg', 'TICK');
+        if (!audio.paused && audio.currentTime > 0) {
+          clearStallRecoveryTimer();
         }
 
         // Near-end watchdog: advance BEFORE the element reaches 'ended' so the
@@ -1729,10 +1887,13 @@
         if (lead > 0 && !advanceInFlight && !userPaused) {
           const d = audio.duration;
           if (d && isFinite(d) && d > lead + 3 && d - audio.currentTime <= lead) {
-            completedTracksCount++;
-            metricCompleted.textContent = `${completedTracksCount} tracks`;
-            logEvent('watchdog.nearend', `Advancing ${(d - audio.currentTime).toFixed(1)}s before end (watchdog)`, 'tag-wait', 'NEAREND');
-            advanceToNextTrack('nearend');
+            // Guard against advancing within the first 1.2s of a track starting or jumping
+            if (Date.now() - trackLoadStartTime >= 1200) {
+              completedTracksCount++;
+              metricCompleted.textContent = `${completedTracksCount} tracks`;
+              logEvent('watchdog.nearend', `Advancing ${(d - audio.currentTime).toFixed(1)}s before end (watchdog)`, 'tag-wait', 'NEAREND');
+              advanceToNextTrack('nearend');
+            }
           }
         }
       });
@@ -1753,10 +1914,25 @@
       let isRecoveringNetwork = false;
 
       audio.addEventListener('error', (e) => {
+        clearTimeout(trackLoadTimeoutTimer);
         const err = audio.error;
         const msg = err ? `Code ${err.code}: ${err.message}` : 'Unknown audio error';
-        logEvent('audio.error', msg, 'tag-error', 'ERROR');
+        logEvent('audio.error', `${msg} (networkState=${audio.networkState})`, 'tag-error', 'ERROR');
         metricState.innerHTML = '<span class="status-dot dot-red"></span>ERROR';
+
+        const isNetwork3 = audio.networkState === HTMLMediaElement.NETWORK_NO_SOURCE || audio.networkState === 3;
+        const isSrcNotSupported = err && err.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED;
+
+        // Auto-skip unplayable tracks (Code 4 or networkState 3 / NETWORK_NO_SOURCE)
+        if (isNetwork3 || isSrcNotSupported) {
+          autoSkipsCount++;
+          updateSoakMetrics();
+          logEvent('track.autoskip', `Unplayable track (${msg}, networkState=${audio.networkState}) -> Auto-skipping in 1.5s`, 'tag-error', 'AUTOSKIP');
+          setTimeout(() => {
+            advanceToNextTrack('network_3_error_skip');
+          }, 1500);
+          return;
+        }
 
         // Fix 2: Auto-recover transient CDN disconnects / FFmpegDemuxer read errors
         if (err && err.code === MediaError.MEDIA_ERR_NETWORK && !isRecoveringNetwork) {
@@ -1794,6 +1970,14 @@
                 }).catch(playErr => {
                   isRecoveringNetwork = false;
                   logEvent('watchdog.failed', `Auto-play resume failed: ${playErr.name} - ${playErr.message}`, 'tag-error', 'ERR');
+                  if (audio.networkState === HTMLMediaElement.NETWORK_NO_SOURCE || audio.networkState === 3) {
+                    autoSkipsCount++;
+                    updateSoakMetrics();
+                    logEvent('track.autoskip', `Recovery failed (networkState=3) -> Auto-skipping in 1.5s`, 'tag-error', 'AUTOSKIP');
+                    setTimeout(() => {
+                      advanceToNextTrack('network_3_recovery_failed');
+                    }, 1500);
+                  }
                 });
               } else {
                 isRecoveringNetwork = false;
@@ -1813,6 +1997,9 @@
         if (isHidden) {
           metricVisibility.innerHTML = '<span class="status-dot dot-amber"></span>Hidden (Screen Off)';
           logEvent('visibility.hidden', `Screen locked or user switched apps (${document.visibilityState})`, 'tag-bg', 'BG');
+          if (!audio.paused) {
+            initAudioKeepAlive();
+          }
         } else {
           metricVisibility.innerHTML = '<span class="status-dot dot-green"></span>Visible';
           logEvent('visibility.visible', `Returned to foreground (${document.visibilityState})`, 'tag-fg', 'FG');
@@ -1843,7 +2030,9 @@
       // 10. CONTROLS INTERACTION
       // ─────────────────────────────────────────────────────────────────────────
       playPauseBtn.addEventListener('click', () => {
+        initAudioKeepAlive();
         if (audio.paused) {
+          userPaused = false;
           if (!audio.src) {
             loadTrack(currentIndex, true);
           } else {
@@ -1852,6 +2041,8 @@
             });
           }
         } else {
+          userPaused = true;
+          clearStallRecoveryTimer();
           audio.pause();
         }
       });
@@ -2009,7 +2200,7 @@
           `Audio Position: ${cur.toFixed(2)}s / ${dur.toFixed(2)}s (${dur > 0 ? ((cur/dur)*100).toFixed(1) : 0}%)`,
           `Audio States: paused=${audio.paused}, ended=${audio.ended}, readyState=${audio.readyState}, networkState=${audio.networkState}`,
           `Buffered Ranges (${audio.buffered.length}): ${bufferedSummary.join(', ') || 'none'}`,
-          `Network Recoveries: ${networkErrorRecoveries} | Buffer Stalls: ${stallEventsCount} | Completed Tracks: ${completedTracksCount}`,
+          `Network Recoveries: ${networkErrorRecoveries} | Buffer Stalls: ${stallEventsCount} | Auto Skips: ${autoSkipsCount} | Completed Tracks: ${completedTracksCount}`,
           `Spurious Pause Retries: ${stats.pauseRetries} | Lockscreen Loss Events: ${stats.lockLosses} | BG Transitions: ${stats.bgTransitions}`,
           `Transition Gap Stats: Avg=${avgGap}ms, Max=${stats.gapMaxMs}ms over ${stats.gapCount} transitions`,
           `Session Elapsed: ${((Date.now() - sessionStartTime)/1000).toFixed(1)}s`,
@@ -2097,8 +2288,8 @@
               stats.lockLosses++;
               updateSoakMetrics();
               logEvent('lockscreen.lost', `Detected lost state: meta=${hasMeta}, pbState=${pb}. Re-asserting...`, 'tag-error', 'LOCK_LOSS');
+              syncMediaSession(playlist[currentIndex], true, true);
             }
-            syncMediaSession(playlist[currentIndex], true, true);
           }
 
           const beatSec = readSetting('heartbeatSec');
