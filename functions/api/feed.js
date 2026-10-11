@@ -728,7 +728,22 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
       }
 
       let audioUrl = getAttribute(itemXml, 'enclosure', 'url') || getAttribute(itemXml, 'media:content', 'url');
-      let epArtwork = getAttribute(itemXml, 'image', 'href') || getAttribute(itemXml, 'itunes:image', 'href') || artwork;
+      let epArtwork = getAttribute(itemXml, 'image', 'href') ||
+                      getAttribute(itemXml, 'itunes:image', 'href') ||
+                      getAttribute(itemXml, 'thumbnail', 'url') ||
+                      getAttribute(itemXml, 'media:thumbnail', 'url');
+      if (!epArtwork) {
+        const itemImageTag = itemXml.match(/<image[^>]*>([\s\S]*?)<\/image>/i);
+        if (itemImageTag) epArtwork = getTagContent(itemImageTag[1], 'url');
+      }
+      if (!epArtwork) {
+        const mediaImgMatch = itemXml.match(/<media:content[^>]*\burl=["']([^"']+)["'][^>]*(medium=["']image["']|type=["']image\/[^"']+["'])[^>]*>/i) ||
+                              itemXml.match(/<media:content[^>]*(medium=["']image["']|type=["']image\/[^"']+["'])[^>]*\burl=["']([^"']+)["'][^>]*>/i);
+        if (mediaImgMatch) epArtwork = mediaImgMatch[1] || mediaImgMatch[2] || '';
+      }
+      if (!epArtwork) {
+        epArtwork = artwork;
+      }
       if (epArtwork && epArtwork.startsWith('http://')) {
         epArtwork = epArtwork.replace(/^http:\/\//i, 'https://');
       }

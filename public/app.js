@@ -5814,10 +5814,18 @@
       }
 
       // 2. Dynamic Chapter Artwork Swap
-      if (active.img && elements.playerArtwork) {
-        elements.playerArtwork.src = active.img;
-      } else if (state.currentEpisode && elements.playerArtwork) {
-        elements.playerArtwork.src = state.currentEpisode.artwork || FALLBACK_ARTWORK;
+      if (active.img) {
+        if (elements.playerArtwork) elements.playerArtwork.src = active.img;
+        if (state.currentEpisode && state._activeChapterImg !== active.img) {
+          state._activeChapterImg = active.img;
+          syncMediaSession({ ...state.currentEpisode, artwork: active.img }, true);
+        }
+      } else if (state.currentEpisode) {
+        if (elements.playerArtwork) elements.playerArtwork.src = state.currentEpisode.artwork || FALLBACK_ARTWORK;
+        if (state._activeChapterImg) {
+          state._activeChapterImg = null;
+          syncMediaSession(state.currentEpisode, true);
+        }
       }
 
       // 3. Highlight row in chapters list
@@ -6681,24 +6689,34 @@
 
       header.innerHTML = `
         <div class="feed-detail-top-nav">
-          <button class="btn-back-nav" id="btn-feed-back">${escapeHtml(backLabel)}</button>
+          <div class="feed-detail-nav-row">
+            <button class="feed-link-badge btn-back-nav" id="btn-feed-back">${escapeHtml(backLabel)}</button>
+            <div class="feed-detail-sub-actions">
+              ${isSubbed ? `
+                <button class="feed-link-badge btn-feed-mute ${isMuted ? 'is-muted' : ''}" id="btn-feed-mute" title="${isMuted ? 'Unmute: show episodes in timeline' : 'Mute: hide episodes from timeline'}">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${isMuted ? '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line>' : '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>'}</svg>
+                  <span>${isMuted ? 'Muted' : 'Mute'}</span>
+                </button>
+              ` : ''}
+              <button class="feed-link-badge btn-feed-action ${isSubbed ? 'is-subbed' : 'is-unsubbed'}" id="btn-feed-action">
+                ${isSubbed ? `
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Unsubscribe</span>
+                ` : `
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                  <span>Follow Podcast</span>
+                `}
+              </button>
+            </div>
+          </div>
           <div class="feed-detail-top-actions">
-            <button class="btn btn-primary btn-sm btn-feed-play" id="btn-feed-play-all" title="Play episodes from this feed">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 3px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            <button class="feed-link-badge btn-feed-play" id="btn-feed-play-all" title="Play episodes from this feed">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
               <span>Play</span>
             </button>
-            <label class="feed-shuffle-checkbox-wrap" id="label-feed-shuffle" title="Toggle shuffle mode">
-              <input type="checkbox" id="chk-feed-shuffle" ${state.isShuffle ? 'checked' : ''}>
+            <button class="feed-link-badge btn-feed-shuffle ${state.isShuffle ? 'is-active' : ''}" id="btn-feed-shuffle" title="Toggle shuffle mode" aria-pressed="${state.isShuffle ? 'true' : 'false'}">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
               <span>Shuffle</span>
-            </label>
-            ${isSubbed ? `
-              <button class="btn btn-secondary btn-sm btn-feed-mute ${isMuted ? 'is-muted' : ''}" id="btn-feed-mute" title="${isMuted ? 'Unmute: show episodes in timeline' : 'Mute: hide episodes from timeline'}">
-                <span>${isMuted ? 'Muted' : 'Mute'}</span>
-              </button>
-            ` : ''}
-            <button class="btn ${isSubbed ? 'btn-secondary' : 'btn-primary'} btn-sm" id="btn-feed-action">
-              ${isSubbed ? 'Unsubscribe' : '+ Follow Podcast'}
             </button>
           </div>
         </div>
@@ -6782,13 +6800,10 @@
         });
       }
 
-      const chkShuffle = header.querySelector('#chk-feed-shuffle');
-      if (chkShuffle) {
-        chkShuffle.addEventListener('change', (e) => {
-          state.isShuffle = e.target.checked;
-          localStorage.setItem(STORAGE_KEYS.SHUFFLE, String(state.isShuffle));
-          updateShuffleButtonUI();
-          showToast(state.isShuffle ? 'Shuffle mode ON' : 'Shuffle mode OFF');
+      const btnShuffle = header.querySelector('#btn-feed-shuffle');
+      if (btnShuffle) {
+        btnShuffle.addEventListener('click', () => {
+          toggleShuffle();
         });
       }
 
@@ -6863,6 +6878,11 @@
         });
       }
     } else {
+      const btnShuffle = header.querySelector('#btn-feed-shuffle');
+      if (btnShuffle) {
+        btnShuffle.classList.toggle('is-active', state.isShuffle === true);
+        btnShuffle.setAttribute('aria-pressed', String(state.isShuffle === true));
+      }
       const chk = header.querySelector('#chk-feed-shuffle');
       if (chk) {
         chk.checked = state.isShuffle === true;
@@ -6880,14 +6900,19 @@
       }
       const actionBtn = header.querySelector('#btn-feed-action');
       if (actionBtn) {
-        actionBtn.textContent = isSubbed ? 'Unsubscribe' : '+ Follow Podcast';
-        actionBtn.className = `btn ${isSubbed ? 'btn-secondary' : 'btn-primary'} btn-sm`;
+        actionBtn.className = `feed-link-badge btn-feed-action ${isSubbed ? 'is-subbed' : 'is-unsubbed'}`;
+        actionBtn.innerHTML = isSubbed
+          ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span>Unsubscribe</span>`
+          : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg><span>Follow Podcast</span>`;
       }
       const muteBtn = header.querySelector('#btn-feed-mute');
       if (muteBtn) {
-        muteBtn.className = `btn btn-secondary btn-sm btn-feed-mute ${isMuted ? 'is-muted' : ''}`;
+        muteBtn.className = `feed-link-badge btn-feed-mute ${isMuted ? 'is-muted' : ''}`;
         muteBtn.title = isMuted ? 'Unmute: show episodes in timeline' : 'Mute: hide episodes from timeline';
-        muteBtn.innerHTML = `<span>${isMuted ? 'Muted' : 'Mute'}</span>`;
+        muteBtn.innerHTML = `
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${isMuted ? '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line>' : '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>'}</svg>
+          <span>${isMuted ? 'Muted' : 'Mute'}</span>
+        `;
       }
       const existingMutedBadge = header.querySelector('.feed-muted-badge');
       if (isSubbed && isMuted) {
@@ -8470,6 +8495,13 @@
       btn.setAttribute('aria-pressed', String(isShuffle));
       btn.title = isShuffle ? 'Shuffle Playback (ON)' : 'Shuffle Playback (OFF)';
     }
+    const feedShuffleBtn = document.getElementById('btn-feed-shuffle');
+    if (feedShuffleBtn) {
+      const isShuffle = state.isShuffle === true;
+      feedShuffleBtn.classList.toggle('is-active', isShuffle);
+      feedShuffleBtn.setAttribute('aria-pressed', String(isShuffle));
+      feedShuffleBtn.title = isShuffle ? 'Shuffle mode ON (click to disable)' : 'Shuffle mode OFF (click to enable)';
+    }
     const chk = document.getElementById('chk-feed-shuffle');
     if (chk) {
       chk.checked = state.isShuffle === true;
@@ -8491,7 +8523,7 @@
 
     try {
       const feedMeta = (state.feedMetadata && episode.feedUrl) ? state.feedMetadata[episode.feedUrl] : null;
-      let rawArt = episode.artwork || (feedMeta && feedMeta.artwork) || '';
+      let rawArt = episode.artwork || episode.image || (feedMeta && (feedMeta.artwork || feedMeta.image)) || '';
 
       if (!rawArt && typeof FALLBACK_ARTWORK !== 'undefined') {
         rawArt = FALLBACK_ARTWORK;
@@ -8513,32 +8545,32 @@
 
       const artworkList = [];
       if (resolvedArt && !isSvg) {
-        let mime = 'image/jpeg';
-        if (resolvedArt.includes('.png')) mime = 'image/png';
-        else if (resolvedArt.includes('.webp')) mime = 'image/webp';
+        // Multi-resolution episode artwork: omit 'type' to let Chromium & iOS inspect magic bytes
+        // and decode JPEG, PNG, or WebP regardless of CDN params or headers
         artworkList.push(
-          { src: resolvedArt, sizes: '512x512', type: mime },
-          { src: resolvedArt, sizes: '384x384', type: mime },
-          { src: resolvedArt, sizes: '256x256', type: mime },
-          { src: resolvedArt, sizes: '192x192', type: mime },
-          { src: resolvedArt, sizes: '128x128', type: mime },
-          { src: resolvedArt, sizes: '96x96', type: mime }
+          { src: resolvedArt, sizes: '96x96' },
+          { src: resolvedArt, sizes: '128x128' },
+          { src: resolvedArt, sizes: '192x192' },
+          { src: resolvedArt, sizes: '256x256' },
+          { src: resolvedArt, sizes: '384x384' },
+          { src: resolvedArt, sizes: '512x512' }
+        );
+      } else {
+        // Fallback to local PWA icons ONLY when no episode/podcast artwork is available
+        artworkList.push(
+          { src: new URL('/icon-512.png', window.location.origin).href, sizes: '512x512', type: 'image/png' },
+          { src: new URL('/icon-192.png', window.location.origin).href, sizes: '192x192', type: 'image/png' }
         );
       }
-      artworkList.push(
-        { src: new URL('/icon-512.png', window.location.origin).href, sizes: '512x512', type: 'image/png' },
-        { src: new URL('/icon-192.png', window.location.origin).href, sizes: '192x192', type: 'image/png' }
-      );
 
       const titleStr = episode.title || 'Untitled Episode';
       const artistStr = episode.podcastTitle || 'Podcast';
 
       document.title = `${titleStr} • ${artistStr} — anypod`;
 
-      // Debounce MediaMetadata: Only instantiate a new MediaMetadata object when the episode actually changes
-      // or if metadata is uninitialized. Recreating MediaMetadata on every audio event (loadedmetadata, canplay, playing)
-      // floods Android's NotificationManager IPC channel and causes system lockscreen controls to be dismissed!
-      const metadataNeedsUpdate = !navigator.mediaSession.metadata || state._mediaSessionGuid !== episode.guid;
+      // Debounce MediaMetadata: Only instantiate a new MediaMetadata object when the episode actually changes,
+      // on forceReassert (e.g. chapter artwork change), or if metadata is uninitialized.
+      const metadataNeedsUpdate = !navigator.mediaSession.metadata || state._mediaSessionGuid !== episode.guid || forceReassert;
 
       if (metadataNeedsUpdate) {
         state._mediaSessionGuid = episode.guid;

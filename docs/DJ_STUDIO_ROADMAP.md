@@ -10,8 +10,8 @@ This document provides a comprehensive audit of all console buttons and controls
 
 | Control | Intended DJ Behavior | Current Implementation Status | Notes |
 | :--- | :--- | :---: | :--- |
-| **FX 1 (DLY / REV / ON / D/W Knob)** | Deck A FX Unit: Delay, Reverb toggle and Dry/Wet mix knob | 🟡 **Visual UI** | CSS active toggle state present; audio nodes need routing into Web Audio graph. |
-| **FX 2 (FLT / GATE / ON / D/W Knob)** | Deck B FX Unit: Filter sweep, Beat Gater toggle and Dry/Wet mix knob | 🟡 **Visual UI** | CSS active toggle state present; audio nodes need routing into Web Audio graph. |
+| **FX 1 (DLY / REV / ON / D/W Knob)** | Deck A FX Unit: Delay (1/2, 3/4, 1 beat), Reverb impulse response, and Dry/Wet mix knob | ✅ **Implemented** | Modular Web Audio FX chain inserted post-filter, pre-fader with equal-power dry/wet crossfade. |
+| **FX 2 (FLT / GATE / ON / D/W Knob)** | Deck B FX Unit: Filter sweep (2-bar LFO), Beat Gater (1/8, 1/16 note ducking), and Dry/Wet mix knob | ✅ **Implemented** | Resonant bandpass filter modulated by LFO and rhythmic square-wave gater with tempo synchronization. |
 | **SNAP** | Quantizes cues and loop points to the nearest grid marker | 🟡 **Visual UI** | Button toggles active state. Full beatgrid lock planned. |
 | **QUANT (Quantize)** | Quantizes play/cue triggers to the next full musical beat | 🟡 **Visual UI** | Button toggles active state. Full beatgrid lock planned. |
 | **MASTER BPM Display** | Displays the global reference tempo (e.g., `140.00`) | ✅ **Implemented** | Live display bound to `state.masterBpm`. |
@@ -116,12 +116,13 @@ For platforms that restrict `setSinkId` (such as iOS Safari), provide a 1-click 
 
 ---
 
-### 2. 🎛️ Audio FX Processors (FX 1 & FX 2)
-Route audio through modular Web Audio nodes when FX units are activated:
-- **Delay (DLY)**: Tempo-synchronized feedback delay (1/2 beat, 3/4 beat, 1 beat).
-- **Reverb (REV)**: Algorithmic or ConvolverNode impulse response for spatial transitions.
-- **Beat Gater (GATE)**: Square-wave LFO ducking volume to 1/8th or 1/16th notes for rhythmic build-ups.
-- **Filter Sweep (FLT)**: Resonant bandpass filter modulated across the frequency spectrum.
+### 2. 🎛️ Audio FX Processors (FX 1 & FX 2) — ✅ Implemented
+Audio is routed through modular Web Audio nodes inserted between the color filter and volume fader:
+- **Delay (DLY)**: Tempo-synchronized feedback delay with musical feedback (0.48), 3800Hz lowpass tape damping, and dynamic subdivision cycling (`1/2`, `3/4`, `1` beat).
+- **Reverb (REV)**: Stereo algorithmic impulse response generated mathematically via `ConvolverNode` (1.8s decay with exponential curve and frequency damping) with 180Hz rumble cut and 7500Hz high shelf smoothing.
+- **Beat Gater (GATE)**: Square-wave LFO ducking volume to 1/8th or 1/16th notes for rhythmic build-ups, synchronized with Master BPM.
+- **Filter Sweep (FLT)**: Resonant bandpass filter ($Q=3.8$) modulated by a triangle LFO across ~400Hz to ~2600Hz over a 2-bar cycle (8 beats).
+- **Dry/Wet Equal-Power Mix**: Seamless crossfading using $g_{dry} = \cos(\text{norm} \cdot \pi / 2)$ and $g_{wet} = \sin(\text{norm} \cdot \pi / 2)$, maintaining consistent audio power across all blend ratios. Unit ON/OFF toggle bypasses cleanly without clicks.
 
 ---
 

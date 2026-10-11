@@ -54,9 +54,20 @@
       this.master.connect(this.masterAnalyser);
       this.masterAnalyser.connect(this.ctx.destination);
 
+      // Modular Audio FX Processors
+      this.masterBpm = 128.0;
+      this.reverbBuffer = this._createReverbImpulseResponse(2.5, 2.6);
+      this.fxUnits = {
+        '1': this._buildFXUnit1('A'),
+        '2': this._buildFXUnit2('B')
+      };
+
       this.decks = {};
       DECKS.forEach((id) => this._buildDeck(id));
       this.setCrossfader(0.5, true);
+      this._updateFXDryWetMix('1');
+      this._updateFXDryWetMix('2');
+      this._updateFXTempo();
 
       // AudioContext lifecycle auto-resume
       const resume = () => {
@@ -75,6 +86,349 @@
       // Real-time animation loop for VU meters & YouTube time tracking
       this._startMeteringLoop();
       this._setupMediaSessionHandlers();
+    }
+
+    _createReverbImpulseResponse(durationSec = 2.4, decay = 2.8) {
+      try {
+        const rate = this.ctx.sampleRate;
+        const length = Math.floor(rate * durationSec);
+        const buffer = this.ctx.createBuffer(2, length, rate);
+        const left = buffer.getChannelData(0);
+        const right = buffer.getChannelData(1);
+
+        for (let i = 0; i < length; i++) {
+          const t = i / rate;
+          const env = Math.exp(-decay * t);
+          const damping = Math.exp(-t * 1.8);
+          left[i] = (Math.random() * 2 - 1) * env * damping;
+          right[i] = (Math.random() * 2 - 1) * env * damping;
+        }
+        return buffer;
+      } catch (err) {
+        console.warn('[dj-engine] failed to generate reverb impulse:', err);
+        return null;
+      }
+    }
+
+    _buildFXUnit1(deckId) {
+      const ctx = this.ctx;
+      const input = ctx.createGain();
+      const output = ctx.createGain();
+      const dryGain = ctx.createGain();
+      const wetGain = ctx.createGain();
+
+      input.connect(dryGain);
+      dryGain.connect(output);
+
+      // FX 1 Wet Chain: input -> DLY stage -> REV stage -> wetGain -> output
+      const chainInput = ctx.createGain();
+      input.connect(chainInput);
+
+      // --- Delay (DLY): Tempo-synchronized feedback delay ---
+      const dlyIn = ctx.createGain();
+      const dlyOut = ctx.createGain();
+      const dlySend = ctx.createGain();
+      const dlyDirect = ctx.createGain();
+      dlyDirect.gain.value = 1.0;
+      const dlyWet = ctx.createGain();
+      dlyWet.gain.value = 1.0;
+
+      const delayNode = ctx.createDelay(5.0);
+      const dlyFeedback = ctx.createGain();
+      dlyFeedback.gain.value = 0.48; // Musical echo feedback
+      const dlyFilter = ctx.createBiquadFilter();
+      dlyFilter.type = 'lowpass';
+      dlyFilter.frequency.value = 3800; // Analog tape damping
+
+      chainInput.connect(dlyIn);
+      dlyIn.connect(dlyDirect);
+      dlyDirect.connect(dlyOut);
+
+      dlyIn.connect(dlySend);
+      dlySend.connect(delayNode);
+      delayNode.connect(dlyFilter);
+      dlyFilter.connect(dlyFeedback);
+      dlyFeedback.connect(delayNode);
+      dlyFilter.connect(dlyWet);
+      dlyWet.connect(dlyOut);
+
+      // Default: DLY active
+      dlySend.gain.value = 1.0;
+
+      // --- Reverb (REV): ConvolverNode impulse response for spatial transitions ---
+      const revIn = ctx.createGain();
+      const revOut = ctx.createGain();
+      const revSend = ctx.createGain();
+      const revDirect = ctx.createGain();
+      revDirect.gain.value = 1.0;
+      const revWet = ctx.createGain();
+      revWet.gain.value = 0.85;
+
+      const convolver = ctx.createConvolver();
+      if (this.reverbBuffer) convolver.buffer = this.reverbBuffer;
+      const revHPF = ctx.createBiquadFilter();
+      revHPF.type = 'highpass';
+      revHPF.frequency.value = 180;
+      const revLPF = ctx.createBiquadFilter();
+      revLPF.type = 'lowpass';
+      revLPF.frequency.value = 7500;
+
+      dlyOut.connect(revIn);
+      revIn.connect(revDirect);
+      revDirect.connect(revOut);
+
+      revIn.connect(revSend);
+      revSend.connect(revHPF);
+      revHPF.connect(revLPF);
+      revLPF.connect(convolver);
+      convolver.connect(revWet);
+      revWet.connect(revOut);
+
+      // Default: REV inactive
+      revSend.gain.value = 0.0;
+
+      revOut.connect(wetGain);
+      wetGain.connect(output);
+
+      return {
+        unitId: '1',
+        deckId,
+        input,
+        output,
+        dryGain,
+        wetGain,
+        dryWet: 20,
+        enabled: true,
+        effects: {
+          delay: {
+            active: true,
+            subdivision: '3/4',
+            node: delayNode,
+            sendNode: dlySend,
+            wetNode: dlyWet
+          },
+          reverb: {
+            active: false,
+            sendNode: revSend,
+            wetNode: revWet,
+            convolver
+          }
+        }
+      };
+    }
+
+    _buildFXUnit2(deckId) {
+      const ctx = this.ctx;
+      const input = ctx.createGain();
+      const output = ctx.createGain();
+      const dryGain = ctx.createGain();
+      const wetGain = ctx.createGain();
+
+      input.connect(dryGain);
+      dryGain.connect(output);
+
+      // FX 2 Wet Chain: input -> FLT stage -> GATE stage -> wetGain -> output
+      const chainInput = ctx.createGain();
+      input.connect(chainInput);
+
+      // --- Filter Sweep (FLT): Resonant bandpass filter modulated across spectrum ---
+      const fltIn = ctx.createGain();
+      const fltOut = ctx.createGain();
+      const fltBypass = ctx.createGain();
+      fltBypass.gain.value = 0.0;
+      const fltActive = ctx.createGain();
+      fltActive.gain.value = 1.0;
+
+      const bpFilter = ctx.createBiquadFilter();
+      bpFilter.type = 'bandpass';
+      bpFilter.Q.value = 3.8;
+      bpFilter.frequency.value = 1500;
+
+      const fltMakeup = ctx.createGain();
+      fltMakeup.gain.value = 2.0;
+
+      const fltLfo = ctx.createOscillator();
+      fltLfo.type = 'triangle';
+      const fltLfoGain = ctx.createGain();
+      fltLfoGain.gain.value = 1100; // Sweeps ~400Hz to ~2600Hz
+      fltLfo.connect(fltLfoGain);
+      fltLfoGain.connect(bpFilter.frequency);
+      try { fltLfo.start(); } catch (_) {}
+
+      chainInput.connect(fltIn);
+      fltIn.connect(fltBypass);
+      fltBypass.connect(fltOut);
+
+      fltIn.connect(bpFilter);
+      bpFilter.connect(fltMakeup);
+      fltMakeup.connect(fltActive);
+      fltActive.connect(fltOut);
+
+      // --- Beat Gater (GATE): Square-wave LFO ducking volume to 1/8th or 1/16th notes ---
+      const gateIn = ctx.createGain();
+      const gateOut = ctx.createGain();
+      const gateBypass = ctx.createGain();
+      gateBypass.gain.value = 1.0;
+      const gateActive = ctx.createGain();
+      gateActive.gain.value = 0.0;
+      const gateVca = ctx.createGain();
+      gateVca.gain.value = 0.0;
+
+      const gateLfo = ctx.createOscillator();
+      gateLfo.type = 'square';
+      const gateScale = ctx.createGain();
+      gateScale.gain.value = 0.5;
+      gateLfo.connect(gateScale);
+      gateScale.connect(gateVca.gain);
+
+      if (ctx.createConstantSource) {
+        const constSource = ctx.createConstantSource();
+        constSource.offset.value = 0.5;
+        constSource.connect(gateVca.gain);
+        try { constSource.start(); } catch (_) {}
+      } else {
+        gateVca.gain.value = 0.5;
+      }
+      try { gateLfo.start(); } catch (_) {}
+
+      fltOut.connect(gateIn);
+      gateIn.connect(gateBypass);
+      gateBypass.connect(gateOut);
+
+      gateIn.connect(gateVca);
+      gateVca.connect(gateActive);
+      gateActive.connect(gateOut);
+
+      gateOut.connect(wetGain);
+      wetGain.connect(output);
+
+      return {
+        unitId: '2',
+        deckId,
+        input,
+        output,
+        dryGain,
+        wetGain,
+        dryWet: 35,
+        enabled: true,
+        effects: {
+          filter: {
+            active: true,
+            filterNode: bpFilter,
+            lfoNode: fltLfo,
+            bypassNode: fltBypass,
+            activeNode: fltActive
+          },
+          gater: {
+            active: false,
+            rate: '1/8',
+            lfoNode: gateLfo,
+            bypassNode: gateBypass,
+            activeNode: gateActive
+          }
+        }
+      };
+    }
+
+    _updateFXDryWetMix(unitId) {
+      const u = this.fxUnits[String(unitId)];
+      if (!u) return;
+      const now = this.ctx.currentTime;
+      if (!u.enabled) {
+        u.dryGain.gain.setTargetAtTime(1.0, now, 0.015);
+        u.wetGain.gain.setTargetAtTime(0.0, now, 0.015);
+        return;
+      }
+      const norm = Math.max(0, Math.min(100, u.dryWet)) / 100;
+      // Equal-power crossfade between Dry and Wet paths
+      const gDry = Math.cos(norm * Math.PI / 2);
+      const gWet = Math.sin(norm * Math.PI / 2);
+      u.dryGain.gain.setTargetAtTime(gDry, now, 0.015);
+      u.wetGain.gain.setTargetAtTime(gWet, now, 0.015);
+    }
+
+    setBpm(bpm) {
+      if (!bpm || bpm < 40 || bpm > 260) return;
+      this.masterBpm = bpm;
+      this._updateFXTempo();
+    }
+
+    _updateFXTempo() {
+      const bpm = this.masterBpm || 128;
+      const beatSec = 60 / bpm;
+      const now = this.ctx.currentTime;
+
+      // FX 1 Delay update
+      const u1 = this.fxUnits['1'];
+      if (u1 && u1.effects.delay && u1.effects.delay.node) {
+        const sub = u1.effects.delay.subdivision || '3/4';
+        let mult = 0.75;
+        if (sub === '1/2') mult = 0.5;
+        else if (sub === '1/1' || sub === '1') mult = 1.0;
+        const dTime = Math.max(0.05, Math.min(4.0, beatSec * mult));
+        u1.effects.delay.node.delayTime.setTargetAtTime(dTime, now, 0.05);
+      }
+
+      // FX 2 Filter & Gater update
+      const u2 = this.fxUnits['2'];
+      if (u2) {
+        if (u2.effects.filter && u2.effects.filter.lfoNode) {
+          // Resonant filter sweep across 2 bars (8 beats)
+          const sweepFreq = Math.max(0.05, (bpm / 60) / 8);
+          u2.effects.filter.lfoNode.frequency.setTargetAtTime(sweepFreq, now, 0.05);
+        }
+        if (u2.effects.gater && u2.effects.gater.lfoNode) {
+          const rate = u2.effects.gater.rate || '1/8';
+          const multiplier = rate === '1/16' ? 4 : 2;
+          const gateFreq = (bpm / 60) * multiplier;
+          u2.effects.gater.lfoNode.frequency.setTargetAtTime(gateFreq, now, 0.02);
+        }
+      }
+    }
+
+    setFXDryWet(unitId, pct) {
+      const u = this.fxUnits[String(unitId)];
+      if (!u) return;
+      u.dryWet = Math.max(0, Math.min(100, parseFloat(pct) || 0));
+      this._updateFXDryWetMix(String(unitId));
+    }
+
+    setFXEnabled(unitId, isEnabled) {
+      const u = this.fxUnits[String(unitId)];
+      if (!u) return;
+      u.enabled = Boolean(isEnabled);
+      this._updateFXDryWetMix(String(unitId));
+    }
+
+    setFXEffect(unitId, effectName, isActive) {
+      const u = this.fxUnits[String(unitId)];
+      if (!u || !u.effects[effectName]) return;
+      u.effects[effectName].active = Boolean(isActive);
+      const eff = u.effects[effectName];
+      const now = this.ctx.currentTime;
+
+      // Handle bypass/send nodes
+      if (eff.sendNode) {
+        eff.sendNode.gain.setTargetAtTime(eff.active ? 1.0 : 0.0, now, 0.02);
+      }
+      if (eff.bypassNode && eff.activeNode) {
+        eff.bypassNode.gain.setTargetAtTime(eff.active ? 0.0 : 1.0, now, 0.02);
+        eff.activeNode.gain.setTargetAtTime(eff.active ? 1.0 : 0.0, now, 0.02);
+      }
+      this._updateFXDryWetMix(String(unitId));
+    }
+
+    setFXParam(unitId, effectName, paramName, paramValue) {
+      const u = this.fxUnits[String(unitId)];
+      if (!u || !u.effects[effectName]) return;
+      u.effects[effectName][paramName] = paramValue;
+      this._updateFXTempo();
+    }
+
+    getFXParam(unitId, effectName, paramName) {
+      const u = this.fxUnits[String(unitId)];
+      if (!u || !u.effects[effectName]) return null;
+      return u.effects[effectName][paramName] ?? null;
     }
 
     _buildDeck(id) {
@@ -114,6 +468,9 @@
       filter.type = 'allpass';
       filter.frequency.value = 1000;
 
+      // FX Unit routing: filter -> fxUnit -> gainVol
+      const fx = id === 'A' ? this.fxUnits['1'] : this.fxUnits['2'];
+
       // Channel Volume Fader
       const gainVol = this.ctx.createGain();
       gainVol.gain.value = 1.0;
@@ -133,7 +490,8 @@
         low.connect(mid);
         mid.connect(high);
         high.connect(filter);
-        filter.connect(gainVol);
+        filter.connect(fx.input);
+        fx.output.connect(gainVol);
         gainVol.connect(gainCross);
         gainCross.connect(analyser);
         analyser.connect(this.master);
@@ -619,10 +977,15 @@
           }
         }
 
-        const artworkList = [
-          { src: resolvedArt, sizes: '512x512' },
-          { src: resolvedArt, sizes: '384x384' },
+        const isFallback = !art || resolvedArt === fallback512;
+        const artworkList = !isFallback ? [
+          { src: resolvedArt, sizes: '96x96' },
+          { src: resolvedArt, sizes: '128x128' },
+          { src: resolvedArt, sizes: '192x192' },
           { src: resolvedArt, sizes: '256x256' },
+          { src: resolvedArt, sizes: '384x384' },
+          { src: resolvedArt, sizes: '512x512' }
+        ] : [
           { src: fallback192, sizes: '192x192', type: 'image/png' },
           { src: fallback512, sizes: '512x512', type: 'image/png' }
         ];

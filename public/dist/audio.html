@@ -1520,13 +1520,16 @@
               const fallback512 = new URL('/icon-512.png', window.location.origin).href;
               const fallback192 = new URL('/icon-192.png', window.location.origin).href;
 
-              const artworkList = [
-                { src: fallback192, sizes: '96x96', type: 'image/png' },
-                { src: fallback192, sizes: '128x128', type: 'image/png' },
-                { src: fallback192, sizes: '192x192', type: 'image/png' },
+              const isFallback = !resolvedArt || resolvedArt.endsWith('/icon-512.png');
+              const artworkList = !isFallback ? [
+                { src: resolvedArt, sizes: '96x96' },
+                { src: resolvedArt, sizes: '128x128' },
+                { src: resolvedArt, sizes: '192x192' },
                 { src: resolvedArt, sizes: '256x256' },
                 { src: resolvedArt, sizes: '384x384' },
-                { src: resolvedArt, sizes: '512x512' },
+                { src: resolvedArt, sizes: '512x512' }
+              ] : [
+                { src: fallback192, sizes: '192x192', type: 'image/png' },
                 { src: fallback512, sizes: '512x512', type: 'image/png' }
               ];
 

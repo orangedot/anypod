@@ -141,6 +141,9 @@ html, body {
   padding: 3px 5px;
   border-radius: 3px;
   cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: all 0.15s ease;
 }
 .fx-btn.active {
   background: rgba(245, 158, 11, 0.2);
@@ -156,6 +159,9 @@ html, body {
   padding: 3px 6px;
   border-radius: 3px;
   cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: all 0.15s ease;
 }
 .fx-toggle-btn.active {
   background: var(--neon-amber);
@@ -649,8 +655,8 @@ html, body {
   touch-action: none;
 }
 .knob {
-  width: 28px;
-  height: 28px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: radial-gradient(circle at 40% 35%, #343444, #12121a 70%);
   border: 1.5px solid #2a2a3c;

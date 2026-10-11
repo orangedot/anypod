@@ -903,6 +903,10 @@
       mixer.setFilter(deck, val / 100); // normalize -100..100 to -1..1
     } else if (name === 'master-vol') {
       if (mixer.master) mixer.master.threshold.value = -30 + (val / 100) * 20;
+    } else if (name === 'fx1-drywet') {
+      mixer.setFXDryWet('1', val);
+    } else if (name === 'fx2-drywet') {
+      mixer.setFXDryWet('2', val);
     }
   }
 
@@ -953,6 +957,147 @@
       const btn = document.getElementById(`pfl-${id.toLowerCase()}`);
       if (btn) btn.addEventListener('click', () => btn.classList.toggle('active'));
     });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // AUDIO FX PROCESSORS (FX 1 & FX 2)
+  // ─────────────────────────────────────────────────────────────────────────
+  function initFXControls() {
+    // FX Unit 1 (Deck A)
+    const btnFx1On = document.getElementById('btn-fx1-on');
+    const btnFx1Delay = document.getElementById('btn-fx1-delay');
+    const btnFx1Reverb = document.getElementById('btn-fx1-reverb');
+
+    if (btnFx1On) {
+      btnFx1On.addEventListener('click', () => {
+        const isActive = !btnFx1On.classList.contains('active');
+        btnFx1On.classList.toggle('active', isActive);
+        mixer.setFXEnabled('1', isActive);
+      });
+    }
+
+    if (btnFx1Delay) {
+      const dlySubdivisions = ['1/2', '3/4', '1'];
+      let dlySubIndex = 1; // Default '3/4'
+
+      const updateDelayLabel = () => {
+        const sub = dlySubdivisions[dlySubIndex];
+        btnFx1Delay.title = `Delay FX (${sub} beat) - Click: toggle, Right-click: cycle division`;
+        btnFx1Delay.textContent = `DLY ${sub}`;
+        mixer.setFXParam('1', 'delay', 'subdivision', sub);
+      };
+
+      let pressTimer = null;
+      let isLongPress = false;
+
+      btnFx1Delay.addEventListener('pointerdown', () => {
+        isLongPress = false;
+        pressTimer = setTimeout(() => {
+          isLongPress = true;
+          dlySubIndex = (dlySubIndex + 1) % dlySubdivisions.length;
+          updateDelayLabel();
+        }, 500);
+      });
+
+      btnFx1Delay.addEventListener('pointerup', (e) => {
+        clearTimeout(pressTimer);
+        if (isLongPress) return;
+        if (e.shiftKey || e.altKey) {
+          dlySubIndex = (dlySubIndex + 1) % dlySubdivisions.length;
+          updateDelayLabel();
+          return;
+        }
+        const isActive = !btnFx1Delay.classList.contains('active');
+        btnFx1Delay.classList.toggle('active', isActive);
+        mixer.setFXEffect('1', 'delay', isActive);
+      });
+
+      btnFx1Delay.addEventListener('pointercancel', () => clearTimeout(pressTimer));
+
+      btnFx1Delay.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        dlySubIndex = (dlySubIndex + 1) % dlySubdivisions.length;
+        updateDelayLabel();
+      });
+
+      updateDelayLabel();
+    }
+
+    if (btnFx1Reverb) {
+      btnFx1Reverb.addEventListener('click', () => {
+        const isActive = !btnFx1Reverb.classList.contains('active');
+        btnFx1Reverb.classList.toggle('active', isActive);
+        mixer.setFXEffect('1', 'reverb', isActive);
+      });
+    }
+
+    // FX Unit 2 (Deck B)
+    const btnFx2On = document.getElementById('btn-fx2-on');
+    const btnFx2Filter = document.getElementById('btn-fx2-filter');
+    const btnFx2Gater = document.getElementById('btn-fx2-gater');
+
+    if (btnFx2On) {
+      btnFx2On.addEventListener('click', () => {
+        const isActive = !btnFx2On.classList.contains('active');
+        btnFx2On.classList.toggle('active', isActive);
+        mixer.setFXEnabled('2', isActive);
+      });
+    }
+
+    if (btnFx2Filter) {
+      btnFx2Filter.addEventListener('click', () => {
+        const isActive = !btnFx2Filter.classList.contains('active');
+        btnFx2Filter.classList.toggle('active', isActive);
+        mixer.setFXEffect('2', 'filter', isActive);
+      });
+    }
+
+    if (btnFx2Gater) {
+      const gaterRates = ['1/8', '1/16'];
+      let gaterRateIndex = 0; // Default '1/8'
+
+      const updateGaterLabel = () => {
+        const rate = gaterRates[gaterRateIndex];
+        btnFx2Gater.title = `Gater FX (${rate} note) - Click: toggle, Right-click: cycle rate`;
+        btnFx2Gater.textContent = `GATE ${rate}`;
+        mixer.setFXParam('2', 'gater', 'rate', rate);
+      };
+
+      let pressTimer = null;
+      let isLongPress = false;
+
+      btnFx2Gater.addEventListener('pointerdown', () => {
+        isLongPress = false;
+        pressTimer = setTimeout(() => {
+          isLongPress = true;
+          gaterRateIndex = (gaterRateIndex + 1) % gaterRates.length;
+          updateGaterLabel();
+        }, 500);
+      });
+
+      btnFx2Gater.addEventListener('pointerup', (e) => {
+        clearTimeout(pressTimer);
+        if (isLongPress) return;
+        if (e.shiftKey || e.altKey) {
+          gaterRateIndex = (gaterRateIndex + 1) % gaterRates.length;
+          updateGaterLabel();
+          return;
+        }
+        const isActive = !btnFx2Gater.classList.contains('active');
+        btnFx2Gater.classList.toggle('active', isActive);
+        mixer.setFXEffect('2', 'gater', isActive);
+      });
+
+      btnFx2Gater.addEventListener('pointercancel', () => clearTimeout(pressTimer));
+
+      btnFx2Gater.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        gaterRateIndex = (gaterRateIndex + 1) % gaterRates.length;
+        updateGaterLabel();
+      });
+
+      updateGaterLabel();
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1065,6 +1210,7 @@
           const bpm = Math.round(60000 / avgMs);
           if (bpm >= 60 && bpm <= 190) {
             state.masterBpm = bpm;
+            mixer.setBpm(bpm);
             if (masterBpmVal) masterBpmVal.textContent = bpm.toFixed(2);
           }
         }
@@ -1278,6 +1424,7 @@
   window.addEventListener('DOMContentLoaded', () => {
     initRotaryKnobs();
     initMixerControls();
+    initFXControls();
     initTransportAndCues();
     initMixerEngineEvents();
     initSearchAndSidebar();
