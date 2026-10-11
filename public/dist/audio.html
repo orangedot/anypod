@@ -920,7 +920,7 @@
           </div>
           <div class="soak-setting-item">
             <span class="soak-setting-label">Retry Delay (ms)</span>
-            <input type="number" id="cfg-retry-delay" class="soak-setting-input" value="120" min="50" max="2000" step="10">
+            <input type="number" id="cfg-retry-delay" class="soak-setting-input" value="600" min="100" max="3000" step="50">
           </div>
           <div class="soak-setting-item">
             <span class="soak-setting-label">MediaSession Reassert Interval (sec)</span>
@@ -1295,32 +1295,8 @@
       }
 
       // ─────────────────────────────────────────────────────────────────────────
-      // 5. AUDIO PIPELINE KEEP-ALIVE & STALL WATCHDOG (BACKGROUND RESILIENCE)
+      // 5. STALL & BUFFERING RECOVERY WATCHDOG (BACKGROUND RESILIENCE)
       // ─────────────────────────────────────────────────────────────────────────
-      // An inaudible WebAudio node keeps Android AudioManager / AudioTrack continuously
-      // active so Android OS Doze does not deprioritize or freeze Chrome's background
-      // network sockets during seeks, buffering, or track changes.
-      let keepAliveCtx = null;
-      function initAudioKeepAlive() {
-        try {
-          const AudioCtx = window.AudioContext || window.webkitAudioContext;
-          if (!AudioCtx) return;
-          if (!keepAliveCtx) {
-            keepAliveCtx = new AudioCtx();
-            const osc = keepAliveCtx.createOscillator();
-            const gain = keepAliveCtx.createGain();
-            // Inaudible gain (0.00001) keeps hardware pipeline open
-            gain.gain.value = 0.00001;
-            osc.connect(gain);
-            gain.connect(keepAliveCtx.destination);
-            osc.start();
-          }
-          if (keepAliveCtx.state === 'suspended') {
-            keepAliveCtx.resume().catch(() => {});
-          }
-        } catch (_) {}
-      }
-
       let stallRecoveryTimer = null;
       function clearStallRecoveryTimer() {
         if (stallRecoveryTimer) {
@@ -1331,7 +1307,6 @@
 
       function handlePlaybackStall(reason) {
         if (userPaused || advanceInFlight) return;
-        initAudioKeepAlive();
 
         logEvent(`audio.${reason}`, `Socket ${reason}! Buffer ahead: ${metricBuffer.textContent}`, 'tag-error', 'STALL');
 
@@ -1344,7 +1319,6 @@
           // If still paused or starved of data in background
           if (audio.paused || audio.readyState < 3) {
             logEvent('stall.nudge', `Stream starved for 5s in background (${reason}, readyState=${audio.readyState}) -> kicking audio`, 'tag-wait', 'NUDGE');
-            initAudioKeepAlive();
             const p = audio.play();
             if (p !== undefined) {
               p.catch(e => logEvent('stall.nudge_err', e.message, 'tag-error', 'ERR'));
@@ -1388,7 +1362,6 @@
         // 1. Maintain MediaSession state *before* assigning audio.src so Android SystemUI never sees idle/unassociated state.
         if (autoPlay) {
           userPaused = false;
-          initAudioKeepAlive();
         }
         if ('mediaSession' in navigator) {
           navigator.mediaSession.playbackState = userPaused ? 'paused' : 'playing';
@@ -1433,7 +1406,6 @@
             if (audio.duration && audio.duration > totalLead + 2) {
               const jumpTo = audio.duration - totalLead;
               audio.currentTime = jumpTo;
-              initAudioKeepAlive();
               if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
                 try {
                   navigator.mediaSession.setPositionState({
@@ -1616,7 +1588,6 @@
         navigator.mediaSession.setActionHandler('play', () => {
           logEvent('mediasession.action', 'play received from lock-screen');
           userPaused = false;
-          initAudioKeepAlive();
           audio.play().catch(() => {});
         });
 
@@ -1816,9 +1787,26 @@
           logEvent('audio.pause', 'Ignored: track transition in flight', 'tag-wait', 'GUARD');
           return;
         }
+        if (audio.seeking) {
+          logEvent('audio.pause', 'Ignored: audio currently seeking', 'tag-wait', 'GUARD');
+          return;
+        }
 
         const maxRetries = readSetting('maxPauseRetries');
         if (!userPaused && document.hidden && maxRetries > 0) {
+          // If the element paused because buffer is not ready yet, wait for canplay
+          if (audio.readyState < 3) {
+            logEvent('audio.pause', `Ignored: awaiting buffer (readyState=${audio.readyState})`, 'tag-wait', 'GUARD');
+            const onCanPlayResume = () => {
+              audio.removeEventListener('canplay', onCanPlayResume);
+              if (!userPaused && audio.paused) {
+                audio.play().catch(() => {});
+              }
+            };
+            audio.addEventListener('canplay', onCanPlayResume, { once: true });
+            return;
+          }
+
           if (pauseRetryCount < maxRetries) {
             pauseRetryCount++;
             stats.pauseRetries++;
@@ -1831,12 +1819,11 @@
               audio.src = resolveStreamUrl(playlist[currentIndex].url, true);
               audio.addEventListener('loadedmetadata', () => { try { audio.currentTime = pos; } catch (_) {} }, { once: true });
             }
-            // Progressive backoff: gives Android audio hardware buffer time to settle
-            const baseDelay = readSetting('retryDelayMs') || 150;
-            const delay = Math.min(1500, baseDelay + (pauseRetryCount * 120));
+            // Healthy backoff: gives Android audio hardware buffer time to settle without stutter
+            const baseDelay = Math.max(600, readSetting('retryDelayMs') || 600);
+            const delay = Math.min(2500, baseDelay + (pauseRetryCount * 250));
             setTimeout(() => {
               if (!userPaused && audio.paused) {
-                initAudioKeepAlive();
                 audio.play().catch(err => logEvent('audio.retry.rejected', `${err.name}: ${err.message}`, 'tag-error', 'ERR'));
               }
             }, delay);
@@ -1997,9 +1984,6 @@
         if (isHidden) {
           metricVisibility.innerHTML = '<span class="status-dot dot-amber"></span>Hidden (Screen Off)';
           logEvent('visibility.hidden', `Screen locked or user switched apps (${document.visibilityState})`, 'tag-bg', 'BG');
-          if (!audio.paused) {
-            initAudioKeepAlive();
-          }
         } else {
           metricVisibility.innerHTML = '<span class="status-dot dot-green"></span>Visible';
           logEvent('visibility.visible', `Returned to foreground (${document.visibilityState})`, 'tag-fg', 'FG');
@@ -2030,7 +2014,6 @@
       // 10. CONTROLS INTERACTION
       // ─────────────────────────────────────────────────────────────────────────
       playPauseBtn.addEventListener('click', () => {
-        initAudioKeepAlive();
         if (audio.paused) {
           userPaused = false;
           if (!audio.src) {
