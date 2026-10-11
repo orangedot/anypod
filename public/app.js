@@ -5119,8 +5119,9 @@
         </div>`;
       }
 
-      // ── Live cues preview (last 3, scrolls into transcript tab for full) ──
-      if (hasCues) {
+      // ── Live cues preview (only when transcript is enabled) ──
+      const isTransOn = state.experimentalSettings.enableTranscript !== false;
+      if (hasCues && isTransOn) {
         const preview = cues.slice(-3);
         innerHtml += `
           <div style="margin-top:0.75rem; font-size:0.82rem; color:var(--text-secondary);">
@@ -5132,10 +5133,11 @@
       }
     } else {
       // Features are disabled — show a friendly nudge
+      const isTransOn = state.experimentalSettings.enableTranscript !== false;
       innerHtml += `
         <div class="notes-enable-hint">
           <strong>🔬 Audio Analysis not active</strong><br>
-          <button type="button" class="inline-link" id="inline-goto-settings">Enable Audio Classifier or Live Transcript in Experimental Settings →</button>
+          <button type="button" class="inline-link" id="inline-goto-settings">Enable Audio Classifier or ${isTransOn ? 'Live Transcript' : 'Interactive Transcripts'} in Experimental Settings →</button>
         </div>
       `;
     }
@@ -5174,6 +5176,9 @@
   }
 
   function switchShowNotesTab(tab = 'notes') {
+    if (state.experimentalSettings.enableTranscript === false && tab === 'transcript') {
+      tab = 'notes';
+    }
     const isNotes = tab === 'notes';
     const isChapters = tab === 'chapters';
     const isTranscript = tab === 'transcript';
@@ -5181,6 +5186,8 @@
     if (elements.tabBtnNotes) elements.tabBtnNotes.classList.toggle('active', isNotes);
     if (elements.tabBtnChapters) elements.tabBtnChapters.classList.toggle('active', isChapters);
     if (elements.tabBtnTranscript) {
+      const isTransAllowed = state.experimentalSettings.enableTranscript !== false;
+      elements.tabBtnTranscript.style.display = isTransAllowed ? '' : 'none';
       elements.tabBtnTranscript.classList.toggle('active', isTranscript);
       const isYt = !!(state.activeNotesEpisode?.isYouTube || state.activeNotesEpisode?.guid?.startsWith('yt:'));
       const span = elements.tabBtnTranscript.querySelector('span');
@@ -10702,12 +10709,23 @@ function setPlayerCollapsed(collapsed, save = true) {
     }
 
     if (elements.btnPlayerTranscript) {
-      elements.btnPlayerTranscript.style.display = '';
+      elements.btnPlayerTranscript.style.display = isTrans ? '' : 'none';
     }
     const epTranscriptBtns = document.querySelectorAll('.btn-transcript-ep');
     epTranscriptBtns.forEach(btn => {
-      btn.style.display = '';
+      btn.style.display = isTrans ? '' : 'none';
     });
+    if (elements.tabBtnTranscript) {
+      elements.tabBtnTranscript.style.display = isTrans ? '' : 'none';
+    }
+    if (!isTrans) {
+      _hideLiveCaption(true);
+      if (elements.showNotesModal && !elements.showNotesModal.classList.contains('hidden')) {
+        if (elements.tabBtnTranscript && elements.tabBtnTranscript.classList.contains('active')) {
+          switchShowNotesTab('notes');
+        }
+      }
+    }
 
     const skipRow = document.getElementById('row-auto-skip');
     if (skipRow) skipRow.style.opacity = isClass ? '1' : '0.4';
@@ -11448,6 +11466,7 @@ function setPlayerCollapsed(collapsed, save = true) {
   let _captionDismissed = false;  // user manually closed it
 
   function _showLiveCaption(text) {
+    if (state.experimentalSettings.enableTranscript === false) return;
     console.log('[Caption] _showLiveCaption() called. dismissed=', _captionDismissed, ' text="' + text?.slice(0,50) + '"');
     if (_captionDismissed) {
       console.log('[Caption] ❌ dismissed by user, skipped.');
