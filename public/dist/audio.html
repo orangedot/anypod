@@ -1624,6 +1624,24 @@
         const cur = audio.currentTime.toFixed(2);
         logEvent('audio.playing', `Playback active at cur=${cur}s, readyState=${audio.readyState}`);
         updateUIPlayState(true);
+        userPaused = false;
+
+        // Transition gap stats
+        if (pendingTransition) {
+          const gap = Date.now() - pendingTransition.t0;
+          const hadMeta = ('mediaSession' in navigator) ? !!navigator.mediaSession.metadata : false;
+          const msState = ('mediaSession' in navigator) ? navigator.mediaSession.playbackState : 'n/a';
+          transitions.push({ idx: pendingTransition.idx, reason: pendingTransition.reason, vis: pendingTransition.vis, gapMs: gap, meta: hadMeta, msState });
+          if (transitions.length > 500) transitions.shift();
+          stats.gapCount++;
+          stats.gapSumMs += gap;
+          stats.gapMaxMs = Math.max(stats.gapMaxMs, gap);
+          if (pendingTransition.vis === 'BG') stats.bgTransitions++;
+          logEvent('transition.done', `#${pendingTransition.idx} via ${pendingTransition.reason} (${pendingTransition.vis}) gap=${gap}ms meta=${hadMeta} msState=${msState}`, 'tag-event', 'TRANS');
+          pendingTransition = null;
+          updateSoakMetrics();
+        }
+
         if ('mediaSession' in navigator) {
           navigator.mediaSession.playbackState = 'playing';
           if (metricMediaSession) metricMediaSession.innerHTML = '<span class="status-dot dot-green"></span>Active (Playing)';
@@ -1632,6 +1650,10 @@
             syncMediaSession(playlist[currentIndex], false);
           }
         }
+        setTimeout(() => {
+          if (!audio.paused && audio.currentTime > lastRetryPos + 2.5) pauseRetryCount = 0;
+        }, 3000);
+        lastRetryPos = audio.currentTime;
       });
 
       audio.addEventListener('pause', () => {
@@ -1640,7 +1662,31 @@
           logEvent('audio.pause', 'Ignored: track already ended (transitioning)', 'tag-wait', 'GUARD');
           return;
         }
-        logEvent('audio.pause', `Paused at cur=${audio.currentTime.toFixed(2)}s`);
+        if (advanceInFlight || pendingTransition) {
+          logEvent('audio.pause', 'Ignored: track transition in flight', 'tag-wait', 'GUARD');
+          return;
+        }
+
+        const maxRetries = readSetting('maxPauseRetries');
+        if (!userPaused && document.hidden && maxRetries > 0 && pauseRetryCount < maxRetries) {
+          pauseRetryCount++;
+          stats.pauseRetries++;
+          updateSoakMetrics();
+          logEvent('audio.pause.spurious', `Unexpected BG pause at ${audio.currentTime.toFixed(2)}s -> retry ${pauseRetryCount}/${maxRetries}`, 'tag-wait', 'RETRY');
+          if (pauseRetryCount > readSetting('proxyFallbackAfter') && !toggleProxy.checked && !fallbackProxyApplied) {
+            fallbackProxyApplied = true;
+            logEvent('audio.proxy.fallback', 'Switching to proxy after repeated spurious pauses', 'tag-wait', 'RETRY');
+            const pos = audio.currentTime;
+            audio.src = resolveStreamUrl(playlist[currentIndex].url, true);
+            audio.addEventListener('loadedmetadata', () => { try { audio.currentTime = pos; } catch (_) {} }, { once: true });
+          }
+          setTimeout(() => {
+            if (!userPaused && audio.paused) audio.play().catch(err => logEvent('audio.retry.rejected', `${err.name}: ${err.message}`, 'tag-error', 'ERR'));
+          }, readSetting('retryDelayMs'));
+          return;
+        }
+
+        logEvent('audio.pause', `Paused at cur=${audio.currentTime.toFixed(2)}s (userPaused=${userPaused})`);
         updateUIPlayState(false);
         if ('mediaSession' in navigator) {
           navigator.mediaSession.playbackState = 'paused';
@@ -1676,9 +1722,26 @@
           const dur = audio.duration ? audio.duration.toFixed(1) : '?';
           logEvent('audio.timeupdate', `pos=${cur}/${dur}s | ${metricBuffer.textContent}`, 'tag-fg', 'TICK');
         }
+
+        // Near-end watchdog: advance BEFORE the element reaches 'ended' so the
+        // MediaSession never sees an ended/idle element (Android drops notification then).
+        const lead = readSetting('nearEndSec');
+        if (lead > 0 && !advanceInFlight && !userPaused) {
+          const d = audio.duration;
+          if (d && isFinite(d) && d > lead + 3 && d - audio.currentTime <= lead) {
+            completedTracksCount++;
+            metricCompleted.textContent = `${completedTracksCount} tracks`;
+            logEvent('watchdog.nearend', `Advancing ${(d - audio.currentTime).toFixed(1)}s before end (watchdog)`, 'tag-wait', 'NEAREND');
+            advanceToNextTrack('nearend');
+          }
+        }
       });
 
       audio.addEventListener('ended', () => {
+        if (advanceInFlight) {
+          logEvent('audio.ended', 'Ignored: advance already handled', 'tag-wait', 'GUARD');
+          return;
+        }
         completedTracksCount++;
         metricCompleted.textContent = `${completedTracksCount} tracks`;
         logEvent('audio.ended', `Track ${currentIndex + 1} completed naturally`, 'tag-event', 'ENDED');
@@ -1919,9 +1982,11 @@
           bufferedSummary.push(`[${audio.buffered.start(i).toFixed(2)}s - ${audio.buffered.end(i).toFixed(2)}s]`);
         }
 
+        const avgGap = stats.gapCount ? Math.round(stats.gapSumMs / stats.gapCount) : 0;
+
         const header = [
           '====================================================',
-          'ANYPOD BACKGROUND AUDIO DIAGNOSTIC REPORT',
+          'ANYPOD BACKGROUND AUDIO SOAK TEST REPORT',
           `Generated: ${new Date().toISOString()}`,
           `Device User Agent: ${navigator.userAgent}`,
           `Platform: ${navigator.platform || 'unknown'}`,
@@ -1932,6 +1997,9 @@
           `Audio Proxy Mode: ${toggleProxy.checked ? 'Enabled (/api/audio-proxy)' : 'Disabled (Direct URL)'}`,
           `Continuous Loop: ${toggleLoop.checked ? 'Enabled' : 'Disabled'}`,
           '----------------------------------------------------',
+          `Feed Source: ${feedMeta.url || 'none'} (title: "${feedMeta.title || 'none'}")`,
+          `Total Episodes in Playlist: ${playlist.length}`,
+          `Soak Configuration: ${JSON.stringify(currentSettings())}`,
           `Active Track Index: ${currentIndex + 1} of ${playlist.length}`,
           `Active Track Title: "${track.title || 'Untitled'}"`,
           `Active Track Artist: "${track.artist || 'Unknown'}"`,
@@ -1942,7 +2010,12 @@
           `Audio States: paused=${audio.paused}, ended=${audio.ended}, readyState=${audio.readyState}, networkState=${audio.networkState}`,
           `Buffered Ranges (${audio.buffered.length}): ${bufferedSummary.join(', ') || 'none'}`,
           `Network Recoveries: ${networkErrorRecoveries} | Buffer Stalls: ${stallEventsCount} | Completed Tracks: ${completedTracksCount}`,
+          `Spurious Pause Retries: ${stats.pauseRetries} | Lockscreen Loss Events: ${stats.lockLosses} | BG Transitions: ${stats.bgTransitions}`,
+          `Transition Gap Stats: Avg=${avgGap}ms, Max=${stats.gapMaxMs}ms over ${stats.gapCount} transitions`,
           `Session Elapsed: ${((Date.now() - sessionStartTime)/1000).toFixed(1)}s`,
+          '----------------------------------------------------',
+          'TRANSITION AUDIT (Recent):',
+          ...transitions.map(t => `  #${t.idx} reason=${t.reason} vis=${t.vis} gap=${t.gapMs}ms meta=${t.meta} msState=${t.msState}`),
           '====================================================',
           'CHRONOLOGICAL EVENT LOG:',
           ...logEventsArray,
@@ -1967,9 +2040,12 @@
               return;
             }
           }
-          savePlaylist(parsed);
+          playlist = parsed;
+          renderPlaylistUI();
+          showToast('Playlist applied from JSON');
+          logEvent('playlist.manual_json', `Applied ${playlist.length} tracks`);
           currentIndex = 0;
-          loadTrack(0, false);
+          loadTrack(0, false, 'json_save');
           document.getElementById('editor-details').open = false;
         } catch (err) {
           alert(`Invalid JSON format: ${err.message}`);
@@ -1977,14 +2053,19 @@
       });
 
       btnResetPlaylist.addEventListener('click', () => {
-        if (confirm('Reset playlist to default NASA/DLF/Radiolab test tracks?')) {
-          localStorage.removeItem('anypod_audio_test_playlist');
-          loadSavedPlaylist();
-          renderPlaylistUI();
-          currentIndex = 0;
-          loadTrack(0, false);
-          showToast('Playlist reset to defaults');
-        }
+        loadFeedPlaylist();
+      });
+
+      btnLoadFeed.addEventListener('click', () => {
+        loadFeedPlaylist();
+      });
+
+      Object.keys(CFG_INPUTS).forEach(key => {
+        const el = CFG_INPUTS[key];
+        el.addEventListener('change', () => {
+          saveSettings();
+          logEvent('settings.changed', `${key}=${readSetting(key)}`, 'tag-event', 'CFG');
+        });
       });
 
       // Session Timer Loop
@@ -1997,27 +2078,57 @@
           const ss = String(totalSec % 60).padStart(2, '0');
           metricSession.textContent = `${hh}:${mm}:${ss}`;
 
-          // State readyState label
           const states = ['0 (HAVE_NOTHING)', '1 (HAVE_METADATA)', '2 (HAVE_CURRENT_DATA)', '3 (HAVE_FUTURE_DATA)', '4 (HAVE_ENOUGH_DATA)'];
           metricReadyState.textContent = states[audio.readyState] || audio.readyState;
+          updateSoakMetrics();
+        }, 1000);
+      }
+
+      // Heartbeat & Lockscreen Reassert Loop
+      function startHeartbeat() {
+        let tick = 0;
+        setInterval(() => {
+          tick++;
+          const reassertSec = readSetting('reassertSec');
+          if (reassertSec > 0 && tick % reassertSec === 0 && !audio.paused && playlist[currentIndex] && ('mediaSession' in navigator)) {
+            const hasMeta = !!navigator.mediaSession.metadata;
+            const pb = navigator.mediaSession.playbackState;
+            if (!hasMeta || pb !== 'playing') {
+              stats.lockLosses++;
+              updateSoakMetrics();
+              logEvent('lockscreen.lost', `Detected lost state: meta=${hasMeta}, pbState=${pb}. Re-asserting...`, 'tag-error', 'LOCK_LOSS');
+            }
+            syncMediaSession(playlist[currentIndex], true, true);
+          }
+
+          const beatSec = readSetting('heartbeatSec');
+          if (beatSec > 0 && tick % beatSec === 0) {
+            const cur = audio.currentTime || 0;
+            const dur = audio.duration || 0;
+            const msState = ('mediaSession' in navigator) ? navigator.mediaSession.playbackState : 'n/a';
+            const metaPresent = ('mediaSession' in navigator) ? !!navigator.mediaSession.metadata : false;
+            logEvent('soak.heartbeat',
+              `Track ${currentIndex + 1}/${playlist.length} | pos=${cur.toFixed(1)}/${dur.toFixed(1)}s | ` +
+              `paused=${audio.paused} | rs=${audio.readyState} | done=${completedTracksCount} | ` +
+              `lockLosses=${stats.lockLosses} | retries=${stats.pauseRetries} | msState=${msState} | meta=${metaPresent}`,
+              'tag-fg', 'HEARTBEAT');
+          }
         }, 1000);
       }
 
       // ─────────────────────────────────────────────────────────────────────────
       // 11. INITIALIZATION
       // ─────────────────────────────────────────────────────────────────────────
-      function init() {
-        loadSavedPlaylist();
-        renderPlaylistUI();
+      async function init() {
+        loadSettings();
         setupMediaSessionHandlers();
         startSessionTimer();
+        startHeartbeat();
 
-        logEvent('session.init', `Standalone testbed started with ${playlist.length} tracks. UA: ${navigator.userAgent.slice(0, 50)}...`);
+        logEvent('session.init', `Standalone testbed started. Target feed: ${DEFAULT_FEED_URL}. UA: ${navigator.userAgent.slice(0, 50)}...`);
 
-        // Load first track (ready to play)
-        if (playlist.length > 0) {
-          loadTrack(0, false);
-        }
+        // Load 100 episodes from DLF RSS Feed
+        await loadFeedPlaylist(DEFAULT_FEED_URL, DEFAULT_LIMIT);
       }
 
       init();
