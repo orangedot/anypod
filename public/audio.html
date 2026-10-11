@@ -491,11 +491,75 @@
       user-select: none;
     }
 
+    /* Feed & Soak Controls */
+    .feed-controls-grid {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .feed-input {
+      background: #06070a;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      color: #e2e8f0;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      padding: 8px 10px;
+      width: 100%;
+    }
+    .feed-num-input {
+      background: #06070a;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      color: #e2e8f0;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      padding: 8px 10px;
+      width: 80px;
+      text-align: center;
+    }
+    .soak-settings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .soak-setting-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+    }
+    .soak-setting-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .soak-setting-input {
+      background: #06070a;
+      border: 1px solid var(--card-border);
+      border-radius: 4px;
+      color: #e2e8f0;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      padding: 4px 6px;
+    }
+
     /* Playlist Items */
     .playlist-list {
       display: flex;
       flex-direction: column;
       gap: 8px;
+      max-height: 420px;
+      overflow-y: auto;
+      padding-right: 4px;
     }
     .playlist-item {
       display: flex;
@@ -779,6 +843,18 @@
           <span class="metric-val" id="metric-readystate">0 (HAVE_NOTHING)</span>
         </div>
         <div class="metric-pill">
+          <span class="metric-name">Transition Gap</span>
+          <span class="metric-val" id="metric-gap">0ms (avg 0ms)</span>
+        </div>
+        <div class="metric-pill">
+          <span class="metric-name">Spurious Retries</span>
+          <span class="metric-val" id="metric-retries">0</span>
+        </div>
+        <div class="metric-pill">
+          <span class="metric-name">Lockscreen Losses</span>
+          <span class="metric-val" id="metric-lockloss">0</span>
+        </div>
+        <div class="metric-pill">
           <span class="metric-name">Lockscreen Player</span>
           <span class="metric-val" id="metric-mediasession"><span class="status-dot dot-amber"></span>Ready</span>
         </div>
@@ -811,10 +887,57 @@
       </div>
     </section>
 
-    <!-- 5. Default Playlist & Editor -->
+    <!-- Feed Source & Soak Testing Configuration -->
+    <section class="card" aria-label="Feed & Soak Configuration">
+      <div class="card-title">Feed Source &amp; Soak Test Settings</div>
+      <div class="feed-controls-grid">
+        <input type="url" id="input-feed-url" class="feed-input" value="https://www.deutschlandfunk.de/forschung-aktuell-104.xml" placeholder="RSS Feed URL">
+        <input type="number" id="input-feed-limit" class="feed-num-input" value="100" min="1" max="500" title="Episodes limit">
+        <button class="btn-copy" id="btn-load-feed">Load Feed</button>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px;" id="feed-status-text">
+        Ready to load episodes
+      </div>
+
+      <details class="editor-details" id="soak-details">
+        <summary>Advanced Soak Settings (Watchdogs, Retries, MediaSession Heartbeat)</summary>
+        <div class="soak-settings-grid">
+          <div class="soak-setting-item">
+            <span class="soak-setting-label">Near-End Watchdog (sec before end)</span>
+            <input type="number" id="cfg-near-end-sec" class="soak-setting-input" value="0" min="0" max="60" step="0.5" title="0 = disabled (wait for ended event)">
+          </div>
+          <div class="soak-setting-item">
+            <span class="soak-setting-label">Skip to End Test Mode (jump to last Xs)</span>
+            <input type="number" id="cfg-skip-to-end" class="soak-setting-input" value="0" min="0" max="120" step="1" title="0 = normal playback. >0 jumps on track start to duration - X for quick auto-advance testing">
+          </div>
+          <div class="soak-setting-item">
+            <span class="soak-setting-label">Max Spurious Pause Retries</span>
+            <input type="number" id="cfg-max-retries" class="soak-setting-input" value="8" min="0" max="20" step="1">
+          </div>
+          <div class="soak-setting-item">
+            <span class="soak-setting-label">Retry Delay (ms)</span>
+            <input type="number" id="cfg-retry-delay" class="soak-setting-input" value="120" min="50" max="2000" step="10">
+          </div>
+          <div class="soak-setting-item">
+            <span class="soak-setting-label">MediaSession Reassert Interval (sec)</span>
+            <input type="number" id="cfg-reassert-sec" class="soak-setting-input" value="5" min="0" max="60" step="1" title="0 = disable heartbeat reassert">
+          </div>
+          <div class="soak-setting-item">
+            <span class="soak-setting-label">Proxy Fallback after N Retries</span>
+            <input type="number" id="cfg-proxy-fallback" class="soak-setting-input" value="5" min="1" max="15" step="1">
+          </div>
+          <div class="soak-setting-item">
+            <span class="soak-setting-label">Soak Heartbeat Log Interval (sec)</span>
+            <input type="number" id="cfg-heartbeat-sec" class="soak-setting-input" value="30" min="5" max="300" step="5">
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <!-- 5. Playlist & Editor -->
     <section class="card" aria-label="Playlist Configuration">
       <div class="card-title">
-        <span>Test Playlist (<span id="playlist-count">3</span> items)</span>
+        <span>Active Feed Playlist (<span id="playlist-count">0</span> items)</span>
       </div>
       <div class="playlist-list" id="playlist-list">
         <!-- Rendered items -->
@@ -826,7 +949,7 @@
           <textarea class="json-textarea" id="playlist-json" spellcheck="false"></textarea>
           <div class="editor-btn-row">
             <button class="btn-copy" id="btn-save-playlist">Save &amp; Apply Playlist</button>
-            <button class="btn-copy" id="btn-reset-playlist">Reset to Defaults</button>
+            <button class="btn-copy" id="btn-reset-playlist">Reload Feed</button>
           </div>
         </div>
       </details>
@@ -840,28 +963,9 @@
       'use strict';
 
       // ─────────────────────────────────────────────────────────────────────────
-      // 1. DEFAULT PLAYLIST
-      // ─────────────────────────────────────────────────────────────────────────
-      const DEFAULT_PLAYLIST = [
-        {
-          title: "altersforschung",
-          artist: "forschung-aktuell",
-          url: "https://podcast-mp3.dradio.de/podcast/2026/10/01/altersforschung_sprachauffaelligkeiten_zeigen_biologisches_dlf_20261001_1649_0a1794a9.mp3?refId=forschung-aktuell-104",
-          artwork: "/icon-512.png"
-        },
-        {
-          title: "schnellladesaeulen",
-          artist: "forschung-aktuell",
-          url: "https://podcast-mp3.dradio.de/podcast/2026/09/30/schnellladesaeulen_wie_sie_das_stromnetz_stabilisieren_dlf_20260930_1649_adf84a47.mp3?refId=forschung-aktuell-104",
-          artwork: "/icon-512.png"
-        },
-        {
-          title: "ra-1057-marina-herlop",
-          artist: "forschung-aktuell",
-          url: "https://podcast-mp3.dradio.de/podcast/2026/09/18/atomtests_in_nordkorea_seismische_folgen_noch_jahrelang_dlf_20260918_1650_4222856f.mp3?refId=forschung-aktuell-104",
-          artwork: "/icon-512.png"
-        }
-      ];
+      // 1. FEED & PLAYLIST CONFIGURATION (NO DEFAULT HARDCODED JSON)
+      const DEFAULT_FEED_URL = 'https://www.deutschlandfunk.de/forschung-aktuell-104.xml';
+      const DEFAULT_LIMIT = 100;
 
       // ─────────────────────────────────────────────────────────────────────────
       // 2. STATE & DOM ELEMENTS
@@ -877,6 +981,24 @@
       let lastPositionUpdate = 0;
       let lastTimeupdateLog = 0;
       let logEventsArray = [];
+
+      // Soak & Android lockscreen resilience state
+      let userPaused = false;
+      let advanceInFlight = false;
+      let pauseRetryCount = 0;
+      let lastRetryPos = 0;
+      let fallbackProxyApplied = false;
+      let pendingTransition = null;
+      const transitions = [];
+      const stats = {
+        gapSumMs: 0,
+        gapCount: 0,
+        gapMaxMs: 0,
+        lockLosses: 0,
+        pauseRetries: 0,
+        bgTransitions: 0
+      };
+      let feedMeta = { url: '', title: '', artwork: '' };
 
       const audio = document.getElementById('test-audio');
       const seekSlider = document.getElementById('seek-slider');
@@ -903,6 +1025,9 @@
       const metricStalls = document.getElementById('metric-stalls');
       const metricReadyState = document.getElementById('metric-readystate');
       const metricMediaSession = document.getElementById('metric-mediasession');
+      const metricGap = document.getElementById('metric-gap');
+      const metricRetries = document.getElementById('metric-retries');
+      const metricLockLoss = document.getElementById('metric-lockloss');
 
       const logConsole = document.getElementById('log-console');
       const chkAutoscroll = document.getElementById('chk-autoscroll');
@@ -911,12 +1036,62 @@
       const btnClearLogs = document.getElementById('btn-clear-logs');
       const btnDownloadLogs = document.getElementById('btn-download-logs');
 
+      const inputFeedUrl = document.getElementById('input-feed-url');
+      const inputFeedLimit = document.getElementById('input-feed-limit');
+      const btnLoadFeed = document.getElementById('btn-load-feed');
+      const feedStatusText = document.getElementById('feed-status-text');
+
+      const CFG_INPUTS = {
+        nearEndSec: document.getElementById('cfg-near-end-sec'),
+        skipToEndSec: document.getElementById('cfg-skip-to-end'),
+        maxPauseRetries: document.getElementById('cfg-max-retries'),
+        retryDelayMs: document.getElementById('cfg-retry-delay'),
+        reassertSec: document.getElementById('cfg-reassert-sec'),
+        proxyFallbackAfter: document.getElementById('cfg-proxy-fallback'),
+        heartbeatSec: document.getElementById('cfg-heartbeat-sec')
+      };
+
       const playlistList = document.getElementById('playlist-list');
       const playlistCount = document.getElementById('playlist-count');
       const playlistJson = document.getElementById('playlist-json');
       const btnSavePlaylist = document.getElementById('btn-save-playlist');
       const btnResetPlaylist = document.getElementById('btn-reset-playlist');
       const toast = document.getElementById('toast');
+
+      function readSetting(name) {
+        const el = CFG_INPUTS[name];
+        if (!el) return 0;
+        return parseFloat(el.value) || 0;
+      }
+
+      function currentSettings() {
+        const out = {};
+        Object.keys(CFG_INPUTS).forEach(k => { out[k] = readSetting(k); });
+        out.proxy = toggleProxy.checked;
+        out.loop = toggleLoop.checked;
+        out.wakeLock = toggleWakeLock.checked;
+        return out;
+      }
+
+      function saveSettings() {
+        try {
+          localStorage.setItem('anypod_audio_soak_settings', JSON.stringify(currentSettings()));
+        } catch (_) {}
+      }
+
+      function loadSettings() {
+        try {
+          const raw = localStorage.getItem('anypod_audio_soak_settings');
+          if (!raw) return;
+          const parsed = JSON.parse(raw);
+          Object.keys(CFG_INPUTS).forEach(k => {
+            if (parsed[k] !== undefined) CFG_INPUTS[k].value = parsed[k];
+          });
+          if (parsed.proxy !== undefined) toggleProxy.checked = !!parsed.proxy;
+          if (parsed.loop !== undefined) toggleLoop.checked = !!parsed.loop;
+          if (parsed.wakeLock !== undefined) toggleWakeLock.checked = !!parsed.wakeLock;
+        } catch (_) {}
+      }
 
       // ─────────────────────────────────────────────────────────────────────────
       // 3. LOGGING SUBSYSTEM
@@ -991,31 +1166,75 @@
       // ─────────────────────────────────────────────────────────────────────────
       // 4. PLAYLIST & RESOLUTION
       // ─────────────────────────────────────────────────────────────────────────
-      function loadSavedPlaylist() {
+      function updateSoakMetrics() {
+        if (metricGap) {
+          const avg = stats.gapCount ? Math.round(stats.gapSumMs / stats.gapCount) : 0;
+          const last = transitions.length > 0 ? transitions[transitions.length - 1].gapMs : 0;
+          metricGap.textContent = `${last}ms (avg ${avg}ms, max ${stats.gapMaxMs}ms)`;
+        }
+        if (metricRetries) metricRetries.textContent = String(stats.pauseRetries);
+        if (metricLockLoss) metricLockLoss.textContent = String(stats.lockLosses);
+      }
+
+      // ─────────────────────────────────────────────────────────────────────────
+      // 4. FEED LOADER & PLAYLIST RESOLUTION (100 EPISODES FROM RSS)
+      // ─────────────────────────────────────────────────────────────────────────
+      async function loadFeedPlaylist(customUrl, customLimit) {
+        const feedUrl = (customUrl || inputFeedUrl.value || DEFAULT_FEED_URL).trim();
+        const limit = parseInt(customLimit || inputFeedLimit.value || DEFAULT_LIMIT, 10) || DEFAULT_LIMIT;
+
+        feedStatusText.textContent = `Fetching feed via /api/feed?url=... (target: ${limit} episodes)`;
+        feedStatusText.style.color = 'var(--accent)';
+        logEvent('feed.load_start', `Fetching ${feedUrl} (limit ${limit})`, 'tag-event', 'FEED');
+
         try {
-          const saved = localStorage.getItem('anypod_audio_test_playlist');
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              playlist = parsed;
-              return;
-            }
+          const resp = await fetch(`/api/feed?url=${encodeURIComponent(feedUrl)}`);
+          if (!resp.ok) {
+            throw new Error(`Feed fetch failed with HTTP ${resp.status}`);
           }
-        } catch (_) {}
-        playlist = JSON.parse(JSON.stringify(DEFAULT_PLAYLIST));
+          const data = await resp.json();
+          const items = Array.isArray(data.episodes) ? data.episodes : [];
+          if (items.length === 0) {
+            throw new Error('Feed returned 0 episodes');
+          }
+
+          const channelArt = data.artwork || '/icon-512.png';
+          feedMeta = {
+            url: feedUrl,
+            title: data.title || 'Unknown Feed',
+            artwork: channelArt
+          };
+
+          const sliced = items.slice(0, limit);
+          playlist = sliced.map((ep, idx) => ({
+            title: ep.title || `Episode #${idx + 1}`,
+            artist: ep.feedTitle || data.title || 'Forschung aktuell',
+            url: ep.audioUrl,
+            artwork: ep.artwork || channelArt,
+            pubDate: ep.pubDate || ''
+          })).filter(t => Boolean(t.url));
+
+          currentIndex = 0;
+          renderPlaylistUI();
+          feedStatusText.textContent = `Loaded ${playlist.length} episodes from "${feedMeta.title}"`;
+          feedStatusText.style.color = '#10b981';
+          logEvent('feed.loaded', `Successfully loaded ${playlist.length} episodes (channel: "${feedMeta.title}")`, 'tag-event', 'FEED');
+          showToast(`Feed loaded: ${playlist.length} tracks`);
+
+          if (playlist.length > 0) {
+            loadTrack(0, false, 'init');
+          }
+        } catch (err) {
+          feedStatusText.textContent = `Error: ${err.message}`;
+          feedStatusText.style.color = '#ef4444';
+          logEvent('feed.error', err.message, 'tag-error', 'FEED_ERR');
+          showToast(`Feed load error: ${err.message}`);
+        }
       }
 
-      function savePlaylist(newList) {
-        playlist = newList;
-        localStorage.setItem('anypod_audio_test_playlist', JSON.stringify(playlist, null, 2));
-        renderPlaylistUI();
-        showToast('Playlist updated');
-        logEvent('playlist.updated', `${playlist.length} tracks configured`);
-      }
-
-      function resolveStreamUrl(rawUrl) {
+      function resolveStreamUrl(rawUrl, forceProxy = false) {
         if (!rawUrl) return '';
-        const useProxy = toggleProxy.checked;
+        const useProxy = forceProxy || toggleProxy.checked;
         if (useProxy) {
           return `${window.location.origin}/api/audio-proxy?url=${encodeURIComponent(rawUrl)}`;
         }
@@ -1046,12 +1265,18 @@
 
           div.addEventListener('click', () => {
             if (currentIndex !== idx || audio.paused) {
-              loadTrack(idx, true);
+              loadTrack(idx, true, 'manual:click');
             }
           });
 
           playlistList.appendChild(div);
         });
+
+        // Scroll active track into view
+        const activeEl = playlistList.children[currentIndex];
+        if (activeEl) {
+          activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
       }
 
       function escapeHtml(str) {
@@ -1061,12 +1286,15 @@
       }
 
       // ─────────────────────────────────────────────────────────────────────────
-      // 5. AUDIO ENGINE PLAYBACK & TRANSITION
+      // 5. AUDIO ENGINE PLAYBACK & TRANSITION (LOCKSCREEN-RESILIENT)
       // ─────────────────────────────────────────────────────────────────────────
-      function loadTrack(index, autoPlay = true) {
+      function loadTrack(index, autoPlay = true, reason = 'manual') {
         if (index < 0 || index >= playlist.length) return;
         currentIndex = index;
         const track = playlist[currentIndex];
+        fallbackProxyApplied = false;
+        pauseRetryCount = 0;
+        advanceInFlight = false;
 
         document.getElementById('current-track-index').textContent = `Track ${currentIndex + 1} of ${playlist.length}`;
         document.getElementById('current-track-title').textContent = track.title || 'Untitled Track';
@@ -1076,23 +1304,47 @@
         streamUrlDisplay.textContent = streamUrl;
         streamUrlDisplay.title = streamUrl;
 
-        logEvent('track.change', `Track ${currentIndex + 1}/${playlist.length} ("${track.title}") -> Assigning src`, 'tag-event', 'TRACK');
+        logEvent('track.change', `Track ${currentIndex + 1}/${playlist.length} ("${track.title}") -> loading`, 'tag-event', 'TRACK');
 
-        // Seamless transition sequence matching production app:
-        // 1. Assign source directly without calling audio.pause()
+        // CRITICAL FIX FOR ANDROID PIXEL LOCKSCREEN LOSS:
+        // 1. Maintain MediaSession state *before* assigning audio.src so Android SystemUI never sees idle/unassociated state.
+        if ('mediaSession' in navigator) {
+          navigator.mediaSession.playbackState = autoPlay ? 'playing' : 'paused';
+        }
+        syncMediaSession(track, true, false);
+
+        // 2. Assign audio.src without calling pause()
         audio.src = streamUrl;
-
-        // 2. Immediate load() forces socket to connect before background throttling
         audio.load();
 
-        // 3. Immediately assert MediaSession for Android SystemUI
-        syncMediaSession(track);
+        // 3. Mark pending transition for gap timing
+        pendingTransition = {
+          idx: currentIndex + 1,
+          reason,
+          t0: Date.now(),
+          vis: document.hidden ? 'BG' : 'FG'
+        };
 
         // 4. Update UI
         renderPlaylistUI();
         updateProgress();
 
+        // 5. Apply skip-to-end test mode if configured
+        const skipSec = readSetting('skipToEndSec');
+        if (skipSec > 0) {
+          const onMeta = () => {
+            audio.removeEventListener('loadedmetadata', onMeta);
+            if (audio.duration && audio.duration > skipSec + 2) {
+              const jumpTo = audio.duration - skipSec;
+              audio.currentTime = jumpTo;
+              logEvent('soak.skiptoend', `Jumped track to ${jumpTo.toFixed(1)}s (last ${skipSec}s)`, 'tag-wait', 'SKIP');
+            }
+          };
+          audio.addEventListener('loadedmetadata', onMeta);
+        }
+
         if (autoPlay) {
+          userPaused = false;
           const playPromise = audio.play();
           if (playPromise !== undefined) {
             playPromise.then(() => {
@@ -1107,17 +1359,20 @@
       }
 
       function advanceToNextTrack(reason = 'ended') {
+        if (advanceInFlight) return;
+        advanceInFlight = true;
         const nextIndex = currentIndex + 1;
         const loop = toggleLoop.checked;
 
         logEvent('track.advance', `Reason: ${reason}. Current: ${currentIndex + 1}, Loop: ${loop}`, 'tag-event', 'ADVANCE');
 
         if (nextIndex < playlist.length) {
-          loadTrack(nextIndex, true);
+          loadTrack(nextIndex, true, reason);
         } else if (loop && playlist.length > 0) {
           logEvent('track.loop', `Playlist end reached -> Looping to track 1`, 'tag-event', 'LOOP');
-          loadTrack(0, true);
+          loadTrack(0, true, 'loop');
         } else {
+          advanceInFlight = false;
           logEvent('track.finished', `Playlist finished, stopped.`, 'tag-event', 'STOP');
           updateUIPlayState(false);
         }
@@ -1136,52 +1391,66 @@
       }
 
       // ─────────────────────────────────────────────────────────────────────────
-      // 6. MEDIASESSION INTEGRATION & LOCKSCREEN METADATA
+      // 6. MEDIASESSION INTEGRATION & LOCKSCREEN METADATA (DEBOUNCED & ROBUST)
       // ─────────────────────────────────────────────────────────────────────────
-      function syncMediaSession(track, forceReassert = false) {
+      let mediaSessionDebounceTimer = null;
+
+      function syncMediaSession(track, forceReassert = false, immediate = false) {
         if (!('mediaSession' in navigator)) {
           if (metricMediaSession) metricMediaSession.innerHTML = '<span class="status-dot dot-red"></span>Unsupported';
           return;
         }
         if (!track) return;
 
-        try {
-          const artworkUrl = track.artwork || '/icon-512.png';
-          const resolvedArt = new URL(artworkUrl, window.location.origin).href;
-          const fallback512 = new URL('/icon-512.png', window.location.origin).href;
-          const fallback192 = new URL('/icon-192.png', window.location.origin).href;
+        const applySync = () => {
+          try {
+            const artworkUrl = track.artwork || '/icon-512.png';
+            const resolvedArt = new URL(artworkUrl, window.location.origin).href;
+            const fallback512 = new URL('/icon-512.png', window.location.origin).href;
+            const fallback192 = new URL('/icon-192.png', window.location.origin).href;
 
-          // Android Chromium SystemUI Notification requires comprehensive icon sizes
-          const artworkList = [
-            { src: fallback192, sizes: '96x96', type: 'image/png' },
-            { src: fallback192, sizes: '128x128', type: 'image/png' },
-            { src: fallback192, sizes: '192x192', type: 'image/png' },
-            { src: resolvedArt, sizes: '256x256' },
-            { src: resolvedArt, sizes: '384x384' },
-            { src: resolvedArt, sizes: '512x512' },
-            { src: fallback512, sizes: '512x512', type: 'image/png' }
-          ];
+            const artworkList = [
+              { src: fallback192, sizes: '96x96', type: 'image/png' },
+              { src: fallback192, sizes: '128x128', type: 'image/png' },
+              { src: fallback192, sizes: '192x192', type: 'image/png' },
+              { src: resolvedArt, sizes: '256x256' },
+              { src: resolvedArt, sizes: '384x384' },
+              { src: resolvedArt, sizes: '512x512' },
+              { src: fallback512, sizes: '512x512', type: 'image/png' }
+            ];
 
-          navigator.mediaSession.metadata = new MediaMetadata({
-            title: track.title || 'Diagnostic Track',
-            artist: track.artist || 'Anypod Testbed',
-            album: 'Anypod Standalone Diagnostics',
-            artwork: artworkList
-          });
+            navigator.mediaSession.metadata = new MediaMetadata({
+              title: track.title || 'Diagnostic Track',
+              artist: track.artist || 'Anypod Testbed',
+              album: feedMeta.title || 'Anypod Feed Soak Test',
+              artwork: artworkList
+            });
 
-          const pbState = audio.paused ? 'paused' : 'playing';
-          navigator.mediaSession.playbackState = pbState;
+            const pbState = audio.paused ? 'paused' : 'playing';
+            navigator.mediaSession.playbackState = pbState;
 
-          if (metricMediaSession) {
-            metricMediaSession.innerHTML = pbState === 'playing'
-              ? '<span class="status-dot dot-green"></span>Active (Playing)'
-              : '<span class="status-dot dot-amber"></span>Active (Paused)';
+            if (metricMediaSession) {
+              metricMediaSession.innerHTML = pbState === 'playing'
+                ? '<span class="status-dot dot-green"></span>Active (Playing)'
+                : '<span class="status-dot dot-amber"></span>Active (Paused)';
+            }
+
+            // Reset position state for fresh track
+            lastPositionUpdate = 0;
+
+            logEvent('mediasession.synced', `Title: "${track.title}", PlaybackState: ${pbState}, Force: ${forceReassert}`, 'tag-event', 'LOCK');
+          } catch (err) {
+            if (metricMediaSession) metricMediaSession.innerHTML = '<span class="status-dot dot-red"></span>Error';
+            logEvent('mediasession.error', `${err.name}: ${err.message}`, 'tag-error', 'ERR');
           }
+        };
 
-          logEvent('mediasession.synced', `Title: "${track.title}", Artist: "${track.artist}", PlaybackState: ${pbState}, ArtworkCount: ${artworkList.length}, Force: ${forceReassert}`, 'tag-event', 'LOCK');
-        } catch (err) {
-          if (metricMediaSession) metricMediaSession.innerHTML = '<span class="status-dot dot-red"></span>Error';
-          logEvent('mediasession.error', `${err.name}: ${err.message}`, 'tag-error', 'ERR');
+        if (immediate || forceReassert) {
+          clearTimeout(mediaSessionDebounceTimer);
+          applySync();
+        } else {
+          clearTimeout(mediaSessionDebounceTimer);
+          mediaSessionDebounceTimer = setTimeout(applySync, 100);
         }
       }
 
