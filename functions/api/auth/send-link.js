@@ -1,4 +1,4 @@
-import { hashToken, getCorsHeaders } from '../utils.js';
+import { hashToken, getCorsHeaders, normalizeEmail } from '../utils.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -17,15 +17,18 @@ export async function onRequest(context) {
 
   try {
     const body = await request.json();
-    const email = body.email ? String(body.email).trim().toLowerCase() : '';
+    const rawEmail = body.email ? String(body.email).trim() : '';
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email || email.length > 120 || !emailRegex.test(email)) {
+    if (!rawEmail || rawEmail.length > 120 || !emailRegex.test(rawEmail)) {
       return new Response(JSON.stringify({ error: 'Valid email address required.' }), {
         headers: corsHeaders,
         status: 400
       });
     }
+
+    const email = rawEmail.toLowerCase();
+    const normalizedEmail = normalizeEmail(rawEmail);
 
     const db = env.DB;
     if (!db) {
@@ -35,7 +38,8 @@ export async function onRequest(context) {
       });
     }
 
-    let user = await db.prepare('SELECT id, email FROM users WHERE email = ?').bind(email).first();
+    // Check user by canonical normalized email first, then exact email
+    let user = await db.prepare('SELECT id, email FROM users WHERE email = ? OR email = ?').bind(normalizedEmail, email).first();
     if (user) {
       const recentAttempts = await db.prepare(
         'SELECT COUNT(*) as count FROM auth_tokens WHERE user_id = ? AND created_at > (unixepoch() - 600)'
@@ -57,8 +61,8 @@ export async function onRequest(context) {
         });
       }
       const newUserId = `usr_${crypto.randomUUID()}`;
-      await db.prepare('INSERT INTO users (id, email) VALUES (?, ?)').bind(newUserId, email).run();
-      user = { id: newUserId, email };
+      await db.prepare('INSERT INTO users (id, email) VALUES (?, ?)').bind(newUserId, normalizedEmail).run();
+      user = { id: newUserId, email: normalizedEmail };
     }
 
     const tokenBuffer = new Uint8Array(32);

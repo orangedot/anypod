@@ -193,3 +193,21 @@ export function getCorsHeaders(request, allowedMethods = 'GET, POST, OPTIONS') {
   return headers;
 }
 
+export function normalizeEmail(rawEmail) {
+  if (!rawEmail || typeof rawEmail !== 'string') return '';
+  const trimmed = rawEmail.trim().toLowerCase();
+  const atIdx = trimmed.lastIndexOf('@');
+  if (atIdx === -1) return trimmed;
+  let local = trimmed.slice(0, atIdx);
+  let domain = trimmed.slice(atIdx + 1);
+
+  if (domain === 'googlemail.com') {
+    domain = 'gmail.com';
+  }
+  if (domain === 'gmail.com') {
+    // Gmail ignores dots and anything after '+'
+    local = local.replace(/\./g, '').split('+')[0];
+  }
+  return `${local}@${domain}`;
+}
+
