@@ -1645,6 +1645,17 @@ select {
   font-size: 0.9rem;
   transition: opacity 0.25s ease, transform 0.25s ease;
   line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  user-select: none;
+}
+
+.status-banner.is-expanded {
+  white-space: normal;
+  overflow: visible;
+  word-break: break-word;
 }
 
 .episode-list {

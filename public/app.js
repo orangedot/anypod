@@ -10547,6 +10547,12 @@ function setPlayerCollapsed(collapsed, save = true) {
       });
     }
 
+    if (elements.statusBanner) {
+      elements.statusBanner.addEventListener('click', () => {
+        elements.statusBanner.classList.toggle('is-expanded');
+      });
+    }
+
     let lastScrollY = window.scrollY;
     let scrollCollapseTimer = null;
 
@@ -10643,12 +10649,16 @@ function setPlayerCollapsed(collapsed, save = true) {
   }
 
   function showStatus(msg) {
+    if (!elements.statusBanner) return;
     elements.statusBanner.textContent = msg;
+    elements.statusBanner.title = msg;
     elements.statusBanner.classList.remove('hidden');
   }
 
   function hideStatus() {
+    if (!elements.statusBanner) return;
     elements.statusBanner.classList.add('hidden');
+    elements.statusBanner.classList.remove('is-expanded');
   }
 
   // ─────────────────────────────────────────────────────────────────────────
