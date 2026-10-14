@@ -1643,6 +1643,8 @@ select {
   border-radius: var(--radius-sm);
   margin-bottom: 1.5rem;
   font-size: 0.9rem;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  line-height: 1.4;
 }
 
 .episode-list {

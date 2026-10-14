@@ -3511,7 +3511,6 @@
       saveCacheToStorage();
       updateFeedCountUI();
       renderContinueShelf();
-      //renderTimeline();
       renderTimeline(true);
       renderFeedsGrid();
       return;
@@ -3521,9 +3520,48 @@
       renderSkeletonTimeline();
     }
 
-    showStatus('Updating feeds...');
+    const totalFeeds = state.feeds.length;
+    let completedFeeds = 0;
+    let newEpisodesCount = 0;
+    let activeFeedTitle = '';
+
+    // Track existing guids to detect newly discovered episodes
+    const existingGuids = new Set(state.allEpisodes.map(e => e.guid).filter(Boolean));
+    const allKnownGuids = new Set(existingGuids);
+
+    const updateStatusText = () => {
+      let text = `Updating feeds (${completedFeeds}/${totalFeeds})`;
+      if (activeFeedTitle) {
+        text += ` · ${activeFeedTitle}`;
+      }
+      if (newEpisodesCount > 0) {
+        text += ` · ${newEpisodesCount} new episode${newEpisodesCount === 1 ? '' : 's'}`;
+      }
+      showStatus(text);
+    };
+
+    updateStatusText();
+
     const incomingEpisodes = [];
     const updatedMetadata = { ...state.feedMetadata };
+
+    // Throttled UI updater for smooth, non-blocking rendering as feeds complete
+    let renderTimer = null;
+    let pendingUiUpdate = false;
+    const scheduleProgressiveRender = () => {
+      pendingUiUpdate = true;
+      if (renderTimer) return;
+      renderTimer = setTimeout(() => {
+        renderTimer = null;
+        if (pendingUiUpdate) {
+          pendingUiUpdate = false;
+          processAndSortEpisodes();
+          renderTimeline(true);
+          renderFeedsGrid();
+          updateFeedCountUI();
+        }
+      }, 400);
+    };
 
     // Process feeds in bounded concurrent chunks (max 5 in-flight)
     // to avoid overloading Cloudflare Workers subrequest limits and causing 503s.
@@ -3533,12 +3571,46 @@
       while (queue.length > 0) {
         const url = queue.shift();
         if (url) {
-          await fetchSingleFeed(url, incomingEpisodes, updatedMetadata);
+          const feedMeta = state.feedMetadata[url];
+          activeFeedTitle = feedMeta?.title || '';
+          updateStatusText();
+
+          const result = await fetchSingleFeed(url, incomingEpisodes, updatedMetadata);
+          completedFeeds++;
+
+          if (result && Array.isArray(result.episodes) && result.episodes.length > 0) {
+            let foundNewForThisFeed = 0;
+            const newBatch = [];
+            result.episodes.forEach(ep => {
+              if (ep && ep.guid && !allKnownGuids.has(ep.guid)) {
+                allKnownGuids.add(ep.guid);
+                foundNewForThisFeed++;
+                newBatch.push(ep);
+              }
+            });
+
+            if (foundNewForThisFeed > 0) {
+              newEpisodesCount += foundNewForThisFeed;
+              state.allEpisodes = [...newBatch, ...state.allEpisodes];
+              state.feedMetadata = { ...state.feedMetadata, ...updatedMetadata };
+              scheduleProgressiveRender();
+            }
+          }
+
+          updateStatusText();
         }
       }
     });
+
     await Promise.all(workers);
 
+    // Cancel any pending throttled render
+    if (renderTimer) {
+      clearTimeout(renderTimer);
+      renderTimer = null;
+    }
+
+    // Final merge and deduplication
     if (incomingEpisodes.length > 0) {
       const epMap = new Map();
       incomingEpisodes.forEach(ep => {
@@ -3554,10 +3626,18 @@
       saveCacheToStorage();
     }
 
-    hideStatus();
     processAndSortEpisodes();
-    renderTimeline();
+    renderTimeline(true);
     renderFeedsGrid();
+    updateFeedCountUI();
+
+    // Clean summary without icons: "Updated 81 feeds · 8 new episodes"
+    let finalSummary = `Updated ${totalFeeds} feed${totalFeeds === 1 ? '' : 's'}`;
+    if (newEpisodesCount > 0) {
+      finalSummary += ` · ${newEpisodesCount} new episode${newEpisodesCount === 1 ? '' : 's'}`;
+    }
+    showStatus(finalSummary);
+    setTimeout(hideStatus, 3200);
   }
 
   async function fetchSingleFeed(url, incomingEpisodes, updatedMetadata) {
@@ -4876,16 +4956,24 @@
     const container = elements.timelineList;
     if (!container) return;
 
-    if (preserveScroll && state.timelinePage > 1) {
+    if (preserveScroll) {
+      const prevWindowScroll = window.scrollY;
       const prevScroll = container.scrollTop;
       const existingSentinel = document.getElementById('timeline-sentinel');
       if (existingSentinel) existingSentinel.remove();
       container.innerHTML = '';
 
-      const total = state.timelinePage * state.pageSize;
+      const timelineContext = {
+        type: state.searchQuery ? 'search' : state.filterMode,
+        id: state.searchQuery || state.filterMode,
+        title: state.searchQuery ? `Search: "${state.searchQuery}"` : (state.filterMode === 'continue' ? 'Continue Listening' : 'Timeline'),
+        items: state.filteredEpisodes
+      };
+
+      const total = Math.max(state.pageSize || 30, (state.timelinePage || 1) * (state.pageSize || 30));
       const batch = state.filteredEpisodes.slice(0, total);
       const frag = document.createDocumentFragment();
-      batch.forEach(ep => frag.appendChild(createEpisodeCard(ep)));
+      batch.forEach(ep => frag.appendChild(createEpisodeCard(ep, timelineContext)));
       container.appendChild(frag);
 
       if (total < state.filteredEpisodes.length) {
@@ -4895,7 +4983,8 @@
         container.appendChild(sentinel);
         setupSentinelObserver(sentinel);
       }
-      container.scrollTop = prevScroll;
+      if (container.scrollTop !== prevScroll) container.scrollTop = prevScroll;
+      if (window.scrollY !== prevWindowScroll) window.scrollTo({ top: prevWindowScroll, behavior: 'instant' });
       return;
     }
 
@@ -10311,14 +10400,11 @@ function setPlayerCollapsed(collapsed, save = true) {
     const btnRefreshAllFeeds = document.getElementById('btn-refresh-all-feeds');
     if (btnRefreshAllFeeds) {
       btnRefreshAllFeeds.addEventListener('click', async () => {
-        showStatus('Updating all feeds & metadata from source...');
         try {
           await refreshAllFeeds();
-          showStatus('All feeds & metadata updated successfully!');
         } catch (err) {
           console.error('[Refresh All Feeds Error]:', err);
           showStatus('Failed to update some feeds.');
-        } finally {
           setTimeout(hideStatus, 2500);
         }
       });
