@@ -1636,6 +1636,7 @@ select {
 
 /* Status Banner */
 .status-banner {
+  position: relative;
   background: var(--bg-card);
   border: 1px solid var(--border-light);
   color: var(--text-primary);
@@ -1650,6 +1651,18 @@ select {
   text-overflow: ellipsis;
   cursor: pointer;
   user-select: none;
+}
+
+.status-banner::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: var(--progress, 0%);
+  background: var(--text-muted);
+  transition: width 0.3s ease;
+  pointer-events: none;
 }
 
 .status-banner.is-expanded {

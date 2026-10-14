@@ -3537,7 +3537,8 @@
       if (newEpisodesCount > 0) {
         text += ` · ${newEpisodesCount} new episode${newEpisodesCount === 1 ? '' : 's'}`;
       }
-      showStatus(text);
+      const pct = totalFeeds > 0 ? (completedFeeds / totalFeeds) * 100 : 0;
+      showStatus(text, pct);
     };
 
     updateStatusText();
@@ -10648,10 +10649,15 @@ function setPlayerCollapsed(collapsed, save = true) {
     }
   }
 
-  function showStatus(msg) {
+  function showStatus(msg, progressPct = null) {
     if (!elements.statusBanner) return;
     elements.statusBanner.textContent = msg;
     elements.statusBanner.title = msg;
+    if (typeof progressPct === 'number') {
+      elements.statusBanner.style.setProperty('--progress', `${Math.min(100, Math.max(0, progressPct))}%`);
+    } else {
+      elements.statusBanner.style.removeProperty('--progress');
+    }
     elements.statusBanner.classList.remove('hidden');
   }
 
@@ -10659,6 +10665,7 @@ function setPlayerCollapsed(collapsed, save = true) {
     if (!elements.statusBanner) return;
     elements.statusBanner.classList.add('hidden');
     elements.statusBanner.classList.remove('is-expanded');
+    elements.statusBanner.style.removeProperty('--progress');
   }
 
   // ─────────────────────────────────────────────────────────────────────────
