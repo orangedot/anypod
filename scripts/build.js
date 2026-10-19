@@ -15,6 +15,40 @@ if (!fs.existsSync(distDir)) {
   fs.mkdirSync(distDir, { recursive: true });
 }
 
+// 0. Assemble public/app.js from shared/* + app/* modular files
+const sharedModules = [
+  'shared/formatters.js',
+  'shared/storage.js',
+  'shared/sync-bridge.js',
+  'shared/audio-utils.js'
+];
+
+const appModules = [
+  'app/01-state-and-dom.js',
+  'app/02-auth-and-sync.js',
+  'app/03-queue-favorites-downloads.js',
+  'app/04-feeds-and-discover.js',
+  'app/05-timeline-and-cards.js',
+  'app/06-audio-player.js',
+  'app/07-events-and-modals.js',
+  'app/08-waveform-and-ai.js'
+];
+
+const sharedCode = sharedModules
+  .map(rel => `// ── ${rel} ──\n` + fs.readFileSync(path.join(publicDir, rel), 'utf-8'))
+  .join('\n\n');
+
+const appBody = appModules
+  .map(rel => {
+    const raw = fs.readFileSync(path.join(publicDir, rel), 'utf-8').replace(/^'use strict';\s*/, '');
+    return `  // ══ ${rel} ══\n` + raw.split('\n').map(l => (l ? '  ' + l : '')).join('\n');
+  })
+  .join('\n\n');
+
+const assembledAppJs = `${sharedCode}\n\n(function () {\n  'use strict';\n\n${appBody}\n})();\n`;
+fs.writeFileSync(path.join(publicDir, 'app.js'), assembledAppJs, 'utf-8');
+console.log(`🔧 Assembled ${sharedModules.length} shared + ${appModules.length} app modules → public/app.js`);
+
 // 1. Bundle and minify JS
 await esbuild.build({
   entryPoints: [path.join(publicDir, 'app.js')],
@@ -44,7 +78,11 @@ const v = Date.now();
 let prodHtml = rawHtml
   // 1. Inline minified CSS directly (eliminates render-blocking audit and FOUC permanently)
   .replace(/<link[^>]*href=["']\/?style\.css(\?[^"']*)?["'][^>]*>/i, `<style>${minCss}</style>`)
-  // 2. Safely replace app.js with cache-busted minified bundle
+  // 2. Replace modular shared/ and app/ script tags (or legacy app.js tag) with single minified bundle
+  .replace(
+    /<!-- Shared Functional Modules \(AnypodShared\) -->[\s\S]*?<script src="app\/08-waveform-and-ai\.js" defer><\/script>/i,
+    `<script src="app.min.js?v=${v}" defer></script>`
+  )
   .replace(/src=["']\/?app\.js(\?[^"']*)?["']/g, `src="app.min.js?v=${v}"`)
   // 3. Normalize any duplicate rel attributes to standard rel="stylesheet"
   .replace(/rel=["']?preload["']?\s+rel=["']?stylesheet["']?/g, 'rel="stylesheet"');
@@ -52,7 +90,7 @@ let prodHtml = rawHtml
 fs.writeFileSync(path.join(distDir, 'index.html'), prodHtml, 'utf-8');
 
 // 4. Auto-copy ALL root static files to dist/
-// (Automatically includes robots.txt, sw.js, _headers, manifest, icon.svg, llms.txt, etc.)
+// (Automatically includes robots.txt, sw.js, _headers, manifest, icon.svg, llms.txt, shared/, app/, dj.js, sets.js, etc.)
 const ignoredFiles = new Set(['index.html', 'app.js', 'style.css', 'dist', 'node_modules', '.git']);
 
 for (const entry of fs.readdirSync(publicDir, { withFileTypes: true })) {

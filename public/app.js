@@ -1,6 +1,775 @@
+// ── shared/formatters.js ──
+/**
+ * shared/formatters.js — Shared Time, Duration, Date, Byte & HTML Formatting Utilities
+ * Used across Anypod Main Player (app), DJ Studio (dj), and Workout Sequencer (sets).
+ */
+(function (global) {
+  'use strict';
+
+  const AnypodShared = (global.AnypodShared = global.AnypodShared || {});
+
+  /**
+   * Formats seconds into M:SS, MM:SS (if padMinutes=true), or H:MM:SS.
+   */
+  function formatTime(seconds, padMinutes = false) {
+    if (!seconds || !isFinite(seconds) || seconds < 0) {
+      return padMinutes ? '00:00' : '0:00';
+    }
+    const totalSecs = Math.floor(seconds);
+    const hrs = Math.floor(totalSecs / 3600);
+    const mins = Math.floor((totalSecs % 3600) / 60);
+    const secs = totalSecs % 60;
+    const secStr = secs < 10 ? `0${secs}` : `${secs}`;
+    if (hrs > 0) {
+      const minStr = mins < 10 ? `0${mins}` : `${mins}`;
+      return `${hrs}:${minStr}:${secStr}`;
+    }
+    const minOut = padMinutes && mins < 10 ? `0${mins}` : `${mins}`;
+    return `${minOut}:${secStr}`;
+  }
+
+  /**
+   * Parses a duration string ("HH:MM:SS", "MM:SS", or numeric seconds) into seconds.
+   */
+  function parseDurationSeconds(durationStr) {
+    if (typeof durationStr === 'number') {
+      return isFinite(durationStr) && durationStr > 0 ? durationStr : 0;
+    }
+    if (!durationStr || typeof durationStr !== 'string') return 0;
+    const parts = durationStr.trim().split(':').map(p => parseFloat(p) || 0);
+    if (parts.length === 3) {
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    } else if (parts.length === 2) {
+      return parts[0] * 60 + parts[1];
+    } else if (parts.length === 1) {
+      return parts[0];
+    }
+    return 0;
+  }
+
+  /**
+   * Formats a flexible duration value (number or string) into M:SS / H:MM:SS.
+   */
+  function formatDuration(dur) {
+    if (!dur) return '0:00';
+    if (typeof dur === 'number') return formatTime(dur);
+    const str = String(dur).trim();
+    if (str.includes(':')) return str;
+    const s = parseFloat(str);
+    return isNaN(s) ? str : formatTime(s);
+  }
+
+  /**
+   * Formats an episode duration for card display (omits zero durations, strips leading "00:").
+   */
+  function formatEpisodeDuration(durStr) {
+    if (!durStr) return '';
+    const trimmed = String(durStr).trim();
+    if (trimmed === '0:00' || trimmed === '0' || trimmed === '00:00' || trimmed === '00:00:00') {
+      return '';
+    }
+    if (trimmed.startsWith('00:')) {
+      return trimmed.slice(3);
+    }
+    const sec = parseDurationSeconds(trimmed);
+    if (!sec || sec <= 0) return '';
+    return formatTime(sec);
+  }
+
+  /**
+   * Formats duration into compact human string ("1h 25m", "42m").
+   */
+  function formatDurationCompact(durStr) {
+    if (!durStr) return '';
+    const sec = parseDurationSeconds(durStr);
+    if (!sec) return '';
+    const mins = Math.round(sec / 60);
+    if (mins >= 60) {
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      return m > 0 ? `${h}h ${m}m` : `${h}h`;
+    }
+    return `${mins}m`;
+  }
+
+  /**
+   * Formats a date into a compact relative label ("Today", "Yesterday", "3d ago", "2w ago", "Oct 12").
+   */
+  function formatCompactDate(dateInput) {
+    if (!dateInput) return '';
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return '';
+    const now = new Date();
+    const diffSec = Math.floor((now - d) / 1000);
+    const diffDays = Math.floor(diffSec / 86400);
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  /**
+   * Formats a date into a friendly relative string ("Just now", "5h ago", "Yesterday", "3 months ago").
+   */
+  function formatHumanRelativeDate(dateInput) {
+    if (!dateInput) return '';
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return '';
+    const now = new Date();
+    const diffSec = Math.floor((now - d) / 1000);
+    if (diffSec < 0 || diffSec < 60) return 'Just now';
+    if (diffSec < 3600) {
+      const m = Math.floor(diffSec / 60);
+      return `${m}m ago`;
+    }
+    const diffHours = Math.floor(diffSec / 3600);
+    if (diffHours < 24) {
+      return `${diffHours}h ago`;
+    }
+    const diffDays = Math.floor(diffSec / 86400);
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 14) return '1 week ago';
+    if (diffDays < 30) {
+      const weeks = Math.floor(diffDays / 7);
+      return `${weeks} weeks ago`;
+    }
+    if (diffDays < 60) return '1 month ago';
+    if (diffDays < 365) {
+      const months = Math.floor(diffDays / 30);
+      return `${months} months ago`;
+    }
+    const years = Math.floor(diffDays / 365);
+    return `${years} ${years === 1 ? 'year' : 'years'} ago`;
+  }
+
+  /**
+   * Formats byte counts into KB / MB / GB.
+   */
+  function formatBytes(bytes) {
+    if (!bytes || bytes <= 0) return '0 MB';
+    const mb = bytes / (1024 * 1024);
+    if (mb < 1) {
+      const kb = Math.round(bytes / 1024);
+      return `${kb} KB`;
+    }
+    if (mb >= 1024) {
+      return `${(mb / 1024).toFixed(2)} GB`;
+    }
+    return `${mb.toFixed(1)} MB`;
+  }
+
+  /**
+   * Decodes common HTML entities in RSS titles and descriptions.
+   */
+  function decodeHtmlEntities(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)))
+      .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+      .replace(/&ndash;/g, '–')
+      .replace(/&mdash;/g, '—')
+      .replace(/&hellip;/g, '…')
+      .replace(/&bull;/g, '•')
+      .replace(/&rsquo;/g, '’')
+      .replace(/&lsquo;/g, '‘')
+      .replace(/&rdquo;/g, '”')
+      .replace(/&ldquo;/g, '“')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&apos;/g, "'")
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>');
+  }
+
+  /**
+   * Escapes a string for safe HTML insertion after decoding HTML entities.
+   */
+  function escapeHtml(str) {
+    if (!str) return '';
+    const decoded = decodeHtmlEntities(str);
+    return decoded
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  Object.assign(AnypodShared, {
+    formatTime,
+    parseDurationSeconds,
+    formatDuration,
+    formatEpisodeDuration,
+    formatDurationCompact,
+    formatCompactDate,
+    formatHumanRelativeDate,
+    formatBytes,
+    decodeHtmlEntities,
+    escapeHtml
+  });
+})(window);
+
+
+// ── shared/storage.js ──
+/**
+ * shared/storage.js — Shared Storage Layer (Resilient localStorage + IndexedDB Store)
+ * Used across Anypod Main Player (app), DJ Studio (dj), and Workout Sequencer (sets).
+ */
+(function (global) {
+  'use strict';
+
+  const AnypodShared = (global.AnypodShared = global.AnypodShared || {});
+
+  const STORAGE_KEYS = {
+    FEEDS: 'anypod_feeds',
+    MUTED_FEEDS: 'anypod_muted_feeds',
+    SESSION: 'anypod_session_token',
+    USER_EMAIL: 'anypod_user_email',
+    CACHED_EPISODES: 'anypod_cached_episodes',
+    CACHED_METADATA: 'anypod_cached_metadata',
+    POSITIONS: 'anypod_playback_positions',
+    THEME: 'anypod_theme',
+    QUEUE: 'anypod_playback_queue',
+    DOWNLOADS: 'anypod_downloads',
+    FAVORITES: 'anypod_favorites',
+    EXPERIMENTAL: 'anypod_experimental_settings',
+    AUTOPLAY: 'anypod_autoplay',
+    SHUFFLE: 'anypod_shuffle',
+    LAST_EPISODE: 'anypod_last_active_episode',
+    DJ_CUES: 'anypod_dj_cues',
+    SETS_ROUTINE: 'anypod_sets_routine_v1'
+  };
+
+  let _storageBlocked = false;
+  const _memoryStore = {};
+
+  const safeStorage = {
+    getItem(key) {
+      try {
+        if (global.localStorage) {
+          return global.localStorage.getItem(key);
+        }
+      } catch (_) {
+        _storageBlocked = true;
+      }
+      return Object.prototype.hasOwnProperty.call(_memoryStore, key) ? _memoryStore[key] : null;
+    },
+    setItem(key, val) {
+      const valStr = String(val);
+      try {
+        if (global.localStorage) {
+          global.localStorage.setItem(key, valStr);
+          return;
+        }
+      } catch (e) {
+        if (e.name !== 'QuotaExceededError' && e.code !== 22) {
+          _storageBlocked = true;
+        }
+      }
+      _memoryStore[key] = valStr;
+    },
+    removeItem(key) {
+      try {
+        if (global.localStorage) {
+          global.localStorage.removeItem(key);
+          return;
+        }
+      } catch (_) {
+        _storageBlocked = true;
+      }
+      delete _memoryStore[key];
+    },
+    clear() {
+      try {
+        if (global.localStorage) {
+          global.localStorage.clear();
+          return;
+        }
+      } catch (_) {
+        _storageBlocked = true;
+      }
+      for (const k in _memoryStore) delete _memoryStore[k];
+    }
+  };
+
+  // Test storage access once at startup
+  try {
+    const testKey = '__storage_test__';
+    global.localStorage.setItem(testKey, '1');
+    global.localStorage.removeItem(testKey);
+  } catch (_) {
+    _storageBlocked = true;
+    console.warn('[anypod] Browser local storage access is restricted. Using memory store fallback.');
+  }
+
+  function isStorageBlocked() {
+    return _storageBlocked;
+  }
+
+  // IndexedDB Persistent Store for large libraries (1,000+ items without 5MB quota limits)
+  const idbStore = {
+    _dbPromise: null,
+    getDb() {
+      if (this._dbPromise) return this._dbPromise;
+      this._dbPromise = new Promise((resolve) => {
+        if (typeof global === 'undefined' || !global.indexedDB) return resolve(null);
+        try {
+          const req = global.indexedDB.open('anypod_store_v1', 1);
+          req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains('keyval')) {
+              db.createObjectStore('keyval');
+            }
+          };
+          req.onsuccess = (e) => resolve(e.target.result);
+          req.onerror = () => resolve(null);
+        } catch (_) {
+          resolve(null);
+        }
+      });
+      return this._dbPromise;
+    },
+    async get(key) {
+      try {
+        const db = await this.getDb();
+        if (!db) return null;
+        return new Promise((resolve) => {
+          try {
+            const tx = db.transaction('keyval', 'readonly');
+            const store = tx.objectStore('keyval');
+            const req = store.get(key);
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = () => resolve(null);
+          } catch (_) {
+            resolve(null);
+          }
+        });
+      } catch (_) {
+        return null;
+      }
+    },
+    async set(key, val) {
+      try {
+        const db = await this.getDb();
+        if (!db) return;
+        return new Promise((resolve) => {
+          try {
+            const tx = db.transaction('keyval', 'readwrite');
+            const store = tx.objectStore('keyval');
+            store.put(val, key);
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => resolve();
+          } catch (_) {
+            resolve();
+          }
+        });
+      } catch (_) {}
+    }
+  };
+
+  function getJsonItem(key, fallback) {
+    try {
+      const raw = safeStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function getDownloadsMap() {
+    const map = getJsonItem(STORAGE_KEYS.DOWNLOADS, {});
+    return map && typeof map === 'object' ? map : {};
+  }
+
+  function getLastActiveEpisode() {
+    return getJsonItem(STORAGE_KEYS.LAST_EPISODE, null);
+  }
+
+  function getCachedFeeds() {
+    const list = getJsonItem(STORAGE_KEYS.FEEDS, []);
+    return Array.isArray(list) ? list : [];
+  }
+
+  function getCachedMetadata() {
+    const meta = getJsonItem(STORAGE_KEYS.CACHED_METADATA, {});
+    return meta && typeof meta === 'object' ? meta : {};
+  }
+
+  Object.assign(AnypodShared, {
+    STORAGE_KEYS,
+    safeStorage,
+    isStorageBlocked,
+    idbStore,
+    getJsonItem,
+    getDownloadsMap,
+    getLastActiveEpisode,
+    getCachedFeeds,
+    getCachedMetadata
+  });
+})(window);
+
+
+// ── shared/sync-bridge.js ──
+/**
+ * Anypod Shared Cross-Tab & Cross-Subdomain Sync Bridge
+ * Manages BroadcastChannel ('anypod_storage_channel'), cross-origin storage-bridge.html iframe,
+ * and active workout audio ducking notifications ('anypod_workout_sync').
+ */
+(function (root) {
+    'use strict';
+
+    const AnypodShared = root.AnypodShared = root.AnypodShared || {};
+
+    let storageChannel = null;
+    try {
+        if ('BroadcastChannel' in window) {
+            storageChannel = new BroadcastChannel('anypod_storage_channel');
+        }
+    } catch (_) {}
+
+    let workoutChannel = null;
+    try {
+        if ('BroadcastChannel' in window) {
+            workoutChannel = new BroadcastChannel('anypod_workout_sync');
+        }
+    } catch (_) {}
+
+    /**
+     * Broadcasts to other tabs on the same origin that Anypod storage has updated.
+     */
+    function notifyStorageUpdated() {
+        if (storageChannel) {
+            try {
+                storageChannel.postMessage({ type: 'UPDATE_STORAGE', ts: Date.now() });
+            } catch (_) {}
+        }
+    }
+
+    /**
+     * Initializes cross-tab (BroadcastChannel + storage event) and cross-subdomain
+     * (storage-bridge.html iframe) listeners.
+     *
+     * @param {Object} options
+     * @param {Function} [options.onUpdate] - Called when storage updates or bridge syncs data.
+     * @param {Array<string>} [options.watchedKeys] - Keys to watch on window 'storage' event.
+     * @param {boolean} [options.enableIframeBridge=true] - Whether to mount storage-bridge.html.
+     */
+    function initStorageBridge(options = {}) {
+        const {
+            onUpdate,
+            watchedKeys = [
+                'anypod_downloads',
+                'anypod_cached_episodes',
+                'anypod_cached_feeds',
+                'anypod_cached_metadata',
+                'anypod_feeds',
+                'anypod_favorites',
+                'anypod_playback_queue',
+                'anypod_last_active_episode'
+            ],
+            enableIframeBridge = true
+        } = options;
+
+        const triggerUpdate = () => {
+            if (typeof onUpdate === 'function') {
+                onUpdate();
+            }
+        };
+
+        // 1. Same-origin BroadcastChannel
+        if (storageChannel) {
+            storageChannel.addEventListener('message', (e) => {
+                if (e.data && (e.data.type === 'UPDATE_STORAGE' || e.data.type === 'ANYPOD_STORAGE_UPDATED')) {
+                    triggerUpdate();
+                }
+            });
+        }
+
+        // 2. Same-origin window 'storage' event
+        window.addEventListener('storage', (e) => {
+            if (!e.key || watchedKeys.includes(e.key)) {
+                triggerUpdate();
+            }
+        });
+
+        // 3. Cross-subdomain iframe bridge (e.g., dj.anypod.org / sets.anypod.org -> anypod.org)
+        if (!enableIframeBridge) return;
+
+        try {
+            const isSubdomain = location.hostname.endsWith('.anypod.org') && location.hostname !== 'anypod.org';
+            const bridgeOrigin = isSubdomain ? 'https://anypod.org' : '';
+            const iframe = document.createElement('iframe');
+            iframe.src = `${bridgeOrigin}/storage-bridge.html`;
+            iframe.style.display = 'none';
+            iframe.title = 'Storage Bridge';
+            iframe.addEventListener('load', () => {
+                try {
+                    iframe.contentWindow?.postMessage({ type: 'ANYPOD_STORAGE_REQUEST' }, '*');
+                } catch (_) {}
+            });
+            document.body.appendChild(iframe);
+
+            window.addEventListener('message', (event) => {
+                if (
+                    event.data?.type === 'ANYPOD_STORAGE_READY' ||
+                    event.data?.type === 'ANYPOD_STORAGE_RESPONSE' ||
+                    event.data?.type === 'ANYPOD_STORAGE_UPDATE' ||
+                    event.data?.type === 'ANYPOD_BRIDGE_DATA'
+                ) {
+                    const payload = event.data.payload;
+                    if (payload && typeof payload === 'object') {
+                        let hasNew = false;
+                        Object.keys(payload).forEach((k) => {
+                            const cur = localStorage.getItem(k);
+                            if (payload[k] && cur !== payload[k]) {
+                                try {
+                                    localStorage.setItem(k, payload[k]);
+                                    hasNew = true;
+                                } catch (_) {}
+                            }
+                        });
+                        if (hasNew) {
+                            triggerUpdate();
+                        }
+                    }
+                }
+            });
+        } catch (_) {}
+    }
+
+    /**
+     * Broadcasts that a workout timer is actively playing audio (so DJ / podcast players can pause).
+     * @param {string} [workoutLabel]
+     */
+    function notifyWorkoutActive(workoutLabel = '') {
+        const ts = String(Date.now());
+        if (workoutChannel) {
+            try {
+                workoutChannel.postMessage({
+                    type: 'WORKOUT_ACTIVE',
+                    workout: workoutLabel,
+                    ts: Number(ts)
+                });
+            } catch (_) {}
+        }
+        try {
+            localStorage.setItem('anypod_workout_active_ts', ts);
+        } catch (_) {}
+    }
+
+    /**
+     * Listens for workout active notifications across tabs.
+     * @param {Object} options
+     * @param {Function} options.onWorkoutActive - Callback invoked when workout starts/resumes.
+     */
+    function initWorkoutSync(options = {}) {
+        const { onWorkoutActive } = options;
+        if (typeof onWorkoutActive !== 'function') return;
+
+        if (workoutChannel) {
+            workoutChannel.addEventListener('message', (e) => {
+                if (e.data && e.data.type === 'WORKOUT_ACTIVE') {
+                    onWorkoutActive(e.data);
+                }
+            });
+        }
+
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'anypod_workout_active_ts' && e.newValue) {
+                onWorkoutActive({ type: 'WORKOUT_ACTIVE', ts: Number(e.newValue) });
+            }
+        });
+    }
+
+    Object.assign(AnypodShared, {
+        notifyStorageUpdated,
+        initStorageBridge,
+        notifyWorkoutActive,
+        initWorkoutSync
+    });
+})(typeof window !== 'undefined' ? window : globalThis);
+
+
+// ── shared/audio-utils.js ──
+/**
+ * Anypod Shared Audio & Media Utilities
+ * Provides offline audio cache matching, audio proxy URL resolution,
+ * MediaSession artwork formatting, and procedural WebAudio synth beat generation.
+ */
+(function (root) {
+    'use strict';
+
+    const AnypodShared = root.AnypodShared = root.AnypodShared || {};
+
+    const OFFLINE_AUDIO_CACHE_NAME = 'anypod-audio-v1';
+
+    /**
+     * Resolves an audio stream URL through the /api/proxy endpoint when needed.
+     * @param {string} url
+     * @param {boolean} [forceProxy=false]
+     * @returns {string}
+     */
+    function resolveAudioProxyUrl(url, forceProxy = false) {
+        if (!url || typeof url !== 'string') return '';
+        if (url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('/api/proxy')) {
+            return url;
+        }
+        if (forceProxy) {
+            return `/api/proxy?url=${encodeURIComponent(url)}`;
+        }
+        return url;
+    }
+
+    /**
+     * Checks the Cache Storage ('anypod-audio-v1') for an offline cached audio Response
+     * matching either the direct URL or its proxied URL, and returns a Blob object URL if found.
+     *
+     * @param {string} url - Original audio URL
+     * @returns {Promise<string|null>} Blob URL or null if not cached
+     */
+    async function matchOfflineAudioCache(url) {
+        if (!url || !('caches' in window)) return null;
+        try {
+            const cache = await caches.open(OFFLINE_AUDIO_CACHE_NAME);
+            const proxiedUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
+            let cachedRes = await cache.match(proxiedUrl);
+            if (!cachedRes) {
+                cachedRes = await cache.match(url);
+            }
+            if (cachedRes) {
+                const blob = await cachedRes.blob();
+                return URL.createObjectURL(blob);
+            }
+        } catch (err) {
+            console.warn('[AnypodShared] Cache read error:', err);
+        }
+        return null;
+    }
+
+    /**
+     * Builds a standard MediaSession artwork array with fallback to Anypod icons.
+     * @param {string} [artworkUrl]
+     * @param {string} [origin]
+     * @returns {Array<{src: string, sizes: string, type: string}>}
+     */
+    function buildMediaSessionArtwork(artworkUrl, origin = window.location.origin) {
+        if (artworkUrl && typeof artworkUrl === 'string' && artworkUrl.startsWith('http')) {
+            return [
+                { src: artworkUrl, sizes: '96x96', type: 'image/png' },
+                { src: artworkUrl, sizes: '128x128', type: 'image/png' },
+                { src: artworkUrl, sizes: '192x192', type: 'image/png' },
+                { src: artworkUrl, sizes: '256x256', type: 'image/png' },
+                { src: artworkUrl, sizes: '384x384', type: 'image/png' },
+                { src: artworkUrl, sizes: '512x512', type: 'image/png' }
+            ];
+        }
+        return [
+            { src: `${origin}/icons/icon-192.png`, sizes: '192x192', type: 'image/png' },
+            { src: `${origin}/icons/icon-512.png`, sizes: '512x512', type: 'image/png' }
+        ];
+    }
+
+    /**
+     * Procedurally generates a 4-bar rhythmic WAV loop at the specified BPM and style
+     * and returns a Blob URL suitable for <audio> playback.
+     *
+     * @param {number} [bpm=128]
+     * @param {'house'|'acid'|'techno'|'break'|'ambient'} [style='house']
+     * @returns {string} Blob URL
+     */
+    function createSynthBeatBlobUrl(bpm = 128, style = 'house') {
+        try {
+            const sampleRate = 22050;
+            const beatSec = 60 / bpm;
+            const totalBars = 4;
+            const totalSec = beatSec * 4 * totalBars;
+            const totalSamples = Math.floor(sampleRate * totalSec);
+            const buffer = new Int16Array(totalSamples);
+
+            for (let i = 0; i < totalSamples; i++) {
+                const t = i / sampleRate;
+                const beatIndex = (t / beatSec) % 4;
+                const beatFraction = beatIndex % 1;
+                let sample = 0;
+
+                // Kick drum on every beat (4/4)
+                if (beatFraction < 0.25) {
+                    const kickT = beatFraction * beatSec;
+                    const kickFreq = 150 * Math.exp(-kickT * 32);
+                    const kickEnv = Math.exp(-kickT * 18);
+                    sample += Math.sin(2 * Math.PI * kickFreq * kickT) * kickEnv * 0.7;
+                }
+
+                // Snare / clap on beats 2 & 4
+                const beatNum = Math.floor(beatIndex);
+                if ((beatNum === 1 || beatNum === 3) && beatFraction < 0.3) {
+                    const snareT = beatFraction * beatSec;
+                    const noise = (Math.random() * 2 - 1) * Math.exp(-snareT * 22);
+                    sample += noise * 0.4;
+                }
+
+                // Hi-hat on offbeats
+                const offbeat = ((beatIndex + 0.5) % 1);
+                if (offbeat < 0.15) {
+                    const hatT = offbeat * beatSec;
+                    sample += (Math.random() * 2 - 1) * Math.exp(-hatT * 40) * 0.25;
+                }
+
+                // Bassline pulse
+                if (style === 'acid' || style === 'techno') {
+                    const noteFreq = [55, 65.4, 73.4, 82.4][Math.floor(t / (beatSec / 2)) % 4];
+                    const bassEnv = Math.exp(-(beatFraction % 0.5) * 8);
+                    sample += Math.sin(2 * Math.PI * noteFreq * t) * bassEnv * 0.35;
+                }
+
+                buffer[i] = Math.max(-32767, Math.min(32767, Math.floor(sample * 28000)));
+            }
+
+            const wavBuffer = new ArrayBuffer(44 + buffer.byteLength);
+            const view = new DataView(wavBuffer);
+            const writeStr = (offset, str) => {
+                for (let j = 0; j < str.length; j++) view.setUint8(offset + j, str.charCodeAt(j));
+            };
+
+            writeStr(0, 'RIFF');
+            view.setUint32(4, 36 + buffer.byteLength, true);
+            writeStr(8, 'WAVE');
+            writeStr(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true); // PCM
+            view.setUint16(22, 1, true); // Mono
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeStr(36, 'data');
+            view.setUint32(40, buffer.byteLength, true);
+
+            new Uint8Array(wavBuffer, 44).set(new Uint8Array(buffer.buffer));
+            const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+            return URL.createObjectURL(blob);
+        } catch (_) {
+            return '';
+        }
+    }
+
+    Object.assign(AnypodShared, {
+        OFFLINE_AUDIO_CACHE_NAME,
+        resolveAudioProxyUrl,
+        matchOfflineAudioCache,
+        buildMediaSessionArtwork,
+        createSynthBeatBlobUrl
+    });
+})(typeof window !== 'undefined' ? window : globalThis);
+
+
 (function () {
   'use strict';
 
+  // ══ app/01-state-and-dom.js ══
   /**
    * app.js — Anypod Podcast App
    *
@@ -123,92 +892,14 @@
   // SECTION 1 · Constants & Configuration
   // ─────────────────────────────────────────────────────────────────────────
 
-  // ── Safe Storage Fallback Proxy ──────────────────────────────────────────
-  // Chrome / Webview can deny access to window.localStorage if third-party cookies
-  // or site data are restricted. We proxy storage access into an in-memory dictionary
-  // so the entire application UI and playback continue functioning seamlessly without fatal errors.
-  let isStorageBlocked = false;
-  const memoryStore = {};
-
-  const safeStorage = {
-    getItem(key) {
-      try {
-        if (window.localStorage) return window.localStorage.getItem(key);
-      } catch (e) {
-        isStorageBlocked = true;
-      }
-      return Object.prototype.hasOwnProperty.call(memoryStore, key) ? memoryStore[key] : null;
-    },
-    setItem(key, value) {
-      const valStr = String(value);
-      try {
-        if (window.localStorage) {
-          window.localStorage.setItem(key, valStr);
-          return;
-        }
-      } catch (e) {
-        if (e.name !== 'QuotaExceededError' && e.code !== 22) {
-          isStorageBlocked = true;
-        }
-      }
-      memoryStore[key] = valStr;
-    },
-    removeItem(key) {
-      try {
-        if (window.localStorage) {
-          window.localStorage.removeItem(key);
-          return;
-        }
-      } catch (e) {
-        isStorageBlocked = true;
-      }
-      delete memoryStore[key];
-    },
-    clear() {
-      try {
-        if (window.localStorage) {
-          window.localStorage.clear();
-          return;
-        }
-      } catch (e) {
-        isStorageBlocked = true;
-      }
-      for (const k in memoryStore) delete memoryStore[k];
-    }
-  };
-
-  // Test storage access once at startup
-  try {
-    const testKey = '__storage_test__';
-    window.localStorage.setItem(testKey, '1');
-    window.localStorage.removeItem(testKey);
-  } catch (_) {
-    isStorageBlocked = true;
-    console.warn('[anypod] Browser local storage access is restricted. Using memory store with permission banner.');
-  }
-
-  // Alias localStorage inside this function scope so any existing call
-  // automatically falls back gracefully if browser blocks storage
+  // ── Shared Storage & Keys (Delegated to window.AnypodShared) ─────────────
+  const safeStorage = window.AnypodShared.safeStorage;
   const storage = safeStorage;
-  const localStorage = safeStorage;
+  const STORAGE_KEYS = window.AnypodShared.STORAGE_KEYS;
 
-  const STORAGE_KEYS = {
-    FEEDS: 'anypod_feeds',
-    MUTED_FEEDS: 'anypod_muted_feeds',
-    SESSION: 'anypod_session_token',
-    USER_EMAIL: 'anypod_user_email',
-    CACHED_EPISODES: 'anypod_cached_episodes',
-    CACHED_METADATA: 'anypod_cached_metadata',
-    POSITIONS: 'anypod_playback_positions',
-    THEME: 'anypod_theme',
-    QUEUE: 'anypod_playback_queue',
-    DOWNLOADS: 'anypod_downloads',
-    FAVORITES: 'anypod_favorites',
-    EXPERIMENTAL: 'anypod_experimental_settings',
-    AUTOPLAY: 'anypod_autoplay',
-    SHUFFLE: 'anypod_shuffle',
-    LAST_EPISODE: 'anypod_last_active_episode'
-  };
+  function isStorageBlocked() {
+    return !!(window.AnypodShared && window.AnypodShared.isStorageBlocked && window.AnypodShared.isStorageBlocked());
+  }
 
   const CARD_ICONS = {
     PLAY: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>',
@@ -300,7 +991,7 @@
     { title: "Ci vuole una scienza (Il Post)", feed: "https://feeds.megaphone.fm/IPS8073667277", lang: "it", badge: "IT • Scienza", topic: "science" },
     { title: "Vetenskapsradion Klotet (SR)", feed: "https://api.sr.se/api/rss/pod/3966", lang: "sv", badge: "SV • Miljö & Klimat", topic: "climate" }
   ];
-  
+
   const _curatedArtworkCache = {};
 
   async function loadCuratedArtworks(container) {
@@ -689,7 +1380,7 @@
     currentChapter: null,
     playbackSpeed: 1.0,
     sortOrder: 'newest',
-    isShuffle: localStorage.getItem('anypod_shuffle') === 'true',
+    isShuffle: storage.getItem('anypod_shuffle') === 'true',
     searchQuery: '',
     filterMode: 'unplayed',
     feedFilter: 'all',
@@ -1632,11 +2323,11 @@
 
   function initTheme() {
 
-    const saved = localStorage.getItem(STORAGE_KEYS.THEME) || 'system';
+    const saved = storage.getItem(STORAGE_KEYS.THEME) || 'system';
     applyTheme(saved);
     if (window.matchMedia) {
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-        const current = localStorage.getItem(STORAGE_KEYS.THEME) || 'system';
+        const current = storage.getItem(STORAGE_KEYS.THEME) || 'system';
         if (current === 'system') {
           applyTheme('system');
         }
@@ -1662,7 +2353,7 @@
   }
 
   function setTheme(theme) {
-    localStorage.setItem(STORAGE_KEYS.THEME, theme);
+    storage.setItem(STORAGE_KEYS.THEME, theme);
     applyTheme(theme);
   }
 
@@ -1701,13 +2392,16 @@
 
   function checkStoragePermissionAlert() {
     if (!elements.storagePermissionBanner) return;
-    if (isStorageBlocked) {
+    if (isStorageBlocked()) {
       elements.storagePermissionBanner.classList.remove('hidden');
     } else {
       elements.storagePermissionBanner.classList.add('hidden');
     }
   }
 
+
+
+  // ══ app/02-auth-and-sync.js ══
   // ─────────────────────────────────────────────────────────────────────────
   // SECTION 7 · Auth & Session
   // Two auth paths:
@@ -1722,12 +2416,12 @@
     const sessionParam = urlParams.get('session');
     if (sessionParam) {
       state.sessionToken = sessionParam;
-      localStorage.setItem(STORAGE_KEYS.SESSION, sessionParam);
+      storage.setItem(STORAGE_KEYS.SESSION, sessionParam);
       window.history.replaceState({}, document.title, window.location.pathname);
     } else {
-      state.sessionToken = localStorage.getItem(STORAGE_KEYS.SESSION) || localStorage.getItem('podcast_pulse_session_token') || '';
+      state.sessionToken = storage.getItem(STORAGE_KEYS.SESSION) || storage.getItem('podcast_pulse_session_token') || '';
     }
-    state.userEmail = localStorage.getItem(STORAGE_KEYS.USER_EMAIL) || '';
+    state.userEmail = storage.getItem(STORAGE_KEYS.USER_EMAIL) || '';
   }
 
   async function checkAuth() {
@@ -1756,12 +2450,12 @@
         if (data.sessionToken) {
           state.sessionToken = data.sessionToken;
           try {
-            localStorage.setItem(STORAGE_KEYS.SESSION, data.sessionToken);
+            storage.setItem(STORAGE_KEYS.SESSION, data.sessionToken);
           } catch (_) {}
         }
         state.userEmail = data.userEmail || '';
         try {
-          if (state.userEmail) localStorage.setItem(STORAGE_KEYS.USER_EMAIL, state.userEmail);
+          if (state.userEmail) storage.setItem(STORAGE_KEYS.USER_EMAIL, state.userEmail);
         } catch (_) {}
         updateSyncStatusUI('authenticated via session cookie (cloud d1 synced)', state.userEmail, true);
         if (Array.isArray(data.feeds) && data.feeds.length > 0) {
@@ -1982,13 +2676,13 @@
       if (data.sessionToken && !state.sessionToken) {
         state.sessionToken = data.sessionToken;
         try {
-          localStorage.setItem(STORAGE_KEYS.SESSION, data.sessionToken);
+          storage.setItem(STORAGE_KEYS.SESSION, data.sessionToken);
         } catch (_) {}
       }
       if (data.userEmail) {
         state.userEmail = data.userEmail;
         try {
-          localStorage.setItem(STORAGE_KEYS.USER_EMAIL, data.userEmail);
+          storage.setItem(STORAGE_KEYS.USER_EMAIL, data.userEmail);
         } catch (_) {}
       }
       updateSyncStatusUI('cloud d1 synced', state.userEmail, true);
@@ -2055,16 +2749,16 @@
 
   function savePositionsToStorage() {
     try {
-      localStorage.setItem(STORAGE_KEYS.POSITIONS, JSON.stringify(state.playbackPositions));
+      storage.setItem(STORAGE_KEYS.POSITIONS, JSON.stringify(state.playbackPositions));
       if (state.currentEpisode) {
-        localStorage.setItem(STORAGE_KEYS.LAST_EPISODE, JSON.stringify(state.currentEpisode));
+        storage.setItem(STORAGE_KEYS.LAST_EPISODE, JSON.stringify(state.currentEpisode));
       }
     } catch (e) {}
   }
 
   function loadPositionsFromStorage() {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.POSITIONS);
+      const saved = storage.getItem(STORAGE_KEYS.POSITIONS);
       if (saved) {
         state.playbackPositions = JSON.parse(saved);
       }
@@ -2073,7 +2767,7 @@
 
   function restoreLastActiveEpisode() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEYS.LAST_EPISODE);
+      const raw = storage.getItem(STORAGE_KEYS.LAST_EPISODE);
       if (!raw) return;
       const lastEp = JSON.parse(raw);
       if (!lastEp || !lastEp.guid) return;
@@ -2122,7 +2816,7 @@
         elements.audio.preload = 'metadata';
       }
 
-      const savedCollapsed = localStorage.getItem('anypod_player_collapsed');
+      const savedCollapsed = storage.getItem('anypod_player_collapsed');
       const shouldCollapse = savedCollapsed === 'true';
       setPlayerCollapsed(shouldCollapse, false);
       syncMediaSession(lastEp);
@@ -2218,7 +2912,7 @@
 
   function loadFeedsFromStorage() {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.FEEDS) || localStorage.getItem('podcast_pulse_feeds');
+      const saved = storage.getItem(STORAGE_KEYS.FEEDS) || storage.getItem('podcast_pulse_feeds');
       state.feeds = saved ? JSON.parse(saved) : [];
       updateFeedCountUI();
     } catch (e) {
@@ -2229,7 +2923,7 @@
 
   function loadMutedFeedsFromStorage() {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.MUTED_FEEDS);
+      const saved = storage.getItem(STORAGE_KEYS.MUTED_FEEDS);
       state.mutedFeeds = saved ? JSON.parse(saved) : [];
       if (!Array.isArray(state.mutedFeeds)) state.mutedFeeds = [];
     } catch (e) {
@@ -2239,7 +2933,7 @@
 
   function saveMutedFeedsToStorage() {
     try {
-      localStorage.setItem(STORAGE_KEYS.MUTED_FEEDS, JSON.stringify(state.mutedFeeds));
+      storage.setItem(STORAGE_KEYS.MUTED_FEEDS, JSON.stringify(state.mutedFeeds));
     } catch (e) {}
   }
 
@@ -2267,7 +2961,7 @@
 
   function saveFeedsToStorage() {
     try {
-      localStorage.setItem(STORAGE_KEYS.FEEDS, JSON.stringify(state.feeds));
+      storage.setItem(STORAGE_KEYS.FEEDS, JSON.stringify(state.feeds));
       updateFeedCountUI();
     } catch (e) {}
   }
@@ -2293,71 +2987,13 @@
   }
 
   // IndexedDB Persistent Store for large libraries (1,000+ items without 5MB quota limits)
-  const idbStore = {
-    _dbPromise: null,
-    getDb() {
-      if (this._dbPromise) return this._dbPromise;
-      this._dbPromise = new Promise((resolve) => {
-        if (typeof window === 'undefined' || !window.indexedDB) return resolve(null);
-        try {
-          const req = window.indexedDB.open('anypod_store_v1', 1);
-          req.onupgradeneeded = (e) => {
-            const db = e.target.result;
-            if (!db.objectStoreNames.contains('keyval')) {
-              db.createObjectStore('keyval');
-            }
-          };
-          req.onsuccess = (e) => resolve(e.target.result);
-          req.onerror = () => resolve(null);
-        } catch (_) {
-          resolve(null);
-        }
-      });
-      return this._dbPromise;
-    },
-    async get(key) {
-      try {
-        const db = await this.getDb();
-        if (!db) return null;
-        return new Promise((resolve) => {
-          try {
-            const tx = db.transaction('keyval', 'readonly');
-            const store = tx.objectStore('keyval');
-            const req = store.get(key);
-            req.onsuccess = () => resolve(req.result || null);
-            req.onerror = () => resolve(null);
-          } catch (_) {
-            resolve(null);
-          }
-        });
-      } catch (_) {
-        return null;
-      }
-    },
-    async set(key, val) {
-      try {
-        const db = await this.getDb();
-        if (!db) return;
-        return new Promise((resolve) => {
-          try {
-            const tx = db.transaction('keyval', 'readwrite');
-            const store = tx.objectStore('keyval');
-            store.put(val, key);
-            tx.oncomplete = () => resolve();
-            tx.onerror = () => resolve();
-          } catch (_) {
-            resolve();
-          }
-        });
-      } catch (_) {}
-    }
-  };
+  const idbStore = window.AnypodShared.idbStore;
 
   function loadCacheFromStorage() {
     // 1. Fast synchronous load from localStorage for instant initial paint (0ms delay)
     try {
-      const cachedEps = localStorage.getItem(STORAGE_KEYS.CACHED_EPISODES);
-      const cachedMeta = localStorage.getItem(STORAGE_KEYS.CACHED_METADATA);
+      const cachedEps = storage.getItem(STORAGE_KEYS.CACHED_EPISODES);
+      const cachedMeta = storage.getItem(STORAGE_KEYS.CACHED_METADATA);
       if (cachedEps) {
         state.allEpisodes = JSON.parse(cachedEps);
       }
@@ -2421,15 +3057,18 @@
         feedUrl: ep.feedUrl,
         description: (ep.description || '').slice(0, 200)
       }));
-      localStorage.setItem(STORAGE_KEYS.CACHED_EPISODES, JSON.stringify(leanEps));
+      storage.setItem(STORAGE_KEYS.CACHED_EPISODES, JSON.stringify(leanEps));
       if (state.feedMetadata) {
-        localStorage.setItem(STORAGE_KEYS.CACHED_METADATA, JSON.stringify(state.feedMetadata));
+        storage.setItem(STORAGE_KEYS.CACHED_METADATA, JSON.stringify(state.feedMetadata));
       }
     } catch (e) {
       // If localStorage is full, IndexedDB already holds the complete dataset
     }
   }
 
+
+
+  // ══ app/03-queue-favorites-downloads.js ══
   // ─────────────────────────────────────────────────────────────────────────
   // SECTION 11 · Queue ("Up Next")
   // state.queue is an ordered array of episode objects.
@@ -2440,7 +3079,7 @@
 
   function loadQueueFromStorage() {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.QUEUE);
+      const stored = storage.getItem(STORAGE_KEYS.QUEUE);
       if (stored) {
         state.queue = JSON.parse(stored);
         if (!Array.isArray(state.queue)) {
@@ -2469,7 +3108,7 @@
         feedUrl: ep.feedUrl,
         timestamp: ep.timestamp
       }));
-      localStorage.setItem(STORAGE_KEYS.QUEUE, JSON.stringify(minimalQueue));
+      storage.setItem(STORAGE_KEYS.QUEUE, JSON.stringify(minimalQueue));
     } catch (e) {}
   }
 
@@ -2929,7 +3568,7 @@
 
   function loadFavoritesFromStorage() {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.FAVORITES);
+      const stored = storage.getItem(STORAGE_KEYS.FAVORITES);
       state.favorites = stored ? JSON.parse(stored) : [];
       if (!Array.isArray(state.favorites)) state.favorites = [];
       state.favoriteGuids = new Set(state.favorites.map(f => f.guid).filter(Boolean));
@@ -2942,7 +3581,7 @@
 
   function saveFavoritesToStorage() {
     try {
-      localStorage.setItem(STORAGE_KEYS.FAVORITES, JSON.stringify(state.favorites));
+      storage.setItem(STORAGE_KEYS.FAVORITES, JSON.stringify(state.favorites));
       updateFavoritesCountUI();
     } catch (e) {}
   }
@@ -3237,7 +3876,7 @@
 
   function loadDownloadsFromStorage() {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.DOWNLOADS) || localStorage.getItem('podcast_pulse_downloads');
+      const stored = storage.getItem(STORAGE_KEYS.DOWNLOADS) || storage.getItem('podcast_pulse_downloads');
       state.downloadedEpisodes = stored ? JSON.parse(stored) : {};
     } catch (e) {
       state.downloadedEpisodes = {};
@@ -3246,19 +3885,13 @@
 
   function saveDownloadsToStorage() {
     try {
-      localStorage.setItem(STORAGE_KEYS.DOWNLOADS, JSON.stringify(state.downloadedEpisodes));
+      storage.setItem(STORAGE_KEYS.DOWNLOADS, JSON.stringify(state.downloadedEpisodes));
       updateDownloadedCountUI();
     } catch (e) {}
   }
 
-  function formatBytes(bytes) {
-    if (!bytes || isNaN(bytes) || bytes <= 0) return '0 MB';
-    const mb = bytes / (1024 * 1024);
-    if (mb < 1000) {
-      return `${mb.toFixed(1)} MB`;
-    }
-    return `${(mb / 1024).toFixed(2)} GB`;
-  }
+
+  const formatBytes = window.AnypodShared.formatBytes;
 
   function updateDownloadedCountUI() {
     updatePlayerStatusBadges();
@@ -3476,6 +4109,9 @@
     updateStatus();
   }
 
+
+
+  // ══ app/04-feeds-and-discover.js ══
   // ─────────────────────────────────────────────────────────────────────────
   // SECTION 14 · Feed Fetching
   // refreshAllFeeds — fetches all subscribed feeds in parallel via
@@ -3750,92 +4386,11 @@
     }
   }
 
-  function parseDurationSeconds(durationStr) {
-    if (typeof durationStr === 'number') return (isFinite(durationStr) && durationStr > 0) ? durationStr : 0;
-    if (!durationStr || typeof durationStr !== 'string') return 0;
-    const parts = durationStr.trim().split(':').map(p => parseFloat(p) || 0);
-    if (parts.length === 3) {
-      return parts[0] * 3600 + parts[1] * 60 + parts[2];
-    } else if (parts.length === 2) {
-      return parts[0] * 60 + parts[1];
-    } else if (parts.length === 1) {
-      return parts[0];
-    }
-    return 0;
-  }
-
-  function formatCompactDate(dateInput) {
-    if (!dateInput) return '';
-    const d = new Date(dateInput);
-    if (isNaN(d.getTime())) return '';
-    const now = new Date();
-    const diffSec = Math.floor((now - d) / 1000);
-    const diffDays = Math.floor(diffSec / 86400);
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays}d ago`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  }
-
-  function formatDurationCompact(durStr) {
-    if (!durStr) return '';
-    const sec = parseDurationSeconds(durStr);
-    if (!sec) return '';
-    const mins = Math.round(sec / 60);
-    if (mins >= 60) {
-      const h = Math.floor(mins / 60);
-      const m = mins % 60;
-      return m > 0 ? `${h}h ${m}m` : `${h}h`;
-    }
-    return `${mins}m`;
-  }
-
-  function formatHumanRelativeDate(dateInput) {
-    if (!dateInput) return '';
-    const d = new Date(dateInput);
-    if (isNaN(d.getTime())) return '';
-    const now = new Date();
-    const diffSec = Math.floor((now - d) / 1000);
-    if (diffSec < 0 || diffSec < 60) return 'Just now';
-    if (diffSec < 3600) {
-      const m = Math.floor(diffSec / 60);
-      return `${m}m ago`;
-    }
-    const diffHours = Math.floor(diffSec / 3600);
-    if (diffHours < 24) {
-      return `${diffHours}h ago`;
-    }
-    const diffDays = Math.floor(diffSec / 86400);
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays} days ago`;
-    if (diffDays < 14) return '1 week ago';
-    if (diffDays < 30) {
-      const weeks = Math.floor(diffDays / 7);
-      return `${weeks} weeks ago`;
-    }
-    if (diffDays < 60) return '1 month ago';
-    if (diffDays < 365) {
-      const months = Math.floor(diffDays / 30);
-      return `${months} months ago`;
-    }
-    const years = Math.floor(diffDays / 365);
-    return `${years} ${years === 1 ? 'year' : 'years'} ago`;
-  }
-
-  function formatEpisodeDuration(durStr) {
-    if (!durStr) return '';
-    const trimmed = String(durStr).trim();
-    if (trimmed === '0:00' || trimmed === '0' || trimmed === '00:00' || trimmed === '00:00:00') {
-      return '';
-    }
-    if (trimmed.startsWith('00:')) {
-      return trimmed.slice(3);
-    }
-    const sec = parseDurationSeconds(trimmed);
-    if (!sec || sec <= 0) return '';
-    return formatTime(sec);
-  }
+  const parseDurationSeconds = window.AnypodShared.parseDurationSeconds;
+  const formatCompactDate = window.AnypodShared.formatCompactDate;
+  const formatDurationCompact = window.AnypodShared.formatDurationCompact;
+  const formatHumanRelativeDate = window.AnypodShared.formatHumanRelativeDate;
+  const formatEpisodeDuration = window.AnypodShared.formatEpisodeDuration;
 
   function processAndSortEpisodes() {
     //console.log('[Anypod Debug] processAndSortEpisodes running. FilterMode:', state.filterMode);
@@ -4939,6 +5494,9 @@
     wireStarterSuggestionsEvents(targetRoot);
   }
 
+
+
+  // ══ app/05-timeline-and-cards.js ══
   // ─────────────────────────────────────────────────────────────────────────
   // SECTION 18 · Timeline Rendering
   // renderTimeline — main episode list (handles empty/onboarding state).
@@ -5483,7 +6041,7 @@
     if (btnClearLyrics && ep) {
       btnClearLyrics.addEventListener('click', () => {
         const cacheKey = 'anypod_timeline_v4_' + ep.guid;
-        try { localStorage.removeItem(cacheKey); } catch (_) {}
+        try { storage.removeItem(cacheKey); } catch (_) {}
         state.episodeTimeline.cues = [];
         state.episodeTimeline.transcriptSource = '';
         renderWaveformChart();
@@ -6426,7 +6984,7 @@
   const isYouTubeFeedUrl = (url) => /youtube\.com|youtu\.be/i.test(url || '');
 
   function getFeedsSortOrder() {
-    return localStorage.getItem(FEEDS_SORT_KEY) || 'recent';
+    return storage.getItem(FEEDS_SORT_KEY) || 'recent';
   }
 
   function sortFeedsForGrid(urls) {
@@ -6493,7 +7051,7 @@
     sel.dataset.wired = '1';
     sel.value = getFeedsSortOrder();
     sel.addEventListener('change', () => {
-      localStorage.setItem(FEEDS_SORT_KEY, sel.value);
+      storage.setItem(FEEDS_SORT_KEY, sel.value);
       renderFeedsGrid();
     });
   }
@@ -7072,6 +7630,9 @@
     list.appendChild(frag);
   }
 
+
+
+  // ══ app/06-audio-player.js ══
   // ─────────────────────────────────────────────────────────────────────────
   // SECTION 21 · Audio Engine
   // Sets up all <audio> element event listeners, the seek bar, the
@@ -8600,7 +9161,7 @@
 
   function toggleShuffle() {
     state.isShuffle = !state.isShuffle;
-    localStorage.setItem(STORAGE_KEYS.SHUFFLE, String(state.isShuffle));
+    storage.setItem(STORAGE_KEYS.SHUFFLE, String(state.isShuffle));
     updateShuffleButtonUI();
     showToast(state.isShuffle ? 'Shuffle mode ON' : 'Shuffle mode OFF');
     if (elements.queueModal && !elements.queueModal.classList.contains('hidden')) {
@@ -8840,7 +9401,7 @@
     updatePlayerFavButton();
     updateQueueUI();
   }
-function setPlayerCollapsed(collapsed, save = true) {
+  function setPlayerCollapsed(collapsed, save = true) {
     if (collapsed) {
       // console.log('[Anypod Debug] Player MINIMIZED (collapsed = true). Triggered by:', new Error().stack);
       document.body.classList.add('has-mini-player');
@@ -8860,7 +9421,7 @@ function setPlayerCollapsed(collapsed, save = true) {
     }
     if (save) {
       try {
-        localStorage.setItem('anypod_player_collapsed', collapsed ? 'true' : 'false');
+        storage.setItem('anypod_player_collapsed', collapsed ? 'true' : 'false');
       } catch (e) {}
     }
   }
@@ -9164,6 +9725,9 @@ function setPlayerCollapsed(collapsed, save = true) {
     a.click();
   }
 
+
+
+  // ══ app/07-events-and-modals.js ══
   // ─────────────────────────────────────────────────────────────────────────
   // SECTION 27 · Event Listeners & Modal Helpers
   // All UI click/input/keyboard wiring lives here.
@@ -9235,16 +9799,16 @@ function setPlayerCollapsed(collapsed, save = true) {
                   body: JSON.stringify({ sessionToken: currentToken })
                 });
               } catch (e) {}
-              localStorage.removeItem(STORAGE_KEYS.SESSION);
-              localStorage.removeItem(STORAGE_KEYS.USER_EMAIL);
-              localStorage.removeItem('podcast_pulse_session_token');
-              localStorage.removeItem(STORAGE_KEYS.FEEDS);
-              localStorage.removeItem(STORAGE_KEYS.MUTED_FEEDS);
-              localStorage.removeItem(STORAGE_KEYS.POSITIONS);
-              localStorage.removeItem(STORAGE_KEYS.CACHED_EPISODES);
-              localStorage.removeItem(STORAGE_KEYS.CACHED_METADATA);
-              localStorage.removeItem(STORAGE_KEYS.QUEUE);
-              localStorage.removeItem(STORAGE_KEYS.LAST_EPISODE);
+              storage.removeItem(STORAGE_KEYS.SESSION);
+              storage.removeItem(STORAGE_KEYS.USER_EMAIL);
+              storage.removeItem('podcast_pulse_session_token');
+              storage.removeItem(STORAGE_KEYS.FEEDS);
+              storage.removeItem(STORAGE_KEYS.MUTED_FEEDS);
+              storage.removeItem(STORAGE_KEYS.POSITIONS);
+              storage.removeItem(STORAGE_KEYS.CACHED_EPISODES);
+              storage.removeItem(STORAGE_KEYS.CACHED_METADATA);
+              storage.removeItem(STORAGE_KEYS.QUEUE);
+              storage.removeItem(STORAGE_KEYS.LAST_EPISODE);
               document.cookie = 'podcast_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
               window.history.replaceState({}, document.title, window.location.pathname);
               state.sessionToken = '';
@@ -9338,10 +9902,10 @@ function setPlayerCollapsed(collapsed, save = true) {
                 throw new Error(data.error || 'Failed to delete account');
               }
 
-              localStorage.removeItem(STORAGE_KEYS.SESSION);
-              localStorage.removeItem(STORAGE_KEYS.USER_EMAIL);
-              localStorage.removeItem('podcast_pulse_session_token');
-              localStorage.removeItem('anypod_session_token');
+              storage.removeItem(STORAGE_KEYS.SESSION);
+              storage.removeItem(STORAGE_KEYS.USER_EMAIL);
+              storage.removeItem('podcast_pulse_session_token');
+              storage.removeItem('anypod_session_token');
               state.sessionToken = '';
               state.userEmail = '';
 
@@ -9724,7 +10288,7 @@ function setPlayerCollapsed(collapsed, save = true) {
           e.stopPropagation();
 
           state.autoplayEnabled = !state.autoplayEnabled;
-          localStorage.setItem(STORAGE_KEYS.AUTOPLAY, state.autoplayEnabled ? 'true' : 'false');
+          storage.setItem(STORAGE_KEYS.AUTOPLAY, state.autoplayEnabled ? 'true' : 'false');
 
           updateAutoplayButtonUI();
 
@@ -10070,7 +10634,7 @@ function setPlayerCollapsed(collapsed, save = true) {
 
     //         if (state.currentEpisode) {
     //           try {
-    //             localStorage.setItem('anypod_timeline_' + state.currentEpisode.guid, JSON.stringify({
+    //             storage.setItem('anypod_timeline_' + state.currentEpisode.guid, JSON.stringify({
     //               bars: state.episodeTimeline.bars,
     //               segments: state.episodeTimeline.segments,
     //               cues: cues,
@@ -10465,7 +11029,7 @@ function setPlayerCollapsed(collapsed, save = true) {
           message: 'Are you sure you want to clear all feeds, queue, and stored listening history on this device?',
           actionLabel: 'Reset Everything',
           onConfirm: () => {
-            localStorage.clear();
+            storage.clear();
             if ('caches' in window) {
               caches.delete('anypod-audio-v1').catch(() => {});
             }
@@ -10672,50 +11236,9 @@ function setPlayerCollapsed(collapsed, save = true) {
   // SECTION 28 · Utilities
   // ─────────────────────────────────────────────────────────────────────────
 
-  function formatTime(seconds) {
-    if (!seconds || isNaN(seconds)) return '0:00';
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-    const secStr = secs < 10 ? `0${secs}` : `${secs}`;
-    if (hrs > 0) {
-      const minStr = mins < 10 ? `0${mins}` : `${mins}`;
-      return `${hrs}:${minStr}:${secStr}`;
-    }
-    return `${mins}:${secStr}`;
-  }
-
-  function decodeHtmlEntities(str) {
-    if (!str) return '';
-    return String(str)
-      .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)))
-      .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
-      .replace(/&ndash;/g, '–')
-      .replace(/&mdash;/g, '—')
-      .replace(/&hellip;/g, '…')
-      .replace(/&bull;/g, '•')
-      .replace(/&rsquo;/g, '’')
-      .replace(/&lsquo;/g, '‘')
-      .replace(/&rdquo;/g, '”')
-      .replace(/&ldquo;/g, '“')
-      .replace(/&amp;/g, '&')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/&apos;/g, "'")
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>');
-  }
-
-  function escapeHtml(str) {
-    if (!str) return '';
-    const decoded = decodeHtmlEntities(str);
-    return decoded
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
+  const formatTime = window.AnypodShared.formatTime;
+  const decodeHtmlEntities = window.AnypodShared.decodeHtmlEntities;
+  const escapeHtml = window.AnypodShared.escapeHtml;
 
   function highlightText(str, query) {
     if (!str) return '';
@@ -10772,6 +11295,9 @@ function setPlayerCollapsed(collapsed, save = true) {
     return highlightText(excerpt, q);
   }
 
+
+
+  // ══ app/08-waveform-and-ai.js ══
   // ─────────────────────────────────────────────────────────────────────────
   // SECTION 30 · Full-Episode Waveform & Speech/Music Timeline Chart
   //
@@ -10787,7 +11313,7 @@ function setPlayerCollapsed(collapsed, save = true) {
 
   function loadExperimentalSettings() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEYS.EXPERIMENTAL);
+      const raw = storage.getItem(STORAGE_KEYS.EXPERIMENTAL);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed.showJumpButtons !== undefined) {
@@ -10816,7 +11342,7 @@ function setPlayerCollapsed(collapsed, save = true) {
 
   function saveExperimentalSettings() {
     try {
-      localStorage.setItem(STORAGE_KEYS.EXPERIMENTAL, JSON.stringify(state.experimentalSettings));
+      storage.setItem(STORAGE_KEYS.EXPERIMENTAL, JSON.stringify(state.experimentalSettings));
     } catch (_) {}
   }
 
@@ -11025,7 +11551,7 @@ function setPlayerCollapsed(collapsed, save = true) {
     // Check localStorage cache (v4 prefix for calibrated FFT classifier)
     const cacheKey = 'anypod_timeline_v4_' + episode.guid;
     try {
-      const cached = localStorage.getItem(cacheKey);
+      const cached = storage.getItem(cacheKey);
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed.bars && parsed.bars.length > 0) {
@@ -11079,7 +11605,7 @@ function setPlayerCollapsed(collapsed, save = true) {
             state.episodeTimeline.transcriptSource = 'RSS';
 
             try {
-              localStorage.setItem(cacheKey, JSON.stringify({ bars, segments, cues, transcriptSource: 'RSS' }));
+              storage.setItem(cacheKey, JSON.stringify({ bars, segments, cues, transcriptSource: 'RSS' }));
             } catch (_) {}
 
             renderWaveformChart();
@@ -11116,7 +11642,7 @@ function setPlayerCollapsed(collapsed, save = true) {
           state.episodeTimeline.segments = data.segments || [];
 
           try {
-            localStorage.setItem(cacheKey, JSON.stringify({
+            storage.setItem(cacheKey, JSON.stringify({
               bars: data.bars,
               segments: data.segments || []
             }));
@@ -11289,7 +11815,7 @@ function setPlayerCollapsed(collapsed, save = true) {
           state.episodeTimeline.transcriptSource = data.syncedLyrics ? 'Lyrics (Synced)' : 'Lyrics';
 
           try {
-            localStorage.setItem(cacheKey, JSON.stringify({
+            storage.setItem(cacheKey, JSON.stringify({
               bars,
               segments,
               cues,
@@ -11674,10 +12200,10 @@ function setPlayerCollapsed(collapsed, save = true) {
     function _persistCues() {
       if (!guidForSession) return;
       try {
-        const stored = JSON.parse(localStorage.getItem('anypod_live_cues_' + guidForSession) || '[]');
+        const stored = JSON.parse(storage.getItem('anypod_live_cues_' + guidForSession) || '[]');
         const existingStarts = new Set(stored.map(c => c.start));
         const newCues = (state.episodeTimeline.cues || []).filter(c => c.live && !existingStarts.has(c.start));
-        localStorage.setItem('anypod_live_cues_' + guidForSession, JSON.stringify([...stored, ...newCues]));
+        storage.setItem('anypod_live_cues_' + guidForSession, JSON.stringify([...stored, ...newCues]));
       } catch (_) {}
     }
 
@@ -11845,7 +12371,7 @@ function setPlayerCollapsed(collapsed, save = true) {
       // Restore persisted cues from previous session
       if (guidForSession && state.episodeTimeline.cues.length === 0) {
         try {
-          const stored = JSON.parse(localStorage.getItem('anypod_live_cues_' + guidForSession) || '[]');
+          const stored = JSON.parse(storage.getItem('anypod_live_cues_' + guidForSession) || '[]');
           if (stored.length > 0) {
             state.episodeTimeline.cues = stored;
             if (state.experimentalSettings.enableTranscript) renderTranscriptView();
@@ -11883,7 +12409,7 @@ function setPlayerCollapsed(collapsed, save = true) {
       // Load persisted cues for the new episode
       if (guidForSession && active) {
         try {
-          const stored = JSON.parse(localStorage.getItem('anypod_live_cues_' + guidForSession) || '[]');
+          const stored = JSON.parse(storage.getItem('anypod_live_cues_' + guidForSession) || '[]');
           if (stored.length > 0 && state.episodeTimeline.cues.length === 0) {
             state.episodeTimeline.cues = stored;
             if (state.experimentalSettings.enableTranscript) renderTranscriptView();
@@ -12057,7 +12583,7 @@ function setPlayerCollapsed(collapsed, save = true) {
       }, 600);
 
       try {
-        localStorage.setItem('anypod_timeline_v4_' + episode.guid, JSON.stringify({
+        storage.setItem('anypod_timeline_v4_' + episode.guid, JSON.stringify({
           bars: state.episodeTimeline.bars,
           segments: state.episodeTimeline.segments
         }));
@@ -12595,7 +13121,7 @@ function setPlayerCollapsed(collapsed, save = true) {
     });
   }
 
-if (document.readyState === 'loading') {
+  if (document.readyState === 'loading') {
     // Programmatically activate non-blocking stylesheets (Zero CSP violations)
     document.addEventListener('DOMContentLoaded', () => {
       const fontLink = document.getElementById('google-fonts-link');
@@ -12609,4 +13135,5 @@ if (document.readyState === 'loading') {
   } else {
     init();
   }
+
 })();

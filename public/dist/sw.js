@@ -1,4 +1,4 @@
-const CACHE_NAME = 'anypod-v12';
+const CACHE_NAME = 'anypod-v13';
 const AUDIO_CACHE_NAME = 'anypod-audio-v1';
 
 const APP_SHELL = [
@@ -6,6 +6,18 @@ const APP_SHELL = [
   '/index.html',
   '/style.css',
   '/app.js',
+  '/shared/formatters.js',
+  '/shared/storage.js',
+  '/shared/sync-bridge.js',
+  '/shared/audio-utils.js',
+  '/app/01-state-and-dom.js',
+  '/app/02-auth-and-sync.js',
+  '/app/03-queue-favorites-downloads.js',
+  '/app/04-feeds-and-discover.js',
+  '/app/05-timeline-and-cards.js',
+  '/app/06-audio-player.js',
+  '/app/07-events-and-modals.js',
+  '/app/08-waveform-and-ai.js',
   '/manifest.webmanifest',
   '/icon.svg',
   '/icon-192.png',

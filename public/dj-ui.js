@@ -25,82 +25,10 @@
     hasInitializedGroupCollapse: false
   };
 
+  const Shared = window.AnypodShared || {};
+
   // Procedural WAV synthesizer for 100% offline, un-expirable sample decks
-  function createSynthBeatBlobUrl(bpm = 128, style = 'house') {
-    try {
-      const sampleRate = 22050;
-      const beatSec = 60 / bpm;
-      const totalBars = 4;
-      const totalSec = beatSec * 4 * totalBars;
-      const totalSamples = Math.floor(sampleRate * totalSec);
-      const buffer = new Int16Array(totalSamples);
-
-      for (let i = 0; i < totalSamples; i++) {
-        const t = i / sampleRate;
-        const beatIndex = (t / beatSec) % 4;
-        const beatFraction = beatIndex % 1;
-        let sample = 0;
-
-        // Kick drum on every beat (4/4)
-        if (beatFraction < 0.25) {
-          const kickT = beatFraction * beatSec;
-          const kickFreq = 150 * Math.exp(-kickT * 32);
-          const kickEnv = Math.exp(-kickT * 18);
-          sample += Math.sin(2 * Math.PI * kickFreq * kickT) * kickEnv * 0.7;
-        }
-
-        // Snare / clap on beats 2 & 4
-        const beatNum = Math.floor(beatIndex);
-        if ((beatNum === 1 || beatNum === 3) && beatFraction < 0.3) {
-          const snareT = beatFraction * beatSec;
-          const noise = (Math.random() * 2 - 1) * Math.exp(-snareT * 22);
-          sample += noise * 0.4;
-        }
-
-        // Hi-hat on offbeats
-        const offbeat = ((beatIndex + 0.5) % 1);
-        if (offbeat < 0.15) {
-          const hatT = offbeat * beatSec;
-          sample += (Math.random() * 2 - 1) * Math.exp(-hatT * 40) * 0.25;
-        }
-
-        // Bassline pulse
-        if (style === 'acid') {
-          const noteFreq = [55, 65.4, 73.4, 82.4][Math.floor(t / (beatSec / 2)) % 4];
-          const bassEnv = Math.exp(-(beatFraction % 0.5) * 8);
-          sample += Math.sin(2 * Math.PI * noteFreq * t) * bassEnv * 0.35;
-        }
-
-        buffer[i] = Math.max(-32767, Math.min(32767, Math.floor(sample * 28000)));
-      }
-
-      const wavBuffer = new ArrayBuffer(44 + buffer.byteLength);
-      const view = new DataView(wavBuffer);
-      const writeStr = (offset, str) => {
-        for (let j = 0; j < str.length; j++) view.setUint8(offset + j, str.charCodeAt(j));
-      };
-
-      writeStr(0, 'RIFF');
-      view.setUint32(4, 36 + buffer.byteLength, true);
-      writeStr(8, 'WAVE');
-      writeStr(12, 'fmt ');
-      view.setUint32(16, 16, true);
-      view.setUint16(20, 1, true); // PCM
-      view.setUint16(22, 1, true); // Mono
-      view.setUint32(24, sampleRate, true);
-      view.setUint32(28, sampleRate * 2, true);
-      view.setUint16(32, 2, true);
-      view.setUint16(34, 16, true);
-      writeStr(36, 'data');
-      view.setUint32(40, buffer.byteLength, true);
-
-      new Uint8Array(wavBuffer, 44).set(new Uint8Array(buffer.buffer));
-      const blob = new Blob([wavBuffer], { type: 'audio/wav' });
-      return URL.createObjectURL(blob);
-    } catch (_) {
-      return '';
-    }
-  }
+  const createSynthBeatBlobUrl = Shared.createSynthBeatBlobUrl || function () { return ''; };
 
   const SAMPLE_TRACKS = [
     {
@@ -154,43 +82,12 @@
   ];
 
   // ─────────────────────────────────────────────────────────────────────────
-  // TIME & FORMAT UTILITIES
+  // TIME & FORMAT UTILITIES (DELEGATED TO AnypodShared)
   // ─────────────────────────────────────────────────────────────────────────
-  function formatTime(s) {
-    if (!s || !isFinite(s) || s < 0) return '0:00';
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec < 10 ? '0' : ''}${sec}`;
-  }
-
-  function formatDuration(dur) {
-    if (!dur) return '0:00';
-    if (typeof dur === 'number') return formatTime(dur);
-    const str = String(dur).trim();
-    if (str.includes(':')) return str;
-    const s = parseFloat(str);
-    return isNaN(s) ? str : formatTime(s);
-  }
-
-  function escapeHtml(str) {
-    if (!str) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  }
-
-  function parseDurationSeconds(dur) {
-    if (!dur) return 0;
-    if (typeof dur === 'number') return dur;
-    const parts = String(dur).split(':').map(Number);
-    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-    if (parts.length === 2) return parts[0] * 60 + parts[1];
-    const s = parseFloat(dur);
-    return isNaN(s) ? 0 : s;
-  }
+  const formatTime = (s) => Shared.formatTime ? Shared.formatTime(s, false) : '0:00';
+  const formatDuration = Shared.formatDuration || ((dur) => formatTime(dur));
+  const escapeHtml = Shared.escapeHtml || ((str) => String(str || ''));
+  const parseDurationSeconds = Shared.parseDurationSeconds || ((dur) => Number(dur) || 0);
 
   function estimateBpm(track, idx) {
     if (track.bpm && typeof track.bpm === 'number') return track.bpm;
@@ -357,29 +254,17 @@
 
     // 1. Load Live App Current Track
     try {
-      const rawLive = localStorage.getItem('anypod_last_active_episode');
-      if (rawLive) state.liveAppTrack = JSON.parse(rawLive);
+      state.liveAppTrack = Shared.getLastActiveEpisode
+        ? Shared.getLastActiveEpisode()
+        : JSON.parse(localStorage.getItem('anypod_last_active_episode') || 'null');
     } catch (_) {}
 
     // 2. Load Feeds & Metadata
     try {
-      state.feeds = JSON.parse(localStorage.getItem('anypod_feeds') || '[]');
-      state.feedMetadata = JSON.parse(localStorage.getItem('anypod_cached_metadata') || '{}');
+      state.feeds = Shared.getCachedFeeds ? Shared.getCachedFeeds() : JSON.parse(localStorage.getItem('anypod_feeds') || '[]');
+      state.feedMetadata = Shared.getCachedMetadata ? Shared.getCachedMetadata() : JSON.parse(localStorage.getItem('anypod_cached_metadata') || '{}');
       state.queue = JSON.parse(localStorage.getItem('anypod_playback_queue') || '[]');
       state.favorites = JSON.parse(localStorage.getItem('anypod_favorites') || '[]');
-    } catch (_) {}
-
-    // 2b. Load Downloaded Episodes & Offline Files from app.js
-    try {
-      const rawDownloads = JSON.parse(localStorage.getItem('anypod_downloads') || '{}');
-      if (rawDownloads && typeof rawDownloads === 'object') {
-        Object.values(rawDownloads).forEach(ep => {
-          if (ep) {
-            ep.isDownloaded = true;
-            addTrack(ep);
-          }
-        });
-      }
     } catch (_) {}
 
     const addTrack = (ep) => {
@@ -422,6 +307,21 @@
       if (norm.guid) epMap.set(norm.guid, norm);
     };
 
+    // 2b. Load Downloaded Episodes & Offline Files from app.js
+    try {
+      const rawDownloads = Shared.getDownloadsMap
+        ? Shared.getDownloadsMap()
+        : JSON.parse(localStorage.getItem('anypod_downloads') || '{}');
+      if (rawDownloads && typeof rawDownloads === 'object') {
+        Object.values(rawDownloads).forEach(ep => {
+          if (ep) {
+            ep.isDownloaded = true;
+            addTrack(ep);
+          }
+        });
+      }
+    } catch (_) {}
+
     // 3. Fast sync from localStorage cached episodes
     try {
       const rawCached = JSON.parse(localStorage.getItem('anypod_cached_episodes') || '[]');
@@ -430,23 +330,11 @@
 
     // 4. Asynchronous Deep Hydration from IndexedDB 'anypod_store_v1'
     try {
-      if (window.indexedDB) {
-        const idbTracks = await new Promise((resolve) => {
-          const req = window.indexedDB.open('anypod_store_v1', 1);
-          req.onsuccess = (e) => {
-            const db = e.target.result;
-            if (!db.objectStoreNames.contains('keyval')) return resolve([]);
-            const tx = db.transaction('keyval', 'readonly');
-            const getReq = tx.objectStore('keyval').get('anypod_cached_episodes');
-            getReq.onsuccess = () => resolve(getReq.result || []);
-            getReq.onerror = () => resolve([]);
-          };
-          req.onerror = () => resolve([]);
-        });
-
-        if (Array.isArray(idbTracks)) {
-          idbTracks.forEach(addTrack);
-        }
+      const idbTracks = Shared.idbStore
+        ? await Shared.idbStore.get('anypod_cached_episodes')
+        : null;
+      if (Array.isArray(idbTracks)) {
+        idbTracks.forEach(addTrack);
       }
     } catch (_) {}
 
@@ -1443,61 +1331,21 @@
     }, 400);
 
     // Cross-app sync with Workout DJ Sequencer (sets.anypod.org)
-    try {
-      if ('BroadcastChannel' in window) {
-        const syncChannel = new BroadcastChannel('anypod_workout_sync');
-        syncChannel.addEventListener('message', (e) => {
-          if (e.data?.type === 'WORKOUT_ACTIVE') {
-            if (mixer.isPlaying('A')) mixer.pause('A');
-            if (mixer.isPlaying('B')) mixer.pause('B');
-          }
-        });
-
-        const storageChannel = new BroadcastChannel('anypod_storage_channel');
-        storageChannel.addEventListener('message', (e) => {
-          if (e.data?.type === 'UPDATE_STORAGE') {
-            hydrateCollection();
-          }
-        });
-      }
-    } catch (_) {}
-
-    // Cross-subdomain Storage Bridge (syncs with anypod.org if on dj.anypod.org)
-    try {
-      const isSubdomain = location.hostname.endsWith('.anypod.org') && location.hostname !== 'anypod.org';
-      const bridgeOrigin = isSubdomain ? 'https://anypod.org' : '';
-      const iframe = document.createElement('iframe');
-      iframe.src = `${bridgeOrigin}/storage-bridge.html`;
-      iframe.style.display = 'none';
-      iframe.title = 'Storage Bridge';
-      iframe.addEventListener('load', () => {
-        try {
-          iframe.contentWindow?.postMessage({ type: 'ANYPOD_STORAGE_REQUEST' }, '*');
-        } catch (_) {}
-      });
-      document.body.appendChild(iframe);
-
-      window.addEventListener('message', (event) => {
-        if (event.data?.type === 'ANYPOD_STORAGE_READY' || event.data?.type === 'ANYPOD_STORAGE_RESPONSE' || event.data?.type === 'ANYPOD_STORAGE_UPDATE') {
-          const payload = event.data.payload;
-          if (payload && typeof payload === 'object') {
-            let hasNew = false;
-            Object.keys(payload).forEach(k => {
-              const cur = localStorage.getItem(k);
-              if (payload[k] && cur !== payload[k]) {
-                try {
-                  localStorage.setItem(k, payload[k]);
-                  hasNew = true;
-                } catch (_) {}
-              }
-            });
-            if (hasNew) {
-              hydrateCollection();
-            }
-          }
+    if (Shared.initWorkoutSync) {
+      Shared.initWorkoutSync({
+        onWorkoutActive: () => {
+          if (mixer.isPlaying('A')) mixer.pause('A');
+          if (mixer.isPlaying('B')) mixer.pause('B');
         }
       });
-    } catch (_) {}
+    }
+
+    // Cross-tab & Cross-subdomain Storage Bridge (syncs with anypod.org if on dj.anypod.org)
+    if (Shared.initStorageBridge) {
+      Shared.initStorageBridge({
+        onUpdate: () => hydrateCollection()
+      });
+    }
   });
 
 })();
