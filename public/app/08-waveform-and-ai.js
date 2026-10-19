@@ -250,8 +250,8 @@ function initOrLoadEpisodeTimeline(episode, duration) {
   state.episodeTimeline.guid = episode.guid;
   state.episodeTimeline.duration = dur;
 
-  // Check localStorage cache (v4 prefix for calibrated FFT classifier)
-  const cacheKey = 'anypod_timeline_v4_' + episode.guid;
+  // Check localStorage cache (v5 prefix for multi-window syllabic + beat classifier)
+  const cacheKey = 'anypod_timeline_v5_' + episode.guid;
   try {
     const cached = storage.getItem(cacheKey);
     if (cached) {
@@ -282,7 +282,7 @@ function initOrLoadEpisodeTimeline(episode, duration) {
 
 async function fetchTimelineFromPipeline(episode, duration) {
   if (!episode || !episode.guid) return;
-  const cacheKey = 'anypod_timeline_v4_' + episode.guid;
+  const cacheKey = 'anypod_timeline_v5_' + episode.guid;
 
   // TIER 1: Check Podcasting 2.0 <podcast:transcript>
   if (episode.transcriptUrl) {
@@ -329,7 +329,7 @@ async function fetchTimelineFromPipeline(episode, duration) {
     }
   }
 
-  // TIER 2: Check Cloudflare D1 Community Cache
+  // TIER 2: Check Cloudflare D1 Community Cache (only accept transcript-backed entries, re-probe old probe entries)
   try {
     if (elements.probeStatusPill) {
       elements.probeStatusPill.textContent = 'Checking community...';
@@ -339,7 +339,7 @@ async function fetchTimelineFromPipeline(episode, duration) {
     const res = await fetch(`/api/community-transcripts?guid=${encodeURIComponent(episode.guid)}`);
     if (res.ok) {
       const data = await res.json();
-      if (data.found && data.bars && data.bars.length > 0) {
+      if (data.found && data.bars && data.bars.length > 0 && data.source === 'transcript') {
         state.episodeTimeline.bars = data.bars;
         state.episodeTimeline.segments = data.segments || [];
 
@@ -441,7 +441,7 @@ function parseLrcToCues(lrcText, totalDuration = 0) {
 
 async function fetchLyricsFromLrclib(episode, duration) {
   if (!episode || !episode.title) return false;
-  const cacheKey = 'anypod_timeline_v4_' + episode.guid;
+  const cacheKey = 'anypod_timeline_v5_' + episode.guid;
 
   const { artist, track, query } = parseMusicTrackInfo(episode.title, episode.podcastTitle);
   if (!query && !track) return false;
@@ -931,6 +931,17 @@ const liveTranscription = (() => {
       console.log('[LiveTranscript] chunk too small, skipping:', blob?.size, 'bytes');
       return;
     }
+
+    // Skip sending chunks to Whisper if the audio classifier identifies this region as pure music!
+    if (state.experimentalSettings.enableAudioClassifier && Array.isArray(state.episodeTimeline.bars) && state.episodeTimeline.bars.length > 0 && state.episodeTimeline.duration > 0) {
+      const midSec = (startSec + endSec) * 0.5;
+      const barIdx = Math.min(state.episodeTimeline.bars.length - 1, Math.max(0, Math.floor((midSec / state.episodeTimeline.duration) * state.episodeTimeline.bars.length)));
+      if (state.episodeTimeline.bars[barIdx]?.type === 'music') {
+        console.log(`[LiveTranscript] 🎵 Skipping Whisper transcription at ${midSec.toFixed(1)}s (classified as music)`);
+        return;
+      }
+    }
+
     console.log(`[LiveTranscript] 📤 sending chunk ${blob.size} bytes  [${startSec.toFixed(1)}s → ${endSec.toFixed(1)}s]`);
 
     const lang = (state.currentEpisode && state.currentEpisode.language) || 'en';
@@ -1131,7 +1142,8 @@ const liveTranscription = (() => {
 // ── Background Audio Probing Engine ─────────────────────────────────────
 // Samples points across the audio file using HTTP Range requests through
 // /api/audio-proxy, decoding in a background AudioContext to measure
-// spectral flux, energy variance, and speech/music distribution.
+// multi-window spectral flux, 4Hz syllabic modulation, beat periodicity,
+// and speech/music distribution.
 
 let activeProbeAbortController = null;
 
@@ -1167,7 +1179,7 @@ async function probeEpisodeAudio(episode, duration) {
   }
 
   const NUM_PROBES = 24;
-  const CHUNK_SIZE = 49152; // 48 KB
+  const CHUNK_SIZE = 65536; // 64 KB (~3-4s of audio for reliable 4Hz modulation & beat correlation)
   let offlineCtx = null;
 
   try {
@@ -1186,6 +1198,7 @@ async function probeEpisodeAudio(episode, duration) {
     } catch (_) {}
 
     const barsPerProbe = Math.ceil(state.episodeTimeline.bars.length / NUM_PROBES);
+    const probeResults = new Array(NUM_PROBES).fill(null);
 
     for (let p = 0; p < NUM_PROBES; p++) {
       // Halt immediately if aborted, hidden, or tab goes inactive
@@ -1227,6 +1240,7 @@ async function probeEpisodeAudio(episode, duration) {
           if (audioBuffer && audioBuffer.length > 0) {
             const channel = audioBuffer.getChannelData(0);
             const analysis = analyzePcmSnippet(channel, audioBuffer.sampleRate);
+            probeResults[p] = analysis;
 
             const startSec = Math.round((p / NUM_PROBES) * duration);
             const meta = analysis._meta || {};
@@ -1235,14 +1249,14 @@ async function probeEpisodeAudio(episode, duration) {
               override: meta.override || 'none',
               musicScore: meta.musicScore,
               speechScore: meta.speechScore,
-              bassRatio: meta.bassRatio ? Number(meta.bassRatio.toFixed(3)) : 0,
+              subBassRatio: meta.subBassRatio ? Number(meta.subBassRatio.toFixed(3)) : 0,
               speechCoreRatio: meta.speechCoreRatio ? Number(meta.speechCoreRatio.toFixed(3)) : 0,
               highRatio: meta.highRatio ? Number(meta.highRatio.toFixed(3)) : 0,
+              syllabicModulation: meta.syllabicMod ? Number(meta.syllabicMod.toFixed(3)) : 0,
+              beatRegularity: meta.beatRegularity ? Number(meta.beatRegularity.toFixed(3)) : 0,
+              pauseRatio: meta.pauseRatio ? Number(meta.pauseRatio.toFixed(3)) : 0,
               dynamicRange: meta.dynamicRange ? Number(meta.dynamicRange.toFixed(3)) : 0,
-              harmonicRatio: meta.harmonicRatio ? Number(meta.harmonicRatio.toFixed(3)) : 0,
-              flatness: meta.flatness ? Number(meta.flatness.toFixed(3)) : 0,
-              rolloffHz: meta.rolloffHz ? Math.round(meta.rolloffHz) : 0,
-              centroidHz: meta.centroid ? Math.round(meta.centroid) : 0
+              rolloffHz: meta.rolloffHz ? Math.round(meta.rolloffHz) : 0
             });
 
             const startBarIdx = p * barsPerProbe;
@@ -1262,6 +1276,45 @@ async function probeEpisodeAudio(episode, duration) {
       }
 
       await new Promise(r => setTimeout(r, 60));
+    }
+
+    // ── Post-Probe Temporal Smoothing & Episode Context Stabilization ──
+    // Eliminates isolated 1-probe false positives (e.g., a vocal sample in a techno set
+    // or a brief laugh/plosive in a spoken podcast).
+    const validProbes = probeResults.filter(Boolean);
+    if (validProbes.length >= 6) {
+      const musicCount = validProbes.filter(r => r.type === 'music').length;
+      const musicFraction = musicCount / validProbes.length;
+
+      for (let p = 0; p < NUM_PROBES; p++) {
+        const cur = probeResults[p];
+        if (!cur) continue;
+        const prev = p > 0 ? probeResults[p - 1] : null;
+        const next = p + 1 < NUM_PROBES ? probeResults[p + 1] : null;
+
+        // 1. Majority neighbor smoothing: if both immediate neighbors disagree with `cur`, flip `cur`
+        // (except at the very first/last probe where intro/outro music often sits)
+        if (p > 0 && p < NUM_PROBES - 1 && prev && next && prev.type === next.type && cur.type !== prev.type) {
+          cur.type = prev.type;
+        }
+        // 2. If episode is >78% music (e.g., DJ mix / RA Exchange mix), require extra-high speech confidence
+        else if (musicFraction >= 0.78 && cur.type === 'speech' && (cur._meta?.speechScore || 0) < 11) {
+          cur.type = 'music';
+        }
+        // 3. If episode is >78% speech (e.g., talk podcast) and not intro/outro, require extra-high music confidence
+        else if (musicFraction <= 0.22 && p >= 2 && p < NUM_PROBES - 2 && cur.type === 'music' && (cur._meta?.musicScore || 0) < 11) {
+          cur.type = 'speech';
+        }
+
+        const startBarIdx = p * barsPerProbe;
+        const endBarIdx = Math.min(state.episodeTimeline.bars.length, startBarIdx + barsPerProbe);
+        for (let b = startBarIdx; b < endBarIdx; b++) {
+          if (state.episodeTimeline.bars[b]) {
+            state.episodeTimeline.bars[b].type = cur.type;
+          }
+        }
+      }
+      renderWaveformChart();
     }
 
     state.episodeTimeline.segments = deriveSegmentsFromBars(state.episodeTimeline.bars, duration);
@@ -1285,7 +1338,7 @@ async function probeEpisodeAudio(episode, duration) {
     }, 600);
 
     try {
-      storage.setItem('anypod_timeline_v4_' + episode.guid, JSON.stringify({
+      storage.setItem('anypod_timeline_v5_' + episode.guid, JSON.stringify({
         bars: state.episodeTimeline.bars,
         segments: state.episodeTimeline.segments
       }));
@@ -1309,67 +1362,99 @@ async function probeEpisodeAudio(episode, duration) {
   }
 }
 
-// ── PCM Spectral & Energy Analyzer (FFT-based) ───────────────────────────
-// Computes a power-spectrum via a compact DFT over evenly-spaced windows,
-// then derives: spectral centroid, flatness (Wiener entropy), rolloff, and
-// sub-band energy ratios.  Much more reliable than pure time-domain ZCR.
+// ── PCM Spectral, Syllabic Modulation & Beat Periodicity Analyzer ────────
+// Averages power spectra across multiple windows (Welch's method) across the
+// entire decoded chunk, measures 4Hz syllabic modulation (human speech cadence)
+// vs 100-165 BPM rhythmic beat periodicity (techno/electronic/music), and
+// separates true sub-bass (<100Hz kick/sub) from male vocal fundamentals (100-250Hz).
 
-function _fftPowerSpectrum(samples, sampleRate) {
-  // Use a power-of-2 window for speed.  Take the first 4096 samples max.
-  const N = Math.min(4096, samples.length);
-  const N2 = N >> 1;            // number of useful magnitude bins
+function _fftMultiWindowPowerSpectrum(samples, sampleRate) {
+  const N = 2048;
+  const N2 = N >> 1;
+  const binHz = sampleRate / N;
+  const avgMag = new Float32Array(N2);
+
+  if (samples.length < N) {
+    return { mag: avgMag, binHz, N2, spectralFlux: 0 };
+  }
+
+  // Sample up to 12 evenly spaced windows across the entire decoded buffer
+  const maxWindows = 12;
+  const numWindows = Math.min(maxWindows, Math.max(1, Math.floor(samples.length / N)));
+  const stride = numWindows > 1 ? Math.floor((samples.length - N) / (numWindows - 1)) : 0;
+
   const real = new Float32Array(N);
   const imag = new Float32Array(N);
+  let prevWindowMag = null;
+  let fluxSum = 0;
 
-  // Hann window
-  for (let i = 0; i < N; i++) {
-    const hann = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / N);
-    real[i] = samples[i] * hann;
-  }
-
-  // Cooley-Tukey in-place radix-2 DIT FFT
-  // Bit-reversal permutation
-  let j = 0;
-  for (let i = 1; i < N; i++) {
-    let bit = N >> 1;
-    for (; j & bit; bit >>= 1) j ^= bit;
-    j ^= bit;
-    if (i < j) {
-      [real[i], real[j]] = [real[j], real[i]];
-      [imag[i], imag[j]] = [imag[j], imag[i]];
+  for (let w = 0; w < numWindows; w++) {
+    const offset = w * stride;
+    for (let i = 0; i < N; i++) {
+      const hann = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / N);
+      real[i] = samples[offset + i] * hann;
+      imag[i] = 0;
     }
-  }
 
-  // FFT butterfly
-  for (let len = 2; len <= N; len <<= 1) {
-    const ang = (2 * Math.PI) / len;
-    const wRe = Math.cos(ang);
-    const wIm = -Math.sin(ang);
-    for (let i = 0; i < N; i += len) {
-      let uRe = 1, uIm = 0;
-      for (let k = 0; k < (len >> 1); k++) {
-        const a = i + k;
-        const b = a + (len >> 1);
-        const tRe = uRe * real[b] - uIm * imag[b];
-        const tIm = uRe * imag[b] + uIm * real[b];
-        real[b] = real[a] - tRe;
-        imag[b] = imag[a] - tIm;
-        real[a] += tRe;
-        imag[a] += tIm;
-        const tmp = uRe * wRe - uIm * wIm;
-        uIm = uRe * wIm + uIm * wRe;
-        uRe = tmp;
+    // Cooley-Tukey in-place radix-2 DIT FFT
+    let j = 0;
+    for (let i = 1; i < N; i++) {
+      let bit = N >> 1;
+      for (; j & bit; bit >>= 1) j ^= bit;
+      j ^= bit;
+      if (i < j) {
+        const tr = real[i]; real[i] = real[j]; real[j] = tr;
+        const ti = imag[i]; imag[i] = imag[j]; imag[j] = ti;
       }
     }
+
+    for (let len = 2; len <= N; len <<= 1) {
+      const ang = (2 * Math.PI) / len;
+      const wRe = Math.cos(ang);
+      const wIm = -Math.sin(ang);
+      for (let i = 0; i < N; i += len) {
+        let uRe = 1, uIm = 0;
+        const half = len >> 1;
+        for (let k = 0; k < half; k++) {
+          const a = i + k;
+          const b = a + half;
+          const tRe = uRe * real[b] - uIm * imag[b];
+          const tIm = uRe * imag[b] + uIm * real[b];
+          real[b] = real[a] - tRe;
+          imag[b] = imag[a] - tIm;
+          real[a] += tRe;
+          imag[a] += tIm;
+          const tmp = uRe * wRe - uIm * wIm;
+          uIm = uRe * wIm + uIm * wRe;
+          uRe = tmp;
+        }
+      }
+    }
+
+    const curMag = new Float32Array(N2);
+    let winPow = 1e-12;
+    for (let i = 1; i < N2; i++) {
+      const p = real[i] * real[i] + imag[i] * imag[i];
+      curMag[i] = p;
+      avgMag[i] += p / numWindows;
+      winPow += p;
+    }
+
+    // Spectral flux between consecutive windows (normalized)
+    if (prevWindowMag) {
+      let diffSq = 0;
+      for (let i = 1; i < N2; i++) {
+        const d = (curMag[i] / winPow) - prevWindowMag[i];
+        diffSq += d * d;
+      }
+      fluxSum += Math.sqrt(diffSq);
+    }
+    prevWindowMag = new Float32Array(N2);
+    for (let i = 1; i < N2; i++) prevWindowMag[i] = curMag[i] / winPow;
   }
 
-  // Power spectrum (magnitude² normalised)
-  const mag = new Float32Array(N2);
-  const binHz = sampleRate / N;
-  for (let i = 0; i < N2; i++) {
-    mag[i] = real[i] * real[i] + imag[i] * imag[i];
-  }
-  return { mag, binHz, N2 };
+  const spectralFlux = numWindows > 1 ? fluxSum / (numWindows - 1) : 0;
+  return { mag: avgMag, binHz, N2, spectralFlux };
 }
 
 function analyzePcmSnippet(samples, sampleRate) {
@@ -1382,34 +1467,93 @@ function analyzePcmSnippet(samples, sampleRate) {
   const rms = Math.sqrt(sumSq / len);
   if (rms < 0.008) return { type: 'silence', energy: 0.05 };
 
-  // ── 2. Median-based dynamic range (robust to broadcast compression) ──────
-  // min/max is fooled by heavily compressed broadcast audio (like NPR).
-  // Compute per-window RMS, sort, use 10th-pct vs 90th-pct spread instead.
-  const winSize = Math.floor(sampleRate * 0.08); // 80ms windows
-  const numWins = Math.max(2, Math.floor(len / winSize));
-  const winRmsArr = new Float32Array(numWins);
-  for (let w = 0; w < numWins; w++) {
-    let wSq = 0;
-    const off = w * winSize;
-    for (let j = 0; j < winSize && off + j < len; j++) {
-      const s = samples[off + j]; wSq += s * s;
-    }
-    winRmsArr[w] = Math.sqrt(wSq / winSize);
-  }
-  winRmsArr.sort();
-  const p10 = winRmsArr[Math.floor(numWins * 0.10)];
-  const p90 = winRmsArr[Math.floor(numWins * 0.90)];
-  const dynamicRange = (p90 - p10) / (rms + 1e-6);
-  // speech: dynamicRange typically 0.6-2.5; music (compressed): 0.1-0.8
+  // ── 2. Fine-grained 25ms (40Hz) envelope for syllabic & beat analysis ────
+  const envWin = Math.max(128, Math.floor(sampleRate * 0.025)); // 25ms = 40 frames/sec
+  const numFrames = Math.floor(len / envWin);
+  const env = new Float32Array(numFrames);
+  let silentFrames = 0;
 
-  // ── 3. FFT spectral analysis ──────────────────────────────────────────────
-  const { mag, binHz, N2 } = _fftPowerSpectrum(samples, sampleRate);
+  for (let f = 0; f < numFrames; f++) {
+    let fSq = 0;
+    const off = f * envWin;
+    for (let j = 0; j < envWin; j++) {
+      const s = samples[off + j];
+      fSq += s * s;
+    }
+    const fRms = Math.sqrt(fSq / envWin);
+    env[f] = fRms;
+    // Frame is a micro-pause (inter-word / inter-syllable gap) if < 18% of mean RMS
+    if (fRms < rms * 0.18) silentFrames++;
+  }
+
+  const pauseRatio = numFrames > 0 ? silentFrames / numFrames : 0;
+
+  // Dynamic range (10th to 90th percentile of envelope)
+  const sortedEnv = Float32Array.from(env).sort();
+  const p10 = sortedEnv[Math.floor(numFrames * 0.10)] || 0;
+  const p90 = sortedEnv[Math.floor(numFrames * 0.90)] || 0;
+  const dynamicRange = (p90 - p10) / (rms + 1e-6);
+
+  // ── 3. 4Hz Syllabic Modulation vs Rhythmic Beat Periodicity ──────────────
+  // Human speech has a universal syllable cadence peaking around 3–6 Hz, with
+  // irregular micro-pauses. Techno / house / electronic music has strong periodic
+  // autocorrelation at beat intervals (100–165 BPM = lags of 14 to 24 frames at 40Hz).
+  let syllabicMod = 0;
+  let beatRegularity = 0;
+
+  if (numFrames >= 32) {
+    let meanEnv = 0;
+    for (let f = 0; f < numFrames; f++) meanEnv += env[f];
+    meanEnv /= numFrames;
+
+    const centered = new Float32Array(numFrames);
+    let envVar = 1e-12;
+    for (let f = 0; f < numFrames; f++) {
+      centered[f] = env[f] - meanEnv;
+      envVar += centered[f] * centered[f];
+    }
+
+    // Normalized autocorrelation at beat lags: 14..25 frames (0.35s..0.625s => 96..171 BPM)
+    let maxBeatCorr = 0;
+    for (let lag = 14; lag <= 25 && lag < numFrames - 8; lag++) {
+      let corr = 0;
+      const count = numFrames - lag;
+      for (let f = 0; f < count; f++) {
+        corr += centered[f] * centered[f + lag];
+      }
+      const normCorr = (corr / count) / (envVar / numFrames);
+      if (normCorr > maxBeatCorr) maxBeatCorr = normCorr;
+    }
+    beatRegularity = Math.max(0, maxBeatCorr);
+
+    // 3–6 Hz syllabic modulation energy via DFT of envelope at 3, 4, 5, 6 Hz
+    let syllabicPow = 0;
+    const frameRate = sampleRate / envWin; // ~40 Hz
+    for (const modHz of [3, 4, 5, 6]) {
+      let re = 0, im = 0;
+      for (let f = 0; f < numFrames; f++) {
+        const ang = (2 * Math.PI * modHz * f) / frameRate;
+        re += centered[f] * Math.cos(ang);
+        im -= centered[f] * Math.sin(ang);
+      }
+      syllabicPow += (re * re + im * im) / (numFrames * numFrames);
+    }
+    syllabicMod = Math.sqrt(syllabicPow) / (meanEnv + 1e-6);
+  }
+
+  // ── 4. Multi-window Welch FFT spectral analysis ──────────────────────────
+  const { mag, binHz, N2 } = _fftMultiWindowPowerSpectrum(samples, sampleRate);
   const EPS = 1e-12;
 
   let totalPower = 0, weightedFreqSum = 0, logSum = 0;
-  // Sub-bands (Hz):  deep-bass | bass | low-mid | speech-core | presence | air
-  //                  <80       | <300 | <1000   | <4000       | <8000    | rest
-  let eDeep = 0, eSub = 0, eLow = 0, eSpeech = 0, eHigh = 0, eAir = 0;
+  // Carefully separated frequency bands:
+  // - eSubBass (<100 Hz): True sub-bass & kick fundamental (absent in clean speech)
+  // - eVoiceFund (100–260 Hz): Male & female vocal fundamental F0 + upper bass
+  // - eLowMid (260–1000 Hz): First vowel formant F1 & warm synth/guitar body
+  // - eSpeechCore (1000–3800 Hz): Vowel F2/F3 formants & consonant clarity
+  // - eHigh (3800–8500 Hz): Hi-hats, cymbals, synth fizz, vocal sibilance
+  // - eAir (>8500 Hz): Ultra-high musical air & stereo percussion
+  let eSubBass = 0, eVoiceFund = 0, eLowMid = 0, eSpeechCore = 0, eHigh = 0, eAir = 0;
 
   for (let i = 1; i < N2; i++) {
     const hz = i * binHz;
@@ -1417,24 +1561,24 @@ function analyzePcmSnippet(samples, sampleRate) {
     totalPower      += p;
     weightedFreqSum += hz * p;
     logSum          += Math.log(p);
-    if      (hz < 80)   eDeep   += p;
-    else if (hz < 300)  eSub    += p;
-    else if (hz < 1000) eLow    += p;
-    else if (hz < 4000) eSpeech += p;
-    else if (hz < 8000) eHigh   += p;
-    else                eAir    += p;
+    if      (hz < 100)  eSubBass    += p;
+    else if (hz < 260)  eVoiceFund  += p;
+    else if (hz < 1000) eLowMid     += p;
+    else if (hz < 3800) eSpeechCore += p;
+    else if (hz < 8500) eHigh       += p;
+    else                eAir        += p;
   }
 
-  const centroid       = weightedFreqSum / (totalPower + EPS);
-  const geoMean        = Math.exp(logSum / N2);
-  const arithMean      = totalPower / N2;
-  const flatness       = geoMean / (arithMean + EPS);  // 0 = pure tone, ~1 = noise
+  const centroid        = weightedFreqSum / (totalPower + EPS);
+  const geoMean         = Math.exp(logSum / N2);
+  const arithMean       = totalPower / N2;
+  const flatness        = geoMean / (arithMean + EPS);
 
-  // Sub-band ratios
-  const speechCoreRatio = eSpeech / (totalPower + EPS);
+  const subBassRatio    = eSubBass / (totalPower + EPS);
+  const voiceFundRatio  = eVoiceFund / (totalPower + EPS);
+  const speechCoreRatio = (eLowMid * 0.4 + eSpeechCore) / (totalPower + EPS);
   const highRatio       = (eHigh + eAir) / (totalPower + EPS);
-  const bassRatio       = (eDeep + eSub) / (totalPower + EPS);   // deep+sub bass
-  const lowMidRatio     = eLow / (totalPower + EPS);
+  const airRatio        = eAir / (totalPower + EPS);
 
   // Spectral rolloff (85th percentile)
   let rolloffHz = binHz, cumPow = 0;
@@ -1444,128 +1588,114 @@ function analyzePcmSnippet(samples, sampleRate) {
     if (cumPow >= rolloffTarget) { rolloffHz = i * binHz; break; }
   }
 
-  // ── 4. Spectral variance (spread around centroid) ────────────────────────
-  // Speech has tight formant peaks → low variance relative to centroid.
-  // Music (especially broadband electronic) has higher variance.
+  // Spectral variance (spread around centroid)
   let varSum = 0;
   for (let i = 1; i < N2; i++) {
     const hz = i * binHz;
     const p  = mag[i] + EPS;
     varSum += p * (hz - centroid) * (hz - centroid);
   }
-  const spectralVar = Math.sqrt(varSum / (totalPower + EPS)); // Hz std-dev
+  const spectralVar = Math.sqrt(varSum / (totalPower + EPS));
 
-  // ── 5. Harmonic comb detection (periodicity → music) ────────────────────
-  // Scan for evenly-spaced magnitude peaks in the bass-to-mid range
-  // (kick drum harmonics, bass notes, synth fundamentals).
-  // Count how many of the expected harmonics show up above threshold.
-  let harmonicScore = 0;
-  const fundamental = Math.max(50, centroid * 0.15);  // rough fundamental guess
-  const harmThresh  = (totalPower / N2) * 3;          // 3× mean power
-  let harmChecked = 0;
-  for (let h = 1; h <= 8; h++) {
-    const hHz = fundamental * h;
-    if (hHz > sampleRate / 2) break;
-    const bin = Math.round(hHz / binHz);
-    if (bin > 0 && bin < N2) {
-      harmChecked++;
-      // Check bin ±2 for a peak
-      const peakPow = Math.max(mag[Math.max(0, bin - 2)], mag[bin], mag[Math.min(N2 - 1, bin + 2)]);
-      if (peakPow > harmThresh) harmonicScore++;
-    }
-  }
-  const harmonicRatio = harmChecked > 0 ? harmonicScore / harmChecked : 0;  // 0-1
-
-  // ── 6. Hard override rules (single conditions strong enough to decide) ────
+  // ── 5. High-Confidence Override Rules ────────────────────────────────────
   //
-  // HARD MUSIC: bass + treble simultaneously = impossible for speech
-  const hasBass    = bassRatio > 0.12;
-  const hasTreble  = highRatio > 0.10;
-  const hasMidFill = (eLow + eSpeech) / (totalPower + EPS) > 0.30;
-  // If energy is spread across bass, mid, AND treble → music, period
-  if (hasBass && hasTreble && hasMidFill) {
+  // A) TECHNO / ELECTRONIC / FULL-RANGE MUSIC OVERRIDE:
+  // Strong sub-bass (<100Hz kick/sub) AND rhythmic beat regularity or continuous energy without speech pauses
+  if (
+    (subBassRatio > 0.14 && pauseRatio < 0.08) ||
+    (subBassRatio > 0.08 && highRatio > 0.12 && pauseRatio < 0.10) ||
+    (beatRegularity > 0.42 && pauseRatio < 0.12)
+  ) {
     return {
       type: 'music',
       energy: Math.min(1.0, Math.max(0.15, rms * 5)),
-      _meta: { rms, dynamicRange, centroid, flatness, rolloffHz, speechCoreRatio, highRatio, bassRatio, harmonicRatio, musicScore: 99, speechScore: 0, override: 'broadband' }
+      _meta: { rms, dynamicRange, pauseRatio, syllabicMod, beatRegularity, centroid, flatness, rolloffHz, speechCoreRatio, highRatio, subBassRatio, musicScore: 99, speechScore: 0, override: 'techno_or_broadband_music' }
     };
   }
 
-  // HARD SPEECH: near-zero sub-bass + narrow rolloff = almost certainly speech
-  if (bassRatio < 0.04 && rolloffHz < 4000 && dynamicRange > 0.7) {
+  // B) CLEAR SPEECH OVERRIDE:
+  // Syllabic pauses present + low sub-bass + strong speech formants
+  if (pauseRatio >= 0.12 && subBassRatio < 0.06 && dynamicRange > 0.75) {
     return {
       type: 'speech',
       energy: Math.min(1.0, Math.max(0.15, rms * 5)),
-      _meta: { rms, dynamicRange, centroid, flatness, rolloffHz, speechCoreRatio, highRatio, bassRatio, harmonicRatio, musicScore: 0, speechScore: 99, override: 'narrowband' }
+      _meta: { rms, dynamicRange, pauseRatio, syllabicMod, beatRegularity, centroid, flatness, rolloffHz, speechCoreRatio, highRatio, subBassRatio, musicScore: 0, speechScore: 99, override: 'syllabic_speech' }
     };
   }
 
-  // ── 7. Scored classification ──────────────────────────────────────────────
-
+  // ── 6. Calibrated Multi-Feature Scoring ──────────────────────────────────
   let musicScore = 0;
-
-  // Bass presence — still a music indicator but less dominant
-  // (lowered thresholds to avoid false‑music on spoken audio)
-  if (bassRatio > 0.30)                                 musicScore += 3;
-  else if (bassRatio > 0.18)                            musicScore += 2;
-  else if (bassRatio > 0.10)                            musicScore += 1;
-
-
-
-  // Harmonic periodicity — very reliable music indicator
-  if (harmonicRatio > 0.6)                              musicScore += 3;
-  else if (harmonicRatio > 0.4)                         musicScore += 2;
-  else if (harmonicRatio > 0.25)                        musicScore += 1;
-
-  // Sustained high-frequency content
-  if (highRatio > 0.20)                                 musicScore += 2;
-  else if (highRatio > 0.10)                            musicScore += 1;
-
-  // Rolloff covers most of the audible spectrum
-  if (rolloffHz > 6000)                                 musicScore += 2;
-  else if (rolloffHz > 4500)                            musicScore += 1;
-
-  // Spectral flatness: broad harmonic content
-  if (flatness > 0.08)                                  musicScore += 2;
-  else if (flatness > 0.04)                             musicScore += 1;
-
-  // Spectral spread (std-dev around centroid) — broadband = music
-  if (spectralVar > 2500)                               musicScore += 2;
-  else if (spectralVar > 1500)                          musicScore += 1;
-
-  // Compressed DR — only counts when combined with other music signals
-  if (dynamicRange < 0.4)                               musicScore += 1;
-
   let speechScore = 0;
 
-  // Speech‑core score – give it weight even when bass is present,
-  // because spoken audio often contains low‑frequency rumble.
-  if (speechCoreRatio > 0.55)                           speechScore += 4;
-  else if (speechCoreRatio > 0.40)                      speechScore += 2;
-  else if (speechCoreRatio > 0.25)                      speechScore += 1;
+  // 1. True sub-bass (<100 Hz) — distinguishes 808/909 kicks & basslines from deep male voices (100-250 Hz)
+  if (subBassRatio > 0.18)                              musicScore += 4;
+  else if (subBassRatio > 0.10)                         musicScore += 3;
+  else if (subBassRatio > 0.05)                         musicScore += 1;
+  else if (subBassRatio < 0.025)                        speechScore += 3;
 
-  // High dynamic range → pauses between words/sentences
-  if (dynamicRange > 1.2)                               speechScore += 3;
-  else if (dynamicRange > 0.8)                          speechScore += 1;
+  // 2. Rhythmic beat regularity (autocorrelation at 96–171 BPM)
+  if (beatRegularity > 0.35)                            musicScore += 4;
+  else if (beatRegularity > 0.24)                       musicScore += 2;
+  else if (beatRegularity > 0.16)                       musicScore += 1;
 
-  // Very low sub-bass confirms voice
-  if (bassRatio < 0.04)                                 speechScore += 3;
-  else if (bassRatio < 0.08)                            speechScore += 1;
+  // 3. Inter-syllable / inter-word micro-pauses (speech has natural gaps; techno/ambient/rock has <5% silence)
+  if (pauseRatio >= 0.18)                               speechScore += 4;
+  else if (pauseRatio >= 0.10)                          speechScore += 3;
+  else if (pauseRatio >= 0.05)                          speechScore += 1;
+  else if (pauseRatio < 0.02)                           musicScore += 3; // Continuous wall of sound / synth pad / techno groove
 
-  // Rolloff in voice band
-  if (rolloffHz < 3500)                                 speechScore += 2;
-  else if (rolloffHz < 5000)                            speechScore += 1;
+  // 4. Dynamic range (10th–90th percentile spread)
+  if (dynamicRange > 1.25)                              speechScore += 3;
+  else if (dynamicRange > 0.85)                         speechScore += 2;
+  else if (dynamicRange < 0.45)                         musicScore += 2;
 
-  // Centroid in voice formant range
-  if (centroid > 200 && centroid < 2500)                speechScore += 1;
+  // 5. 4Hz syllabic modulation (strong in natural speech when combined with low beat regularity)
+  if (syllabicMod > 0.22 && beatRegularity < 0.25)      speechScore += 2;
+  else if (syllabicMod < 0.10)                          musicScore += 1;
 
-  // Require music to win clearly
-  const isMusic = musicScore >= 6 && musicScore > speechScore + 2;
+  // 6. High-frequency & air content (hi-hats, ride cymbals, synth harmonics vs voice rolloff)
+  if (highRatio > 0.18 || airRatio > 0.05)              musicScore += 2;
+  else if (highRatio > 0.10)                            musicScore += 1;
+
+  if (rolloffHz > 6200)                                 musicScore += 2;
+  else if (rolloffHz > 4600)                            musicScore += 1;
+  else if (rolloffHz < 3400)                            speechScore += 2;
+
+  // 7. Spectral spread & flatness (minimal techno & ambient pads have wide variance or high flatness)
+  if (spectralVar > 2400)                               musicScore += 2;
+  else if (spectralVar < 1300)                          speechScore += 1;
+
+  if (flatness > 0.07)                                  musicScore += 1;
+
+  // 8. Vocal formant concentration (only award speech points if pauseRatio or dynamicRange supports voice)
+  if (speechCoreRatio > 0.45 && (pauseRatio >= 0.04 || dynamicRange > 0.65)) {
+    speechScore += 2;
+  }
+  if (voiceFundRatio > 0.25 && subBassRatio < 0.05 && pauseRatio >= 0.05) {
+    speechScore += 2; // Warm/deep spoken voice without sub-bass kick
+  }
+
+  const isMusic = musicScore >= 6 && musicScore > speechScore + 1;
 
   return {
     type: isMusic ? 'music' : 'speech',
     energy: Math.min(1.0, Math.max(0.15, rms * 5)),
-    _meta: { rms, dynamicRange, centroid, flatness, rolloffHz, speechCoreRatio, highRatio, bassRatio, harmonicRatio, spectralVar, musicScore, speechScore }
+    _meta: {
+      rms,
+      dynamicRange,
+      pauseRatio,
+      syllabicMod,
+      beatRegularity,
+      centroid,
+      flatness,
+      rolloffHz,
+      speechCoreRatio,
+      highRatio,
+      subBassRatio,
+      spectralVar,
+      musicScore,
+      speechScore
+    }
   };
 }
 
