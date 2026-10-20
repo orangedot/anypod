@@ -89,9 +89,42 @@ async function refreshAllFeeds() {
   };
 
   // Process feeds in bounded concurrent chunks (max 5 in-flight)
-  // to avoid overloading Cloudflare Workers subrequest limits and causing 503s.
+  // Prioritize recently played feeds and active listening feeds first so fresh episodes
+  // for your current shows arrive on the timeline immediately.
   const CONCURRENCY = 5;
-  const queue = [...state.feeds];
+
+  const feedPriority = new Map();
+  const currentFeedUrl = state.currentEpisode?.feedUrl;
+  if (currentFeedUrl) {
+    feedPriority.set(currentFeedUrl, Date.now() + 10000000); // Active playing show gets top priority
+  }
+
+  // Calculate highest lastListenedAt per feed across all episodes
+  if (state.allEpisodes && state.playbackPositions) {
+    state.allEpisodes.forEach(ep => {
+      if (!ep || !ep.feedUrl) return;
+      const pos = state.playbackPositions[ep.guid];
+      if (!pos) return;
+
+      let score = 0;
+      if (pos.lastListenedAt) {
+        const t = new Date(pos.lastListenedAt).getTime();
+        if (!isNaN(t)) score = t;
+      } else if (pos.position && pos.position > 2) {
+        score = 1; // Played something in this feed even without timestamp
+      }
+
+      if (score > (feedPriority.get(ep.feedUrl) || 0)) {
+        feedPriority.set(ep.feedUrl, score);
+      }
+    });
+  }
+
+  const queue = [...state.feeds].sort((a, b) => {
+    const scoreA = feedPriority.get(a) || 0;
+    const scoreB = feedPriority.get(b) || 0;
+    return scoreB - scoreA;
+  });
   const workers = Array(Math.min(CONCURRENCY, queue.length)).fill(0).map(async () => {
     while (queue.length > 0) {
       const url = queue.shift();
