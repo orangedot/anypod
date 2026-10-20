@@ -5530,7 +5530,7 @@ body.has-active-episode.has-mini-player .player-mini {
   }
 
   body.has-active-episode.has-mini-player .bottom-action-dock {
-    bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(55px + env(safe-area-inset-bottom, 0px)) !important;
     z-index: 120;
   }
 
