@@ -4,44 +4,224 @@
   const Shared = window.AnypodShared || {};
 
   // ───────────────────────────────────────────────────────────────────
-  // 1. DATA PRESETS & TEMPLATES
+  // 0. YOUTUBE & URL HELPERS
+  // ───────────────────────────────────────────────────────────────────
+  function extractYouTubeId(url) {
+    if (!url) return null;
+    const str = String(url);
+    const m = str.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|shorts\/|watch\?v=|watch\?.+&v=))([\w-]{11})/i);
+    return m ? m[1] : null;
+  }
+
+  function isYouTubeShortUrl(url) {
+    return Boolean(url && String(url).includes('/shorts/'));
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('sets-toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.classList.remove('show'), 2300);
+  }
+
+  const createSynthBeat = (bpm, style) => {
+    if (Shared.createSynthBeatBlobUrl) {
+      const u = Shared.createSynthBeatBlobUrl(bpm, style);
+      if (u) return u;
+    }
+    return 'https://cdn.freesound.org/previews/381/381382_1676145-lq.mp3';
+  };
+
+  // ───────────────────────────────────────────────────────────────────
+  // 1. DATA PRESETS, SYNTH BEATS & 30-MINUTE WORKOUT TEMPLATES
   // ───────────────────────────────────────────────────────────────────
   const SAMPLE_BEATS = [
     {
       id: 'sample-909',
-      title: '909 Deep Tech Beat',
+      title: '909 Deep Tech Beat (Offline Synth)',
       podcastTitle: 'Anypod DJ Tools',
       bpm: 128,
-      sourceUrl: 'https://cdn.freesound.org/previews/381/381382_1676145-lq.mp3',
-      startTimeSec: 0
-    },
-    {
-      id: 'sample-funk',
-      title: 'Funk Breakbeat & Bassline',
-      podcastTitle: 'Anypod DJ Tools',
-      bpm: 124,
-      sourceUrl: 'https://cdn.freesound.org/previews/242/242857_4284968-lq.mp3',
-      startTimeSec: 0
+      style: 'house',
+      sourceUrl: createSynthBeat(128, 'house'),
+      startTimeSec: 0,
+      endTimeSec: 20,
+      loop: true,
+      playbackMode: 'loop'
     },
     {
       id: 'sample-acid',
-      title: 'Acid Resonance Bassline',
+      title: 'Acid 303 Sprint Bassline',
       podcastTitle: 'Anypod DJ Tools',
-      bpm: 130,
-      sourceUrl: 'https://cdn.freesound.org/previews/450/450621_649468-lq.mp3',
-      startTimeSec: 0
+      bpm: 134,
+      style: 'acid',
+      sourceUrl: createSynthBeat(134, 'acid'),
+      startTimeSec: 0,
+      endTimeSec: 20,
+      loop: true,
+      playbackMode: 'loop'
     },
     {
-      id: 'sample-vocal',
-      title: 'Hypnotic Vocal FX Stems',
+      id: 'sample-techno',
+      title: 'Peak-Time Boxing Techno Drive',
       podcastTitle: 'Anypod DJ Tools',
-      bpm: 126,
-      sourceUrl: 'https://cdn.freesound.org/previews/173/173859_321967-lq.mp3',
-      startTimeSec: 0
+      bpm: 138,
+      style: 'techno',
+      sourceUrl: createSynthBeat(138, 'techno'),
+      startTimeSec: 0,
+      endTimeSec: 30,
+      loop: true,
+      playbackMode: 'loop'
+    },
+    {
+      id: 'sample-funk',
+      title: 'Zone 2 Groove & Breakbeat',
+      podcastTitle: 'Anypod DJ Tools',
+      bpm: 122,
+      style: 'house',
+      sourceUrl: createSynthBeat(122, 'house'),
+      startTimeSec: 0,
+      endTimeSec: 30,
+      loop: true,
+      playbackMode: 'loop'
     }
   ];
 
   const TEMPLATES = {
+    hiit30m: {
+      id: 'tpl_hiit30m',
+      title: '30-Min HIIT Sweat Session',
+      sections: [
+        {
+          id: 'sec_h30_warm',
+          name: 'Dynamic Warmup (3 Min)',
+          repeatCount: 1,
+          blocks: [
+            { id: 'b_h30_w1', type: 'warmup', label: 'Light Jog, Arm Circles & Hip Openers', durationSec: 90, cueOverlay: 'beeps', audioSegment: SAMPLE_BEATS[3] },
+            { id: 'b_h30_w2', type: 'warmup', label: 'High Knees & Bodyweight Squat Prep', durationSec: 90, cueOverlay: 'beeps', audioSegment: SAMPLE_BEATS[3] }
+          ]
+        },
+        {
+          id: 'sec_h30_main',
+          name: 'HIIT Sweat Core (24 Min • 40s/20s)',
+          repeatCount: 6,
+          blocks: [
+            { id: 'b_h30_1w', type: 'work', label: 'Burpee Broad Jumps / High Output', durationSec: 40, cueOverlay: 'beeps', audioSegment: SAMPLE_BEATS[1] },
+            { id: 'b_h30_1r', type: 'rest', label: 'Breathe & Shake Out', durationSec: 20, cueOverlay: 'beeps' },
+            { id: 'b_h30_2w', type: 'work', label: 'Alternating Reverse Lunge Drives', durationSec: 40, cueOverlay: 'beeps', audioSegment: SAMPLE_BEATS[0] },
+            { id: 'b_h30_2r', type: 'rest', label: 'Active Recovery Walk', durationSec: 20, cueOverlay: 'beeps' },
+            { id: 'b_h30_3w', type: 'work', label: 'Explosive Push-Ups / Shoulder Taps', durationSec: 40, cueOverlay: 'beeps', audioSegment: SAMPLE_BEATS[2] },
+            { id: 'b_h30_3r', type: 'rest', label: 'Deep Nasal Breathing', durationSec: 20, cueOverlay: 'beeps' },
+            { id: 'b_h30_4w', type: 'work', label: 'Mountain Climbers Sprint', durationSec: 40, cueOverlay: 'beeps', audioSegment: SAMPLE_BEATS[1] },
+            { id: 'b_h30_4r', type: 'rest', label: 'Hydrate & Reset Next Round', durationSec: 20, cueOverlay: 'beeps' }
+          ]
+        },
+        {
+          id: 'sec_h30_cool',
+          name: 'Decompression & Stretch (3 Min)',
+          repeatCount: 1,
+          blocks: [
+            { id: 'b_h30_c1', type: 'cooldown', label: 'Slow Walk & Heart Rate Down-Regulation', durationSec: 90, cueOverlay: 'beeps' },
+            { id: 'b_h30_c2', type: 'cooldown', label: 'Hamstring, Hip Flexor & Thoracic Stretch', durationSec: 90, cueOverlay: 'beeps' }
+          ]
+        }
+      ]
+    },
+    emom30m: {
+      id: 'tpl_emom30m',
+      title: '30-Min EMOM Power Conditioning',
+      sections: [
+        {
+          id: 'sec_e30_warm',
+          name: 'Mobility & Activation (2 Min)',
+          repeatCount: 1,
+          blocks: [
+            { id: 'b_e30_w', type: 'warmup', label: 'Inchworms, Kettlebell Halos & Glute Bridges', durationSec: 120, cueOverlay: 'beeps', audioSegment: SAMPLE_BEATS[3] }
+          ]
+        },
+        {
+          id: 'sec_e30_emom',
+          name: 'Every Minute On The Minute (26 Rounds)',
+          repeatCount: 26,
+          blocks: [
+            { id: 'b_e30_work', type: 'work', label: 'EMOM Target Reps (45s Power Window)', durationSec: 45, cueOverlay: 'beeps', audioSegment: SAMPLE_BEATS[0] },
+            { id: 'b_e30_rest', type: 'rest', label: 'Top-of-Minute Transition', durationSec: 15, cueOverlay: 'beeps' }
+          ]
+        },
+        {
+          id: 'sec_e30_cool',
+          name: 'Cooldown Breathwork (2 Min)',
+          repeatCount: 1,
+          blocks: [
+            { id: 'b_e30_c', type: 'cooldown', label: 'Box Breathing & Floor Stretch', durationSec: 120, cueOverlay: 'beeps' }
+          ]
+        }
+      ]
+    },
+    boxing30m: {
+      id: 'tpl_boxing30m',
+      title: '30-Min Championship Boxing / MMA Rounds',
+      sections: [
+        {
+          id: 'sec_bx_warm',
+          name: 'Jump Rope & Shadow Warmup (3 Min)',
+          repeatCount: 1,
+          blocks: [
+            { id: 'b_bx_w1', type: 'warmup', label: 'Jump Rope Rhythm & Footwork Bounce', durationSec: 180, cueOverlay: 'beeps', audioSegment: SAMPLE_BEATS[3] }
+          ]
+        },
+        {
+          id: 'sec_bx_rounds',
+          name: '6 Championship Rounds (3m Fight / 1m Corner)',
+          repeatCount: 6,
+          blocks: [
+            { id: 'b_bx_fight', type: 'work', label: '3-Min Heavy Bag / Shadowboxing Combinations', durationSec: 150, cueOverlay: 'beeps', audioSegment: SAMPLE_BEATS[2] },
+            { id: 'b_bx_burn', type: 'work', label: 'Final 30s Knockout Flurry (Non-Stop)', durationSec: 30, cueOverlay: 'beeps', audioSegment: SAMPLE_BEATS[1] },
+            { id: 'b_bx_corner', type: 'rest', label: '1-Min Corner Recovery & Guard Check', durationSec: 60, cueOverlay: 'beeps' }
+          ]
+        },
+        {
+          id: 'sec_bx_cool',
+          name: 'Core & Cooldown (3 Min)',
+          repeatCount: 1,
+          blocks: [
+            { id: 'b_bx_c1', type: 'cooldown', label: 'Shoulder, Wrist & Neck Decompression', durationSec: 180, cueOverlay: 'beeps' }
+          ]
+        }
+      ]
+    },
+    podcastRun30m: {
+      id: 'tpl_podcastrun30m',
+      title: '30-Min Podcast Zone-2 + Sprint Surges',
+      sections: [
+        {
+          id: 'sec_pr_warm',
+          name: 'Easy Ramp-Up Walk/Jog (3 Min)',
+          repeatCount: 1,
+          blocks: [
+            { id: 'b_pr_w', type: 'warmup', label: 'Easy Stride & Cadence Check', durationSec: 180, cueOverlay: 'beeps', audioSegment: Object.assign({}, SAMPLE_BEATS[3], { playbackMode: 'flow', loop: false }) }
+          ]
+        },
+        {
+          id: 'sec_pr_main',
+          name: '8x (2:30 Zone-2 Podcast Flow + 30s Surge)',
+          repeatCount: 8,
+          blocks: [
+            { id: 'b_pr_z2', type: 'rest', label: 'Zone-2 Conversational Pace (Podcast Flow)', durationSec: 150, cueOverlay: 'beeps', audioSegment: Object.assign({}, SAMPLE_BEATS[3], { playbackMode: 'flow', loop: false }) },
+            { id: 'b_pr_sp', type: 'work', label: '30s Fast Stride Surge (+Beat Overlay)', durationSec: 30, cueOverlay: 'beeps', audioSegment: SAMPLE_BEATS[1] }
+          ]
+        },
+        {
+          id: 'sec_pr_cool',
+          name: 'Easy Walk Down (3 Min)',
+          repeatCount: 1,
+          blocks: [
+            { id: 'b_pr_c', type: 'cooldown', label: 'Relaxed Cooldown Walk', durationSec: 180, cueOverlay: 'beeps' }
+          ]
+        }
+      ]
+    },
     tabata: {
       id: 'tpl_tabata',
       title: 'Classic 4-Min Tabata',
@@ -97,13 +277,13 @@
           name: 'Strength Circuit',
           repeatCount: 5,
           blocks: [
-            { id: 'b_sq', type: 'work', label: 'Goblet Squats', durationSec: 45, cueOverlay: 'beeps' },
+            { id: 'b_sq', type: 'work', label: 'Goblet Squats', durationSec: 45, cueOverlay: 'beeps', audioSegment: SAMPLE_BEATS[0] },
             { id: 'b_sq_r', type: 'rest', label: 'Transition', durationSec: 15, cueOverlay: 'beeps' },
-            { id: 'b_pu', type: 'work', label: 'Push-Ups / Floor Press', durationSec: 45, cueOverlay: 'beeps' },
+            { id: 'b_pu', type: 'work', label: 'Push-Ups / Floor Press', durationSec: 45, cueOverlay: 'beeps', audioSegment: SAMPLE_BEATS[1] },
             { id: 'b_pu_r', type: 'rest', label: 'Transition', durationSec: 15, cueOverlay: 'beeps' },
-            { id: 'b_kb', type: 'work', label: 'Kettlebell Swings', durationSec: 45, cueOverlay: 'beeps' },
+            { id: 'b_kb', type: 'work', label: 'Kettlebell Swings', durationSec: 45, cueOverlay: 'beeps', audioSegment: SAMPLE_BEATS[2] },
             { id: 'b_kb_r', type: 'rest', label: 'Transition', durationSec: 15, cueOverlay: 'beeps' },
-            { id: 'b_pl', type: 'work', label: 'Core Plank Hold', durationSec: 45, cueOverlay: 'beeps' },
+            { id: 'b_pl', type: 'work', label: 'Core Plank Hold', durationSec: 45, cueOverlay: 'beeps', audioSegment: SAMPLE_BEATS[0] },
             { id: 'b_pl_r', type: 'rest', label: 'Round Recovery', durationSec: 45, cueOverlay: 'beeps' }
           ]
         },
@@ -116,49 +296,11 @@
           ]
         }
       ]
-    },
-    hiit1min: {
-      id: 'tpl_hiit',
-      title: '1-Minute HIIT Sprints',
-      sections: [
-        {
-          id: 'sec_h_w',
-          name: 'Warmup Jog',
-          repeatCount: 1,
-          blocks: [
-            { id: 'b_hw', type: 'warmup', label: 'Zone 2 Jog', durationSec: 90, cueOverlay: 'beeps' }
-          ]
-        },
-        {
-          id: 'sec_h_sprints',
-          name: 'Sprint / Float Blocks',
-          repeatCount: 8,
-          blocks: [
-            {
-              id: 'b_hs',
-              type: 'work',
-              label: 'All-Out Sprint',
-              durationSec: 60,
-              cueOverlay: 'beeps',
-              audioSegment: SAMPLE_BEATS[1]
-            },
-            { id: 'b_hr', type: 'rest', label: 'Active Walk Recovery', durationSec: 60, cueOverlay: 'beeps' }
-          ]
-        },
-        {
-          id: 'sec_h_cool',
-          name: 'Cooldown',
-          repeatCount: 1,
-          blocks: [
-            { id: 'b_hc', type: 'cooldown', label: 'Normalizing Walk', durationSec: 90, cueOverlay: 'beeps' }
-          ]
-        }
-      ]
     }
   };
 
   // ───────────────────────────────────────────────────────────────────
-  // 2. TIMELINE COMPILER & MATH (DELEGATES TO AnypodShared)
+  // 2. TIMELINE COMPILER & MATH
   // ───────────────────────────────────────────────────────────────────
   function compileRoutine(routine) {
     if (!routine || !Array.isArray(routine.sections)) return [];
@@ -175,6 +317,7 @@
           timeline.push({
             id: `${section.id}_s${sIdx}_r${iter}_b${bIdx}`,
             sectionIndex: sIdx,
+            blockIndex: bIdx,
             sectionName: section.name,
             iteration: iter,
             totalIterations: repeats,
@@ -198,6 +341,13 @@
     return (m < 10 ? '0' : '') + m + ':' + (remSec < 10 ? '0' : '') + remSec;
   }
 
+  function formatPreciseSec(s) {
+    if (!s || isNaN(s) || s < 0) return '00:00.0';
+    const mins = Math.floor(s / 60);
+    const secs = (s % 60).toFixed(1);
+    return `${mins < 10 ? '0' : ''}${mins}:${Number(secs) < 10 ? '0' : ''}${secs}`;
+  }
+
   function escapeHtml(str) {
     if (Shared.escapeHtml) return Shared.escapeHtml(str);
     if (!str) return '';
@@ -209,19 +359,36 @@
   }
 
   // ───────────────────────────────────────────────────────────────────
-  // 3. NATIVE WEB AUDIO ENGINE (DUAL DECK + SYNTHESIZED CUES)
+  // 3. HYBRID WORKOUT AUDIO & YOUTUBE LOOP ENGINE
+  //    Supports:
+  //    - Precision A-B Loops (startTimeSec -> endTimeSec)
+  //    - Continuous Podcast/Mix Flow (remembers position across intervals)
+  //    - YouTube / Shorts IFrame Player A-B Loops
+  //    - 128 BPM Synth Beat Overlay (layers driving drums under podcasts)
   // ───────────────────────────────────────────────────────────────────
   class WorkoutAudioEngine {
     constructor() {
       this.ctx = null;
       this.masterGain = null;
       this.cueGain = null;
+      this.beatOverlayGain = null;
       this.activeDeck = 'A';
       this.crossfadeVal = 0;
       this.beepsEnabled = true;
       this.voiceEnabled = true;
-      this.masterVolume = 0.9;
+      this.beatOverlayEnabled = false;
+      this.masterVolume = 0.92;
       this.broadcastChannel = null;
+
+      // Track continuous playback positions by sourceUrl so podcasts resume seamlessly
+      this.continuousPositions = {};
+      this.currentBlock = null;
+
+      // YouTube Player State for Workout View
+      this.ytPlayer = null;
+      this.ytReady = false;
+      this.ytActiveVideoId = null;
+      this.activeEngineType = 'audio'; // 'audio' | 'youtube'
 
       const makeAudio = () => {
         const a = new Audio();
@@ -232,9 +399,14 @@
       };
 
       this.decks = {
-        A: { audio: makeAudio(), source: null, gain: null, segment: null, isPrebuffered: false },
-        B: { audio: makeAudio(), source: null, gain: null, segment: null, isPrebuffered: false }
+        A: { audio: makeAudio(), source: null, filter: null, gain: null, segment: null, isPrebuffered: false },
+        B: { audio: makeAudio(), source: null, filter: null, gain: null, segment: null, isPrebuffered: false }
       };
+
+      // Dedicated procedural drum overlay player for layering beats under spoken podcasts
+      this.beatDeck = makeAudio();
+      this.beatDeck.loop = true;
+      this.beatDeck.src = createSynthBeat(128, 'house');
 
       try {
         if ('BroadcastChannel' in window) {
@@ -253,20 +425,33 @@
         this.masterGain.connect(this.ctx.destination);
 
         this.cueGain = this.ctx.createGain();
-        this.cueGain.gain.setValueAtTime(0.9, this.ctx.currentTime);
+        this.cueGain.gain.setValueAtTime(0.95, this.ctx.currentTime);
         this.cueGain.connect(this.ctx.destination);
+
+        this.beatOverlayGain = this.ctx.createGain();
+        this.beatOverlayGain.gain.setValueAtTime(0.0, this.ctx.currentTime);
+        this.beatOverlayGain.connect(this.ctx.destination);
 
         ['A', 'B'].forEach((id) => {
           const d = this.decks[id];
           try {
             d.source = this.ctx.createMediaElementSource(d.audio);
+            d.filter = this.ctx.createBiquadFilter();
+            d.filter.type = 'lowpass';
+            d.filter.frequency.value = 18000;
             d.gain = this.ctx.createGain();
-            d.source.connect(d.gain);
+            d.source.connect(d.filter);
+            d.filter.connect(d.gain);
             d.gain.connect(this.masterGain);
           } catch (err) {
             console.warn('[AudioEngine] MediaElementSource init:', err);
           }
         });
+
+        try {
+          const beatSrc = this.ctx.createMediaElementSource(this.beatDeck);
+          beatSrc.connect(this.beatOverlayGain);
+        } catch (_) {}
 
         this.setCrossfade(0, true);
       }
@@ -301,8 +486,38 @@
       if (this.decks.B.gain) this.decks.B.gain.gain.setTargetAtTime(gB, t, tc);
     }
 
+    updateBeatOverlayState(isRunning, blockType) {
+      if (!this.ctx || !this.beatOverlayGain) return;
+      const shouldPlayBeat = isRunning && this.beatOverlayEnabled && blockType === 'work';
+      const now = this.ctx.currentTime;
+      if (shouldPlayBeat) {
+        if (this.beatDeck.paused) {
+          this.beatDeck.play().catch(() => {});
+        }
+        this.beatOverlayGain.gain.setTargetAtTime(0.45, now, 0.08);
+      } else {
+        this.beatOverlayGain.gain.setTargetAtTime(0.0, now, 0.12);
+        if (!isRunning && !this.beatDeck.paused) {
+          this.beatDeck.pause();
+        }
+      }
+    }
+
+    saveActiveFlowPosition() {
+      const active = this.decks[this.activeDeck];
+      if (active && active.segment && active.segment.sourceUrl && active.segment.playbackMode === 'flow') {
+        if (this.activeEngineType === 'youtube' && this.ytPlayer && typeof this.ytPlayer.getCurrentTime === 'function') {
+          this.continuousPositions[active.segment.sourceUrl] = this.ytPlayer.getCurrentTime();
+        } else if (active.audio && !isNaN(active.audio.currentTime)) {
+          this.continuousPositions[active.segment.sourceUrl] = active.audio.currentTime;
+        }
+      }
+    }
+
     async playBlock(block, crossfade = true) {
       await this.ensureContext();
+      this.saveActiveFlowPosition();
+      this.currentBlock = block;
       const seg = block.audioSegment;
 
       if (Shared.notifyWorkoutActive) {
@@ -313,59 +528,101 @@
         } catch (_) {}
       }
 
+      this.updateBeatOverlayState(true, block.type);
+
+      const ytViewport = document.getElementById('player-yt-viewport');
+
       if (!seg || !seg.sourceUrl) {
-        this.fadeDecksOut(crossfade ? 1.5 : 0.1);
+        if (ytViewport) ytViewport.classList.remove('yt-visible');
+        this.pauseYouTube();
+        this.fadeDecksOut(crossfade ? 1.0 : 0.1);
+        return;
+      }
+
+      const ytId = seg.videoId || extractYouTubeId(seg.sourceUrl);
+      if (ytId) {
+        // Play via YouTube / Shorts Engine
+        this.activeEngineType = 'youtube';
+        this.fadeDecksOut(0.2);
+        if (ytViewport) {
+          ytViewport.classList.add('yt-visible');
+          ytViewport.classList.toggle('yt-shorts-mode', isYouTubeShortUrl(seg.sourceUrl));
+        }
+        const startSec = seg.playbackMode === 'flow' && this.continuousPositions[seg.sourceUrl] != null
+          ? this.continuousPositions[seg.sourceUrl]
+          : (seg.startTimeSec || 0);
+        this.decks[this.activeDeck].segment = seg;
+        this.playYouTubeSegment(ytId, startSec, block.type === 'rest' ? 40 : 100);
+        return;
+      }
+
+      // Standard HTML5 / WebAudio Deck Engine
+      this.activeEngineType = 'audio';
+      if (ytViewport) ytViewport.classList.remove('yt-visible');
+      this.pauseYouTube();
+
+      const oldDeckId = this.activeDeck;
+      const oldDeck = this.decks[oldDeckId];
+
+      // If same source URL in 'flow' mode is already playing on active deck, keep it rolling smoothly!
+      const streamUrl = this.resolveUrl(seg.sourceUrl);
+      if (seg.playbackMode === 'flow' && oldDeck.segment && oldDeck.segment.sourceUrl === seg.sourceUrl && !oldDeck.audio.paused) {
+        oldDeck.segment = seg;
+        const now = this.ctx.currentTime;
+        const isRest = block.type === 'rest' || block.type === 'cooldown';
+        if (oldDeck.filter) {
+          oldDeck.filter.frequency.setTargetAtTime(isRest ? 1400 : 18000, now, 0.25);
+        }
+        if (oldDeck.gain) {
+          oldDeck.gain.gain.setTargetAtTime(isRest ? 0.55 : 1.0, now, 0.25);
+        }
         return;
       }
 
       const targetDeckId = this.activeDeck === 'A' ? 'B' : 'A';
-      const oldDeckId = this.activeDeck;
       const targetDeck = this.decks[targetDeckId];
-      const oldDeck = this.decks[oldDeckId];
 
-      const streamUrl = this.resolveUrl(seg.sourceUrl);
+      const desiredStart = seg.playbackMode === 'flow' && this.continuousPositions[seg.sourceUrl] != null
+        ? this.continuousPositions[seg.sourceUrl]
+        : (seg.startTimeSec || 0);
 
       if (!targetDeck.isPrebuffered || targetDeck.audio.src !== streamUrl) {
         targetDeck.audio.src = streamUrl;
-        targetDeck.audio.currentTime = seg.startTimeSec || 0;
+        targetDeck.audio.currentTime = desiredStart;
         targetDeck.audio.load();
-      } else if (seg.startTimeSec && Math.abs(targetDeck.audio.currentTime - seg.startTimeSec) > 1.5) {
-        targetDeck.audio.currentTime = seg.startTimeSec;
+      } else if (Math.abs(targetDeck.audio.currentTime - desiredStart) > 1.2) {
+        targetDeck.audio.currentTime = desiredStart;
       }
 
+      // Native loop if no custom endTimeSec is set and mode is loop
+      targetDeck.audio.loop = (seg.playbackMode !== 'flow') && !(seg.endTimeSec && seg.endTimeSec > (seg.startTimeSec || 0));
       targetDeck.segment = seg;
       targetDeck.isPrebuffered = false;
 
-      // Fallback if proxy fails (404/502)
+      if (targetDeck.filter && this.ctx) {
+        const isRest = block.type === 'rest' || block.type === 'cooldown';
+        targetDeck.filter.frequency.setTargetAtTime(isRest ? 1600 : 18000, this.ctx.currentTime, 0.15);
+      }
+
+      // Fallback if proxy fails
       const onProxyErr = () => {
         targetDeck.audio.removeEventListener('error', onProxyErr);
         if (targetDeck.audio.src.includes('/api/audio-proxy') && seg.sourceUrl) {
-          console.warn('[sets-audio] Proxy error, falling back to direct stream:', seg.sourceUrl);
           targetDeck.audio.src = seg.sourceUrl;
           targetDeck.audio.load();
         }
       };
       targetDeck.audio.addEventListener('error', onProxyErr, { once: true });
 
-      // Offline Cache API support via AnypodShared
-      if (seg.sourceUrl) {
-        if (Shared.matchOfflineAudioCache) {
-          Shared.matchOfflineAudioCache(seg.sourceUrl).then((blobUrl) => {
-            if (blobUrl) {
-              targetDeck.audio.src = blobUrl;
-              targetDeck.audio.load();
-            }
-          }).catch(() => {});
-        } else if ('caches' in window) {
-          caches.open('anypod-audio-v1').then(async (c) => {
-            const match = await c.match(seg.sourceUrl);
-            if (match) {
-              const b = await match.blob();
-              targetDeck.audio.src = URL.createObjectURL(b);
-              targetDeck.audio.load();
-            }
-          }).catch(() => {});
-        }
+      // Offline Cache API support
+      if (seg.sourceUrl && Shared.matchOfflineAudioCache) {
+        Shared.matchOfflineAudioCache(seg.sourceUrl).then((blobUrl) => {
+          if (blobUrl && targetDeck.segment === seg) {
+            targetDeck.audio.src = blobUrl;
+            targetDeck.audio.currentTime = desiredStart;
+            targetDeck.audio.play().catch(() => {});
+          }
+        }).catch(() => {});
       }
 
       try {
@@ -374,26 +631,28 @@
         console.warn('[AudioEngine] Play failed:', err);
       }
 
+      const targetVol = (block.type === 'rest' && seg.duckOnRest) ? 0.45 : 1.0;
+
       if (crossfade && this.ctx) {
         const t = this.ctx.currentTime;
-        const dur = 2.0;
+        const dur = 1.2;
 
         if (targetDeckId === 'B') {
           this.decks.A.gain?.gain.setValueAtTime(1, t);
           this.decks.A.gain?.gain.linearRampToValueAtTime(0, t + dur);
           this.decks.B.gain?.gain.setValueAtTime(0, t);
-          this.decks.B.gain?.gain.linearRampToValueAtTime(1, t + dur);
+          this.decks.B.gain?.gain.linearRampToValueAtTime(targetVol, t + dur);
         } else {
           this.decks.B.gain?.gain.setValueAtTime(1, t);
           this.decks.B.gain?.gain.linearRampToValueAtTime(0, t + dur);
           this.decks.A.gain?.gain.setValueAtTime(0, t);
-          this.decks.A.gain?.gain.linearRampToValueAtTime(1, t + dur);
+          this.decks.A.gain?.gain.linearRampToValueAtTime(targetVol, t + dur);
         }
 
         this.activeDeck = targetDeckId;
         setTimeout(() => {
           if (this.activeDeck === targetDeckId) oldDeck.audio.pause();
-        }, dur * 1000 + 100);
+        }, dur * 1000 + 80);
       } else {
         this.activeDeck = targetDeckId;
         this.setCrossfade(targetDeckId === 'A' ? 0 : 1, true);
@@ -401,8 +660,131 @@
       }
     }
 
+    /**
+     * Enforces tight A-B loop boundaries on every animation frame (both HTML5 Audio & YouTube Shorts/Videos).
+     */
+    checkLoopBoundaries() {
+      const active = this.decks[this.activeDeck];
+      const seg = active?.segment;
+      if (!seg) return;
+
+      const isLoopMode = seg.playbackMode !== 'flow' && seg.loop !== false;
+      const startSec = Number(seg.startTimeSec) || 0;
+      const endSec = Number(seg.endTimeSec) || 0;
+
+      if (this.activeEngineType === 'youtube') {
+        if (this.ytPlayer && this.ytReady && typeof this.ytPlayer.getCurrentTime === 'function') {
+          const curT = this.ytPlayer.getCurrentTime();
+          if (isLoopMode && endSec > startSec + 0.5 && curT >= endSec - 0.08) {
+            this.ytPlayer.seekTo(startSec, true);
+          }
+        }
+        return;
+      }
+
+      if (active && active.audio && !active.audio.paused) {
+        const curT = active.audio.currentTime;
+        if (isLoopMode && endSec > startSec + 0.4 && curT >= endSec - 0.06) {
+          active.audio.currentTime = startSec;
+          active.audio.play().catch(() => {});
+        } else if (isLoopMode && endSec <= startSec && active.audio.duration && curT >= active.audio.duration - 0.08) {
+          active.audio.currentTime = startSec;
+          active.audio.play().catch(() => {});
+        }
+      }
+    }
+
+    getCurrentPlayheadInfo() {
+      const active = this.decks[this.activeDeck];
+      const seg = active?.segment;
+      if (!seg) return { currentTime: 0, duration: 0, startSec: 0, endSec: 0 };
+
+      const startSec = Number(seg.startTimeSec) || 0;
+      let duration = 30;
+      let currentTime = startSec;
+
+      if (this.activeEngineType === 'youtube' && this.ytPlayer && this.ytReady) {
+        currentTime = typeof this.ytPlayer.getCurrentTime === 'function' ? this.ytPlayer.getCurrentTime() : startSec;
+        duration = typeof this.ytPlayer.getDuration === 'function' ? (this.ytPlayer.getDuration() || 60) : 60;
+      } else if (active && active.audio) {
+        currentTime = active.audio.currentTime || 0;
+        duration = (active.audio.duration && isFinite(active.audio.duration)) ? active.audio.duration : Math.max(30, (seg.endTimeSec || 30));
+      }
+
+      const endSec = (seg.endTimeSec && seg.endTimeSec > startSec) ? seg.endTimeSec : duration;
+      return { currentTime, duration, startSec, endSec };
+    }
+
+    playYouTubeSegment(videoId, startSec = 0, volume = 100) {
+      if (this.ytPlayer && this.ytReady && typeof this.ytPlayer.loadVideoById === 'function') {
+        if (this.ytActiveVideoId !== videoId) {
+          this.ytActiveVideoId = videoId;
+          this.ytPlayer.loadVideoById({ videoId, startSeconds: startSec });
+        } else {
+          this.ytPlayer.seekTo(startSec, true);
+          this.ytPlayer.playVideo();
+        }
+        if (typeof this.ytPlayer.setVolume === 'function') this.ytPlayer.setVolume(volume);
+        return;
+      }
+
+      const createYt = () => {
+        if (!window.YT || !window.YT.Player) return;
+        this.ytActiveVideoId = videoId;
+        this.ytPlayer = new window.YT.Player('player-yt-slot', {
+          width: '100%',
+          height: '100%',
+          videoId,
+          playerVars: {
+            autoplay: 1,
+            controls: 0,
+            disablekb: 1,
+            fs: 0,
+            modestbranding: 1,
+            playsinline: 1,
+            rel: 0,
+            start: Math.floor(startSec)
+          },
+          events: {
+            onReady: () => {
+              this.ytReady = true;
+              this.ytPlayer.setVolume(volume);
+              this.ytPlayer.seekTo(startSec, true);
+              this.ytPlayer.playVideo();
+            },
+            onStateChange: (e) => {
+              if (e.data === window.YT.PlayerState.ENDED) {
+                const seg = this.decks[this.activeDeck]?.segment;
+                const s = Number(seg?.startTimeSec) || 0;
+                this.ytPlayer.seekTo(s, true);
+                this.ytPlayer.playVideo();
+              }
+            }
+          }
+        });
+      };
+
+      if (window.YT && window.YT.Player) {
+        createYt();
+      } else {
+        const poll = setInterval(() => {
+          if (window.YT && window.YT.Player) {
+            clearInterval(poll);
+            createYt();
+          }
+        }, 120);
+        setTimeout(() => clearInterval(poll), 8000);
+      }
+    }
+
+    pauseYouTube() {
+      if (this.ytPlayer && this.ytReady && typeof this.ytPlayer.pauseVideo === 'function') {
+        try { this.ytPlayer.pauseVideo(); } catch (_) {}
+      }
+    }
+
     prebuffer(segment) {
-      if (!segment || !segment.sourceUrl) return;
+      if (!segment || !segment.sourceUrl || extractYouTubeId(segment.sourceUrl)) return;
       const nextId = this.activeDeck === 'A' ? 'B' : 'A';
       const d = this.decks[nextId];
       const url = this.resolveUrl(segment.sourceUrl);
@@ -416,8 +798,11 @@
     }
 
     pause() {
+      this.saveActiveFlowPosition();
       this.decks.A.audio.pause();
       this.decks.B.audio.pause();
+      this.beatDeck.pause();
+      this.pauseYouTube();
       try {
         this.broadcastChannel?.postMessage({ type: 'WORKOUT_PAUSED' });
       } catch (_) {}
@@ -425,7 +810,16 @@
 
     resume() {
       const active = this.decks[this.activeDeck];
-      if (active.segment) active.audio.play().catch(() => {});
+      if (this.activeEngineType === 'youtube') {
+        if (this.ytPlayer && this.ytReady && typeof this.ytPlayer.playVideo === 'function') {
+          this.ytPlayer.playVideo();
+        }
+      } else if (active.segment) {
+        active.audio.play().catch(() => {});
+      }
+      if (this.currentBlock) {
+        this.updateBeatOverlayState(true, this.currentBlock.type);
+      }
       if (Shared.notifyWorkoutActive) {
         Shared.notifyWorkoutActive();
       } else {
@@ -439,6 +833,7 @@
       this.pause();
       this.decks.A.audio.currentTime = 0;
       this.decks.B.audio.currentTime = 0;
+      this.continuousPositions = {};
       try {
         this.broadcastChannel?.postMessage({ type: 'WORKOUT_STOPPED' });
       } catch (_) {}
@@ -495,7 +890,7 @@
       if (!this.ctx || !this.masterGain) return;
       const now = this.ctx.currentTime;
       const orig = this.masterVolume;
-      const ducked = orig * 0.3;
+      const ducked = orig * 0.28;
       this.masterGain.gain.setValueAtTime(orig, now);
       this.masterGain.gain.linearRampToValueAtTime(ducked, now + 0.02);
       this.masterGain.gain.setValueAtTime(ducked, now + durSec);
@@ -517,8 +912,47 @@
   const audioEngine = new WorkoutAudioEngine();
 
   // ───────────────────────────────────────────────────────────────────
-  // 4. APPLICATION STATE & CONTROLLER
+  // 4. APPLICATION STATE & STORAGE (ROUTINES + LOOP CRATE)
   // ───────────────────────────────────────────────────────────────────
+  const CRATE_STORAGE_KEY = 'anypod_loop_crate_v1';
+  const SAVED_ROUTINES_KEY = 'anypod_saved_routines_v1';
+
+  let loopCrate = (() => {
+    try {
+      const raw = localStorage.getItem(CRATE_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (_) {}
+    return SAMPLE_BEATS.map(b => Object.assign({}, b));
+  })();
+
+  function saveLoopCrate() {
+    try {
+      localStorage.setItem(CRATE_STORAGE_KEY, JSON.stringify(loopCrate));
+    } catch (_) {}
+    renderLoopCrate();
+  }
+
+  let savedRoutines = (() => {
+    try {
+      const raw = localStorage.getItem(SAVED_ROUTINES_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (_) {}
+    return [];
+  })();
+
+  function persistSavedRoutines() {
+    try {
+      localStorage.setItem(SAVED_ROUTINES_KEY, JSON.stringify(savedRoutines));
+    } catch (_) {}
+    renderSavedRoutinesChips();
+  }
+
   let routine = (() => {
     try {
       if (location.hash && location.hash.includes('routine=')) {
@@ -533,19 +967,20 @@
       if (saved) return JSON.parse(saved);
     } catch (_) {}
 
-    return TEMPLATES.tabata;
+    return JSON.parse(JSON.stringify(TEMPLATES.hiit30m));
   })();
 
   let timeline = compileRoutine(routine);
   let totalSec = timeline.length ? timeline[timeline.length - 1].endOffsetSec : 0;
 
-  let view = 'player'; // 'player' | 'builder'
+  let view = 'player'; // 'player' | 'builder' | 'studio'
   let state = 'idle';  // 'idle' | 'running' | 'paused' | 'completed'
   let currentIdx = 0;
   let elapsedSec = 0;
 
   let beepsOn = true;
   let voiceOn = true;
+  let loopHoldActive = false;
   let wakeLockSentinel = null;
 
   let activeTargetBlock = null;
@@ -558,8 +993,17 @@
   // 5. DOM ELEMENTS CACHE
   // ───────────────────────────────────────────────────────────────────
   const el = {
+    phaseFlash: document.getElementById('phase-flash-overlay'),
+    ambientGlow: document.getElementById('ambient-beat-glow'),
+
     viewPlayer: document.getElementById('view-player'),
     viewBuilder: document.getElementById('view-builder'),
+    viewStudio: document.getElementById('view-studio'),
+
+    tabBtnPlayer: document.getElementById('tab-btn-player'),
+    tabBtnBuilder: document.getElementById('tab-btn-builder'),
+    tabBtnStudio: document.getElementById('tab-btn-studio'),
+
     btnToggleView: document.getElementById('btn-toggle-view'),
     viewToggleText: document.getElementById('view-toggle-text'),
     wakeBadge: document.getElementById('wake-badge'),
@@ -569,6 +1013,8 @@
     btnOpenShare: document.getElementById('btn-open-share'),
 
     badgeType: document.getElementById('badge-interval-type'),
+    badgePlaybackMode: document.getElementById('badge-playback-mode'),
+    segmentedBar: document.getElementById('segmented-timeline-bar'),
     labelRound: document.getElementById('label-round-progress'),
     labelTotalTime: document.getElementById('label-total-time'),
     labelIntervalName: document.getElementById('label-interval-name'),
@@ -581,7 +1027,15 @@
     audioPill: document.getElementById('audio-cue-pill'),
     audioTitle: document.getElementById('audio-cue-title'),
     audioBpm: document.getElementById('audio-cue-bpm'),
+    audioLoopRange: document.getElementById('audio-loop-range'),
     audioDjLink: document.getElementById('audio-dj-link'),
+    btnEditActiveLoop: document.getElementById('btn-edit-active-loop'),
+    playerLoopCanvas: document.getElementById('player-loop-canvas'),
+
+    btnExtend30s: document.getElementById('btn-extend-30s'),
+    btnRepeatInterval: document.getElementById('btn-repeat-interval'),
+    btnLoopHold: document.getElementById('btn-loop-hold'),
+    btnBeatOverlay: document.getElementById('btn-beat-overlay'),
 
     upNextRow: document.getElementById('up-next-row'),
     upNextLabel: document.getElementById('up-next-label'),
@@ -599,17 +1053,22 @@
     overallProgressFill: document.getElementById('overall-progress-fill'),
 
     inputRoutineTitle: document.getElementById('input-routine-title'),
+    builderTotalSummary: document.getElementById('builder-total-summary'),
+    btnSaveCustomRoutine: document.getElementById('btn-save-custom-routine'),
+    savedRoutinesList: document.getElementById('saved-routines-list'),
     builderSectionsList: document.getElementById('builder-sections-list'),
     btnAddSection: document.getElementById('btn-add-section'),
 
     modalAudio: document.getElementById('modal-audio'),
     btnCloseAudioModal: document.getElementById('btn-close-audio-modal'),
+    modalCrateLoopsList: document.getElementById('modal-crate-loops-list'),
     sampleBeatsList: document.getElementById('modal-sample-beats-list'),
     liveEpContainer: document.getElementById('modal-live-ep-container'),
     formDirectAudio: document.getElementById('form-direct-audio'),
     inputDirectUrl: document.getElementById('input-direct-url'),
     inputDirectTitle: document.getElementById('input-direct-title'),
     inputDirectStart: document.getElementById('input-direct-start'),
+    inputDirectEnd: document.getElementById('input-direct-end'),
 
     modalShare: document.getElementById('modal-share'),
     btnCloseShareModal: document.getElementById('btn-close-share-modal'),
@@ -619,7 +1078,7 @@
   };
 
   // ───────────────────────────────────────────────────────────────────
-  // 6. SCREEN WAKE LOCK API
+  // 6. SCREEN WAKE LOCK & PHASE FLASH
   // ───────────────────────────────────────────────────────────────────
   async function requestWakeLock() {
     try {
@@ -648,6 +1107,23 @@
     }
   });
 
+  function triggerPhaseFlash(blockType) {
+    if (!el.phaseFlash) return;
+    const colorMap = {
+      work: '#ef4444',
+      rest: '#06b6d4',
+      warmup: '#f59e0b',
+      cooldown: '#10b981'
+    };
+    const c = colorMap[blockType] || '#ef4444';
+    document.documentElement.style.setProperty('--active-phase-color', c);
+    el.phaseFlash.style.backgroundColor = c;
+    el.phaseFlash.classList.add('flash-active');
+    setTimeout(() => {
+      el.phaseFlash.classList.remove('flash-active');
+    }, 80);
+  }
+
   // ───────────────────────────────────────────────────────────────────
   // 7. MEDIA SESSION API
   // ───────────────────────────────────────────────────────────────────
@@ -659,26 +1135,9 @@
     if (cur) {
       const origin = window.location.origin;
       const art = cur.block.audioSegment?.artwork;
-      let artworkList;
-      if (Shared.buildMediaSessionArtwork) {
-        artworkList = Shared.buildMediaSessionArtwork(art ? new URL(art, origin).href : '', origin);
-      } else {
-        const fallback192 = new URL('/icon-192.png', origin).href;
-        const fallback512 = new URL('/icon-512.png', origin).href;
-        const resolvedArt = art ? new URL(art, origin).href : fallback512;
-        const isFallback = !art || resolvedArt === fallback512;
-        artworkList = !isFallback ? [
-          { src: resolvedArt, sizes: '96x96' },
-          { src: resolvedArt, sizes: '128x128' },
-          { src: resolvedArt, sizes: '192x192' },
-          { src: resolvedArt, sizes: '256x256' },
-          { src: resolvedArt, sizes: '384x384' },
-          { src: resolvedArt, sizes: '512x512' }
-        ] : [
-          { src: fallback192, sizes: '192x192', type: 'image/png' },
-          { src: fallback512, sizes: '512x512', type: 'image/png' }
-        ];
-      }
+      const artworkList = Shared.buildMediaSessionArtwork
+        ? Shared.buildMediaSessionArtwork(art ? new URL(art, origin).href : '', origin)
+        : [{ src: `${origin}/icon-512.png`, sizes: '512x512', type: 'image/png' }];
 
       navigator.mediaSession.metadata = new MediaMetadata({
         title: `${cur.block.label} [${cur.iteration}/${cur.totalIterations}]`,
@@ -700,8 +1159,81 @@
   } catch (_) {}
 
   // ───────────────────────────────────────────────────────────────────
-  // 8. RENDER PLAYER UI
+  // 8. RENDER PLAYER UI, SEGMENTED TIMELINE & LIVE LOOP WAVEFORM
   // ───────────────────────────────────────────────────────────────────
+  let lastRenderedTimelineRef = null;
+
+  function renderSegmentedTimeline() {
+    if (!el.segmentedBar) return;
+    if (lastRenderedTimelineRef !== timeline) {
+      lastRenderedTimelineRef = timeline;
+      el.segmentedBar.innerHTML = '';
+      timeline.forEach((item, idx) => {
+        const segEl = document.createElement('div');
+        segEl.className = `seg-block seg-${item.block.type || 'work'}`;
+        segEl.style.flexGrow = String(Math.max(1, item.block.durationSec));
+        segEl.title = `${idx + 1}. ${item.block.label} (${formatTime(item.block.durationSec)})`;
+        segEl.addEventListener('click', () => {
+          switchInterval(idx, item.startOffsetSec);
+        });
+        el.segmentedBar.appendChild(segEl);
+      });
+    }
+
+    const children = el.segmentedBar.children;
+    for (let i = 0; i < children.length; i++) {
+      children[i].classList.toggle('seg-completed', i < currentIdx);
+      children[i].classList.toggle('seg-active', i === currentIdx);
+    }
+  }
+
+  function renderPlayerLoopWaveform() {
+    const canvas = el.playerLoopCanvas;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width === 0) return;
+    if (canvas.width !== Math.floor(rect.width)) {
+      canvas.width = Math.floor(rect.width);
+      canvas.height = Math.floor(rect.height || 28);
+    }
+
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const cur = timeline[currentIdx];
+    const seg = cur?.block?.audioSegment;
+    if (!seg) return;
+
+    const info = audioEngine.getCurrentPlayheadInfo();
+    const dur = Math.max(1, info.duration);
+    const inX = Math.max(0, Math.min(w, (info.startSec / dur) * w));
+    const outX = Math.max(inX + 4, Math.min(w, (info.endSec / dur) * w));
+
+    // Active loop region background
+    ctx.fillStyle = seg.playbackMode === 'flow' ? 'rgba(6, 182, 212, 0.18)' : 'rgba(168, 85, 247, 0.22)';
+    ctx.fillRect(inX, 0, outX - inX, h);
+
+    // Procedural waveform bars
+    const barCount = 56;
+    const step = w / barCount;
+    const seed = (seg.title || 'loop').split('').reduce((a, c) => a + c.charCodeAt(0), 17);
+    for (let i = 0; i < barCount; i++) {
+      const x = i * step;
+      const inLoop = x >= inX && x <= outX;
+      const amp = 0.25 + 0.65 * Math.abs(Math.sin((i + seed) * 0.43) * Math.cos(i * 0.19));
+      const bh = Math.max(3, amp * (h - 6));
+      ctx.fillStyle = inLoop ? (cur.block.type === 'work' ? '#f87171' : '#67e8f9') : '#374151';
+      ctx.fillRect(x + 1, (h - bh) / 2, Math.max(2, step - 2), bh);
+    }
+
+    // Playhead needle
+    const playX = Math.max(0, Math.min(w, (info.currentTime / dur) * w));
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(playX - 1, 0, 2.5, h);
+  }
+
   function renderPlayer() {
     const cur = timeline[currentIdx];
     const nxt = timeline[currentIdx + 1];
@@ -712,11 +1244,23 @@
     }
 
     const bType = cur.block.type || 'work';
+    renderSegmentedTimeline();
 
     // Update interval type badge & color classes
-    el.badgeType.textContent = bType.toUpperCase();
+    el.badgeType.textContent = loopHoldActive ? `${bType.toUpperCase()} [HOLD]` : bType.toUpperCase();
     el.badgeType.className = `interval-type-badge badge-${bType}`;
     el.displayCountdown.className = `giant-digits digits-${bType}`;
+
+    const seg = cur.block.audioSegment;
+    if (el.badgePlaybackMode) {
+      if (seg) {
+        const isFlow = seg.playbackMode === 'flow';
+        el.badgePlaybackMode.style.display = 'inline-flex';
+        el.badgePlaybackMode.textContent = isFlow ? '🌊 FLOW MODE' : '🔁 A-B LOOP';
+      } else {
+        el.badgePlaybackMode.style.display = 'none';
+      }
+    }
 
     // Color theme styles
     const colorVar = `var(--${bType}-primary)`;
@@ -724,7 +1268,7 @@
     el.intervalProgressFill.style.boxShadow = `0 0 14px ${colorVar}`;
 
     // Text labels
-    el.labelRound.textContent = `Round ${cur.iteration} of ${cur.totalIterations}`;
+    el.labelRound.textContent = `Round ${cur.iteration} of ${cur.totalIterations} • Block ${currentIdx + 1}/${timeline.length}`;
     el.labelTotalTime.textContent = `Total: ${formatTime(elapsedSec)} / ${formatTime(totalSec)}`;
     el.labelIntervalName.textContent = cur.block.label;
     el.labelSectionName.textContent = cur.sectionName || 'Set';
@@ -736,7 +1280,7 @@
     const intervalPct = intervalDuration > 0 ? (intervalElapsed / intervalDuration) * 100 : 0;
     const overallPct = totalSec > 0 ? (elapsedSec / totalSec) * 100 : 0;
 
-    el.displayCountdown.textContent = formatTime(intervalRemaining);
+    el.displayCountdown.textContent = formatTime(Math.ceil(intervalRemaining));
     el.intervalProgressFill.style.width = `${Math.min(100, intervalPct)}%`;
     el.labelIntervalPct.textContent = `${Math.round(intervalPct)}%`;
 
@@ -744,22 +1288,36 @@
     el.labelOverallTotal.textContent = formatTime(totalSec);
     el.overallProgressFill.style.width = `${Math.min(100, overallPct)}%`;
 
-    // Audio Segment Pill
-    if (cur.block.audioSegment) {
-      el.audioPill.style.display = 'inline-flex';
-      el.audioTitle.textContent = cur.block.audioSegment.title;
-      if (cur.block.audioSegment.bpm) {
+    // Audio Segment & Loop Deck
+    if (seg) {
+      el.audioPill.style.display = 'flex';
+      el.audioTitle.textContent = seg.title || 'Training Loop';
+      if (seg.bpm) {
         el.audioBpm.style.display = 'inline-block';
-        el.audioBpm.textContent = `${cur.block.audioSegment.bpm} BPM`;
+        el.audioBpm.textContent = `${seg.bpm} BPM`;
       } else {
         el.audioBpm.style.display = 'none';
       }
-      if (cur.block.audioSegment.sourceUrl) {
-        el.audioDjLink.href = `/dj.html?url=${encodeURIComponent(cur.block.audioSegment.sourceUrl)}`;
+
+      if (el.audioLoopRange) {
+        const s = Number(seg.startTimeSec) || 0;
+        const e = Number(seg.endTimeSec) || 0;
+        if (seg.playbackMode === 'flow') {
+          el.audioLoopRange.textContent = `Continuous Flow (from ${formatTime(s)})`;
+        } else if (e > s) {
+          el.audioLoopRange.textContent = `Loop ${formatTime(s)} → ${formatTime(e)} (${Math.round(e - s)}s)`;
+        } else {
+          el.audioLoopRange.textContent = `Seamless Loop`;
+        }
+      }
+
+      if (seg.sourceUrl) {
+        el.audioDjLink.href = `/dj.html?url=${encodeURIComponent(seg.sourceUrl)}`;
         el.audioDjLink.style.display = 'inline-flex';
       } else {
         el.audioDjLink.style.display = 'none';
       }
+      renderPlayerLoopWaveform();
     } else {
       el.audioPill.style.display = 'none';
     }
@@ -786,14 +1344,14 @@
   }
 
   // ───────────────────────────────────────────────────────────────────
-  // 9. WORKOUT LIFECYCLE CONTROLS
+  // 9. WORKOUT LIFECYCLE CONTROLS & QUICK GYM ACTIONS
   // ───────────────────────────────────────────────────────────────────
   function switchInterval(newIdx, startSec) {
     if (newIdx >= timeline.length) {
-      // Completed
       state = 'completed';
       releaseWakeLock();
       audioEngine.stop();
+      triggerPhaseFlash('cooldown');
       if (voiceOn) audioEngine.speak('Workout complete! Awesome work!');
       renderPlayer();
       updateMediaSession();
@@ -806,9 +1364,10 @@
     lastBeepSec = -1;
     elapsedSec = typeof startSec === 'number' ? startSec : target.startOffsetSec;
 
+    triggerPhaseFlash(target.block.type);
     audioEngine.playBlock(target.block, true);
-    if (voiceOn && target.block.cueOverlay === 'voice') {
-      audioEngine.speak(target.block.label);
+    if (voiceOn) {
+      audioEngine.speak(`${target.block.type}. ${target.block.label}`);
     }
 
     renderPlayer();
@@ -851,6 +1410,8 @@
     elapsedSec = 0;
     prebufferedIdx = -1;
     lastBeepSec = -1;
+    loopHoldActive = false;
+    el.btnLoopHold?.classList.remove('active-hold');
     renderPlayer();
     updateMediaSession();
   }
@@ -876,23 +1437,75 @@
     }
   }
 
+  // Quick Gym Actions: +30s Extend, Repeat Interval, Loop Hold, Beat Overlay
+  el.btnExtend30s?.addEventListener('click', () => {
+    const cur = timeline[currentIdx];
+    if (!cur) return;
+    cur.block.durationSec += 30;
+    for (let i = currentIdx; i < timeline.length; i++) {
+      if (i > currentIdx) timeline[i].startOffsetSec += 30;
+      timeline[i].endOffsetSec += 30;
+    }
+    totalSec += 30;
+    renderPlayer();
+    showToast('+30 Seconds added to current interval!');
+  });
+
+  el.btnRepeatInterval?.addEventListener('click', () => {
+    const cur = timeline[currentIdx];
+    if (!cur) return;
+    elapsedSec = cur.startOffsetSec;
+    lastBeepSec = -1;
+    audioEngine.playBlock(cur.block, false);
+    renderPlayer();
+    showToast('Interval restarted!');
+  });
+
+  el.btnLoopHold?.addEventListener('click', () => {
+    loopHoldActive = !loopHoldActive;
+    el.btnLoopHold.classList.toggle('active-hold', loopHoldActive);
+    renderPlayer();
+    showToast(loopHoldActive ? '∞ Loop Hold ON: Timer frozen while audio loops' : 'Loop Hold OFF: Timer resumed');
+  });
+
+  el.btnBeatOverlay?.addEventListener('click', async () => {
+    await audioEngine.ensureContext();
+    audioEngine.beatOverlayEnabled = !audioEngine.beatOverlayEnabled;
+    el.btnBeatOverlay.classList.toggle('active-beat', audioEngine.beatOverlayEnabled);
+    const cur = timeline[currentIdx];
+    audioEngine.updateBeatOverlayState(state === 'running', cur?.block?.type || 'work');
+    showToast(audioEngine.beatOverlayEnabled ? '🥁 128 BPM Workout Beat Overlay ON' : 'Beat Overlay OFF');
+  });
+
   // ───────────────────────────────────────────────────────────────────
-  // 10. DRIFT-PROOF TICK LOOP (performance.now)
+  // 10. DRIFT-PROOF TICK LOOP + BPM PULSE & LOOP BOUNDARY ENFORCEMENT
   // ───────────────────────────────────────────────────────────────────
   function tickLoop(now) {
+    // Always enforce A-B loop boundaries when workout is running
     if (state === 'running') {
+      audioEngine.checkLoopBoundaries();
+
       const delta = (now - lastTimestamp) / 1000;
       lastTimestamp = now;
 
-      elapsedSec += delta;
+      if (!loopHoldActive) {
+        elapsedSec += delta;
+      }
 
-      if (elapsedSec >= totalSec) {
+      // Subtle BPM-synced visual scale pulse during running state
+      const cur = timeline[currentIdx];
+      const bpm = cur?.block?.audioSegment?.bpm || (cur?.block?.type === 'work' ? 128 : 90);
+      const beatPeriod = 60 / bpm;
+      const beatPhase = (now / 1000) % beatPeriod;
+      const pulse = beatPhase < 0.12 ? 1.022 : 1.0;
+      document.documentElement.style.setProperty('--beat-scale', String(pulse));
+
+      if (!loopHoldActive && elapsedSec >= totalSec) {
         switchInterval(timeline.length);
-      } else {
-        const cur = timeline[currentIdx];
-        if (cur && elapsedSec >= cur.endOffsetSec) {
+      } else if (!loopHoldActive && cur) {
+        if (elapsedSec >= cur.endOffsetSec) {
           switchInterval(currentIdx + 1, cur.endOffsetSec);
-        } else if (cur) {
+        } else {
           const rem = Math.ceil(cur.endOffsetSec - elapsedSec);
 
           // Countdown Beeps (3, 2, 1, 0)
@@ -915,32 +1528,85 @@
       renderPlayer();
     } else {
       lastTimestamp = now;
+      document.documentElement.style.setProperty('--beat-scale', '1');
     }
+
+    // Also update Loop Studio preview if active
+    tickStudioPreview();
 
     rafId = requestAnimationFrame(tickLoop);
   }
-  rafId = requestAnimationFrame(tickLoop);
 
   // ───────────────────────────────────────────────────────────────────
-  // 11. ROUTINE BUILDER RENDERING & INTERACTION
+  // 11. ROUTINE BUILDER RENDERING & SAVED ROUTINES MANAGER
   // ───────────────────────────────────────────────────────────────────
   function saveRoutine() {
     timeline = compileRoutine(routine);
     totalSec = timeline.length ? timeline[timeline.length - 1].endOffsetSec : 0;
+    if (el.builderTotalSummary) {
+      el.builderTotalSummary.textContent = `Total: ${formatTime(totalSec)} (${timeline.length} intervals)`;
+    }
     try {
       localStorage.setItem('anypod_active_routine', JSON.stringify(routine));
     } catch (_) {}
   }
 
+  function renderSavedRoutinesChips() {
+    if (!el.savedRoutinesList) return;
+    el.savedRoutinesList.innerHTML = '';
+    if (savedRoutines.length === 0) {
+      el.savedRoutinesList.innerHTML = '<span style="font-size:10px; color:#6b7280;">No custom saved workouts yet — click Save Routine to store your current setup.</span>';
+      return;
+    }
+    savedRoutines.forEach((item, idx) => {
+      const chip = document.createElement('div');
+      chip.className = 'saved-routine-chip';
+      chip.innerHTML = `
+        <span class="saved-routine-load">${escapeHtml(item.title)}</span>
+        <span class="saved-routine-del" data-delidx="${idx}" title="Delete Saved Routine">&times;</span>
+      `;
+      chip.querySelector('.saved-routine-load').addEventListener('click', () => {
+        routine = JSON.parse(JSON.stringify(item));
+        saveRoutine();
+        reset();
+        renderBuilder();
+        showToast(`Loaded "${routine.title}"`);
+      });
+      chip.querySelector('.saved-routine-del').addEventListener('click', (e) => {
+        e.stopPropagation();
+        savedRoutines.splice(idx, 1);
+        persistSavedRoutines();
+      });
+      el.savedRoutinesList.appendChild(chip);
+    });
+  }
+
+  el.btnSaveCustomRoutine?.addEventListener('click', () => {
+    const copy = JSON.parse(JSON.stringify(routine));
+    copy.id = 'custom_' + Date.now();
+    const existingIdx = savedRoutines.findIndex(r => r.title.toLowerCase() === copy.title.toLowerCase());
+    if (existingIdx >= 0) {
+      savedRoutines[existingIdx] = copy;
+    } else {
+      savedRoutines.unshift(copy);
+    }
+    persistSavedRoutines();
+    showToast(`Saved "${copy.title}" to My Workouts!`);
+  });
+
   function renderBuilder() {
     el.inputRoutineTitle.value = routine.title;
+    if (el.builderTotalSummary) {
+      el.builderTotalSummary.textContent = `Total: ${formatTime(totalSec)} (${timeline.length} intervals)`;
+    }
+    renderSavedRoutinesChips();
     el.builderSectionsList.innerHTML = '';
 
     routine.sections.forEach((section, sIdx) => {
       const card = document.createElement('div');
       card.className = 'section-card';
 
-      const repeatOpts = [1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 20]
+      const repeatOpts = [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 16, 20, 24, 26, 30]
         .map(n => `<option value="${n}" ${section.repeatCount === n ? 'selected' : ''}>${n}x</option>`)
         .join('');
 
@@ -962,7 +1628,7 @@
         <div class="section-blocks-container" id="sblocks-${sIdx}"></div>
         <button type="button" class="btn-add-block" data-sidx="${sIdx}">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          <span>Add Block</span>
+          <span>Add Interval Block</span>
         </button>
       `;
 
@@ -970,6 +1636,13 @@
       section.blocks.forEach((block, bIdx) => {
         const bItem = document.createElement('div');
         bItem.className = `block-item type-${block.type}`;
+        const seg = block.audioSegment;
+        const isFlow = seg?.playbackMode === 'flow';
+        const rangeStr = seg
+          ? (isFlow
+              ? `🌊 Flow (from ${formatTime(seg.startTimeSec || 0)})`
+              : `🔁 Loop ${formatTime(seg.startTimeSec || 0)}→${formatTime(seg.endTimeSec || block.durationSec)}`)
+          : '';
 
         bItem.innerHTML = `
           <div class="block-main-row">
@@ -990,11 +1663,16 @@
           </div>
           <div class="block-audio-row">
             <button type="button" class="btn-attach-audio" data-sidx="${sIdx}" data-bidx="${bIdx}">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #ef4444;"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
-              <span>${block.audioSegment ? escapeHtml(block.audioSegment.title) : '+ Attach Audio / DJ Beat'}</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #ef4444; flex-shrink:0;"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+              <span>${seg ? escapeHtml(seg.title) : '+ Attach Loop / Podcast / YT Short'}</span>
             </button>
-            ${block.audioSegment ? `
-              <button type="button" class="btn-clear-audio" data-sidx="${sIdx}" data-bidx="${bIdx}">Clear</button>
+            ${seg ? `
+              <div class="block-loop-controls">
+                <button type="button" class="badge-playback-mode ${isFlow ? 'mode-flow' : 'mode-loop'}" data-sidx="${sIdx}" data-bidx="${bIdx}" title="Click to toggle between A-B Loop and Continuous Flow">
+                  ${rangeStr}
+                </button>
+                <button type="button" class="btn-clear-audio" data-sidx="${sIdx}" data-bidx="${bIdx}">Clear</button>
+              </div>
             ` : ''}
           </div>
         `;
@@ -1006,8 +1684,867 @@
   }
 
   // ───────────────────────────────────────────────────────────────────
-  // 12. EVENT LISTENERS
+  // 12. LOOP STUDIO & CONTENT CREATOR VIEW (CLIPPER + AUTO-SLICER)
   // ───────────────────────────────────────────────────────────────────
+  const studio = {
+    source: {
+      id: SAMPLE_BEATS[0].id,
+      title: '909 Deep Tech Beat',
+      podcastTitle: 'Anypod DJ Tools',
+      sourceUrl: SAMPLE_BEATS[0].sourceUrl,
+      duration: 30,
+      bpm: 128,
+      isYouTube: false,
+      videoId: null
+    },
+    inSec: 0,
+    outSec: 20,
+    playheadSec: 0,
+    isPlaying: false,
+    audio: new Audio(),
+    audioBuffer: null,
+    peaks: [],
+    ytPlayer: null,
+    ytReady: false,
+    dragMode: null, // 'in' | 'out' | 'region'
+    dragStartX: 0,
+    dragInitialIn: 0,
+    dragInitialOut: 0
+  };
+
+  studio.audio.crossOrigin = 'anonymous';
+  studio.audio.preload = 'auto';
+
+  function generateSyntheticPeaks(title, count = 140) {
+    const seed = (title || 'audio').split('').reduce((a, c) => a + c.charCodeAt(0), 31);
+    const arr = [];
+    for (let i = 0; i < count; i++) {
+      const v = 0.2 + 0.75 * Math.abs(Math.sin((i + seed) * 0.37) * Math.cos(i * 0.13));
+      arr.push(Math.min(1, v));
+    }
+    return arr;
+  }
+
+  studio.peaks = generateSyntheticPeaks(studio.source.title);
+
+  async function loadSourceIntoStudio(item) {
+    stopStudioPreview();
+    const url = item.sourceUrl || item.audioUrl || item.url || '';
+    const ytId = item.videoId || extractYouTubeId(url);
+    const isYt = Boolean(ytId || item.isYouTube);
+    const dur = Math.max(10, Number(item.durationSec || item.durSec || item.duration) || (isYt ? 180 : 60));
+
+    studio.source = {
+      id: item.id || item.guid || ('src_' + Date.now()),
+      title: item.title || 'Custom Source',
+      podcastTitle: item.podcastTitle || (isYt ? 'YouTube' : 'Anypod'),
+      sourceUrl: url,
+      duration: dur,
+      bpm: item.bpm || 128,
+      isYouTube: isYt,
+      videoId: ytId
+    };
+
+    studio.inSec = Number(item.startTimeSec) || 0;
+    studio.outSec = Number(item.endTimeSec) > studio.inSec
+      ? Math.min(dur, Number(item.endTimeSec))
+      : Math.min(dur, studio.inSec + 20);
+    studio.playheadSec = studio.inSec;
+    studio.peaks = generateSyntheticPeaks(studio.source.title);
+
+    const badge = document.getElementById('studio-loaded-badge');
+    const nameInput = document.getElementById('studio-loop-name');
+    const bpmInput = document.getElementById('studio-loop-bpm');
+    const ytPrev = document.getElementById('studio-yt-preview');
+
+    if (badge) badge.textContent = studio.source.title;
+    if (nameInput) nameInput.value = `${studio.source.title} (Loop)`;
+    if (bpmInput) bpmInput.value = String(studio.source.bpm || 128);
+
+    if (isYt && ytId) {
+      if (ytPrev) ytPrev.classList.add('yt-visible');
+      initStudioYouTube(ytId);
+    } else {
+      if (ytPrev) ytPrev.classList.remove('yt-visible');
+      studio.audio.src = audioEngine.resolveUrl(url);
+      studio.audio.load();
+      studio.audio.addEventListener('loadedmetadata', () => {
+        if (studio.audio.duration && isFinite(studio.audio.duration)) {
+          studio.source.duration = studio.audio.duration;
+          if (studio.outSec > studio.source.duration) {
+            studio.outSec = Math.min(studio.source.duration, studio.inSec + 20);
+          }
+          renderStudioWaveform();
+        }
+      }, { once: true });
+
+      // Attempt real WebAudio decode for accurate waveform peaks & WAV export
+      decodeSourcePeaks(url);
+    }
+
+    renderStudioWaveform();
+  }
+
+  async function decodeSourcePeaks(url) {
+    try {
+      const fetchUrl = url.startsWith('blob:') || url.startsWith('data:')
+        ? url
+        : audioEngine.resolveUrl(url);
+      const res = await fetch(fetchUrl);
+      if (!res.ok) return;
+      const buf = await res.arrayBuffer();
+      const ctx = await audioEngine.ensureContext();
+      const decoded = await ctx.decodeAudioData(buf);
+      studio.audioBuffer = decoded;
+      studio.source.duration = decoded.duration;
+      const chan = decoded.getChannelData(0);
+      const buckets = 140;
+      const step = Math.floor(chan.length / buckets);
+      const peaks = [];
+      for (let i = 0; i < buckets; i++) {
+        let max = 0;
+        const start = i * step;
+        for (let j = 0; j < step; j += 16) {
+          const v = Math.abs(chan[start + j] || 0);
+          if (v > max) max = v;
+        }
+        peaks.push(Math.max(0.08, Math.min(1, max)));
+      }
+      studio.peaks = peaks;
+      renderStudioWaveform();
+    } catch (_) {
+      studio.audioBuffer = null;
+    }
+  }
+
+  function initStudioYouTube(videoId) {
+    if (studio.ytPlayer && studio.ytReady && typeof studio.ytPlayer.cueVideoById === 'function') {
+      studio.ytPlayer.cueVideoById({ videoId, startSeconds: studio.inSec });
+      return;
+    }
+    if (!window.YT || !window.YT.Player) return;
+    studio.ytPlayer = new window.YT.Player('studio-yt-slot', {
+      width: '100%',
+      height: '100%',
+      videoId,
+      playerVars: { autoplay: 0, controls: 0, modestbranding: 1, playsinline: 1, rel: 0 },
+      events: {
+        onReady: () => {
+          studio.ytReady = true;
+          const d = studio.ytPlayer.getDuration ? studio.ytPlayer.getDuration() : 0;
+          if (d > 0) {
+            studio.source.duration = d;
+            if (studio.outSec > d) studio.outSec = Math.min(d, studio.inSec + 20);
+            renderStudioWaveform();
+          }
+        }
+      }
+    });
+  }
+
+  function renderStudioWaveform() {
+    const canvas = document.getElementById('studio-waveform-canvas');
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width > 0 && canvas.width !== Math.floor(rect.width)) {
+      canvas.width = Math.floor(rect.width);
+      canvas.height = Math.floor(rect.height || 92);
+    }
+    const w = canvas.width || 500;
+    const h = canvas.height || 92;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, w, h);
+
+    const dur = Math.max(1, studio.source.duration);
+    const inX = Math.max(0, Math.min(w, (studio.inSec / dur) * w));
+    const outX = Math.max(inX + 6, Math.min(w, (studio.outSec / dur) * w));
+
+    // Shaded active loop window
+    ctx.fillStyle = 'rgba(168, 85, 247, 0.22)';
+    ctx.fillRect(inX, 0, outX - inX, h);
+
+    // Waveform bars
+    const peaks = studio.peaks;
+    const barW = w / peaks.length;
+    for (let i = 0; i < peaks.length; i++) {
+      const x = i * barW;
+      const inside = x >= inX && x <= outX;
+      const bh = Math.max(4, peaks[i] * (h - 18));
+      ctx.fillStyle = inside ? '#c084fc' : '#3f3f46';
+      ctx.fillRect(x + 1, (h - bh) / 2, Math.max(1.5, barW - 1.5), bh);
+    }
+
+    // [IN] Handle (Green)
+    ctx.fillStyle = '#4ade80';
+    ctx.fillRect(inX - 2, 0, 4, h);
+    ctx.fillRect(inX - 2, 0, 14, 14);
+    ctx.fillStyle = '#052e16';
+    ctx.font = 'bold 9px monospace';
+    ctx.fillText('IN', inX, 10);
+
+    // [OUT] Handle (Pink)
+    ctx.fillStyle = '#f472b6';
+    ctx.fillRect(outX - 2, 0, 4, h);
+    ctx.fillRect(outX - 16, h - 14, 18, 14);
+    ctx.fillStyle = '#500724';
+    ctx.fillText('OUT', outX - 15, h - 4);
+
+    // Playhead
+    const playX = Math.max(0, Math.min(w, (studio.playheadSec / dur) * w));
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(playX - 1, 0, 2, h);
+
+    // Update numeric readouts
+    const lblIn = document.getElementById('label-loop-in');
+    const lblCur = document.getElementById('label-loop-cur');
+    const lblOut = document.getElementById('label-loop-out');
+    const lblLen = document.getElementById('label-loop-len');
+    if (lblIn) lblIn.textContent = formatPreciseSec(studio.inSec);
+    if (lblCur) lblCur.textContent = formatPreciseSec(studio.playheadSec);
+    if (lblOut) lblOut.textContent = formatPreciseSec(studio.outSec);
+    if (lblLen) lblLen.textContent = `${Math.max(0.5, studio.outSec - studio.inSec).toFixed(1)}s`;
+  }
+
+  // Interactive Pointer Dragging on Studio Waveform Canvas
+  const waveBox = document.getElementById('studio-waveform-box');
+  if (waveBox) {
+    const getSecFromEvent = (e) => {
+      const rect = waveBox.getBoundingClientRect();
+      const relX = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+      return (relX / Math.max(1, rect.width)) * studio.source.duration;
+    };
+
+    waveBox.addEventListener('pointerdown', (e) => {
+      const rect = waveBox.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const dur = Math.max(1, studio.source.duration);
+      const inX = (studio.inSec / dur) * rect.width;
+      const outX = (studio.outSec / dur) * rect.width;
+
+      if (Math.abs(x - inX) <= 14) {
+        studio.dragMode = 'in';
+      } else if (Math.abs(x - outX) <= 14) {
+        studio.dragMode = 'out';
+      } else if (x > inX && x < outX) {
+        studio.dragMode = 'region';
+        studio.dragStartX = x;
+        studio.dragInitialIn = studio.inSec;
+        studio.dragInitialOut = studio.outSec;
+      } else {
+        const clickedSec = getSecFromEvent(e);
+        const len = Math.max(2, studio.outSec - studio.inSec);
+        studio.inSec = Math.max(0, Math.min(dur - len, clickedSec));
+        studio.outSec = studio.inSec + len;
+        studio.playheadSec = studio.inSec;
+        seekStudioPreview(studio.inSec);
+        renderStudioWaveform();
+        return;
+      }
+      waveBox.setPointerCapture(e.pointerId);
+    });
+
+    waveBox.addEventListener('pointermove', (e) => {
+      if (!studio.dragMode) return;
+      const rect = waveBox.getBoundingClientRect();
+      const dur = Math.max(1, studio.source.duration);
+      const sec = getSecFromEvent(e);
+
+      if (studio.dragMode === 'in') {
+        studio.inSec = Math.max(0, Math.min(studio.outSec - 1, sec));
+        studio.playheadSec = studio.inSec;
+      } else if (studio.dragMode === 'out') {
+        studio.outSec = Math.max(studio.inSec + 1, Math.min(dur, sec));
+      } else if (studio.dragMode === 'region') {
+        const dx = e.clientX - rect.left - studio.dragStartX;
+        const dSec = (dx / Math.max(1, rect.width)) * dur;
+        const len = studio.dragInitialOut - studio.dragInitialIn;
+        const nextIn = Math.max(0, Math.min(dur - len, studio.dragInitialIn + dSec));
+        studio.inSec = nextIn;
+        studio.outSec = nextIn + len;
+        studio.playheadSec = studio.inSec;
+      }
+      renderStudioWaveform();
+    });
+
+    waveBox.addEventListener('pointerup', () => {
+      if (studio.dragMode) {
+        studio.dragMode = null;
+        if (studio.isPlaying) seekStudioPreview(studio.inSec);
+      }
+    });
+  }
+
+  function seekStudioPreview(sec) {
+    studio.playheadSec = sec;
+    if (studio.source.isYouTube && studio.ytPlayer && studio.ytReady) {
+      studio.ytPlayer.seekTo(sec, true);
+    } else {
+      studio.audio.currentTime = sec;
+    }
+  }
+
+  function toggleStudioPreview() {
+    if (studio.isPlaying) {
+      stopStudioPreview();
+      return;
+    }
+    if (state === 'running') pause();
+    studio.isPlaying = true;
+    const btn = document.getElementById('btn-studio-preview');
+    if (btn) btn.textContent = '⏸ Stop Preview';
+
+    if (studio.source.isYouTube && studio.ytPlayer && studio.ytReady) {
+      studio.ytPlayer.seekTo(studio.inSec, true);
+      studio.ytPlayer.playVideo();
+    } else {
+      studio.audio.currentTime = studio.inSec;
+      studio.audio.play().catch(() => {});
+    }
+  }
+
+  function stopStudioPreview() {
+    studio.isPlaying = false;
+    const btn = document.getElementById('btn-studio-preview');
+    if (btn) btn.textContent = '▶ Preview Loop';
+    studio.audio.pause();
+    if (studio.ytPlayer && studio.ytReady && typeof studio.ytPlayer.pauseVideo === 'function') {
+      try { studio.ytPlayer.pauseVideo(); } catch (_) {}
+    }
+  }
+
+  function tickStudioPreview() {
+    if (!studio.isPlaying) return;
+    if (studio.source.isYouTube && studio.ytPlayer && studio.ytReady && typeof studio.ytPlayer.getCurrentTime === 'function') {
+      studio.playheadSec = studio.ytPlayer.getCurrentTime();
+      if (studio.playheadSec >= studio.outSec - 0.08) {
+        studio.ytPlayer.seekTo(studio.inSec, true);
+      }
+    } else if (!studio.audio.paused) {
+      studio.playheadSec = studio.audio.currentTime;
+      if (studio.playheadSec >= studio.outSec - 0.05) {
+        studio.audio.currentTime = studio.inSec;
+        studio.audio.play().catch(() => {});
+      }
+    }
+    renderStudioWaveform();
+  }
+
+  function buildCurrentStudioLoopObject() {
+    const nameInput = document.getElementById('studio-loop-name');
+    const bpmInput = document.getElementById('studio-loop-bpm');
+    const modeSelect = document.getElementById('studio-loop-mode');
+    return {
+      id: 'loop_' + Date.now(),
+      title: (nameInput?.value || studio.source.title || 'Workout Loop').trim(),
+      podcastTitle: studio.source.podcastTitle || 'Loop Studio',
+      sourceUrl: studio.source.sourceUrl,
+      videoId: studio.source.videoId || null,
+      isYouTube: Boolean(studio.source.isYouTube),
+      bpm: parseInt(bpmInput?.value, 10) || 128,
+      startTimeSec: Number(studio.inSec.toFixed(1)),
+      endTimeSec: Number(studio.outSec.toFixed(1)),
+      loop: (modeSelect?.value || 'loop') === 'loop',
+      playbackMode: modeSelect?.value || 'loop'
+    };
+  }
+
+  // Render Studio Source Library (Podcasts, YT Playlists, Downloads, Synth Beats)
+  function renderStudioLibrary(query = '') {
+    const listEl = document.getElementById('studio-library-list');
+    if (!listEl) return;
+    listEl.innerHTML = '';
+
+    const items = [];
+    const seen = new Set();
+    const pushItem = (ep, tag) => {
+      if (!ep) return;
+      const url = ep.audioUrl || ep.sourceUrl || ep.url;
+      if (!url || seen.has(url)) return;
+      seen.add(url);
+      items.push({
+        title: ep.title || 'Untitled Episode',
+        podcastTitle: ep.podcastTitle || ep.author || tag,
+        sourceUrl: url,
+        durationSec: Shared.parseDurationSeconds ? Shared.parseDurationSeconds(ep.duration) : (Number(ep.duration) || 180),
+        bpm: ep.bpm || 128
+      });
+    };
+
+    const liveEp = Shared.getLastActiveEpisode ? Shared.getLastActiveEpisode() : null;
+    if (liveEp) pushItem(liveEp, 'Live Player');
+
+    const dlMap = Shared.getDownloadsMap ? Shared.getDownloadsMap() : {};
+    Object.values(dlMap).forEach(ep => pushItem(ep, 'Offline Download'));
+
+    try {
+      const cached = JSON.parse(localStorage.getItem('anypod_cached_episodes') || '[]');
+      if (Array.isArray(cached)) cached.slice(0, 80).forEach(ep => pushItem(ep, 'Library'));
+    } catch (_) {}
+
+    SAMPLE_BEATS.forEach(b => pushItem(b, 'Synth Beat'));
+
+    const q = query.trim().toLowerCase();
+    const filtered = q
+      ? items.filter(i => i.title.toLowerCase().includes(q) || i.podcastTitle.toLowerCase().includes(q))
+      : items;
+
+    filtered.slice(0, 40).forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'studio-track-row';
+      row.innerHTML = `
+        <div class="studio-track-meta">
+          <div class="studio-track-title">${escapeHtml(item.title)}</div>
+          <div class="studio-track-sub">${escapeHtml(item.podcastTitle)} • ${formatTime(item.durationSec)}</div>
+        </div>
+        <span class="btn-crate-mini">Load ✂️</span>
+      `;
+      row.addEventListener('click', () => {
+        loadSourceIntoStudio(item);
+        showToast(`Loaded "${item.title}" into Clipper`);
+      });
+      listEl.appendChild(row);
+    });
+  }
+
+  function renderStudioBeatsList() {
+    const cont = document.getElementById('studio-beats-list');
+    if (!cont) return;
+    cont.innerHTML = '';
+    SAMPLE_BEATS.forEach(beat => {
+      const row = document.createElement('div');
+      row.className = 'studio-track-row';
+      row.innerHTML = `
+        <div class="studio-track-meta">
+          <div class="studio-track-title">${escapeHtml(beat.title)}</div>
+          <div class="studio-track-sub">${beat.bpm} BPM • Procedural Offline WAV</div>
+        </div>
+        <span class="btn-crate-mini">Load ✂️</span>
+      `;
+      row.addEventListener('click', () => {
+        loadSourceIntoStudio(beat);
+        showToast(`Loaded ${beat.title}`);
+      });
+      cont.appendChild(row);
+    });
+  }
+
+  function renderLoopCrate() {
+    const cont = document.getElementById('loop-crate-list');
+    const countLbl = document.getElementById('crate-count-label');
+    if (countLbl) countLbl.textContent = `${loopCrate.length} Loops`;
+    if (!cont) return;
+    cont.innerHTML = '';
+
+    loopCrate.forEach((loop, idx) => {
+      const card = document.createElement('div');
+      card.className = 'crate-loop-card';
+      const len = Math.max(1, (loop.endTimeSec || 20) - (loop.startTimeSec || 0));
+      card.innerHTML = `
+        <div class="crate-loop-top">
+          <div>
+            <div class="crate-loop-title">${escapeHtml(loop.title)}</div>
+            <div class="crate-loop-meta">${loop.playbackMode === 'flow' ? '🌊 Flow' : `🔁 ${formatTime(loop.startTimeSec || 0)} → ${formatTime(loop.endTimeSec || 20)} (${Math.round(len)}s)`} • ${loop.bpm || 128} BPM</div>
+          </div>
+        </div>
+        <div class="crate-loop-actions">
+          <button type="button" class="btn-crate-mini" data-action="edit">✂️ Edit</button>
+          <button type="button" class="btn-crate-mini" data-action="apply-work">⚡ Set All Work</button>
+          <button type="button" class="btn-crate-mini" data-action="delete">🗑️</button>
+        </div>
+      `;
+
+      card.querySelector('[data-action="edit"]').addEventListener('click', () => {
+        loadSourceIntoStudio(loop);
+        showToast(`Loaded "${loop.title}" into Clipper`);
+      });
+
+      card.querySelector('[data-action="apply-work"]').addEventListener('click', () => {
+        applyLoopToAllWorkBlocks(loop);
+      });
+
+      card.querySelector('[data-action="delete"]').addEventListener('click', () => {
+        loopCrate.splice(idx, 1);
+        saveLoopCrate();
+      });
+
+      cont.appendChild(card);
+    });
+  }
+
+  function applyLoopToAllWorkBlocks(loopObj) {
+    routine.sections.forEach(sec => {
+      sec.blocks.forEach(b => {
+        if (b.type === 'work') {
+          b.audioSegment = Object.assign({}, loopObj);
+        }
+      });
+    });
+    saveRoutine();
+    renderBuilder();
+    renderPlayer();
+    showToast(`Applied "${loopObj.title}" to all WORK intervals!`);
+  }
+
+  // Export Sliced WAV Audio Loop from Studio
+  async function exportStudioLoopAsWav() {
+    const startSec = studio.inSec;
+    const endSec = Math.max(startSec + 1, studio.outSec);
+    const durSec = endSec - startSec;
+    const sampleRate = 22050;
+    const numSamples = Math.floor(sampleRate * durSec);
+    const pcm = new Int16Array(numSamples);
+
+    if (studio.audioBuffer) {
+      const chan = studio.audioBuffer.getChannelData(0);
+      const srcRate = studio.audioBuffer.sampleRate;
+      for (let i = 0; i < numSamples; i++) {
+        const srcIdx = Math.floor((startSec + i / sampleRate) * srcRate);
+        const s = chan[srcIdx] || 0;
+        pcm[i] = Math.max(-32767, Math.min(32767, Math.floor(s * 32767)));
+      }
+    } else {
+      // Synthesize BPM beat slice fallback
+      const bpm = parseInt(document.getElementById('studio-loop-bpm')?.value, 10) || 128;
+      const beatSec = 60 / bpm;
+      for (let i = 0; i < numSamples; i++) {
+        const t = i / sampleRate;
+        const beatFrac = ((t / beatSec) % 1);
+        let sample = 0;
+        if (beatFrac < 0.25) {
+          const kt = beatFrac * beatSec;
+          sample += Math.sin(2 * Math.PI * (150 * Math.exp(-kt * 30)) * kt) * Math.exp(-kt * 16) * 0.8;
+        }
+        pcm[i] = Math.max(-32767, Math.min(32767, Math.floor(sample * 28000)));
+      }
+    }
+
+    const wavBuffer = new ArrayBuffer(44 + pcm.byteLength);
+    const view = new DataView(wavBuffer);
+    const writeStr = (off, str) => {
+      for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i));
+    };
+    writeStr(0, 'RIFF');
+    view.setUint32(4, 36 + pcm.byteLength, true);
+    writeStr(8, 'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, 'data');
+    view.setUint32(40, pcm.byteLength, true);
+    new Uint8Array(wavBuffer, 44).set(new Uint8Array(pcm.buffer));
+
+    const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+    const dl = document.createElement('a');
+    dl.href = URL.createObjectURL(blob);
+    const cleanName = (studio.source.title || 'workout_loop').toLowerCase().replace(/[^a-z0-9]+/g, '_');
+    dl.download = `${cleanName}_${Math.round(startSec)}s_${Math.round(endSec)}s.wav`;
+    document.body.appendChild(dl);
+    dl.click();
+    dl.remove();
+    showToast('Downloaded sliced WAV training loop!');
+  }
+
+  // Sync Studio Loop to DJ Studio (dj.html) Hot Cues
+  function syncStudioLoopToDjCues() {
+    try {
+      const raw = localStorage.getItem('anypod_dj_cues') || '{}';
+      const cuesMap = JSON.parse(raw);
+      const key = studio.source.sourceUrl || studio.source.title;
+      const arr = Array.isArray(cuesMap[key]) ? cuesMap[key] : [null, null, null, null];
+      arr[0] = Number(studio.inSec.toFixed(2));
+      arr[1] = Number(studio.outSec.toFixed(2));
+      cuesMap[key] = arr;
+      localStorage.setItem('anypod_dj_cues', JSON.stringify(cuesMap));
+      if (Shared.notifyStorageUpdated) Shared.notifyStorageUpdated();
+      showToast('Synced IN/OUT cues to DJ Studio Hot Cues 1 & 2!');
+    } catch (_) {}
+  }
+
+  // Auto-Slice Loaded Podcast / YouTube Video into a Complete 30-Minute Workout
+  function generateAutoSlicedWorkout() {
+    const totalMins = parseInt(document.getElementById('slicer-total-mins')?.value, 10) || 30;
+    const splitStr = document.getElementById('slicer-interval-split')?.value || '40/20';
+    const [workSec, restSec] = splitStr.split('/').map(n => parseInt(n, 10) || 30);
+    const audioMode = document.getElementById('slicer-audio-mode')?.value || 'highlights';
+    const restMode = document.getElementById('slicer-rest-mode')?.value || 'duck';
+
+    const totalTargetSec = totalMins * 60;
+    const warmupSec = totalMins >= 20 ? 180 : 60;
+    const cooldownSec = totalMins >= 20 ? 180 : 60;
+    const coreBudgetSec = Math.max(60, totalTargetSec - warmupSec - cooldownSec);
+    const cycleSec = workSec + restSec;
+    const rounds = Math.max(1, Math.round(coreBudgetSec / cycleSec));
+
+    const srcDur = Math.max(60, studio.source.duration || 1800);
+    const bpm = parseInt(document.getElementById('studio-loop-bpm')?.value, 10) || 128;
+
+    let mainSection;
+
+    if (audioMode === 'flow') {
+      // Continuous Podcast/Mix Flow mode + Automatic Beat Overlay on Work
+      audioEngine.beatOverlayEnabled = true;
+      el.btnBeatOverlay?.classList.add('active-beat');
+
+      const flowSeg = {
+        id: 'flow_' + Date.now(),
+        title: studio.source.title,
+        podcastTitle: studio.source.podcastTitle,
+        sourceUrl: studio.source.sourceUrl,
+        videoId: studio.source.videoId,
+        isYouTube: studio.source.isYouTube,
+        bpm,
+        startTimeSec: studio.inSec || 0,
+        endTimeSec: srcDur,
+        loop: false,
+        playbackMode: 'flow',
+        duckOnRest: restMode === 'duck'
+      };
+
+      mainSection = {
+        id: 'sec_auto_flow',
+        name: `Continuous Flow Intervals (${rounds} Rounds)`,
+        repeatCount: rounds,
+        blocks: [
+          {
+            id: 'b_af_work',
+            type: 'work',
+            label: `Work Interval + Beat Drive`,
+            durationSec: workSec,
+            cueOverlay: 'beeps',
+            audioSegment: flowSeg
+          },
+          {
+            id: 'b_af_rest',
+            type: 'rest',
+            label: restMode === 'duck' ? 'Active Recovery (Podcast Continues)' : 'Recovery Breather',
+            durationSec: restSec,
+            cueOverlay: 'beeps',
+            audioSegment: restMode === 'duck' ? flowSeg : undefined
+          }
+        ]
+      };
+    } else {
+      // Highlight Drops Mode: Extract distinct looped clips spaced across the source track
+      const dropCount = Math.min(rounds, 8);
+      const blocks = [];
+      const usableSpan = Math.max(workSec, srcDur - studio.inSec - workSec);
+
+      for (let i = 0; i < dropCount; i++) {
+        const dropStart = Math.floor(studio.inSec + (usableSpan * (i / Math.max(1, dropCount))));
+        const dropEnd = dropStart + Math.min(workSec, 45);
+        const loopSeg = {
+          id: `drop_${i}_${Date.now()}`,
+          title: `${studio.source.title} [Drop #${i + 1}]`,
+          podcastTitle: studio.source.podcastTitle,
+          sourceUrl: studio.source.sourceUrl,
+          videoId: studio.source.videoId,
+          isYouTube: studio.source.isYouTube,
+          bpm,
+          startTimeSec: dropStart,
+          endTimeSec: dropEnd,
+          loop: true,
+          playbackMode: 'loop'
+        };
+
+        blocks.push({
+          id: `b_hd_w_${i}`,
+          type: 'work',
+          label: `High-Output Drop #${i + 1}`,
+          durationSec: workSec,
+          cueOverlay: 'beeps',
+          audioSegment: loopSeg
+        });
+        blocks.push({
+          id: `b_hd_r_${i}`,
+          type: 'rest',
+          label: 'Recovery & Reset',
+          durationSec: restSec,
+          cueOverlay: 'beeps',
+          audioSegment: restMode === 'duck' ? Object.assign({}, loopSeg, { duckOnRest: true }) : undefined
+        });
+      }
+
+      const sectionRepeats = Math.max(1, Math.round(rounds / dropCount));
+      mainSection = {
+        id: 'sec_auto_drops',
+        name: `Sliced Highlight Loops (${rounds} Total Rounds)`,
+        repeatCount: sectionRepeats,
+        blocks
+      };
+    }
+
+    routine = {
+      id: 'auto_' + Date.now(),
+      title: `${totalMins}-Min ${studio.source.title} Workout`,
+      sections: [
+        {
+          id: 'sec_auto_warm',
+          name: 'Warmup Prep',
+          repeatCount: 1,
+          blocks: [
+            {
+              id: 'b_aw_1',
+              type: 'warmup',
+              label: 'Dynamic Mobility & Heart-Rate Ramp',
+              durationSec: warmupSec,
+              cueOverlay: 'beeps',
+              audioSegment: SAMPLE_BEATS[3]
+            }
+          ]
+        },
+        mainSection,
+        {
+          id: 'sec_auto_cool',
+          name: 'Cooldown & Stretch',
+          repeatCount: 1,
+          blocks: [
+            {
+              id: 'b_ac_1',
+              type: 'cooldown',
+              label: 'Deep Breathing & Full-Body Decompression',
+              durationSec: cooldownSec,
+              cueOverlay: 'beeps'
+            }
+          ]
+        }
+      ]
+    };
+
+    saveRoutine();
+    reset();
+    switchTab('player');
+    showToast(`Generated ${totalMins}-Minute Workout from "${studio.source.title}"!`);
+  }
+
+  // ───────────────────────────────────────────────────────────────────
+  // 13. NAVIGATION & EVENT LISTENERS
+  // ───────────────────────────────────────────────────────────────────
+  function switchTab(targetTab) {
+    stopStudioPreview();
+    view = targetTab;
+
+    el.viewPlayer.style.display = targetTab === 'player' ? 'flex' : 'none';
+    el.viewBuilder.style.display = targetTab === 'builder' ? 'flex' : 'none';
+    if (el.viewStudio) el.viewStudio.style.display = targetTab === 'studio' ? 'flex' : 'none';
+
+    el.tabBtnPlayer?.classList.toggle('active', targetTab === 'player');
+    el.tabBtnBuilder?.classList.toggle('active', targetTab === 'builder');
+    el.tabBtnStudio?.classList.toggle('active', targetTab === 'studio');
+
+    if (targetTab === 'builder') {
+      renderBuilder();
+    } else if (targetTab === 'studio') {
+      renderStudioLibrary(document.getElementById('studio-library-search')?.value || '');
+      renderStudioBeatsList();
+      renderLoopCrate();
+      setTimeout(() => renderStudioWaveform(), 30);
+    } else {
+      saveRoutine();
+      renderPlayer();
+    }
+  }
+
+  [el.tabBtnPlayer, el.tabBtnBuilder, el.tabBtnStudio].forEach(btn => {
+    btn?.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  el.btnEditActiveLoop?.addEventListener('click', () => {
+    const cur = timeline[currentIdx];
+    if (cur?.block?.audioSegment) {
+      loadSourceIntoStudio(cur.block.audioSegment);
+    }
+    switchTab('studio');
+  });
+
+  // Studio Controls Listeners
+  document.querySelectorAll('.source-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.source-tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.dataset.srctab;
+      document.getElementById('studio-src-library').style.display = tab === 'library' ? 'block' : 'none';
+      document.getElementById('studio-src-url').style.display = tab === 'url' ? 'block' : 'none';
+      document.getElementById('studio-src-local').style.display = tab === 'local' ? 'block' : 'none';
+      document.getElementById('studio-src-beats').style.display = tab === 'beats' ? 'block' : 'none';
+    });
+  });
+
+  document.getElementById('studio-library-search')?.addEventListener('input', (e) => {
+    renderStudioLibrary(e.target.value);
+  });
+
+  document.getElementById('btn-studio-load-url')?.addEventListener('click', () => {
+    const url = document.getElementById('studio-url-input')?.value?.trim();
+    const title = document.getElementById('studio-url-title')?.value?.trim() || 'Custom Stream / Short';
+    if (!url) return;
+    loadSourceIntoStudio({
+      title,
+      podcastTitle: extractYouTubeId(url) ? 'YouTube / Shorts' : 'Direct Stream',
+      sourceUrl: url,
+      durationSec: isYouTubeShortUrl(url) ? 60 : 180
+    });
+    showToast(`Loaded URL into Clipper!`);
+  });
+
+  document.getElementById('studio-file-input')?.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const blobUrl = URL.createObjectURL(file);
+    loadSourceIntoStudio({
+      title: file.name.replace(/\.[^.]+$/, ''),
+      podcastTitle: 'Local File',
+      sourceUrl: blobUrl,
+      durationSec: 120
+    });
+    showToast(`Loaded local file "${file.name}"`);
+  });
+
+  document.querySelectorAll('.btn-loop-len').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.btn-loop-len').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const len = parseFloat(btn.dataset.looplen) || 20;
+      studio.outSec = Math.min(studio.source.duration, studio.inSec + len);
+      renderStudioWaveform();
+    });
+  });
+
+  document.getElementById('btn-set-in')?.addEventListener('click', () => {
+    studio.inSec = Math.max(0, Math.min(studio.outSec - 1, studio.playheadSec));
+    renderStudioWaveform();
+  });
+
+  document.getElementById('btn-set-out')?.addEventListener('click', () => {
+    if (studio.playheadSec > studio.inSec + 0.5) {
+      studio.outSec = Math.min(studio.source.duration, studio.playheadSec);
+      renderStudioWaveform();
+    }
+  });
+
+  document.getElementById('btn-studio-preview')?.addEventListener('click', toggleStudioPreview);
+
+  document.getElementById('btn-save-to-crate')?.addEventListener('click', () => {
+    const loopObj = buildCurrentStudioLoopObject();
+    loopCrate.unshift(loopObj);
+    saveLoopCrate();
+    showToast(`Saved "${loopObj.title}" to Loop Crate!`);
+  });
+
+  document.getElementById('btn-apply-all-work')?.addEventListener('click', () => {
+    const loopObj = buildCurrentStudioLoopObject();
+    loopCrate.unshift(loopObj);
+    saveLoopCrate();
+    applyLoopToAllWorkBlocks(loopObj);
+  });
+
+  document.getElementById('btn-export-wav')?.addEventListener('click', exportStudioLoopAsWav);
+  document.getElementById('btn-sync-dj-cues')?.addEventListener('click', syncStudioLoopToDjCues);
+  document.getElementById('btn-generate-30m-workout')?.addEventListener('click', generateAutoSlicedWorkout);
 
   // Play / Pause / Reset / Skips
   el.btnPlayPause.addEventListener('click', togglePlay);
@@ -1028,26 +2565,6 @@
     el.btnToggleVoice.classList.toggle('active', voiceOn);
   });
 
-  // View Switcher (Workout vs Builder)
-  el.btnToggleView.addEventListener('click', () => {
-    if (view === 'player') {
-      view = 'builder';
-      el.viewPlayer.style.display = 'none';
-      el.viewBuilder.style.display = 'flex';
-      el.btnToggleView.classList.add('active');
-      el.viewToggleText.textContent = 'Workout';
-      renderBuilder();
-    } else {
-      view = 'player';
-      el.viewPlayer.style.display = 'flex';
-      el.viewBuilder.style.display = 'none';
-      el.btnToggleView.classList.remove('active');
-      el.viewToggleText.textContent = 'Edit Routine';
-      saveRoutine();
-      renderPlayer();
-    }
-  });
-
   // Preset Pickers
   document.querySelectorAll('.preset-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1057,6 +2574,7 @@
         saveRoutine();
         reset();
         renderBuilder();
+        showToast(`Loaded "${routine.title}"`);
       }
     });
   });
@@ -1125,8 +2643,9 @@
         id: 'b_' + Date.now(),
         type: 'work',
         label: 'Sprint Interval',
-        durationSec: 30,
-        cueOverlay: 'beeps'
+        durationSec: 40,
+        cueOverlay: 'beeps',
+        audioSegment: SAMPLE_BEATS[0]
       });
       saveRoutine();
       renderBuilder();
@@ -1139,6 +2658,20 @@
       const bIdx = parseInt(attachBtn.dataset.bidx, 10);
       activeTargetBlock = { sIdx, bIdx };
       openAudioModal();
+      return;
+    }
+
+    const modeBtn = e.target.closest('.badge-playback-mode');
+    if (modeBtn) {
+      const sIdx = parseInt(modeBtn.dataset.sidx, 10);
+      const bIdx = parseInt(modeBtn.dataset.bidx, 10);
+      const seg = routine.sections[sIdx].blocks[bIdx].audioSegment;
+      if (seg) {
+        seg.playbackMode = seg.playbackMode === 'flow' ? 'loop' : 'flow';
+        seg.loop = seg.playbackMode === 'loop';
+        saveRoutine();
+        renderBuilder();
+      }
       return;
     }
 
@@ -1157,10 +2690,10 @@
     routine.sections.push({
       id: 'sec_' + Date.now(),
       name: 'Circuit Block ' + (routine.sections.length + 1),
-      repeatCount: 1,
+      repeatCount: 4,
       blocks: [
-        { id: 'b_w_' + Date.now(), type: 'work', label: 'Max Effort', durationSec: 45, cueOverlay: 'beeps' },
-        { id: 'b_r_' + Date.now(), type: 'rest', label: 'Transition / Rest', durationSec: 15, cueOverlay: 'beeps' }
+        { id: 'b_w_' + Date.now(), type: 'work', label: 'Max Effort', durationSec: 40, cueOverlay: 'beeps', audioSegment: SAMPLE_BEATS[0] },
+        { id: 'b_r_' + Date.now(), type: 'rest', label: 'Transition / Rest', durationSec: 20, cueOverlay: 'beeps' }
       ]
     });
     saveRoutine();
@@ -1168,9 +2701,35 @@
   });
 
   // ───────────────────────────────────────────────────────────────────
-  // 13. AUDIO ATTACHMENT MODAL
+  // 14. AUDIO / LOOP ATTACHMENT MODAL
   // ───────────────────────────────────────────────────────────────────
   function openAudioModal() {
+    // 0. Saved Custom Loops from Loop Crate
+    if (el.modalCrateLoopsList) {
+      el.modalCrateLoopsList.innerHTML = '';
+      loopCrate.forEach(loop => {
+        const d = document.createElement('div');
+        d.className = 'modal-sample-item';
+        d.innerHTML = `
+          <div>
+            <div class="sample-name" style="color:#d8b4fe;">${escapeHtml(loop.title)}</div>
+            <div class="sample-sub">${loop.playbackMode === 'flow' ? '🌊 Continuous Flow' : `🔁 Loop ${formatTime(loop.startTimeSec || 0)} → ${formatTime(loop.endTimeSec || 20)}`} • ${loop.bpm || 128} BPM</div>
+          </div>
+          <span class="btn-sample-pick" style="color:#a855f7;">Select</span>
+        `;
+        d.addEventListener('click', () => {
+          if (activeTargetBlock) {
+            routine.sections[activeTargetBlock.sIdx].blocks[activeTargetBlock.bIdx].audioSegment = Object.assign({}, loop);
+            saveRoutine();
+            renderBuilder();
+          }
+          closeAudioModal();
+        });
+        el.modalCrateLoopsList.appendChild(d);
+      });
+    }
+
+    // 1. Sample Beats
     el.sampleBeatsList.innerHTML = '';
     SAMPLE_BEATS.forEach((beat) => {
       const d = document.createElement('div');
@@ -1184,7 +2743,7 @@
       `;
       d.addEventListener('click', () => {
         if (activeTargetBlock) {
-          routine.sections[activeTargetBlock.sIdx].blocks[activeTargetBlock.bIdx].audioSegment = beat;
+          routine.sections[activeTargetBlock.sIdx].blocks[activeTargetBlock.bIdx].audioSegment = Object.assign({}, beat);
           saveRoutine();
           renderBuilder();
         }
@@ -1193,13 +2752,11 @@
       el.sampleBeatsList.appendChild(d);
     });
 
-    // Downloaded Episodes & Files from app.js via AnypodShared
+    // 2. Downloaded Episodes from app.js
     const downListEl = document.getElementById('modal-downloads-list');
     if (downListEl) {
       downListEl.innerHTML = '';
-      const dMap = Shared.getDownloadsMap ? Shared.getDownloadsMap() : (() => {
-        try { return JSON.parse(localStorage.getItem('anypod_downloads') || '{}'); } catch (_) { return {}; }
-      })();
+      const dMap = Shared.getDownloadsMap ? Shared.getDownloadsMap() : {};
       const dList = Object.values(dMap);
       if (dList.length > 0) {
         dList.forEach(ep => {
@@ -1219,7 +2776,10 @@
                 title: ep.title,
                 podcastTitle: ep.podcastTitle || 'Podcast',
                 sourceUrl: ep.audioUrl,
-                startTimeSec: 0
+                startTimeSec: 0,
+                endTimeSec: 30,
+                loop: true,
+                playbackMode: 'loop'
               };
               saveRoutine();
               renderBuilder();
@@ -1233,15 +2793,9 @@
       }
     }
 
-    // Live Episode from Main Anypod Player via AnypodShared
+    // 3. Live Episode from Main Anypod Player
     el.liveEpContainer.innerHTML = '';
-    const liveEp = Shared.getLastActiveEpisode ? Shared.getLastActiveEpisode() : (() => {
-      try {
-        const raw = localStorage.getItem('anypod_last_active_episode');
-        return raw ? JSON.parse(raw) : null;
-      } catch (_) { return null; }
-    })();
-
+    const liveEp = Shared.getLastActiveEpisode ? Shared.getLastActiveEpisode() : null;
     if (liveEp && (liveEp.audioUrl || liveEp.url)) {
       const c = document.createElement('div');
       c.className = 'active-ep-card';
@@ -1259,7 +2813,10 @@
             title: liveEp.title || 'Anypod Episode',
             podcastTitle: liveEp.podcastTitle || 'Podcast',
             sourceUrl: liveEp.audioUrl || liveEp.url,
-            startTimeSec: 0
+            startTimeSec: 0,
+            endTimeSec: 30,
+            loop: true,
+            playbackMode: 'flow'
           };
           saveRoutine();
           renderBuilder();
@@ -1284,16 +2841,22 @@
   el.formDirectAudio.addEventListener('submit', (e) => {
     e.preventDefault();
     const url = el.inputDirectUrl.value.trim();
-    const title = el.inputDirectTitle.value.trim() || 'Custom Stream';
+    const title = el.inputDirectTitle.value.trim() || 'Custom Loop';
     const start = parseFloat(el.inputDirectStart.value) || 0;
+    const end = parseFloat(el.inputDirectEnd?.value) || (start + 30);
 
     if (url && activeTargetBlock) {
       routine.sections[activeTargetBlock.sIdx].blocks[activeTargetBlock.bIdx].audioSegment = {
         id: 'url_' + Date.now(),
-        title: title,
-        podcastTitle: 'Direct Audio',
+        title,
+        podcastTitle: extractYouTubeId(url) ? 'YouTube / Shorts' : 'Direct Audio',
         sourceUrl: url,
-        startTimeSec: start
+        videoId: extractYouTubeId(url),
+        isYouTube: Boolean(extractYouTubeId(url)),
+        startTimeSec: start,
+        endTimeSec: end > start ? end : start + 30,
+        loop: true,
+        playbackMode: 'loop'
       };
       saveRoutine();
       renderBuilder();
@@ -1301,11 +2864,12 @@
       el.inputDirectUrl.value = '';
       el.inputDirectTitle.value = '';
       el.inputDirectStart.value = '0';
+      if (el.inputDirectEnd) el.inputDirectEnd.value = '30';
     }
   });
 
   // ───────────────────────────────────────────────────────────────────
-  // 14. SHARE & EXPORT MODAL
+  // 15. SHARE & EXPORT MODAL
   // ───────────────────────────────────────────────────────────────────
   el.btnOpenShare.addEventListener('click', () => {
     try {
@@ -1339,19 +2903,21 @@
   });
 
   // ───────────────────────────────────────────────────────────────────
-  // 15. INITIAL RENDER
+  // 16. INITIAL RENDER & STORAGE BRIDGE
   // ───────────────────────────────────────────────────────────────────
   renderPlayer();
   renderBuilder();
+  renderLoopCrate();
+  rafId = requestAnimationFrame(tickLoop);
 
-  // ───────────────────────────────────────────────────────────────────
-  // 16. STORAGE SYNC & CROSS-SUBDOMAIN BRIDGE (VIA AnypodShared)
-  // ───────────────────────────────────────────────────────────────────
   if (Shared.initStorageBridge) {
     Shared.initStorageBridge({
       onUpdate: () => {
         if (el.modalAudio && el.modalAudio.style.display === 'flex') {
           openAudioModal();
+        }
+        if (view === 'studio') {
+          renderStudioLibrary(document.getElementById('studio-library-search')?.value || '');
         }
       }
     });

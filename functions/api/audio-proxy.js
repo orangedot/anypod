@@ -54,6 +54,14 @@ export async function onRequest(context) {
       responseHeaders.set('accept-ranges', 'bytes');
     }
 
+    // Cache successful static media segments on Cloudflare CDN edge to prevent CPU exhaustion
+    // (RFC 7234: 200 OK and 206 Partial Content are both cacheable when public headers are present)
+    if (upstreamResponse.status === 200 || upstreamResponse.status === 206) {
+      if (!responseHeaders.has('cache-control')) {
+        responseHeaders.set('Cache-Control', 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400');
+      }
+    }
+
     const responseBody = request.method === 'HEAD' ? null : upstreamResponse.body;
 
     return new Response(responseBody, {

@@ -8606,15 +8606,17 @@
             }, 150);
             return;
           }
-          // If direct play was rejected or blocked on mobile, invoke unified audio-proxy fallback:
-          if (!elements.audio.src.includes('/api/audio-proxy') && episode.audioUrl) {
-            triggerAudioProxyFallback(`Direct play rejected (${err?.name || 'error'})`);
+          // Direct play was rejected or blocked.
+          // On modern mobile browsers (iOS/Android), direct audio play() can fail if user activation was lost
+          // or during lockscreen transitions. Only fall back to audio proxy if this is genuinely a network/CORS error,
+          // not an AbortError or transient mobile lockscreen pause.
+          if (elements.audio.error && !elements.audio.src.includes('/api/audio-proxy') && episode.audioUrl) {
+            triggerAudioProxyFallback(`Direct play error (${elements.audio.error?.code || err?.name || 'error'})`);
             return;
           }
           if (state.playbackStatus === 'loading') return;
           state.playbackStatus = 'paused';
           syncPlaybackButtons();
-          handleUnplayableTrackInQueue();
         });
       }
     }
@@ -12488,16 +12490,38 @@
       offlineCtx = new OfflineCtx(1, 44100, 44100);
 
       let totalBytes = duration * 16000;
+      // Detect if target audio URL supports direct CORS requests (so we can bypass /api/audio-proxy completely)
+      let probeBaseUrl = episode.audioUrl;
+      let useDirectProbe = false;
       try {
-        const headRes = await fetch(`/api/audio-proxy?url=${encodeURIComponent(episode.audioUrl)}`, {
+        const directTest = await fetch(episode.audioUrl, {
           method: 'HEAD',
           signal
         });
-        const cl = headRes.headers.get('content-length');
-        if (cl && parseInt(cl, 10) > 100000) {
-          totalBytes = parseInt(cl, 10);
+        if (directTest.ok) {
+          useDirectProbe = true;
+          const cl = directTest.headers.get('content-length');
+          if (cl && parseInt(cl, 10) > 100000) {
+            totalBytes = parseInt(cl, 10);
+          }
         }
-      } catch (_) {}
+      } catch (_) {
+        useDirectProbe = false;
+      }
+
+      if (!useDirectProbe) {
+        probeBaseUrl = `/api/audio-proxy?url=${encodeURIComponent(episode.audioUrl)}`;
+        try {
+          const headRes = await fetch(probeBaseUrl, {
+            method: 'HEAD',
+            signal
+          });
+          const cl = headRes.headers.get('content-length');
+          if (cl && parseInt(cl, 10) > 100000) {
+            totalBytes = parseInt(cl, 10);
+          }
+        } catch (_) {}
+      }
 
       const totalBars = state.episodeTimeline.bars.length;
       const sliceResults = new Array(TOTAL_SLICES).fill(null);
@@ -12524,7 +12548,7 @@
         }
 
         try {
-          const chunkRes = await fetch(`/api/audio-proxy?url=${encodeURIComponent(episode.audioUrl)}`, {
+          const chunkRes = await fetch(probeBaseUrl, {
             headers: {
               Range: `bytes=${startByte}-${endByte}`
             },

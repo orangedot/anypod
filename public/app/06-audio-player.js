@@ -973,15 +973,17 @@ function playEpisode(episode, overrideStartTime, context = null) {
           }, 150);
           return;
         }
-        // If direct play was rejected or blocked on mobile, invoke unified audio-proxy fallback:
-        if (!elements.audio.src.includes('/api/audio-proxy') && episode.audioUrl) {
-          triggerAudioProxyFallback(`Direct play rejected (${err?.name || 'error'})`);
+        // Direct play was rejected or blocked.
+        // On modern mobile browsers (iOS/Android), direct audio play() can fail if user activation was lost
+        // or during lockscreen transitions. Only fall back to audio proxy if this is genuinely a network/CORS error,
+        // not an AbortError or transient mobile lockscreen pause.
+        if (elements.audio.error && !elements.audio.src.includes('/api/audio-proxy') && episode.audioUrl) {
+          triggerAudioProxyFallback(`Direct play error (${elements.audio.error?.code || err?.name || 'error'})`);
           return;
         }
         if (state.playbackStatus === 'loading') return;
         state.playbackStatus = 'paused';
         syncPlaybackButtons();
-        handleUnplayableTrackInQueue();
       });
     }
   }
