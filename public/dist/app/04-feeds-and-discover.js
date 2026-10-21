@@ -337,20 +337,78 @@ async function refreshAllFeeds(options = {}) {
   setTimeout(hideStatus, 3200);
 }
 
-async function fetchSingleFeed(url, incomingEpisodes, updatedMetadata, options = {}) {
+function sanitizeFeedUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  let clean = rawUrl.trim();
+  // Strip accidental markdown wrapper syntax: [Title](https://...) or https://...](https://...)
+  if (clean.includes('](') || clean.startsWith('[') || clean.endsWith(')')) {
+    const match = clean.match(/https?:\/\/[^\s\)"'\]]+/);
+    if (match) clean = match[0];
+  }
+  clean = clean.replace(/[\]\)>]+$/, '');
+  return clean;
+}
+
+const KNOWN_NO_CORS_HOSTS = new Set([
+  'feeds.npr.org',
+  'deutschlandfunk.de',
+  'www.deutschlandfunk.de',
+  'deutschlandfunkkultur.de',
+  'www.deutschlandfunkkultur.de',
+  'hoerspielundfeature.de',
+  'www.hoerspielundfeature.de',
+  'www1.wdr.de',
+  'wdr.de',
+  'ndr.de',
+  'www.ndr.de',
+  'feeds.acast.com',
+  'ra.co',
+  'feeds.soundcloud.com',
+  'feeds.feedburner.com',
+  'trueunderground.one',
+  'www.trueunderground.one',
+  'thecreativeprocess.squarespace.com',
+  'podcast.audiocon.de',
+  'podcast.daskoimladja.com'
+]);
+
+function getCachedNoCorsHosts() {
+  try {
+    const raw = storage.getItem('anypod_no_cors_hosts_v1');
+    if (raw) return new Set(JSON.parse(raw));
+  } catch (_) {}
+  return new Set();
+}
+
+function rememberNoCorsHost(hostname) {
+  if (!hostname) return;
+  try {
+    const current = getCachedNoCorsHosts();
+    current.add(hostname);
+    storage.setItem('anypod_no_cors_hosts_v1', JSON.stringify([...current]));
+  } catch (_) {}
+}
+
+async function fetchSingleFeed(rawUrl, incomingEpisodes, updatedMetadata, options = {}) {
+  const url = sanitizeFeedUrl(rawUrl);
+  if (!url) return null;
   const forceRefresh = Boolean(options && options.force);
-  const existingMeta = state.feedMetadata[url] || {};
+  const existingMeta = state.feedMetadata[url] || state.feedMetadata[rawUrl] || {};
   const isYouTubeUrl = url.includes('youtube.com') || url.includes('youtu.be');
   const isHttpsPage = typeof window !== 'undefined' && window.location.protocol === 'https:';
   const isHttpFeedOnHttps = isHttpsPage && url.startsWith('http://');
+
+  let feedHostname = '';
+  try { feedHostname = new URL(url).hostname; } catch (_) {}
+  const isKnownNoCors = KNOWN_NO_CORS_HOSTS.has(feedHostname) || getCachedNoCorsHosts().has(feedHostname);
 
   try {
     let feedData = null;
     let usedDirectCors = false;
 
     // 1. CLIENT-FIRST HYBRID: Try direct browser RSS fetch + native DOMParser (0 Cloudflare requests!)
-    //    Runs on every startup for direct-capable HTTPS feeds so new episodes arrive with zero Cloudflare load.
-    if (!isYouTubeUrl && !isHttpFeedOnHttps && existingMeta.corsBlocked !== true) {
+    //    Runs on startup for direct-capable HTTPS feeds. Skips hosts known to lack CORS to avoid red console errors.
+    if (!isYouTubeUrl && !isHttpFeedOnHttps && existingMeta.corsBlocked !== true && !isKnownNoCors) {
       try {
         const directRes = await fetch(url, {
           method: 'GET',
@@ -368,6 +426,7 @@ async function fetchSingleFeed(url, incomingEpisodes, updatedMetadata, options =
       } catch (_) {
         // Direct fetch failed (likely CORS header missing on upstream podcast host) — remember this!
         existingMeta.corsBlocked = true;
+        if (feedHostname) rememberNoCorsHost(feedHostname);
       }
     }
 
@@ -433,7 +492,10 @@ async function fetchSingleFeed(url, incomingEpisodes, updatedMetadata, options =
           error: feedData.error
         };
       }
-      return null;
+      if (rawUrl && rawUrl !== url && updatedMetadata[url]) {
+      updatedMetadata[rawUrl] = updatedMetadata[url];
+    }
+    return null;
     }
 
     // Check if this playlist is already fully cached locally
@@ -454,9 +516,13 @@ async function fetchSingleFeed(url, incomingEpisodes, updatedMetadata, options =
       isYouTubePlaylist: feedData.isYouTubePlaylist || false,
       playlistId: feedData.playlistId || null,
       nextToken: feedData.nextToken || null,
-      corsBlocked: usedDirectCors ? false : Boolean(existingMeta.corsBlocked),
+      corsBlocked: usedDirectCors ? false : Boolean(existingMeta.corsBlocked || isKnownNoCors),
       lastFetchedAt: Date.now()
     };
+
+    if (rawUrl && rawUrl !== url) {
+      updatedMetadata[rawUrl] = updatedMetadata[url];
+    }
 
     if (Array.isArray(feedData.episodes)) {
       incomingEpisodes.push(...feedData.episodes);
@@ -473,6 +539,9 @@ async function fetchSingleFeed(url, incomingEpisodes, updatedMetadata, options =
             episodesCount: 0,
             error: err.message
           };
+    }
+    if (rawUrl && rawUrl !== url && updatedMetadata[url]) {
+      updatedMetadata[rawUrl] = updatedMetadata[url];
     }
     return null;
   }

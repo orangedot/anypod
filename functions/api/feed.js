@@ -265,6 +265,10 @@ function parseRelativeDate(str) {
   return 0;
 }
 
+function isValidYouTubeVideoId(id) {
+  return typeof id === 'string' && /^[a-zA-Z0-9_-]{11}$/.test(id) && !id.startsWith('PL');
+}
+
 /**
  * Parses videos and continuation tokens from any InnerTube/ytInitialData structure.
  */
@@ -278,9 +282,12 @@ function parseVideosFromInnerTube(data) {
     if (!obj || typeof obj !== 'object') return;
 
     // 1. Support modern YouTube lockupViewModel (2024-2026 UI)
-    if (obj.lockupViewModel && (obj.lockupViewModel.contentType === 'LOCKUP_CONTENT_TYPE_VIDEO' || obj.lockupViewModel.contentId)) {
+    if (obj.lockupViewModel) {
       const l = obj.lockupViewModel;
-      const vId = l.contentId || l.rendererContext?.commandContext?.onTap?.innertubeCommand?.watchEndpoint?.videoId;
+      const endpointVId = l.rendererContext?.commandContext?.onTap?.innertubeCommand?.watchEndpoint?.videoId;
+      const rawId = endpointVId || l.contentId;
+      const vId = isValidYouTubeVideoId(rawId) ? rawId : null;
+
       if (vId && !seenIds.has(vId)) {
         seenIds.add(vId);
         const titleText = l.metadata?.lockupMetadataViewModel?.title?.content 
@@ -288,7 +295,7 @@ function parseVideosFromInnerTube(data) {
           || 'Untitled Video';
         const authorText = l.metadata?.lockupMetadataViewModel?.metadata?.contentMetadataViewModel?.metadataRows?.[0]?.parts?.[0]?.text?.content || '';
         const thumb = l.contentImage?.thumbnailViewModel?.image?.sources?.slice(-1)[0]?.url 
-          || `https://i.ytimg.com/vi/${vId}/hqdefault.jpg`;
+          || (vId ? `https://i.ytimg.com/vi/${vId}/hqdefault.jpg` : '');
         const durText = l.contentImage?.thumbnailViewModel?.overlays?.[0]?.thumbnailBottomOverlayViewModel?.badges?.[0]?.thumbnailBadgeViewModel?.text || '';
         let durSec = 0;
         if (durText) {
@@ -340,7 +347,7 @@ function parseVideosFromInnerTube(data) {
       || obj.videoRenderer 
       || obj.compactVideoRenderer;
 
-    if (v && v.videoId && !seenIds.has(v.videoId)) {
+    if (v && v.videoId && isValidYouTubeVideoId(v.videoId) && !seenIds.has(v.videoId)) {
       seenIds.add(v.videoId);
       const titleText = v.title?.runs
         ? v.title.runs.map(r => r.text).join('')

@@ -25,6 +25,8 @@ function handleUnplayableTrackInQueue() {
 function triggerAudioProxyFallback(reason) {
   if (_isProxyFallbackInProgress) return;
   if (!state.currentEpisode || !state.currentEpisode.audioUrl) return;
+  // YouTube videos must play via the YouTube IFrame player, never proxied into HTML5 audio
+  if (state.currentEpisode.isYouTube || state.currentEpisode.audioUrl.includes('youtube.com') || state.currentEpisode.audioUrl.includes('youtu.be')) return;
   if (elements.audio && elements.audio.src && elements.audio.src.includes('/api/audio-proxy')) return;
 
   _isProxyFallbackInProgress = true;
@@ -843,7 +845,13 @@ function playEpisode(episode, overrideStartTime, context = null) {
     updateQueueUI();
   }
 
-  if (episode.isYouTube || episode.videoId || episode.playlistId) {
+  const isYt = episode.isYouTube || Boolean(episode.videoId) || Boolean(episode.playlistId) || (typeof episode.audioUrl === 'string' && (episode.audioUrl.includes('youtube.com') || episode.audioUrl.includes('youtu.be')));
+  if (isYt) {
+    episode.isYouTube = true;
+    if (!episode.videoId && typeof episode.audioUrl === 'string') {
+      const vMatch = episode.audioUrl.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+      if (vMatch) episode.videoId = vMatch[1];
+    }
     // 1. Stop native audio element completely so YouTube iframe has exclusive audio focus
     if (elements.audio) {
       elements.audio.pause();
