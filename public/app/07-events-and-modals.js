@@ -321,17 +321,17 @@ function setupEventListeners() {
 
     discoverSearchTimer = setTimeout(async () => {
       try {
-        // Fetch 5 matching shows via proxy (with direct fallback)
+        // Fetch 5 matching shows directly from iTunes Search API first (0 Cloudflare calls), fallback to proxy if blocked
         let data = null;
         try {
-          const proxyRes = await fetch(`/api/search-directory?term=${encodeURIComponent(q)}&limit=5`);
-          if (proxyRes.ok) data = await proxyRes.json();
+          const directRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=podcast&entity=podcast&limit=5`);
+          if (directRes.ok) data = await directRes.json();
         } catch (_) {}
 
-        if (!data || !data.results || data.results.length === 0 || data.rateLimited) {
+        if (!data || !data.results) {
           try {
-            const directRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=podcast&entity=podcast&limit=5`);
-            if (directRes.ok) data = await directRes.json();
+            const proxyRes = await fetch(`/api/search-directory?term=${encodeURIComponent(q)}&limit=5`);
+            if (proxyRes.ok) data = await proxyRes.json();
           } catch (_) {}
         }
 
@@ -1192,16 +1192,16 @@ function setupEventListeners() {
         try {
           let data = null;
           try {
-            const res = await fetch(`/api/search-directory?term=${encodeURIComponent(term)}&limit=1`);
+            const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=podcast&limit=1`);
             if (res.ok) data = await res.json();
           } catch (_) {}
 
-          // if (!data || !data.results || data.results.length === 0) {
-          //   try {
-          //     const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=podcast&limit=1`);
-          //     if (res.ok) data = await res.json();
-          //   } catch (_) {}
-          // }
+          if (!data || !data.results || data.results.length === 0) {
+            try {
+              const res = await fetch(`/api/search-directory?term=${encodeURIComponent(term)}&limit=1`);
+              if (res.ok) data = await res.json();
+            } catch (_) {}
+          }
 
           if (data && data.results && data.results[0] && data.results[0].feedUrl) {
             const feedUrl = data.results[0].feedUrl;
@@ -1214,7 +1214,7 @@ function setupEventListeners() {
       }
 
       saveFeedsToStorage();
-      refreshAllFeeds();
+      refreshAllFeeds({ force: true });
     });
   }
 
@@ -1238,7 +1238,7 @@ function setupEventListeners() {
   if (btnRefreshAllFeeds) {
     btnRefreshAllFeeds.addEventListener('click', async () => {
       try {
-        await refreshAllFeeds();
+        await refreshAllFeeds({ force: true });
       } catch (err) {
         console.error('[Refresh All Feeds Error]:', err);
         showStatus('Failed to update some feeds.');

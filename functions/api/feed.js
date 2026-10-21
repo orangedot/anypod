@@ -2,7 +2,8 @@ import { getUserFromRequest, isValidExternalUrl } from './utils.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
-  const urlParams = new URL(request.url).searchParams;
+  const reqUrl = new URL(request.url);
+  const urlParams = reqUrl.searchParams;
   let targetUrl = urlParams.get('url');
 
   const corsHeaders = {
@@ -10,11 +11,25 @@ export async function onRequest(context) {
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Session-Token',
     'Content-Type': 'application/json; charset=utf-8',
-    'Cache-Control': 'public, max-age=180, stale-while-revalidate=300'
+    'Cache-Control': 'public, max-age=900, s-maxage=900, stale-while-revalidate=1800'
   };
 
   if (request.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders, status: 204 });
+  }
+
+  const cache = typeof caches !== 'undefined' && caches.default ? caches.default : null;
+  const cacheKeyUrl = new URL(reqUrl.toString());
+  const cacheKey = new Request(cacheKeyUrl.toString(), { method: 'GET' });
+
+  // 0. Check Cloudflare Edge Cache for GET requests (0.1ms CPU hit)
+  if (request.method === 'GET' && cache) {
+    try {
+      const cachedRes = await cache.match(cacheKey);
+      if (cachedRes) {
+        return cachedRes;
+      }
+    } catch (_) {}
   }
 
   // 1. YouTube continuation pagination requests
@@ -31,10 +46,14 @@ export async function onRequest(context) {
           batchData = meta.initialBatch;
         }
       }
-      return new Response(JSON.stringify(batchData || { episodes: [], nextToken: null }), {
+      const res = new Response(JSON.stringify(batchData || { episodes: [], nextToken: null }), {
         headers: corsHeaders,
         status: 200
       });
+      if (cache && batchData?.episodes?.length > 0) {
+        try { context.waitUntil(cache.put(cacheKey, res.clone())); } catch (_) {}
+      }
+      return res;
     } catch (err) {
       return new Response(JSON.stringify({ error: err.message, episodes: [], nextToken: null }), {
         headers: corsHeaders,
@@ -43,14 +62,31 @@ export async function onRequest(context) {
     }
   }
 
-  // 2. Batch feed requests from subscriptions
+  // 2. Batch feed requests from subscriptions (POST /api/feed)
   if (request.method === 'POST') {
     try {
       const body = await request.json();
       if (body.urls && Array.isArray(body.urls)) {
-        const validUrls = body.urls.filter(u => typeof u === 'string' && isValidExternalUrl(u));
+        const validUrls = body.urls.filter(u => typeof u === 'string' && isValidExternalUrl(u)).slice(0, 25);
         const results = await Promise.allSettled(
-          validUrls.map(u => fetchAndParseFeed(u))
+          validUrls.map(async (u) => {
+            if (cache) {
+              try {
+                const subKey = new Request(`${reqUrl.origin}/api/feed?url=${encodeURIComponent(u)}`, { method: 'GET' });
+                const hit = await cache.match(subKey);
+                if (hit) return await hit.json();
+              } catch (_) {}
+            }
+            const parsed = await fetchAndParseFeed(u);
+            if (cache && parsed && !parsed.error) {
+              try {
+                const subKey = new Request(`${reqUrl.origin}/api/feed?url=${encodeURIComponent(u)}`, { method: 'GET' });
+                const subRes = new Response(JSON.stringify(parsed), { headers: corsHeaders, status: 200 });
+                context.waitUntil(cache.put(subKey, subRes));
+              } catch (_) {}
+            }
+            return parsed;
+          })
         );
         const feeds = results
           .filter(r => r.status === 'fulfilled' && r.value)
@@ -79,12 +115,62 @@ export async function onRequest(context) {
     });
   }
 
+  // 4. Raw XML Stream Pass-Through Mode (?raw=1) — 0ms Cloudflare XML parsing CPU!
+  if (urlParams.get('raw') === '1') {
+    try {
+      const upstreamRes = await fetch(targetUrl, {
+        headers: {
+          'User-Agent': 'Anypod/1.0 (+CloudflarePages)',
+          'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
+        },
+        cf: { cacheTtl: 900, cacheEverything: true },
+        signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(8500) : undefined
+      });
+      if (!upstreamRes.ok) {
+        return new Response(`Upstream HTTP ${upstreamRes.status}`, { status: upstreamRes.status, headers: corsHeaders });
+      }
+      const rawHeaders = {
+        ...corsHeaders,
+        'Content-Type': upstreamRes.headers.get('content-type') || 'application/xml; charset=utf-8'
+      };
+      const streamRes = new Response(upstreamRes.body, { status: 200, headers: rawHeaders });
+      if (cache) {
+        try { context.waitUntil(cache.put(cacheKey, streamRes.clone())); } catch (_) {}
+      }
+      return streamRes;
+    } catch (err) {
+      return new Response(JSON.stringify({ error: err.message }), { status: 502, headers: corsHeaders });
+    }
+  }
+
+  // 5. Lazy On-Demand Single-Episode Full Show Notes (?guid=...&fullContent=1)
+  const targetGuid = urlParams.get('guid');
+  if (targetGuid && urlParams.get('fullContent') === '1') {
+    try {
+      const noteData = await fetchSingleEpisodeContent(targetUrl, targetGuid);
+      const res = new Response(JSON.stringify(noteData), { headers: corsHeaders, status: 200 });
+      if (cache && noteData.content) {
+        try { context.waitUntil(cache.put(cacheKey, res.clone())); } catch (_) {}
+      }
+      return res;
+    } catch (err) {
+      return new Response(JSON.stringify({ guid: targetGuid, content: '', error: err.message }), {
+        headers: corsHeaders,
+        status: 200
+      });
+    }
+  }
+
   try {
     const feedData = await fetchAndParseFeed(targetUrl);
-    return new Response(JSON.stringify(feedData), {
+    const res = new Response(JSON.stringify(feedData), {
       headers: corsHeaders,
       status: 200
     });
+    if (cache && feedData && !feedData.error) {
+      try { context.waitUntil(cache.put(cacheKey, res.clone())); } catch (_) {}
+    }
+    return res;
   } catch (error) {
     return new Response(JSON.stringify({ 
       error: error.message || 'Failed to process feed',
@@ -92,7 +178,7 @@ export async function onRequest(context) {
       episodesCount: 0,
       episodes: []
     }), {
-      headers: corsHeaders,
+      headers: { ...corsHeaders, 'Cache-Control': 'no-store' },
       status: 200
     });
   }
@@ -350,13 +436,8 @@ async function fetchYouTubePlaylistMetadata(playlistId) {
         if (parsed.episodes && parsed.episodes.length > 0) {
           initialBatch = parsed;
         }
-        if (!count) {
-          const matchFromData = JSON.stringify(initialData).match(/(\d[\d,.]*)\s*(?:Videos|videos|Titel|tracks|episodes)/i);
-          if (matchFromData) {
-            count = parseInt(matchFromData[1].replace(/[,.]/g, ''), 10);
-          } else if (initialBatch?.episodes?.length) {
-            count = initialBatch.episodes.length;
-          }
+        if (!count && initialBatch?.episodes?.length) {
+          count = initialBatch.episodes.length;
         }
         if (!title && initialData.header?.pageHeaderRenderer?.pageTitle) {
           title = initialData.header.pageHeaderRenderer.pageTitle;
@@ -580,54 +661,194 @@ async function fetchYouTubeOEmbedFallback(playlistId, originalUrl) {
   };
 }
 
+// Pre-compiled regex caches at module scope so Worker invocations never allocate RegExp inside loops
+const _tagRegexCache = new Map();
+const _rawTagRegexCache = new Map();
+const _attrRegexCache = new Map();
+const _cdataRegex = /<!\[CDATA\[([\s\S]*?)\]\]>/gi;
+const _htmlTagRegex = /<[^>]+>/g;
+const _itemImageTagRegex = /<image[^>]*>([\s\S]*?)<\/image>/i;
+const _mediaImgRegex1 = /<media:content[^>]*\burl=["']([^"']+)["'][^>]*(medium=["']image["']|type=["']image\/[^"']+["'])[^>]*>/i;
+const _mediaImgRegex2 = /<media:content[^>]*(medium=["']image["']|type=["']image\/[^"']+["'])[^>]*\burl=["']([^"']+)["'][^>]*>/i;
+
+const _entityMap = {
+  '&ndash;': '–', '&mdash;': '—', '&hellip;': '…', '&bull;': '•',
+  '&rsquo;': '’', '&lsquo;': '‘', '&rdquo;': '”', '&ldquo;': '“',
+  '&lt;': '<', '&gt;': '>', '&amp;': '&', '&quot;': '"', '&#39;': "'", '&nbsp;': ' '
+};
+const _entityRegex = /&(?:ndash|mdash|hellip|bull|rsquo|lsquo|rdquo|ldquo|lt|gt|amp|quot|#39|nbsp|#\d+|#x[0-9a-f]+);/gi;
+
+function decodeEntitiesFast(str) {
+  if (!str || !str.includes('&')) return str;
+  return str.replace(_entityRegex, (m) => {
+    const lower = m.toLowerCase();
+    if (_entityMap[lower]) return _entityMap[lower];
+    if (lower.startsWith('&#x')) {
+      const code = parseInt(lower.slice(3, -1), 16);
+      return !isNaN(code) ? String.fromCharCode(code) : m;
+    }
+    if (lower.startsWith('&#')) {
+      const code = parseInt(lower.slice(2, -1), 10);
+      return !isNaN(code) ? String.fromCharCode(code) : m;
+    }
+    return m;
+  });
+}
+
+function cleanText(str, maxLen = 0) {
+  if (!str) return '';
+  let s = str;
+  // Fast unwrap CDATA without regex
+  if (s.includes('<![CDATA[')) {
+    const cdataStart = s.indexOf('<![CDATA[');
+    const cdataEnd = s.lastIndexOf(']]>');
+    if (cdataStart !== -1 && cdataEnd > cdataStart) {
+      s = s.slice(0, cdataStart) + s.slice(cdataStart + 9, cdataEnd) + s.slice(cdataEnd + 3);
+    }
+    if (s.includes('<![CDATA[')) {
+      s = s.replace(_cdataRegex, '$1');
+    }
+  }
+  // Slice before running regexes if maxLen is requested to save CPU on 50KB show-notes
+  if (maxLen > 0 && s.length > maxLen * 3) {
+    s = s.slice(0, maxLen * 3);
+  }
+  if (s.includes('<')) {
+    s = s.replace(_htmlTagRegex, ' ');
+  }
+  if (s.includes('&')) {
+    s = decodeEntitiesFast(s);
+  }
+  if (s.includes('\n') || s.includes('\r') || s.includes('\t') || s.includes('  ')) {
+    s = s.replace(/\s+/g, ' ');
+  }
+  s = s.trim();
+  if (maxLen > 0 && s.length > maxLen) {
+    return s.slice(0, maxLen) + '...';
+  }
+  return s;
+}
+
+function extractTagRawFast(xmlSegment, tagName) {
+  let openIdx = xmlSegment.indexOf(`<${tagName}>`);
+  let openEnd = openIdx !== -1 ? openIdx + tagName.length + 2 : -1;
+  if (openIdx === -1) {
+    openIdx = xmlSegment.indexOf(`<${tagName} `);
+    if (openIdx !== -1) {
+      openEnd = xmlSegment.indexOf('>', openIdx + tagName.length + 2);
+      if (openEnd !== -1) openEnd += 1;
+    }
+  }
+  if (openEnd === -1) return '';
+  const closeIdx = xmlSegment.indexOf(`</${tagName}>`, openEnd);
+  if (closeIdx === -1) return '';
+  return xmlSegment.slice(openEnd, closeIdx);
+}
+
+function getTagContentFast(xmlSegment, tagName, maxLen = 0) {
+  const raw = extractTagRawFast(xmlSegment, tagName)
+    || extractTagRawFast(xmlSegment, `itunes:${tagName}`)
+    || extractTagRawFast(xmlSegment, `media:${tagName}`)
+    || extractTagRawFast(xmlSegment, `yt:${tagName}`);
+  return raw ? cleanText(raw, maxLen) : '';
+}
+
+function getAttributeFast(xmlSegment, tagName, attrName) {
+  let tagStart = xmlSegment.indexOf(`<${tagName} `);
+  if (tagStart === -1 && !tagName.includes(':')) {
+    tagStart = xmlSegment.indexOf(`<itunes:${tagName} `);
+    if (tagStart === -1) tagStart = xmlSegment.indexOf(`<media:${tagName} `);
+  }
+  if (tagStart === -1) return '';
+  const tagEnd = xmlSegment.indexOf('>', tagStart + 2);
+  if (tagEnd === -1) return '';
+  const tagSlice = xmlSegment.slice(tagStart, tagEnd);
+  let attrIdx = tagSlice.indexOf(`${attrName}="`);
+  let quote = '"';
+  if (attrIdx === -1) {
+    attrIdx = tagSlice.indexOf(`${attrName}='`);
+    quote = "'";
+  }
+  if (attrIdx === -1) return '';
+  const valStart = attrIdx + attrName.length + 2;
+  const valEnd = tagSlice.indexOf(quote, valStart);
+  return valEnd !== -1 ? tagSlice.slice(valStart, valEnd) : '';
+}
+
+function getTagContent(xmlSegment, tagName, maxLen = 0) {
+  const fast = getTagContentFast(xmlSegment, tagName, maxLen);
+  if (fast) return fast;
+  let regex = _tagRegexCache.get(tagName);
+  if (!regex) {
+    regex = new RegExp(`<(${tagName}|itunes:${tagName}|yt:${tagName}|media:${tagName})[^>]*>([\\s\\S]*?)<\\/\\1\\b[^>]*>`, 'i');
+    _tagRegexCache.set(tagName, regex);
+  }
+  const match = xmlSegment.match(regex);
+  return match && match[2] ? cleanText(match[2], maxLen) : '';
+}
+
+function getAttribute(xmlSegment, tagName, attrName) {
+  const fast = getAttributeFast(xmlSegment, tagName, attrName);
+  if (fast) return fast;
+  const key = `${tagName}:${attrName}`;
+  let regex = _attrRegexCache.get(key);
+  if (!regex) {
+    regex = new RegExp(`<(${tagName}|itunes:${tagName}|yt:${tagName}|media:${tagName})[^>]*\\b${attrName}=["']([^"']+)["'][^>]*>`, 'i');
+    _attrRegexCache.set(key, regex);
+  }
+  const match = xmlSegment.match(regex);
+  return match ? match[2] : '';
+}
+
+function getRawTagContent(xmlSegment, tagName) {
+  let regex = _rawTagRegexCache.get(tagName);
+  if (!regex) {
+    regex = new RegExp(`<(${tagName}|content:${tagName}|itunes:${tagName}|yt:${tagName}|media:${tagName})[^>]*>([\\s\\S]*?)<\\/\\1\\b[^>]*>`, 'i');
+    _rawTagRegexCache.set(tagName, regex);
+  }
+  const match = xmlSegment.match(regex);
+  if (!match || !match[2]) return '';
+  let val = match[2];
+  if (val.includes('<![CDATA[')) {
+    val = val.replace(_cdataRegex, '$1');
+  }
+  return val.trim();
+}
+
+/**
+ * Lazy on-demand fetcher for full HTML show notes of a single episode (avoids sending MBs of HTML during feed sync).
+ */
+async function fetchSingleEpisodeContent(inputUrl, targetGuid) {
+  const response = await fetch(inputUrl, {
+    headers: {
+      'User-Agent': 'Anypod/1.0 (+CloudflarePages)',
+      'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
+    },
+    cf: { cacheTtl: 900, cacheEverything: true },
+    signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(8500) : undefined
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const xml = await response.text();
+
+  const itemRegex = /<(?:item|entry)[^>]*>([\s\S]*?)<\/(?:item|entry)>/gi;
+  let m;
+  while ((m = itemRegex.exec(xml)) !== null) {
+    const itemXml = m[1];
+    if (!itemXml.includes(targetGuid)) continue;
+    const epGuid = getTagContent(itemXml, 'guid') || getTagContent(itemXml, 'id') || getTagContent(itemXml, 'link') || getTagContent(itemXml, 'title');
+    if (epGuid === targetGuid || itemXml.includes(targetGuid)) {
+      const content = getRawTagContent(itemXml, 'encoded')
+        || getRawTagContent(itemXml, 'content')
+        || getRawTagContent(itemXml, 'description')
+        || getRawTagContent(itemXml, 'summary');
+      return { guid: targetGuid, content };
+    }
+  }
+  return { guid: targetGuid, content: '' };
+}
+
 function parsePodcastXml(xml, feedUrl, originalUrl) {
-  const getTagContent = (xmlSegment, tagName) => {
-    const regex = new RegExp(`<(${tagName}|itunes:${tagName}|yt:${tagName}|media:${tagName})[^>]*>([\\s\\S]*?)<\\/\\1\\b[^>]*>`, 'i');
-    const match = xmlSegment.match(regex);
-    return match && match[2] ? cleanText(match[2]) : '';
-  };
-
-  const getAttribute = (xmlSegment, tagName, attrName) => {
-    const regex = new RegExp(`<(${tagName}|itunes:${tagName}|yt:${tagName}|media:${tagName})[^>]*\\b${attrName}=["']([^"']+)["'][^>]*>`, 'i');
-    const match = xmlSegment.match(regex);
-    return match ? match[2] : '';
-  };
-
-  const getRawTagContent = (xmlSegment, tagName) => {
-    const regex = new RegExp(`<(${tagName}|content:${tagName}|itunes:${tagName}|yt:${tagName}|media:${tagName})[^>]*>([\\s\\S]*?)<\\/\\1\\b[^>]*>`, 'i');
-    const match = xmlSegment.match(regex);
-    if (!match || !match[2]) return '';
-    let val = match[2];
-    val = val.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, '$1').trim();
-    return val;
-  };
-
-  const cleanText = (str) => {
-    if (!str) return '';
-    return str
-      .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, '$1')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)))
-      .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
-      .replace(/&ndash;/g, '–')
-      .replace(/&mdash;/g, '—')
-      .replace(/&hellip;/g, '…')
-      .replace(/&bull;/g, '•')
-      .replace(/&rsquo;/g, '’')
-      .replace(/&lsquo;/g, '‘')
-      .replace(/&rdquo;/g, '”')
-      .replace(/&ldquo;/g, '“')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&amp;/g, '&')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/&nbsp;/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  };
-
-  const isAtom = xml.includes('<feed') && xml.includes('xmlns="http://www.w3.org/2005/Atom"');
+  const isAtom = xml.includes('<feed') && xml.includes('<entry');
 
   let title = '';
   let description = '';
@@ -636,43 +857,46 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
   let link = '';
 
   if (isAtom) {
-    title = getTagContent(xml, 'title') || 'YouTube Podcast Feed';
-    author = getTagContent(xml, 'name') || 'YouTube Creator';
+    const headerSlice = xml.slice(0, Math.min(xml.length, 8000));
+    title = getTagContent(headerSlice, 'title') || 'YouTube Podcast Feed';
+    author = getTagContent(headerSlice, 'name') || 'YouTube Creator';
     description = `YouTube Playlist Feed (${originalUrl})`;
-    link = getAttribute(xml, 'link', 'href') || originalUrl;
+    link = getAttribute(headerSlice, 'link', 'href') || originalUrl;
   } else {
-    const channelMatch = xml.match(/<channel[^>]*>([\s\S]*?)<\/channel>/i);
-    const channelXml = channelMatch ? channelMatch[1] : xml;
+    // Only extract channel header before the first <item> so we don't regex-scan a 10MB string for channel metadata
+    const firstItemIdx = xml.search(/<item[\s>]/i);
+    const channelHeaderXml = firstItemIdx !== -1 ? xml.slice(0, firstItemIdx) : xml.slice(0, 16000);
 
-    title = getTagContent(channelXml, 'title') || 'Untitled Podcast';
-    description = getTagContent(channelXml, 'description') || getTagContent(channelXml, 'summary');
-    author = getTagContent(channelXml, 'author') || getTagContent(channelXml, 'owner');
-    link = getTagContent(channelXml, 'link') || getAttribute(channelXml, 'link', 'href') || '';
+    title = getTagContent(channelHeaderXml, 'title') || 'Untitled Podcast';
+    description = getTagContent(channelHeaderXml, 'description', 500) || getTagContent(channelHeaderXml, 'summary', 500);
+    author = getTagContent(channelHeaderXml, 'author') || getTagContent(channelHeaderXml, 'owner');
+    link = getTagContent(channelHeaderXml, 'link') || getAttribute(channelHeaderXml, 'link', 'href') || '';
     
-    artwork = getAttribute(channelXml, 'image', 'href') || getAttribute(channelXml, 'itunes:image', 'href');
+    artwork = getAttribute(channelHeaderXml, 'image', 'href') || getAttribute(channelHeaderXml, 'itunes:image', 'href');
     if (!artwork) {
-      const imageTag = channelXml.match(/<image[^>]*>([\s\S]*?)<\/image>/i);
+      const imageTag = channelHeaderXml.match(_itemImageTagRegex);
       if (imageTag) artwork = getTagContent(imageTag[1], 'url');
     }
     if (artwork && artwork.startsWith('http://')) {
-      artwork = artwork.replace(/^http:\/\//i, 'https://');
+      artwork = 'https://' + artwork.slice(7);
     }
   }
 
   const items = [];
+  const MAX_PARSED_EPISODES = 550;
 
   if (isAtom) {
     const entryRegex = /<entry[^>]*>([\s\S]*?)<\/entry>/gi;
     let entryMatch;
 
     while ((entryMatch = entryRegex.exec(xml)) !== null) {
+      if (items.length >= MAX_PARSED_EPISODES) break;
       const entryXml = entryMatch[1];
       const epTitle = getTagContent(entryXml, 'title') || 'Untitled Video';
       const epVideoId = getTagContent(entryXml, 'videoId');
       const epGuid = getTagContent(entryXml, 'id') || epVideoId;
       const epPubDate = getTagContent(entryXml, 'published') || getTagContent(entryXml, 'updated');
-      const rawEntryContent = getRawTagContent(entryXml, 'content') || getRawTagContent(entryXml, 'summary') || getRawTagContent(entryXml, 'description');
-      const epDesc = getTagContent(entryXml, 'description') || getTagContent(entryXml, 'summary') || cleanText(rawEntryContent);
+      const epDesc = getTagContent(entryXml, 'description', 240) || getTagContent(entryXml, 'summary', 240);
       const epThumb = getAttribute(entryXml, 'media:thumbnail', 'url');
 
       let audioUrl = getAttribute(entryXml, 'media:content', 'url');
@@ -696,8 +920,7 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
         items.push({
           guid: epGuid,
           title: epTitle,
-          description: epDesc ? (epDesc.substring(0, 240) + (epDesc.length > 240 ? '...' : '')) : '',
-          content: rawEntryContent || epDesc,
+          description: epDesc,
           pubDate: epPubDate,
           timestamp: timestamp,
           audioUrl: audioUrl,
@@ -712,47 +935,62 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
       }
     }
   } else {
-    const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>/gi;
-    let itemMatch;
+    let searchPos = 0;
+    while (items.length < MAX_PARSED_EPISODES) {
+      const itemStart = xml.indexOf('<item', searchPos);
+      if (itemStart === -1) break;
+      const itemOpenEnd = xml.indexOf('>', itemStart + 5);
+      if (itemOpenEnd === -1) break;
+      const itemEnd = xml.indexOf('</item>', itemOpenEnd + 1);
+      if (itemEnd === -1) break;
+      searchPos = itemEnd + 7;
 
-    while ((itemMatch = itemRegex.exec(xml)) !== null) {
-      const itemXml = itemMatch[1];
-      const epTitle = getTagContent(itemXml, 'title') || 'Untitled Episode';
-      const epGuid = getTagContent(itemXml, 'guid') || getTagContent(itemXml, 'link') || epTitle;
-      const epPubDate = getTagContent(itemXml, 'pubDate') || getTagContent(itemXml, 'published');
-      const rawContent = getRawTagContent(itemXml, 'encoded') || getRawTagContent(itemXml, 'description') || getRawTagContent(itemXml, 'summary');
-      const epDescription = getTagContent(itemXml, 'description') || getTagContent(itemXml, 'summary') || cleanText(rawContent);
-      let epDuration = getTagContent(itemXml, 'duration');
+      const ceStart = xml.indexOf('<content:encoded', itemOpenEnd + 1);
+      let itemXml;
+      if (ceStart !== -1 && ceStart < itemEnd) {
+        const ceEnd = xml.indexOf('</content:encoded>', ceStart + 16);
+        itemXml = (ceEnd !== -1 && ceEnd < itemEnd)
+          ? xml.slice(itemOpenEnd + 1, ceStart) + xml.slice(ceEnd + 18, itemEnd)
+          : xml.slice(itemOpenEnd + 1, ceStart);
+      } else {
+        itemXml = xml.slice(itemOpenEnd + 1, itemEnd);
+      }
+
+      let audioUrl = getAttributeFast(itemXml, 'enclosure', 'url') || getAttributeFast(itemXml, 'media:content', 'url');
+      if (!audioUrl) continue;
+
+      const epTitle = getTagContentFast(itemXml, 'title') || 'Untitled Episode';
+      const epGuid = getTagContentFast(itemXml, 'guid') || getTagContentFast(itemXml, 'link') || epTitle;
+      const epPubDate = getTagContentFast(itemXml, 'pubDate') || getTagContentFast(itemXml, 'published');
+      // Extract only short 240-char plain summary during feed sync; full HTML show-notes are lazy-loaded on demand
+      const epDescription = getTagContentFast(itemXml, 'description', 240) || getTagContentFast(itemXml, 'summary', 240);
+      let epDuration = getTagContentFast(itemXml, 'duration');
       if (epDuration === '0:00' || epDuration === '0' || epDuration === '00:00' || epDuration === '00:00:00') {
         epDuration = '';
       }
 
-      let audioUrl = getAttribute(itemXml, 'enclosure', 'url') || getAttribute(itemXml, 'media:content', 'url');
-      let epArtwork = getAttribute(itemXml, 'image', 'href') ||
-                      getAttribute(itemXml, 'itunes:image', 'href') ||
-                      getAttribute(itemXml, 'thumbnail', 'url') ||
-                      getAttribute(itemXml, 'media:thumbnail', 'url');
-      if (!epArtwork) {
-        const itemImageTag = itemXml.match(/<image[^>]*>([\s\S]*?)<\/image>/i);
-        if (itemImageTag) epArtwork = getTagContent(itemImageTag[1], 'url');
-      }
-      if (!epArtwork) {
-        const mediaImgMatch = itemXml.match(/<media:content[^>]*\burl=["']([^"']+)["'][^>]*(medium=["']image["']|type=["']image\/[^"']+["'])[^>]*>/i) ||
-                              itemXml.match(/<media:content[^>]*(medium=["']image["']|type=["']image\/[^"']+["'])[^>]*\burl=["']([^"']+)["'][^>]*>/i);
+      let epArtwork = getAttributeFast(itemXml, 'itunes:image', 'href') ||
+                      getAttributeFast(itemXml, 'image', 'href') ||
+                      getAttributeFast(itemXml, 'media:thumbnail', 'url') ||
+                      getAttributeFast(itemXml, 'thumbnail', 'url');
+      if (!epArtwork && itemXml.includes('<media:content')) {
+        const mediaImgMatch = itemXml.match(_mediaImgRegex1) || itemXml.match(_mediaImgRegex2);
         if (mediaImgMatch) epArtwork = mediaImgMatch[1] || mediaImgMatch[2] || '';
       }
       if (!epArtwork) {
         epArtwork = artwork;
       }
       if (epArtwork && epArtwork.startsWith('http://')) {
-        epArtwork = epArtwork.replace(/^http:\/\//i, 'https://');
+        epArtwork = 'https://' + epArtwork.slice(7);
       }
 
-      const transcriptUrl = getAttribute(itemXml, 'podcast:transcript', 'url') || getAttribute(itemXml, 'transcript', 'url');
-      const transcriptType = getAttribute(itemXml, 'podcast:transcript', 'type') || getAttribute(itemXml, 'transcript', 'type') || 'text/vtt';
+      const hasTranscript = itemXml.includes('transcript');
+      const transcriptUrl = hasTranscript ? (getAttribute(itemXml, 'podcast:transcript', 'url') || getAttribute(itemXml, 'transcript', 'url')) : '';
+      const transcriptType = transcriptUrl ? (getAttribute(itemXml, 'podcast:transcript', 'type') || getAttribute(itemXml, 'transcript', 'type') || 'text/vtt') : '';
 
-      const chaptersUrl = getAttribute(itemXml, 'podcast:chapters', 'url') || getAttribute(itemXml, 'chapters', 'url');
-      const chaptersType = getAttribute(itemXml, 'podcast:chapters', 'type') || getAttribute(itemXml, 'chapters', 'type') || 'application/json+chapters';
+      const hasChapters = itemXml.includes('chapters');
+      const chaptersUrl = hasChapters ? (getAttribute(itemXml, 'podcast:chapters', 'url') || getAttribute(itemXml, 'chapters', 'url')) : '';
+      const chaptersType = chaptersUrl ? (getAttribute(itemXml, 'podcast:chapters', 'type') || getAttribute(itemXml, 'chapters', 'type') || 'application/json+chapters') : '';
 
       let timestamp = 0;
       if (epPubDate) {
@@ -760,25 +998,22 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
         if (!isNaN(parsed)) timestamp = parsed;
       }
 
-      if (audioUrl) {
-        items.push({
-          guid: epGuid,
-          title: epTitle,
-          description: epDescription ? (epDescription.substring(0, 240) + (epDescription.length > 240 ? '...' : '')) : '',
-          content: rawContent || epDescription,
-          pubDate: epPubDate,
-          timestamp: timestamp,
-          audioUrl: audioUrl,
-          duration: epDuration || '',
-          artwork: epArtwork,
-          podcastTitle: title,
-          feedUrl: originalUrl,
-          transcriptUrl: transcriptUrl || '',
-          transcriptType: transcriptType || '',
-          chaptersUrl: chaptersUrl || '',
-          chaptersType: chaptersType || ''
-        });
-      }
+      items.push({
+        guid: epGuid,
+        title: epTitle,
+        description: epDescription,
+        pubDate: epPubDate,
+        timestamp: timestamp,
+        audioUrl: audioUrl,
+        duration: epDuration || '',
+        artwork: epArtwork,
+        podcastTitle: title,
+        feedUrl: originalUrl,
+        transcriptUrl: transcriptUrl || '',
+        transcriptType: transcriptType || '',
+        chaptersUrl: chaptersUrl || '',
+        chaptersType: chaptersType || ''
+      });
     }
   }
 
@@ -793,6 +1028,6 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
     feedUrl: originalUrl,
     episodesCount: items.length,
     updatedAt: new Date().toISOString(),
-    episodes: items.slice(0, 2000)
+    episodes: items
   };
 }

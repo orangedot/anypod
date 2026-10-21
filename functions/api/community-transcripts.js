@@ -19,21 +19,22 @@ export async function onRequest(context) {
     });
   }
 
-  // Ensure table exists
-  try {
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS episode_transcripts (
-        episode_guid TEXT PRIMARY KEY,
-        feed_url TEXT,
-        duration REAL DEFAULT 0,
-        bars_json TEXT,
-        segments_json TEXT,
-        transcript_url TEXT,
-        source TEXT DEFAULT 'probe',
-        created_at INTEGER DEFAULT (unixepoch())
-      )
-    `).run();
-  } catch (_) {}
+  const ensureTranscriptsTable = async () => {
+    try {
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS episode_transcripts (
+          episode_guid TEXT PRIMARY KEY,
+          feed_url TEXT,
+          duration REAL DEFAULT 0,
+          bars_json TEXT,
+          segments_json TEXT,
+          transcript_url TEXT,
+          source TEXT DEFAULT 'probe',
+          created_at INTEGER DEFAULT (unixepoch())
+        )
+      `).run();
+    } catch (_) {}
+  };
 
   // 1. GET: Fetch community cached timeline / speech segments
   if (request.method === 'GET') {
@@ -47,22 +48,45 @@ export async function onRequest(context) {
       });
     }
 
+    const cache = typeof caches !== 'undefined' && caches.default ? caches.default : null;
+    const cacheKey = new Request(url.toString(), { method: 'GET' });
+    if (cache) {
+      try {
+        const hit = await cache.match(cacheKey);
+        if (hit) return hit;
+      } catch (_) {}
+    }
+
     try {
-      const row = await db.prepare(
-        'SELECT episode_guid, duration, bars_json, segments_json, transcript_url, source, created_at FROM episode_transcripts WHERE episode_guid = ?'
-      ).bind(guid).first();
+      let row;
+      try {
+        row = await db.prepare(
+          'SELECT episode_guid, duration, bars_json, segments_json, transcript_url, source, created_at FROM episode_transcripts WHERE episode_guid = ?'
+        ).bind(guid).first();
+      } catch (e) {
+        if (String(e.message || '').includes('no such table')) {
+          await ensureTranscriptsTable();
+          row = null;
+        } else {
+          throw e;
+        }
+      }
 
       if (!row) {
-        return new Response(JSON.stringify({ found: false }), {
-          headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=60' },
+        const missRes = new Response(JSON.stringify({ found: false }), {
+          headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=300, s-maxage=300' },
           status: 200
         });
+        if (cache) {
+          try { context.waitUntil(cache.put(cacheKey, missRes.clone())); } catch (_) {}
+        }
+        return missRes;
       }
 
       const bars = row.bars_json ? JSON.parse(row.bars_json) : [];
       const segments = row.segments_json ? JSON.parse(row.segments_json) : [];
 
-      return new Response(JSON.stringify({
+      const hitRes = new Response(JSON.stringify({
         found: true,
         guid: row.episode_guid,
         duration: row.duration,
@@ -75,6 +99,10 @@ export async function onRequest(context) {
         headers: { ...corsHeaders, 'Cache-Control': 'public, max-age=86400, s-maxage=604800' },
         status: 200
       });
+      if (cache) {
+        try { context.waitUntil(cache.put(cacheKey, hitRes.clone())); } catch (_) {}
+      }
+      return hitRes;
     } catch (err) {
       return new Response(JSON.stringify({ found: false, error: err.message }), {
         headers: corsHeaders,
@@ -85,6 +113,7 @@ export async function onRequest(context) {
 
   // 2. POST: Contribute analyzed speech/music timeline to the community
   if (request.method === 'POST') {
+    await ensureTranscriptsTable();
     try {
       const body = await request.json();
       const { episodeGuid, feedUrl, duration, bars, segments, transcriptUrl, source } = body;

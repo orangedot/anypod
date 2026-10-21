@@ -36,6 +36,59 @@ export async function onRequest(context) {
         }
       }
       const sessionToken = cookieSessionToken || request.headers.get('X-Session-Token') || '';
+      const urlParams = new URL(request.url).searchParams;
+      const isBundle = urlParams.get('bundle') === '1';
+
+      if (isBundle) {
+        // Single-roundtrip D1 batch for feeds + positions + favorites (eliminates 3 sequential Worker calls on startup)
+        const feedsStmt = db.prepare('SELECT feed_url, title, artwork FROM subscriptions WHERE user_id = ? ORDER BY created_at ASC').bind(userId);
+        const posStmt = db.prepare('SELECT episode_guid, position_seconds, completed, last_listened_at FROM playback_state WHERE user_id = ?').bind(userId);
+        const favStmt = db.prepare('SELECT episode_guid, feed_url, title, podcast_title, artwork, audio_url, duration, pub_date, created_at FROM favorites WHERE user_id = ? ORDER BY created_at DESC').bind(userId);
+
+        let feedsRes = { results: [] };
+        let posRes = { results: [] };
+        let favRes = { results: [] };
+        try {
+          [feedsRes, posRes, favRes] = await db.batch([feedsStmt, posStmt, favStmt]);
+        } catch (_) {
+          feedsRes = await feedsStmt.all().catch(() => ({ results: [] }));
+          posRes = await posStmt.all().catch(() => ({ results: [] }));
+          favRes = await favStmt.all().catch(() => ({ results: [] }));
+        }
+
+        const positions = {};
+        (posRes.results || []).forEach(r => {
+          positions[r.episode_guid] = {
+            position: r.position_seconds,
+            completed: r.completed === 1,
+            lastListenedAt: r.last_listened_at
+          };
+        });
+
+        const favorites = (favRes.results || []).map(r => ({
+          guid: r.episode_guid,
+          feedUrl: r.feed_url,
+          title: r.title,
+          podcastTitle: r.podcast_title,
+          artwork: r.artwork,
+          audioUrl: r.audio_url,
+          duration: r.duration,
+          pubDate: r.pub_date,
+          addedAt: r.created_at * 1000
+        }));
+
+        return new Response(
+          JSON.stringify({
+            feeds: feedsRes.results || [],
+            positions,
+            favorites,
+            userEmail: user.email,
+            sessionToken
+          }),
+          { headers: corsHeaders, status: 200 }
+        );
+      }
+
       const rows = await db.prepare('SELECT feed_url, title, artwork FROM subscriptions WHERE user_id = ? ORDER BY created_at ASC').bind(userId).all();
       return new Response(JSON.stringify({ feeds: rows.results || [], userEmail: user.email, sessionToken }), { headers: corsHeaders, status: 200 });
     }

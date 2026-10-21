@@ -655,10 +655,10 @@ function openShowNotes(targetEp, defaultTab = 'notes') {
     elements.showNotesMeta.innerHTML = allRows.join('');
   }
 
-  // 5. Notes Content
-  if (elements.showNotesContent) {
-    const rawContent = ep.content || ep.description || '';
-    elements.showNotesContent.innerHTML = formatShowNotesHtml(rawContent);
+  // 5. Notes Content (with lazy on-demand full HTML show-notes hydration if stripped during fast feed sync)
+  const renderNotesHtmlIntoModal = (htmlContent) => {
+    if (!elements.showNotesContent) return;
+    elements.showNotesContent.innerHTML = formatShowNotesHtml(htmlContent);
 
     elements.showNotesContent.querySelectorAll('.note-timestamp').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -675,8 +675,28 @@ function openShowNotes(targetEp, defaultTab = 'notes') {
       });
     });
 
-    // Inject inline analysis section at the bottom of the notes tab
     _renderInlineAnalysisSection(elements.showNotesContent);
+  };
+
+  if (elements.showNotesContent) {
+    const rawContent = ep.content || ep.description || '';
+    renderNotesHtmlIntoModal(rawContent);
+
+    // Lazy-load full HTML show-notes on demand if only the short summary was synced
+    if (!ep.content && ep.feedUrl && ep.guid && !ep.isYouTube) {
+      fetch(`/api/feed?url=${encodeURIComponent(ep.feedUrl)}&guid=${encodeURIComponent(ep.guid)}&fullContent=1`)
+        .then(r => (r.ok ? r.json() : null))
+        .then(data => {
+          if (data && data.content && data.content.length > (ep.description || '').length) {
+            ep.content = data.content;
+            if (state.activeShowNotesEpisode && state.activeShowNotesEpisode.guid === ep.guid) {
+              renderNotesHtmlIntoModal(ep.content);
+              loadEpisodeChapters(ep);
+            }
+          }
+        })
+        .catch(() => {});
+    }
   }
 
 

@@ -27,7 +27,146 @@ function renderSkeletonTimeline() {
   container.innerHTML = html;
 }
 
-async function refreshAllFeeds() {
+const CLOUDFLARE_FEED_TTL_MS = 30 * 60 * 1000; // 30-min local TTL before re-hitting Cloudflare on auto-startup
+
+/**
+ * Native browser DOMParser RSS/Atom XML parser (0ms Cloudflare Worker CPU).
+ * Parses up to 550 episodes on-device and preserves show notes locally.
+ */
+function parsePodcastXmlClient(xmlText, originalUrl) {
+  if (!xmlText || typeof DOMParser === 'undefined') return null;
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlText, 'text/xml');
+  if (!doc || doc.querySelector('parsererror')) return null;
+
+  const stripHtmlToSummary = (raw, maxLen = 240) => {
+    if (!raw) return '';
+    const slice = raw.length > maxLen * 5 ? raw.slice(0, maxLen * 5) : raw;
+    const clean = slice.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    return clean.length > maxLen ? clean.slice(0, maxLen) + '...' : clean;
+  };
+
+  const getChildText = (parent, localNames) => {
+    if (!parent) return '';
+    for (const name of localNames) {
+      const el = parent.getElementsByTagName(name)[0];
+      if (el && el.textContent) return el.textContent.trim();
+    }
+    return '';
+  };
+
+  const getChildAttr = (parent, tagNames, attrName) => {
+    if (!parent) return '';
+    for (const name of tagNames) {
+      const el = parent.getElementsByTagName(name)[0];
+      if (el) {
+        const v = el.getAttribute(attrName);
+        if (v) return v.trim();
+      }
+    }
+    return '';
+  };
+
+  const isAtom = doc.documentElement && doc.documentElement.nodeName.toLowerCase() === 'feed';
+  const channel = isAtom ? doc.documentElement : (doc.querySelector('channel') || doc.documentElement);
+  if (!channel) return null;
+
+  const title = getChildText(channel, ['title']) || 'Untitled Podcast';
+  const rawChDesc = getChildText(channel, ['description', 'itunes:summary', 'subtitle']);
+  const description = stripHtmlToSummary(rawChDesc, 500);
+  const author = getChildText(channel, ['itunes:author', 'author', 'name']) || '';
+  let artwork = getChildAttr(channel, ['itunes:image', 'image'], 'href');
+  if (!artwork) {
+    const imgEl = channel.querySelector('image > url');
+    if (imgEl && imgEl.textContent) artwork = imgEl.textContent.trim();
+  }
+  if (artwork && artwork.startsWith('http://')) {
+    artwork = 'https://' + artwork.slice(7);
+  }
+
+  const entries = isAtom
+    ? Array.from(doc.getElementsByTagName('entry'))
+    : Array.from(doc.getElementsByTagName('item'));
+
+  const episodes = [];
+  const MAX_CLIENT_EPISODES = 550;
+
+  for (let i = 0; i < entries.length && episodes.length < MAX_CLIENT_EPISODES; i++) {
+    const item = entries[i];
+    let audioUrl = getChildAttr(item, ['enclosure', 'media:content'], 'url');
+    const epVideoId = isAtom ? getChildText(item, ['yt:videoId', 'videoId']) : '';
+    if (!audioUrl && epVideoId) {
+      audioUrl = `https://www.youtube.com/watch?v=${epVideoId}`;
+    }
+    if (!audioUrl) continue;
+
+    const epTitle = getChildText(item, ['title']) || 'Untitled Episode';
+    const epGuid = getChildText(item, ['guid', 'id', 'link']) || epVideoId || epTitle;
+    const epPubDate = getChildText(item, ['pubDate', 'published', 'updated']) || '';
+    const rawContent = getChildText(item, ['content:encoded', 'encoded', 'description', 'itunes:summary', 'summary', 'content']);
+    const epDesc = stripHtmlToSummary(rawContent, 240);
+    let epDuration = getChildText(item, ['itunes:duration', 'duration']);
+    if (epDuration === '0:00' || epDuration === '0' || epDuration === '00:00' || epDuration === '00:00:00') {
+      epDuration = '';
+    }
+
+    let epArtwork = getChildAttr(item, ['itunes:image', 'image'], 'href')
+      || getChildAttr(item, ['media:thumbnail', 'thumbnail'], 'url')
+      || artwork;
+    if (epArtwork && epArtwork.startsWith('http://')) {
+      epArtwork = 'https://' + epArtwork.slice(7);
+    }
+
+    const transcriptUrl = getChildAttr(item, ['podcast:transcript', 'transcript'], 'url');
+    const transcriptType = transcriptUrl ? (getChildAttr(item, ['podcast:transcript', 'transcript'], 'type') || 'text/vtt') : '';
+    const chaptersUrl = getChildAttr(item, ['podcast:chapters', 'chapters'], 'url');
+    const chaptersType = chaptersUrl ? (getChildAttr(item, ['podcast:chapters', 'chapters'], 'type') || 'application/json+chapters') : '';
+
+    let timestamp = 0;
+    if (epPubDate) {
+      const parsed = Date.parse(epPubDate);
+      if (!isNaN(parsed)) timestamp = parsed;
+    }
+
+    episodes.push({
+      guid: epGuid,
+      title: epTitle,
+      description: epDesc,
+      content: rawContent.length <= 24000 ? rawContent : rawContent.slice(0, 24000),
+      pubDate: epPubDate,
+      timestamp,
+      audioUrl,
+      duration: epDuration || '',
+      artwork: epArtwork,
+      podcastTitle: title,
+      feedUrl: originalUrl,
+      isYouTube: Boolean(epVideoId),
+      videoId: epVideoId || undefined,
+      transcriptUrl: transcriptUrl || '',
+      transcriptType: transcriptType || '',
+      chaptersUrl: chaptersUrl || '',
+      chaptersType: chaptersType || ''
+    });
+  }
+
+  episodes.sort((a, b) => b.timestamp - a.timestamp);
+  if (episodes.length === 0 && entries.length > 0) return null;
+
+  return {
+    title,
+    description,
+    author,
+    artwork: artwork || (episodes[0]?.artwork || ''),
+    link: originalUrl,
+    feedUrl: originalUrl,
+    episodesCount: episodes.length,
+    updatedAt: new Date().toISOString(),
+    episodes
+  };
+}
+
+async function refreshAllFeeds(options = {}) {
+  const forceRefresh = Boolean(options && options.force);
   if (state.feeds.length === 0) {
     state.allEpisodes = [];
     state.filteredEpisodes = [];
@@ -89,8 +228,6 @@ async function refreshAllFeeds() {
   };
 
   // Process feeds in bounded concurrent chunks (max 5 in-flight)
-  // Prioritize recently played feeds and active listening feeds first so fresh episodes
-  // for your current shows arrive on the timeline immediately.
   const CONCURRENCY = 5;
 
   const feedPriority = new Map();
@@ -133,7 +270,7 @@ async function refreshAllFeeds() {
         activeFeedTitle = feedMeta?.title || '';
         updateStatusText();
 
-        const result = await fetchSingleFeed(url, incomingEpisodes, updatedMetadata);
+        const result = await fetchSingleFeed(url, incomingEpisodes, updatedMetadata, { force: forceRefresh });
         completedFeeds++;
 
         if (result && Array.isArray(result.episodes) && result.episodes.length > 0) {
@@ -182,6 +319,9 @@ async function refreshAllFeeds() {
     state.allEpisodes = Array.from(epMap.values());
     state.feedMetadata = updatedMetadata;
     saveCacheToStorage();
+  } else {
+    state.feedMetadata = { ...state.feedMetadata, ...updatedMetadata };
+    saveCacheToStorage();
   }
 
   processAndSortEpisodes();
@@ -189,7 +329,6 @@ async function refreshAllFeeds() {
   renderFeedsGrid();
   updateFeedCountUI();
 
-  // Clean summary without icons: "Updated 81 feeds · 8 new episodes"
   let finalSummary = `Updated ${totalFeeds} feed${totalFeeds === 1 ? '' : 's'}`;
   if (newEpisodesCount > 0) {
     finalSummary += ` · ${newEpisodesCount} new episode${newEpisodesCount === 1 ? '' : 's'}`;
@@ -198,31 +337,93 @@ async function refreshAllFeeds() {
   setTimeout(hideStatus, 3200);
 }
 
-async function fetchSingleFeed(url, incomingEpisodes, updatedMetadata) {
+async function fetchSingleFeed(url, incomingEpisodes, updatedMetadata, options = {}) {
+  const forceRefresh = Boolean(options && options.force);
+  const existingMeta = state.feedMetadata[url] || {};
+  const isYouTubeUrl = url.includes('youtube.com') || url.includes('youtu.be');
+  const isHttpsPage = typeof window !== 'undefined' && window.location.protocol === 'https:';
+  const isHttpFeedOnHttps = isHttpsPage && url.startsWith('http://');
+
   try {
-    const apiUrl = `/api/feed?url=${encodeURIComponent(url)}`;
-    const headers = {};
-    if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
+    let feedData = null;
+    let usedDirectCors = false;
 
-    let response = await fetch(apiUrl, { headers });
-
-    // Retry up to 3 times with exponential backoff if Cloudflare returns 503/524/429
-    let retryCount = 0;
-    while ((response.status === 503 || response.status === 524 || response.status === 429) && retryCount < 3) {
-      retryCount++;
-      const backoffMs = Math.min(1000 * Math.pow(2, retryCount), 6000);
-      console.warn(`[Feed Fetch] Got HTTP ${response.status} for ${url}, retrying in ${backoffMs}ms (attempt ${retryCount}/3)...`);
-      await new Promise(r => setTimeout(r, backoffMs));
-      response = await fetch(apiUrl, { headers });
+    // 1. CLIENT-FIRST HYBRID: Try direct browser RSS fetch + native DOMParser (0 Cloudflare requests!)
+    //    Runs on every startup for direct-capable HTTPS feeds so new episodes arrive with zero Cloudflare load.
+    if (!isYouTubeUrl && !isHttpFeedOnHttps && existingMeta.corsBlocked !== true) {
+      try {
+        const directRes = await fetch(url, {
+          method: 'GET',
+          headers: { 'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*' },
+          signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(7000) : undefined
+        });
+        if (directRes.ok) {
+          const xmlText = await directRes.text();
+          const parsedClient = parsePodcastXmlClient(xmlText, url);
+          if (parsedClient && Array.isArray(parsedClient.episodes) && parsedClient.episodes.length > 0) {
+            feedData = parsedClient;
+            usedDirectCors = true;
+          }
+        }
+      } catch (_) {
+        // Direct fetch failed (likely CORS header missing on upstream podcast host) — remember this!
+        existingMeta.corsBlocked = true;
+      }
     }
 
-    if (response.status === 401) {
-      throw new Error('Unauthorized');
+    // 2. CLOUDFLARE FALLBACK: Only for CORS-blocked RSS feeds, HTTP feeds on HTTPS, or YouTube playlists
+    if (!feedData) {
+      const currentFeedEps = state.allEpisodes ? state.allEpisodes.filter(e => e.feedUrl === url) : [];
+      const lastFetched = existingMeta.lastFetchedAt || 0;
+
+      // Respect 30-min local TTL on automatic startup for Cloudflare-proxied feeds if episodes are already cached
+      if (!forceRefresh && currentFeedEps.length > 0 && lastFetched > 0 && (Date.now() - lastFetched < CLOUDFLARE_FEED_TTL_MS)) {
+        updatedMetadata[url] = { ...existingMeta };
+        return {
+          title: existingMeta.title,
+          artwork: existingMeta.artwork,
+          episodesCount: existingMeta.episodesCount || currentFeedEps.length,
+          description: existingMeta.description,
+          episodes: currentFeedEps
+        };
+      }
+
+      const headers = {};
+      if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
+
+      // 2a. For standard RSS feeds (non-YouTube), try /api/feed?raw=1 first so Cloudflare only streams bytes (0ms Worker XML CPU!)
+      if (!isYouTubeUrl) {
+        try {
+          const rawRes = await fetch(`/api/feed?raw=1&url=${encodeURIComponent(url)}`, { headers });
+          if (rawRes.ok) {
+            const xmlText = await rawRes.text();
+            const parsedClient = parsePodcastXmlClient(xmlText, url);
+            if (parsedClient && Array.isArray(parsedClient.episodes) && parsedClient.episodes.length > 0) {
+              feedData = parsedClient;
+            }
+          }
+        } catch (_) {}
+      }
+
+      // 2b. Fallback to server-parsed JSON (/api/feed?url=...) for YouTube playlists or if raw parse didn't match
+      if (!feedData) {
+        const apiUrl = `/api/feed?url=${encodeURIComponent(url)}`;
+        let response = await fetch(apiUrl, { headers });
+
+        // At most 1 retry (instead of 3x retry storm) on transient 503/524/429
+        if (response.status === 503 || response.status === 524 || response.status === 429) {
+          await new Promise(r => setTimeout(r, 2500));
+          response = await fetch(apiUrl, { headers });
+        }
+
+        if (response.status === 401) {
+          throw new Error('Unauthorized');
+        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        feedData = await response.json();
+      }
     }
 
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-    const feedData = await response.json();
     if (feedData.error) {
       if (!updatedMetadata[url]) {
         updatedMetadata[url] = {
@@ -252,7 +453,9 @@ async function fetchSingleFeed(url, incomingEpisodes, updatedMetadata) {
       description: feedData.description,
       isYouTubePlaylist: feedData.isYouTubePlaylist || false,
       playlistId: feedData.playlistId || null,
-      nextToken: feedData.nextToken || null
+      nextToken: feedData.nextToken || null,
+      corsBlocked: usedDirectCors ? false : Boolean(existingMeta.corsBlocked),
+      lastFetchedAt: Date.now()
     };
 
     if (Array.isArray(feedData.episodes)) {
@@ -944,21 +1147,21 @@ async function searchPodcastDirectory(query, targetContainer = null) {
     const countryParam = (state.directoryCountry && state.directoryCountry !== 'all') ? `&country=${encodeURIComponent(state.directoryCountry)}` : '';
     let data = null;
 
-    // 1. Try first-party API proxy (bypasses client ad-blockers)
+    // 1. Try direct browser fetch to iTunes Search API first (0 Cloudflare requests!)
     try {
-      const proxyRes = await fetch(`/api/search-directory?term=${encodeURIComponent(q)}${countryParam}&limit=50`);
-      if (proxyRes.ok) {
-        data = await proxyRes.json();
+      const directUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=podcast${countryParam}&limit=50`;
+      const directRes = await fetch(directUrl);
+      if (directRes.ok) {
+        data = await directRes.json();
       }
     } catch (_) {}
 
-    // 2. Fallback to direct browser fetch if proxy failed, was rate-limited, or returned 0 results
-    if (!data || !data.results || data.results.length === 0 || data.rateLimited) {
+    // 2. Fallback to first-party API proxy only if direct browser fetch was blocked by an ad/privacy extension
+    if (!data || !data.results) {
       try {
-        const directUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=podcast${countryParam}&limit=50`;
-        const directRes = await fetch(directUrl);
-        if (directRes.ok) {
-          data = await directRes.json();
+        const proxyRes = await fetch(`/api/search-directory?term=${encodeURIComponent(q)}${countryParam}&limit=50`);
+        if (proxyRes.ok) {
+          data = await proxyRes.json();
         }
       } catch (_) {}
     }

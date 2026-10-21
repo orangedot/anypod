@@ -22,6 +22,38 @@ function checkUrlSessionParam() {
   state.userEmail = storage.getItem(STORAGE_KEYS.USER_EMAIL) || '';
 }
 
+function applyBundledD1State(data) {
+  if (!data) return;
+  if (data.positions && typeof data.positions === 'object') {
+    const merged = { ...state.playbackPositions };
+    for (const [guid, rPos] of Object.entries(data.positions)) {
+      const lPos = merged[guid];
+      if (!lPos || (rPos.lastListenedAt || 0) >= (lPos.lastListenedAt || 0)) {
+        merged[guid] = rPos;
+      }
+    }
+    state.playbackPositions = merged;
+    savePositionsToStorage();
+    renderContinueShelf();
+    updateFilterBadges();
+  }
+  if (Array.isArray(data.favorites)) {
+    const map = new Map();
+    (state.favorites || []).forEach(f => map.set(f.guid, f));
+    data.favorites.forEach(rf => {
+      if (!map.has(rf.guid)) {
+        map.set(rf.guid, rf);
+      } else {
+        map.set(rf.guid, { ...map.get(rf.guid), ...rf });
+      }
+    });
+    state.favorites = Array.from(map.values()).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+    state.favoriteGuids = new Set(state.favorites.map(f => f.guid).filter(Boolean));
+    if (typeof saveFavoritesToStorage === 'function') saveFavoritesToStorage();
+    if (typeof updateFavoritesCountUI === 'function') updateFavoritesCountUI();
+  }
+}
+
 async function checkAuth() {
   if (state.sessionToken) {
     elements.authModal.classList.add('hidden');
@@ -30,8 +62,22 @@ async function checkAuth() {
     return;
   }
 
+  // Skip calling /api/sync/feeds if no session token and no session cookie exists (prevents 401 Worker calls for guests)
+  const rawCookies = typeof document !== 'undefined' ? (document.cookie || '') : '';
+  const hasSessionCookie = rawCookies.includes('podcast_session=') || rawCookies.includes('sessionid=');
+  if (!hasSessionCookie) {
+    elements.authModal.classList.add('hidden');
+    updateSyncStatusUI('logged in as guest / local device storage', '', false);
+    if (state.feeds.length > 0) {
+      refreshAllFeeds();
+    } else {
+      renderTimeline();
+    }
+    return;
+  }
+
   try {
-    const res = await fetch('/api/sync/feeds', { credentials: 'include' });
+    const res = await fetch('/api/sync/feeds?bundle=1', { credentials: 'include' });
     if (res.status === 401) {
       elements.authModal.classList.add('hidden');
       updateSyncStatusUI('logged in as guest / local device storage', '', false);
@@ -60,8 +106,7 @@ async function checkAuth() {
         state.feeds = data.feeds.map(f => f.feed_url);
         saveFeedsToStorage();
       }
-      await loadPlaybackPositionsFromD1();
-      await syncFavoritesWithD1();
+      applyBundledD1State(data);
       await refreshAllFeeds();
       return;
     } else {
@@ -238,7 +283,7 @@ async function syncFeedsWithD1() {
     const headers = {};
     if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
 
-    const res = await fetch('/api/sync/feeds', { headers, credentials: 'include' });
+    const res = await fetch('/api/sync/feeds?bundle=1', { headers, credentials: 'include' });
 
     if (res.status === 401) {
       console.warn('D1 sync returned 401. Preserving offline session & library.');
@@ -291,8 +336,7 @@ async function syncFeedsWithD1() {
       saveFeedsToStorage();
     }
 
-    await loadPlaybackPositionsFromD1();
-    await syncFavoritesWithD1();
+    applyBundledD1State(data);
     await refreshAllFeeds();
 
   } catch (err) {

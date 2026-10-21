@@ -222,11 +222,28 @@ const CURATED_SCIENCE_FEEDS = [
   { title: "Vetenskapsradion Klotet (SR)", feed: "https://api.sr.se/api/rss/pod/3966", lang: "sv", badge: "SV • Miljö & Klimat", topic: "climate" }
 ];
 
-const _curatedArtworkCache = {};
+const CURATED_ARTWORK_STORAGE_KEY = 'anypod_curated_artwork_v1';
+const _curatedArtworkCache = (() => {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(CURATED_ARTWORK_STORAGE_KEY) : null;
+    return raw ? JSON.parse(raw) : {};
+  } catch (_) {
+    return {};
+  }
+})();
+
+function saveCuratedArtworkCache() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(CURATED_ARTWORK_STORAGE_KEY, JSON.stringify(_curatedArtworkCache));
+    }
+  } catch (_) {}
+}
 
 async function loadCuratedArtworks(container) {
   if (!container) return;
   const cards = container.querySelectorAll('.starter-show-card');
+  let cacheChanged = false;
 
   for (const card of cards) {
     const feedUrl = card.dataset.feed;
@@ -234,7 +251,7 @@ async function loadCuratedArtworks(container) {
     const img = card.querySelector('.feed-art');
     if (!img || !feedUrl) continue;
 
-    // 1. Return from existing state or memory cache
+    // 1. Return from existing state or persistent localStorage cache (0 network requests!)
     if (state.feedMetadata[feedUrl]?.artwork) {
       img.src = state.feedMetadata[feedUrl].artwork;
       continue;
@@ -244,11 +261,11 @@ async function loadCuratedArtworks(container) {
       continue;
     }
 
-    // 2. Fetch fresh high-res artwork from proxy (with direct fallback)
+    // 2. Fetch fresh high-res artwork directly from iTunes Search API first (0 Cloudflare requests!), fallback to proxy only if blocked
     try {
       let artUrl = null;
       try {
-        const res = await fetch(`/api/search-directory?term=${encodeURIComponent(title)}&limit=1`);
+        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=podcast&entity=podcast&limit=1`);
         if (res.ok) {
           const data = await res.json();
           if (data.results && data.results[0]?.artworkUrl600) {
@@ -257,23 +274,28 @@ async function loadCuratedArtworks(container) {
         }
       } catch (_) {}
 
-      // if (!artUrl) {
-      //   try {
-      //     const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=podcast&entity=podcast&limit=1`);
-      //     if (res.ok) {
-      //       const data = await res.json();
-      //       if (data.results && data.results[0]?.artworkUrl600) {
-      //         artUrl = data.results[0].artworkUrl600;
-      //       }
-      //     }
-      //   } catch (_) {}
-      // }
+      if (!artUrl) {
+        try {
+          const res = await fetch(`/api/search-directory?term=${encodeURIComponent(title)}&limit=1`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.results && data.results[0]?.artworkUrl600) {
+              artUrl = data.results[0].artworkUrl600;
+            }
+          }
+        } catch (_) {}
+      }
 
       if (artUrl) {
         _curatedArtworkCache[feedUrl] = artUrl;
         img.src = artUrl;
+        cacheChanged = true;
       }
     } catch (_) {}
+  }
+
+  if (cacheChanged) {
+    saveCuratedArtworkCache();
   }
 }
 

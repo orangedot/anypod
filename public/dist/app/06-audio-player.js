@@ -1934,7 +1934,26 @@ async function addFeed(url, title = '', artwork = '') {
     try {
       await saveFeedToD1(cleanUrl, title, artwork);
     } catch (_) {}
-    await refreshAllFeeds();
+
+    // Fetch ONLY the newly subscribed feed instead of re-fetching the entire library
+    showStatus(`Adding ${title || 'podcast'}...`);
+    const incoming = [];
+    const updatedMeta = { ...state.feedMetadata };
+    await fetchSingleFeed(cleanUrl, incoming, updatedMeta, { force: true });
+    if (incoming.length > 0) {
+      const existingGuids = new Set(state.allEpisodes.map(e => e.guid).filter(Boolean));
+      const newBatch = incoming.filter(ep => ep && ep.guid && !existingGuids.has(ep.guid));
+      state.allEpisodes = [...newBatch, ...state.allEpisodes];
+    }
+    state.feedMetadata = updatedMeta;
+    saveCacheToStorage();
+    processAndSortEpisodes();
+    renderTimeline(true);
+    renderFeedsGrid();
+    updateFeedCountUI();
+    showStatus(`Added ${updatedMeta[cleanUrl]?.title || title || 'podcast'}`);
+    setTimeout(hideStatus, 2500);
+
     if (elements.feedUrlInput && elements.feedUrlInput.value.trim() === cleanUrl) {
       elements.feedUrlInput.value = '';
     }
