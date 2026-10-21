@@ -1239,22 +1239,562 @@ function setDirectoryCountry(code) {
   });
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 29b · Local AI Taste Profiler & Narrated Discover
+// ─────────────────────────────────────────────────────────────────────────
+
+const DISCOVER_AI_TOPICS = {
+  space_cosmos: {
+    key: 'space_cosmos',
+    label: 'Space & Cosmology',
+    icon: '🚀',
+    shortLabel: 'Cosmology',
+    keywords: [
+      'space', 'cosmos', 'universe', 'nasa', 'astronomy', 'astrophysics',
+      'galaxy', 'black hole', 'star', 'telescope', 'orbit', 'mars', 'gravity',
+      'moon', 'planetary', 'cosmological', 'spacetime', 'solar', 'quantum',
+      'physics', 'exoplanet', 'supernova', 'relativity', 'james webb'
+    ],
+    feedPatterns: ['nasa', 'startalk', 'planetary', 'sternengeschichten', 'aparici', 'quanta', 'space']
+  },
+  climate_planet: {
+    key: 'climate_planet',
+    label: 'Climate & Earth Systems',
+    icon: '🌱',
+    shortLabel: 'Climate Systems',
+    keywords: [
+      'climate', 'planet', 'earth', 'nature', 'ocean', 'ecology', 'carbon',
+      'warming', 'renewable', 'energy', 'emission', 'biodiversity', 'forest',
+      'water', 'environment', 'green', 'sustainability', 'ice', 'atmosphere',
+      'wildlife', 'conservation', 'klima', 'umwelt', 'cop'
+    ],
+    feedPatterns: ['climate', 'earth', 'ecologies', 'mongabay', 'living on earth', 'volts', 'energy gang', 'klima', 'das klima', 'gradmesser', 'la terre', 'chaleur humaine', 'klotet']
+  },
+  mind_biology: {
+    key: 'mind_biology',
+    label: 'Neuroscience & Biology',
+    icon: '🧠',
+    shortLabel: 'Neuro & Biology',
+    keywords: [
+      'brain', 'neuroscience', 'biology', 'mind', 'psychology', 'cognitive',
+      'dna', 'genetic', 'evolution', 'health', 'neuron', 'sleep', 'behavior',
+      'consciousness', 'huberman', 'cellular', 'organism', 'species', 'synapsen',
+      'darwin', 'immune', 'microbiome'
+    ],
+    feedPatterns: ['huberman', 'ologies', 'gastropod', 'synapsen', 'darwin', 'baleine']
+  },
+  tech_futures: {
+    key: 'tech_futures',
+    label: 'AI & Technological Frontiers',
+    icon: '⚡',
+    shortLabel: 'AI & Tech',
+    keywords: [
+      'ai', 'artificial intelligence', 'algorithm', 'technology', 'computing',
+      'software', 'neural', 'machine learning', 'future', 'data', 'robot',
+      'code', 'cyber', 'silicon', 'digital', 'tech', 'automation', 'chip', 'model'
+    ],
+    feedPatterns: ['volts', 'sixième science', 'quarks']
+  },
+  electronic_audio: {
+    key: 'electronic_audio',
+    label: 'Electronic Music & Mixes',
+    icon: '🎵',
+    shortLabel: 'Electronic & Mixes',
+    keywords: [
+      'music', 'electronic', 'techno', 'ambient', 'mix', 'dj', 'club', 'house',
+      'synthesizer', 'beats', 'track', 'album', 'sound', 'artist', 'remix',
+      'soundtrack', 'resident advisor'
+    ],
+    feedPatterns: ['ra podcast', 'resident advisor', 'dj', 'mix']
+  },
+  investigative_ideas: {
+    key: 'investigative_ideas',
+    label: 'Global Inquiries & Deep Reporting',
+    icon: '🌐',
+    shortLabel: 'Deep Reporting',
+    keywords: [
+      'investigate', 'world', 'society', 'history', 'economy', 'politics',
+      'documentary', 'global', 'culture', 'human', 'democracy', 'report',
+      'future', 'analysis', 'philosophy', 'interview', 'zeit'
+    ],
+    feedPatterns: ['economist', 'zeit', 'dlf', 'bbc', 'ted', 'france culture']
+  },
+  pure_science: {
+    key: 'pure_science',
+    label: 'Frontier Research & Discovery',
+    icon: '🔬',
+    shortLabel: 'Frontier Research',
+    keywords: [
+      'science', 'research', 'discovery', 'experiment', 'laboratory',
+      'nature podcast', 'quarks', 'forschung', 'wissen', 'spektrum',
+      'curiosity', 'scientist', 'evidence', 'study'
+    ],
+    feedPatterns: ['science vs', 'nature podcast', 'science friday', 'short wave', 'infinite monkey cage', 'crowdscience', 'forschung aktuell', 'zeit wissen', 'terra x', 'radiowissen', 'spektrum']
+  }
+};
+
+function analyzeTasteProfile(currentState) {
+  const feeds = currentState.feeds || [];
+  const feedMeta = currentState.feedMetadata || {};
+  const allEps = currentState.allEpisodes || [];
+  const positions = currentState.playbackPositions || {};
+  const favorites = currentState.favorites || [];
+  const queue = currentState.queue || [];
+
+  const topicScores = {};
+  Object.keys(DISCOVER_AI_TOPICS).forEach(k => { topicScores[k] = 0; });
+
+  let totalEngagedEps = 0;
+  let totalDurationSec = 0;
+  let durationSamples = 0;
+
+  // 1. Score based on subscribed feeds & metadata
+  feeds.forEach(fUrl => {
+    const meta = feedMeta[fUrl] || {};
+    const textCorpus = `${meta.title || ''} ${meta.description || ''} ${meta.author || ''}`.toLowerCase();
+    
+    Object.values(DISCOVER_AI_TOPICS).forEach(topic => {
+      let matchCount = 0;
+      topic.keywords.forEach(kw => {
+        if (textCorpus.includes(kw)) matchCount += 1.5;
+      });
+      topic.feedPatterns.forEach(pat => {
+        if (textCorpus.includes(pat)) matchCount += 3;
+      });
+      topicScores[topic.key] += matchCount;
+    });
+  });
+
+  // 2. Score based on episodes with engagement weights
+  allEps.forEach(ep => {
+    const guid = ep.guid;
+    const pos = positions[guid];
+    const isCompleted = pos && (pos.completed === 1 || pos.completed === true);
+    const hasProgress = pos && pos.position > 10;
+    const isFav = favorites.some(fav => (typeof fav === 'string' ? fav === guid : fav.guid === guid));
+    const isQueued = queue.some(q => (typeof q === 'string' ? q === guid : q.guid === guid));
+
+    let weight = 1.0;
+    if (isCompleted) { weight = 4.0; totalEngagedEps++; }
+    else if (isFav) { weight = 4.5; totalEngagedEps++; }
+    else if (isQueued) { weight = 3.0; totalEngagedEps++; }
+    else if (hasProgress) { weight = 2.5; totalEngagedEps++; }
+
+    if (isCompleted || hasProgress || isFav) {
+      const durSec = parseDurationSeconds(ep.duration);
+      if (durSec > 60) {
+        totalDurationSec += durSec;
+        durationSamples++;
+      }
+    }
+
+    const epText = `${ep.title || ''} ${ep.podcastTitle || ''} ${ep.description || ''}`.toLowerCase();
+    Object.values(DISCOVER_AI_TOPICS).forEach(topic => {
+      let matched = false;
+      for (const kw of topic.keywords) {
+        if (epText.includes(kw)) {
+          topicScores[topic.key] += (weight * 0.8);
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) {
+        for (const pat of topic.feedPatterns) {
+          if (epText.includes(pat)) {
+            topicScores[topic.key] += (weight * 1.2);
+            break;
+          }
+        }
+      }
+    });
+  });
+
+  // Sort topics by score
+  const sortedTopics = Object.keys(topicScores)
+    .map(key => ({ key, score: topicScores[key], def: DISCOVER_AI_TOPICS[key] }))
+    .sort((a, b) => b.score - a.score);
+
+  const top1 = sortedTopics[0] && sortedTopics[0].score > 0 ? sortedTopics[0] : null;
+  const top2 = sortedTopics[1] && sortedTopics[1].score > 0 ? sortedTopics[1] : null;
+
+  // Determine listening duration style
+  const avgSec = durationSamples > 0 ? (totalDurationSec / durationSamples) : 2100;
+  let durationStyle = 'Balanced Flow (25-45m)';
+  let durationVibe = 'Deep Dives (40m+)';
+  if (avgSec < 1500) {
+    durationStyle = 'Snackable Listens (<25m)';
+    durationVibe = 'Snackable (<25m)';
+  } else if (avgSec > 2700) {
+    durationStyle = 'Expansive Masterclasses (45m+)';
+    durationVibe = 'Expansive (45m+)';
+  }
+
+  // Derive Persona
+  let personaTitle = 'Inquisitive Polymath';
+  let personaNarrative = 'Your library embraces a broad spectrum of ideas, science, and storytelling with a keen eye for thoughtful, high-signal conversations.';
+  const vibes = [];
+
+  if (feeds.length === 0) {
+    personaTitle = 'Curious Explorer';
+    personaNarrative = 'Welcome to Anypod! We have prepared a narrated discovery feed spanning planetary science, cosmic mysteries, and cutting-edge research to calibrate your personal taste profile.';
+    vibes.push('🌱 Planet & Space', '🔬 Frontier Research', '⚡ Zero Ads / Pure RSS');
+  } else if (top1 && top1.key === 'space_cosmos') {
+    personaTitle = 'Cosmic Explorer & Deep Systems Thinker';
+    personaNarrative = 'Your library reveals an insatiable appetite for astrophysics, space exploration, and fundamental physical laws. You seek out first-principles explanations and expansive perspectives on the universe.';
+    vibes.push('🚀 Cosmology', '🌌 Deep Space', durationVibe);
+    if (top2) vibes.push(top2.def.shortLabel);
+  } else if (top1 && top1.key === 'climate_planet') {
+    personaTitle = 'Planetary Ecologist & Earth Steward';
+    personaNarrative = 'Your collection reflects deep engagement with planetary systems, climate transitions, and ecological conservation. You gravitate toward investigative solutions and grounded reporting on the living world.';
+    vibes.push('🌱 Climate Systems', '🌊 Living Earth', durationVibe);
+    if (top2) vibes.push(top2.def.shortLabel);
+  } else if (top1 && top1.key === 'mind_biology') {
+    personaTitle = 'Cognitive Seeker & Biological Inquirer';
+    personaNarrative = 'You are fascinated by the human mind, neurobiology, and evolutionary mechanisms. You appreciate empirical rigor combined with actionable insights into human consciousness and health.';
+    vibes.push('🧠 Neuroscience', '🧬 Biology', durationVibe);
+    if (top2) vibes.push(top2.def.shortLabel);
+  } else if (top1 && top1.key === 'electronic_audio') {
+    personaTitle = 'Sonic Architect & Electronic Connoisseur';
+    personaNarrative = 'Your taste highlights long-form electronic audio journeys, club-level sound design, and masterfully curated mixes. You listen for production nuance, dynamic pacing, and sonic flow.';
+    vibes.push('🎵 Electronic Music', '🎧 Mix Flow', durationVibe);
+    if (top2) vibes.push(top2.def.shortLabel);
+  } else if (top1 && top1.key === 'tech_futures') {
+    personaTitle = 'Technological Futurist & Systems Strategist';
+    personaNarrative = 'Your feeds trace the cutting edge of artificial intelligence, computing architectures, and digital evolution. You prioritize substantive discussions about the technologies reshaping our collective future.';
+    vibes.push('⚡ AI & Tech', '🤖 Future Systems', durationVibe);
+    if (top2) vibes.push(top2.def.shortLabel);
+  } else if (top1 && top1.key === 'investigative_ideas') {
+    personaTitle = 'Global Inquirer & Investigative Mind';
+    personaNarrative = 'Your library seeks deep journalistic rigor, global economic perspectives, and cultural documentaries that unravel the complex layers of human societies.';
+    vibes.push('🌐 Global Affairs', '🔍 Investigative', durationVibe);
+    if (top2) vibes.push(top2.def.shortLabel);
+  } else if (top1 && top1.key === 'pure_science') {
+    if (top2 && top2.key === 'space_cosmos') {
+      personaTitle = 'Cosmic Explorer & Deep Systems Thinker';
+      personaNarrative = 'Your library reveals an insatiable appetite for astrophysics, space exploration, and fundamental physical laws. You seek out first-principles explanations and expansive perspectives on the cosmos.';
+      vibes.push('🚀 Cosmology', '🌌 Deep Space', durationVibe);
+      vibes.push('🔬 Frontier Science');
+    } else {
+      personaTitle = 'Frontier Scientist & Empirical Inquirer';
+      personaNarrative = 'Your library is anchored in cutting-edge laboratory research, fundamental inquiries, and original scientific findings. You prioritize empirical data and rigorous peer-reviewed insight over quick takes.';
+      vibes.push('🔬 Frontier Science', '💡 Research Depth', durationVibe);
+      if (top2) vibes.push(top2.def.shortLabel);
+    }
+  } else {
+    personaTitle = 'Scientific Polymath & Inquisitive Mind';
+    personaNarrative = 'Your listening spans fundamental science, exploratory reporting, and thoughtful commentary. You prefer substantive, curious audio over fast hot takes.';
+    vibes.push('🔬 Frontier Science', '💡 Thoughtful Audio', durationVibe);
+    if (top1) vibes.push(top1.def.shortLabel);
+  }
+
+  const statText = feeds.length > 0 
+    ? `Based on ${feeds.length} subscribed ${feeds.length === 1 ? 'show' : 'shows'}${totalEngagedEps > 0 ? `, ${totalEngagedEps} listened episodes` : ''}`
+    : 'Starter Profile • Calibrates with your listening';
+
+  return {
+    title: personaTitle,
+    narrative: personaNarrative,
+    vibes: vibes.slice(0, 4),
+    stats: statText,
+    durationStyle,
+    topTopics: sortedTopics.filter(t => t.score > 0).map(t => t.key),
+    engineLabel: 'Local AI Taste Engine'
+  };
+}
+
+function buildDiscoverEpisodeCard(ep, whyNote, isExternal = false) {
+  let card = null;
+  if (typeof createEpisodeCard === 'function') {
+    card = createEpisodeCard(ep, 'discover');
+  } else {
+    card = document.createElement('div');
+    card.className = 'episode-card';
+    card.dataset.guid = ep.guid;
+  }
+
+  if (whyNote) {
+    const badge = document.createElement('div');
+    badge.className = 'discover-why-badge';
+    let icon = '✦';
+    let text = String(whyNote || '').trim();
+    const firstChar = text.slice(0, 2).trim();
+    if (['⏳', '✨', '✦', '🌱', '🚀', '🔬', '🎵', '⚡', '🧠', '🌐'].includes(firstChar) || ['⏳', '✨', '✦'].includes(text[0])) {
+      icon = text.slice(0, 2).trim() || text[0];
+      text = text.slice(icon.length).trim();
+    }
+    badge.innerHTML = `<span class="why-icon">${escapeHtml(icon)}</span><span class="why-text">${escapeHtml(text)}</span>`;
+    const topEl = card.querySelector('.episode-card-top');
+    if (topEl) {
+      card.insertBefore(badge, topEl);
+    } else {
+      card.prepend(badge);
+    }
+  }
+
+  if (isExternal && ep.feedUrl && !state.feeds.includes(ep.feedUrl)) {
+    const actionsEl = card.querySelector('.episode-card-actions');
+    if (actionsEl) {
+      const followBtn = document.createElement('button');
+      followBtn.type = 'button';
+      followBtn.className = 'btn btn-primary btn-sm btn-discover-follow';
+      followBtn.innerHTML = '+ Follow';
+      followBtn.title = `Subscribe to ${ep.podcastTitle || 'Show'}`;
+      followBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        followBtn.textContent = 'Adding...';
+        followBtn.disabled = true;
+        try {
+          await addFeed(ep.feedUrl, ep.podcastTitle, ep.artwork);
+          followBtn.textContent = '✓ Followed';
+          followBtn.classList.remove('btn-primary');
+          followBtn.classList.add('btn-secondary');
+          showToast(`Subscribed to ${ep.podcastTitle}!`);
+        } catch (err) {
+          followBtn.textContent = '+ Follow';
+          followBtn.disabled = false;
+        }
+      });
+      actionsEl.prepend(followBtn);
+    }
+  }
+
+  return card;
+}
+
+function buildDiscoverShowCard(show, whyNote) {
+  const card = document.createElement('div');
+  card.className = 'episode-card discover-show-recommendation-card';
+  card.dataset.feed = show.feed;
+
+  const isSubbed = state.feeds.includes(show.feed);
+  const art = show.artwork || (state.feedMetadata[show.feed] && state.feedMetadata[show.feed].artwork) || (_curatedArtworkCache && _curatedArtworkCache[show.feed]) || FALLBACK_ARTWORK;
+
+  let icon = '✦';
+  let text = String(whyNote || '').trim();
+  const firstChar = text.slice(0, 2).trim();
+  if (['⏳', '✨', '✦', '🌱', '🚀', '🔬', '🎵', '⚡', '🧠', '🌐'].includes(firstChar) || ['⏳', '✨', '✦'].includes(text[0])) {
+    icon = text.slice(0, 2).trim() || text[0];
+    text = text.slice(icon.length).trim();
+  }
+
+  card.innerHTML = `
+    <div class="discover-why-badge">
+      <span class="why-icon">${escapeHtml(icon)}</span>
+      <span class="why-text">${escapeHtml(text)}</span>
+    </div>
+    <div class="episode-card-top">
+      <img class="episode-artwork feed-art" src="${escapeHtml(art)}" alt="" loading="lazy" width="52" height="52" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+      <div class="episode-header-info">
+        <div class="episode-podcast-name">${escapeHtml(show.badge || 'Recommended Show')}</div>
+        <div class="episode-title">${escapeHtml(show.title)}</div>
+      </div>
+    </div>
+    ${show.description ? `<div class="episode-desc">${escapeHtml(show.description)}</div>` : ''}
+    <div class="episode-footer" style="margin-top:auto;">
+      <div class="episode-meta">
+        <span class="date-line">${escapeHtml(show.topic ? show.topic.toUpperCase() : 'PODCAST')}</span>
+        <span class="time-line"><span class="btn-preview-link" style="color:var(--text-muted); cursor:pointer;">Explore episodes →</span></span>
+      </div>
+      <div class="episode-card-actions" style="display:flex; gap:6px;">
+        <button type="button" class="btn ${isSubbed ? 'btn-secondary' : 'btn-primary'} btn-sm btn-discover-follow" ${isSubbed ? 'disabled' : ''}>
+          ${isSubbed ? '✓ Followed' : '+ Follow Show'}
+        </button>
+      </div>
+    </div>
+  `;
+
+  const followBtn = card.querySelector('.btn-discover-follow');
+  if (followBtn && !isSubbed) {
+    followBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      followBtn.textContent = 'Adding...';
+      followBtn.disabled = true;
+      try {
+        await addFeed(show.feed, show.title, art);
+        followBtn.textContent = '✓ Followed';
+        followBtn.classList.remove('btn-primary');
+        followBtn.classList.add('btn-secondary');
+        showToast(`Subscribed to ${show.title}!`);
+      } catch (err) {
+        followBtn.textContent = '+ Follow Show';
+        followBtn.disabled = false;
+      }
+    });
+  }
+
+  card.addEventListener('click', (e) => {
+    if (e.target.closest('.btn-discover-follow')) return;
+    if (typeof openFeedDetail === 'function') {
+      openFeedDetail(show.feed);
+    }
+  });
+
+  return card;
+}
+
+async function tryEnrichWithLocalLLM(profile) {
+  try {
+    const endpoint = storage.getItem('anypod_ollama_endpoint') || 'http://127.0.0.1:11434';
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 750);
+    
+    const prompt = `You are a personalized podcast curator. In 2 concise sentences, describe the listener's taste persona who loves ${profile.vibes.join(', ')}. Keep it warm, intellectual, and direct.`;
+    const res = await fetch(`${endpoint}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'llama3:latest',
+        prompt,
+        stream: false
+      }),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.response) {
+      const narEl = document.querySelector('.persona-narrative');
+      if (narEl) {
+        narEl.textContent = data.response.trim();
+      }
+      const tagEl = document.querySelector('.persona-engine-tag');
+      if (tagEl) {
+        tagEl.textContent = 'Enhanced by Local LLM (Ollama)';
+        tagEl.style.borderColor = 'var(--accent-orange)';
+        tagEl.style.color = 'var(--accent-orange)';
+      }
+    }
+  } catch (_) {
+    // Graceful fallback to client-side narrative
+  }
+}
+
 function renderDiscover() {
   const container = document.getElementById('discover-content-container');
   if (!container) return;
 
   const hasFeeds = state.feeds && state.feeds.length > 0;
+  const profile = analyzeTasteProfile(state);
+
+  // 1. Gather Unplayed/Backlog library episodes matching taste
+  const completedGuids = new Set();
+  Object.entries(state.playbackPositions || {}).forEach(([g, pos]) => {
+    if (pos && (pos.completed === 1 || pos.completed === true)) {
+      completedGuids.add(g);
+    }
+  });
+
+  const libraryCandidates = [];
+  (state.allEpisodes || []).forEach(ep => {
+    if (!ep || !ep.guid) return;
+    if (!state.feeds.includes(ep.feedUrl)) return;
+    if (completedGuids.has(ep.guid)) return;
+
+    const pos = state.playbackPositions[ep.guid];
+    const isResuming = pos && pos.position > 10;
+    const isFav = state.favorites.some(fav => (typeof fav === 'string' ? fav === ep.guid : fav.guid === ep.guid));
+
+    let score = 1.0;
+    let whyNote = '✦ From your subscribed library backlog';
+
+    if (isResuming) {
+      score += 5.0;
+      whyNote = `⏳ Pick up where you left off • Resumes at ${formatTime(pos.position)}`;
+    } else if (isFav) {
+      score += 4.0;
+      whyNote = `✨ Favorite show cut • High engagement`;
+    }
+
+    const text = `${ep.title || ''} ${ep.description || ''}`.toLowerCase();
+    for (const tKey of profile.topTopics) {
+      const topic = DISCOVER_AI_TOPICS[tKey];
+      if (topic) {
+        for (const kw of topic.keywords) {
+          if (text.includes(kw)) {
+            score += 2.5;
+            if (!isResuming) {
+              whyNote = `✦ Matches your ${topic.shortLabel} focus`;
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    libraryCandidates.push({ ep, score, whyNote });
+  });
+
+  libraryCandidates.sort((a, b) => b.score - a.score);
+  const selectedLibraryEps = libraryCandidates.slice(0, 6);
+
+  // 2. Gather External Recommendations outside library matching taste
+  const externalCandidates = [];
+  const unsubscribedCurated = CURATED_SCIENCE_FEEDS.filter(item => !state.feeds.includes(item.feed));
+
+  unsubscribedCurated.forEach(show => {
+    let score = 1.0;
+    let matchedTopicLabel = 'Science';
+
+    const showText = `${show.title} ${show.badge} ${show.topic}`.toLowerCase();
+    for (const tKey of profile.topTopics) {
+      const topic = DISCOVER_AI_TOPICS[tKey];
+      if (topic) {
+        if (show.topic === topic.key || topic.feedPatterns.some(p => showText.includes(p))) {
+          score += 4.0;
+          matchedTopicLabel = topic.shortLabel;
+          break;
+        }
+      }
+    }
+
+    const whyNote = `✨ Recommended companion for your ${matchedTopicLabel} taste`;
+    externalCandidates.push({ show, score, whyNote });
+  });
+
+  externalCandidates.sort((a, b) => b.score - a.score);
+  const selectedExternalShows = externalCandidates.slice(0, 6);
+
+  // Narrative descriptions for sections
+  const librarySectionNarrative = hasFeeds
+    ? `Curated unplayed gems and in-progress deep cuts from your ${state.feeds.length} subscribed shows, aligned with your current listening persona.`
+    : `Once you subscribe to shows, your personal unplayed deep cuts and backlog highlights will narrate here.`;
+
+  const externalSectionNarrative = hasFeeds
+    ? `Handpicked podcasts outside your current library, selected because their reporting depth directly complements your audio taste.`
+    : `Curated starter shows from worldwide producers to introduce fresh perspectives and tune your profile.`;
 
   container.innerHTML = `
     <div class="discover-view-wrap">
-      ${!hasFeeds ? `
-        <div class="welcome-onboard-banner" style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 12px; padding: 1.75rem; margin-bottom: 1.75rem; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
-          <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-primary);">welcome to anypod</h3>
-          <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.5; max-width: 600px; margin: 0 auto;">
-            no podcasts added yet. no extra ads, no tracking, no noise — zero clutter means total audio freedom. explore our curated science &amp; climate shows below or search to add your first subscription!
-          </p>
+      <!-- AI Taste Persona Banner -->
+      <div class="discover-persona-banner">
+        <div class="persona-banner-header">
+          <div class="persona-badge">
+            <span class="persona-sparkle">✦</span>
+            <span class="persona-badge-title">AI Taste Profile</span>
+          </div>
+          <button type="button" class="btn-recalibrate-taste" id="btn-recalibrate-taste" title="Recalibrate taste profile based on current library and history">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span>Recalibrate</span>
+          </button>
         </div>
-      ` : ''}
+        <div class="persona-main">
+          <h2 class="persona-title">${escapeHtml(profile.title)}</h2>
+          <p class="persona-narrative">${escapeHtml(profile.narrative)}</p>
+        </div>
+        <div class="persona-footer">
+          <div class="persona-vibes">
+            ${profile.vibes.map(v => `<span class="persona-vibe-chip">${escapeHtml(v)}</span>`).join('')}
+          </div>
+          <div class="persona-stats">
+            <span>${escapeHtml(profile.stats)}</span>
+            <span class="persona-engine-tag" title="Runs privately and locally on your device">${escapeHtml(profile.engineLabel)}</span>
+          </div>
+        </div>
+      </div>
 
       <!-- Clean Search & Direct RSS Add -->
       <div class="discover-search-box">
@@ -1285,8 +1825,43 @@ function renderDiscover() {
         <div id="empty-quick-results" class="quick-results-container"></div>
       </div>
 
-      <!-- Curated 50 Worldwide Shows -->
-      ${buildStarterSuggestionsHTML('all')}
+      <!-- Section 1: From Your Library -->
+      ${hasFeeds && selectedLibraryEps.length > 0 ? `
+        <div class="discover-section">
+          <div class="discover-section-header">
+            <div class="discover-section-title-wrap">
+              <h3 class="discover-section-title">Rediscover Your Library</h3>
+              <span class="discover-section-pill">From Your Shows</span>
+            </div>
+            <p class="discover-section-narrative">${escapeHtml(librarySectionNarrative)}</p>
+          </div>
+          <div class="discover-narrative-grid" id="discover-library-grid"></div>
+        </div>
+      ` : ''}
+
+      <!-- Section 2: Explore New Horizons -->
+      <div class="discover-section">
+        <div class="discover-section-header">
+          <div class="discover-section-title-wrap">
+            <h3 class="discover-section-title">Explore New Horizons</h3>
+            <span class="discover-section-pill">Matched To Your Taste</span>
+          </div>
+          <p class="discover-section-narrative">${escapeHtml(externalSectionNarrative)}</p>
+        </div>
+        <div class="discover-narrative-grid" id="discover-external-grid"></div>
+      </div>
+
+      <!-- Section 3: Curated Global Directory Catalog -->
+      <div class="discover-section">
+        <div class="discover-section-header">
+          <div class="discover-section-title-wrap">
+            <h3 class="discover-section-title">Curated Planetary &amp; Science Catalog</h3>
+            <span class="discover-section-pill">50 Worldwide Shows</span>
+          </div>
+          <p class="discover-section-narrative">Explore curated independent podcasts across English, German, French, Spanish, and global reporting.</p>
+        </div>
+        ${buildStarterSuggestionsHTML('all')}
+      </div>
 
       <!-- OPML import helper footer -->
       <div class="discover-opml-footer">
@@ -1295,7 +1870,40 @@ function renderDiscover() {
     </div>
   `;
 
+  // Populate dynamic cards
+  const libGrid = container.querySelector('#discover-library-grid');
+  if (libGrid && selectedLibraryEps.length > 0) {
+    selectedLibraryEps.forEach(item => {
+      const card = buildDiscoverEpisodeCard(item.ep, item.whyNote, false);
+      libGrid.appendChild(card);
+    });
+  }
+
+  const extGrid = container.querySelector('#discover-external-grid');
+  if (extGrid && selectedExternalShows.length > 0) {
+    selectedExternalShows.forEach(item => {
+      const card = buildDiscoverShowCard(item.show, item.whyNote);
+      extGrid.appendChild(card);
+    });
+  }
+
+  // Wire events
   wireEmptyStateEvents(container);
+
+  const recalibrateBtn = container.querySelector('#btn-recalibrate-taste');
+  if (recalibrateBtn) {
+    recalibrateBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      recalibrateBtn.style.opacity = '0.5';
+      showToast('✨ AI taste profile recalibrated against your library!');
+      setTimeout(() => {
+        renderDiscover();
+      }, 200);
+    });
+  }
+
+  // Attempt local LLM enrichment asynchronously
+  tryEnrichWithLocalLLM(profile);
 }
 
 let emptySearchDebounceTimer = null;
