@@ -54,39 +54,63 @@ Anypod is a free, open-source podcast player that respects you. Open it, search 
     <td><img src="docs/screenshots/preview-dark.png" alt="Desktop Dark Mode" /></td>
     <td><img src="docs/screenshots/preview-light.png" alt="Desktop Light Mode" /></td>
   </tr>
+  <tr>
+    <td align="center"><b>AI-Narrated Discover (Dark Theme)</b></td>
+    <td align="center"><b>AI-Narrated Discover (Light Theme)</b></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/discover-science-desktop-dark.png" alt="Discover Page Dark Mode" /></td>
+    <td><img src="docs/screenshots/discover-science-desktop-light.png" alt="Discover Page Light Mode" /></td>
+  </tr>
 </table>
 
 ### Mobile Views
 
 <table>
   <tr>
-    <th align="center" width="33.3%">Full Player</th>
-    <th align="center" width="33.3%">Mini-Player & Timeline</th>
-    <th align="center" width="33.3%">Subscribed Feeds</th>
+    <th align="center" width="25%">Full Player</th>
+    <th align="center" width="25%">Mini-Player</th>
+    <th align="center" width="25%">Subscribed Feeds</th>
+    <th align="center" width="25%">AI Discover</th>
   </tr>
   <tr>
     <td align="center"><img src="docs/screenshots/mobile-player.png" alt="Mobile Active Playback (Dark)" /></td>
     <td align="center"><img src="docs/screenshots/mobile-mini.png" alt="Mobile Mini-Player (Dark)" /></td>
     <td align="center"><img src="docs/screenshots/mobile-feeds.png" alt="Mobile Subscribed Feeds (Dark)" /></td>
+    <td align="center"><img src="docs/screenshots/mobile-discover.png" onerror="this.src='docs/screenshots/discover-science-mobile-dark.png'" alt="Mobile AI Discover (Dark)" /></td>
   </tr>
   <tr>
     <td align="center"><b>Active Playback (Dark)</b></td>
     <td align="center"><b>Mini-Player (Dark)</b></td>
     <td align="center"><b>Subscribed Feeds (Dark)</b></td>
+    <td align="center"><b>AI Discover (Dark)</b></td>
   </tr>
   <tr>
     <td align="center"><img src="docs/screenshots/mobile-player-light.png" alt="Mobile Active Playback (Light)" /></td>
     <td align="center"><img src="docs/screenshots/mobile-mini-light.png" alt="Mobile Mini-Player (Light)" /></td>
     <td align="center"><img src="docs/screenshots/mobile-feeds-light.png" alt="Mobile Subscribed Feeds (Light)" /></td>
+    <td align="center"><img src="docs/screenshots/discover-science-desktop-light.png" alt="Discover Light Theme" /></td>
   </tr>
   <tr>
     <td align="center"><b>Active Playback (Light)</b></td>
     <td align="center"><b>Mini-Player (Light)</b></td>
     <td align="center"><b>Subscribed Feeds (Light)</b></td>
+    <td align="center"><b>AI Discover (Light)</b></td>
   </tr>
 </table>
 
 ## Core Features
+
+### 🧠 Local AI Taste Profiling & Narrated Discover
+- **100% Private On-Device Profiling**: Analyzes your subscribed library, listening history, completion rates, and queued tracks completely in the browser. Zero telemetry, zero cloud tracking.
+- **Dynamic Listening Personas**: Derives an editorial listener identity (e.g. *Cosmic Explorer & Deep Systems Thinker*, *Sonic Architect & Electronic Connoisseur*) with personalized narrative headlines and vibe tags.
+- **Full-Screen Edge-to-Edge Grid**: Takes advantage of the full screen width with responsive 2-column cards (`repeat(2, minmax(0, 1fr))` / 2x 50% width), matching Timeline and Library spacing.
+- **Contextual "Why For You" Badges**: Shows tailored rationales on every card (e.g., `⏳ Pick up where you left off • Resumes at 19:02` or `✦ Matches your Cosmology focus`).
+- **Blended Discovery Stream**:
+  - *Rediscover Your Library*: Unplayed gems and backlog deep cuts from your own subscriptions.
+  - *Explore New Horizons*: Handpicked companion shows matched to your taste with 1-click `+ Follow` buttons.
+  - *Curated Global Catalog*: 50 international science and climate shows filterable by language and topic.
+- **Optional Local LLM Hook**: Automatically connects to local Ollama (`localhost:11434`) if running to generate live generative commentary, with instant fallback to client-side heuristic copy.
 
 ### 🎧 Audio & Podcast Playback
 - **Podcast RSS Enclosures**: High-fidelity streaming of MP3, M4A, AAC with Range request support (`HTTP 206`).
@@ -160,7 +184,7 @@ Anypod is a free, open-source podcast player that respects you. Open it, search 
 ```
 anypod/
 ├── docs/
-│   ├── screenshots/              # Application preview screenshots
+│   ├── screenshots/              # Application preview screenshots (Desktop, Mobile, AI Discover)
 │   ├── SETS.md                   # Workout Interval DJ Sequencer docs
 │   └── YOUTUBE_MUSIC_EXPORT.md   # YouTube Music export documentation
 ├── functions/
@@ -172,23 +196,57 @@ anypod/
 │       ├── feed.js               # RSS, iTunes search & YouTube feed parser
 │       └── utils.js
 ├── public/
-│   ├── app.js                    # Core Anypod player application
-│   ├── dj.html                   # DJ Studio application
-│   ├── sets.html                 # Workout Interval Sequencer application
+│   ├── index.html                # Development entrypoint (loads modular scripts directly)
+│   ├── style.css                 # Master stylesheet with responsive CSS variables & Discover grid
+│   ├── sw.js                     # PWA Service Worker with HTTP 206 audio byte-range caching
+│   ├── shared/                   # Cross-app utilities (used by player, DJ, and Sets)
+│   │   ├── audio-utils.js        # Audio calculations, time formatting, waveform math
+│   │   ├── formatters.js         # Date formatting, HTML sanitization, string utilities
+│   │   ├── storage.js            # Safe localStorage wrapper with quotas and namespacing
+│   │   └── sync-bridge.js        # PostMessage bridge for cross-subdomain auth and state sync
+│   ├── app/                      # Modular player application (split for multi-editor friendliness)
+│   │   ├── 01-state-and-dom.js   # Global reactive state, DOM cache, init lifecycle, notifications
+│   │   ├── 02-auth-and-sync.js   # Passwordless magic links, D1 cloud sync, offline merge
+│   │   ├── 03-queue-favorites-downloads.js # Up Next queue, favorites, CacheStorage offline audio
+│   │   ├── 04-feeds-and-discover.js # Feed parsing, OPML import/export, On-Device AI Taste Profiler & Discover
+│   │   ├── 05-timeline-and-cards.js # Timeline virtualization, episode cards, badging & unplayed state
+│   │   ├── 06-audio-player.js    # HTML5 Audio engine, MediaSession API, stall recovery & watchdog
+│   │   ├── 07-events-and-modals.js  # Keyboard shortcuts, modal dialogs, touch gestures, context menus
+│   │   └── 08-waveform-and-ai.js # Synchronized lyrics (LRCLIB), audio waveforms, local AI commentary hook
+│   ├── dj.html                   # Dual-Deck DJ Studio application (dj.anypod.org)
+│   ├── dj-engine.js              # Web Audio API dual-channel DJ mixing engine
+│   ├── dj-ui.js                  # DJ mixing console interface & deck controls
+│   ├── dj.css                    # DJ console dark theme stylesheet
+│   ├── sets.html                 # Workout Interval Sequencer application (sets.anypod.org)
+│   ├── sets.js                   # HIIT / Tabata audio sequencer & interval timer
+│   ├── sets.css                  # Interval sequencer responsive stylesheet
 │   ├── audio.html                # Audio engine testbed
-│   ├── style.css                 # Responsive stylesheet (dark/light themes)
-│   ├── sw.js                     # PWA Service Worker with HTTP 206 caching
-│   └── dist/                     # Production minified bundle
+│   ├── storage-bridge.html       # Iframe postMessage bridge for cross-subdomain storage access
+│   └── dist/                     # Optimized production bundle (compiled via esbuild)
+│       ├── app.min.js            # Minified player bundle (in-memory esbuild assembly)
+│       ├── style.min.css         # Minified stylesheet
+│       ├── index.html            # Production entrypoint loading minified assets
+│       └── sw.js                 # Production PWA service worker with precache manifest
 ├── scripts/
-│   ├── build.js                  # Production bundler & asset optimizer
+│   ├── build.js                  # In-memory bundler: streams modular files to esbuild stdin -> dist/
+│   ├── capture_discover_screenshot.js # Customizable Discover screenshot tool (--taste, --device, --theme)
+│   ├── capture_screenshots.js    # Automated responsive screenshot suite
 │   ├── check_audio_sources.js    # Audio stream & HTTP 206 byte-range auditor
-│   ├── check_curated_feeds.js    # Curated podcast feed validator
+│   ├── check_curated_feeds.js    # Curated podcast catalog validator
+│   ├── test_search_unit.js       # Unit tests for curated catalog indexing and search
 │   └── verify-deploy.js          # Deployment pre-flight checks
 ├── package.json
 ├── schema.sql                    # Cloudflare D1 SQLite database schema
 ├── wrangler.json                 # Cloudflare Pages & D1 bindings
 └── README.md
 ```
+
+### Modular Zero-Build Architecture
+
+Anypod utilizes a modular architecture designed for developer happiness and multi-editor friendliness:
+- **Multi-Editor Friendly**: Instead of maintaining a monolithic file exceeding 14,000 lines, the frontend is broken down into domain-specific modules under `public/app/` and `public/shared/`. Each file stays under manageable bounds, making editing on mobile devices, web editors, and desktop IDEs smooth and responsive.
+- **Zero-Build Development**: In development (`public/index.html`), files are loaded as standard browser scripts in sequential order. You can edit any module and immediately refresh the browser—no watch process, bundler, or compile step needed.
+- **In-Memory Production Builds**: When running `npm run build`, `scripts/build.js` concatenates the modular scripts in memory and pipes them directly through `esbuild` to produce `public/dist/app.min.js`. No temporary monolithic `public/app.js` file is ever committed to source control or written to disk.
 
 ---
 
