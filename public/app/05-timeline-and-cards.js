@@ -35,7 +35,7 @@ function renderTimeline(preserveScroll = false) {
     const total = Math.max(state.pageSize || 30, (state.timelinePage || 1) * (state.pageSize || 30));
     const batch = state.filteredEpisodes.slice(0, total);
     const frag = document.createDocumentFragment();
-    batch.forEach(ep => frag.appendChild(createEpisodeCard(ep, timelineContext)));
+    batch.forEach((ep, idx) => frag.appendChild(createEpisodeCard(ep, timelineContext, idx)));
     container.appendChild(frag);
 
     if (total < state.filteredEpisodes.length) {
@@ -105,8 +105,8 @@ function appendTimelineBatch() {
   };
 
   const frag = document.createDocumentFragment();
-  batch.forEach(ep => {
-    frag.appendChild(createEpisodeCard(ep, timelineContext));
+  batch.forEach((ep, idx) => {
+    frag.appendChild(createEpisodeCard(ep, timelineContext, start + idx));
   });
   container.appendChild(frag);
 
@@ -1128,7 +1128,7 @@ function setupProgressTrackInteractivity(progressTrack, card, ep, context = null
   });
 }
 
-function createEpisodeCard(ep, context = null) {
+function createEpisodeCard(ep, context = null, cardIndex = 0) {
   const isCurrentlyActive = state.currentEpisode && state.currentEpisode.guid === ep.guid;
   const isPlaying = isCurrentlyActive && state.playbackStatus === 'playing';
   const isLoading = isCurrentlyActive && state.playbackStatus === 'loading';
@@ -1206,9 +1206,10 @@ function createEpisodeCard(ep, context = null) {
     </button>
   `;
 
+  const isAboveTheFold = typeof cardIndex === 'number' && cardIndex < 4;
   card.innerHTML = `
     <div class="episode-card-top">
-      <img class="episode-artwork" src="${ep.artwork || FALLBACK_ARTWORK}" alt="" loading="lazy" width="52" height="52">
+      <img class="episode-artwork" src="${ep.artwork || FALLBACK_ARTWORK}" alt="" ${isAboveTheFold ? 'loading="eager" fetchpriority="high"' : 'loading="lazy" decoding="async"'} width="52" height="52">
       <div class="episode-header-info">
         <div class="episode-podcast-name">${ep.isYouTube ? 'YouTube' : highlightText(ep.podcastTitle, state.searchQuery)}</div>
         <div class="episode-title">${highlightText(ep.title, state.searchQuery)}</div>
