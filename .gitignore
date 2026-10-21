@@ -7,3 +7,4 @@ data/
 config.json
 config.yaml
 config.yml
+public/app.js

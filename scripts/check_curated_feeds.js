@@ -16,13 +16,13 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const appJsPath = path.resolve(__dirname, '../public/app.js');
+const modulePath = path.resolve(__dirname, '../public/app/01-state-and-dom.js');
 
-// Parse CURATED_SCIENCE_FEEDS array from app.js
-const appJs = fs.readFileSync(appJsPath, 'utf8');
-const match = appJs.match(/const CURATED_SCIENCE_FEEDS = (\[[\s\S]*?\]);\s*\/\//);
+// Parse CURATED_SCIENCE_FEEDS array from 01-state-and-dom.js
+const moduleJs = fs.readFileSync(modulePath, 'utf8');
+const match = moduleJs.match(/const CURATED_SCIENCE_FEEDS = (\[[\s\S]*?\n\]);/);
 if (!match) {
-  console.error('❌ Could not locate CURATED_SCIENCE_FEEDS in app.js');
+  console.error('❌ Could not locate CURATED_SCIENCE_FEEDS in 01-state-and-dom.js');
   process.exit(1);
 }
 

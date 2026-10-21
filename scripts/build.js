@@ -15,7 +15,7 @@ if (!fs.existsSync(distDir)) {
   fs.mkdirSync(distDir, { recursive: true });
 }
 
-// 0. Assemble public/app.js from shared/* + app/* modular files
+// 0. Assemble in-memory JS bundle from shared/* + app/* modular files
 const sharedModules = [
   'shared/formatters.js',
   'shared/storage.js',
@@ -46,12 +46,22 @@ const appBody = appModules
   .join('\n\n');
 
 const assembledAppJs = `${sharedCode}\n\n(function () {\n  'use strict';\n\n${appBody}\n})();\n`;
-fs.writeFileSync(path.join(publicDir, 'app.js'), assembledAppJs, 'utf-8');
-console.log(`🔧 Assembled ${sharedModules.length} shared + ${appModules.length} app modules → public/app.js`);
+console.log(`🔧 Assembled in-memory: ${sharedModules.length} shared + ${appModules.length} app modules`);
 
-// 1. Bundle and minify JS
+// Clean up legacy monolithic app.js if present
+const legacyAppJs = path.join(publicDir, 'app.js');
+if (fs.existsSync(legacyAppJs)) {
+  fs.unlinkSync(legacyAppJs);
+}
+
+// 1. Bundle and minify JS directly in memory (zero monolithic file on disk)
 await esbuild.build({
-  entryPoints: [path.join(publicDir, 'app.js')],
+  stdin: {
+    contents: assembledAppJs,
+    resolveDir: publicDir,
+    sourcefile: 'app.js',
+    loader: 'js'
+  },
   bundle: false,
   minify: true,
   sourcemap: true,
@@ -106,12 +116,22 @@ for (const entry of fs.readdirSync(publicDir, { withFileTypes: true })) {
   }
 }
 
-const originalJsSize = (fs.statSync(path.join(publicDir, 'app.js')).size / 1024).toFixed(1);
+// 5. Customize dist/sw.js to cache production bundle
+const swDistPath = path.join(distDir, 'sw.js');
+if (fs.existsSync(swDistPath)) {
+  let swContent = fs.readFileSync(swDistPath, 'utf-8');
+  swContent = swContent
+    .replace(/'\/app\.js',?\n?/g, "'/app.min.js',\n")
+    .replace(/'\/style\.css',?\n?/g, "'/style.min.css',\n");
+  fs.writeFileSync(swDistPath, swContent, 'utf-8');
+}
+
+const originalJsSize = (Buffer.byteLength(assembledAppJs, 'utf-8') / 1024).toFixed(1);
 const minJsSize = (fs.statSync(path.join(distDir, 'app.min.js')).size / 1024).toFixed(1);
 const originalCssSize = (fs.statSync(path.join(publicDir, 'style.css')).size / 1024).toFixed(1);
 const minCssSize = (fs.statSync(path.join(distDir, 'style.min.css')).size / 1024).toFixed(1);
 
-console.log(`✅ JS:   ${originalJsSize} KB  →  ${minJsSize} KB (public/dist/app.min.js)`);
+console.log(`✅ JS:   ${originalJsSize} KB (in-memory)  →  ${minJsSize} KB (public/dist/app.min.js)`);
 console.log(`✅ CSS:  ${originalCssSize} KB  →  ${minCssSize} KB (public/dist/style.min.css)`);
 console.log('✅ Static: Automatically copied all root assets & subdirectories to dist/');
 console.log('✅ HTML: Generated production public/dist/index.html');

@@ -5,7 +5,6 @@ const APP_SHELL = [
   '/',
   '/index.html',
   '/style.css',
-  '/app.js',
   '/shared/formatters.js',
   '/shared/storage.js',
   '/shared/sync-bridge.js',

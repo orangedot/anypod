@@ -10,14 +10,14 @@ const appDir = path.resolve(__dirname, '..');
 
 console.log('🧪 Running Search Unit & Taxonomy Test...\n');
 
-// 1. Read app.js and check SUBGENRE_MAP
-const appJsPath = path.join(appDir, 'public', 'app.js');
-const appJs = fs.readFileSync(appJsPath, 'utf8');
+// 1. Read 04-feeds-and-discover.js and check SUBGENRE_MAP
+const feedsJsPath = path.join(appDir, 'public', 'app', '04-feeds-and-discover.js');
+const feedsJs = fs.readFileSync(feedsJsPath, 'utf8');
 
 // Extract SUBGENRE_MAP
-const mapMatch = appJs.match(/const SUBGENRE_MAP = (\{[\s\S]*?\n  \};)/);
+const mapMatch = feedsJs.match(/const SUBGENRE_MAP = (\{[\s\S]*?\n\s*\};)/);
 if (!mapMatch) {
-  console.error('❌ Could not find SUBGENRE_MAP in app.js');
+  console.error('❌ Could not find SUBGENRE_MAP in 04-feeds-and-discover.js');
   process.exit(1);
 }
 

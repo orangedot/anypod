@@ -4,8 +4,7 @@ const AUDIO_CACHE_NAME = 'anypod-audio-v1';
 const APP_SHELL = [
   '/',
   '/index.html',
-  '/style.css',
-  '/app.js',
+  '/style.min.css',
   '/shared/formatters.js',
   '/shared/storage.js',
   '/shared/sync-bridge.js',
