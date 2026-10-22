@@ -42,7 +42,7 @@ function setupEventListeners() {
         chip.classList.add('active');
         state.filterMode = chip.dataset.filter || 'all';
         processAndSortEpisodes();
-        renderTimeline();
+        renderTimeline(false);
         if (state.activeFeedDetailUrl) {
           renderFeedDetail(state.activeFeedDetailUrl);
         }
@@ -107,7 +107,7 @@ function setupEventListeners() {
             updateFeedCountUI();
             updateQueueUI();
             renderContinueShelf();
-            renderTimeline();
+            renderTimeline(false);
             renderFeedsGrid();
             updateSyncStatusUI('Logged Out', '', false);
             elements.authModal.classList.remove('hidden');
@@ -283,7 +283,7 @@ function setupEventListeners() {
       elements.searchBarWrap.classList.toggle('has-text', hasText);
     }
     processAndSortEpisodes();
-    renderTimeline();
+    renderTimeline(false);
     renderFeedsGrid();
     if (state.activeFeedDetailUrl) {
       renderFeedDetail(state.activeFeedDetailUrl);
@@ -483,7 +483,7 @@ function setupEventListeners() {
         elements.searchBarWrap.classList.remove('has-text');
       }
       processAndSortEpisodes();
-      renderTimeline();
+      renderTimeline(false);
       renderFeedsGrid();
       if (state.activeFeedDetailUrl) {
         renderFeedDetail(state.activeFeedDetailUrl);
@@ -513,7 +513,7 @@ function setupEventListeners() {
   elements.sortOrderSelect.addEventListener('change', (e) => {
     state.sortOrder = e.target.value;
     processAndSortEpisodes();
-    renderTimeline();
+    renderTimeline(false);
     if (state.activeFeedDetailUrl) {
       renderFeedDetail(state.activeFeedDetailUrl);
     }
@@ -1326,7 +1326,7 @@ function setupEventListeners() {
           updateQueueUI();
           updateDownloadedCountUI();
           renderContinueShelf();
-          renderTimeline();
+          renderTimeline(false);
           renderFeedsGrid();
         }
       });

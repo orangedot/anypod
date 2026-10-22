@@ -1,4 +1,4 @@
-const CACHE_NAME = 'anypod-v16';
+const CACHE_NAME = 'anypod-v17';
 const AUDIO_CACHE_NAME = 'anypod-audio-v1';
 
 const APP_SHELL = [

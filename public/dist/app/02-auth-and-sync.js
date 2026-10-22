@@ -666,7 +666,7 @@ function loadCacheFromStorage() {
     }
     if (state.allEpisodes && state.allEpisodes.length > 0) {
       processAndSortEpisodes();
-      renderTimeline();
+      renderTimeline(false);
       renderContinueShelf();
       renderFeedsGrid();
     }
@@ -679,7 +679,7 @@ function loadCacheFromStorage() {
       if (idbEps.length >= currentCount) {
         state.allEpisodes = idbEps;
         processAndSortEpisodes();
-        renderTimeline();
+        renderTimeline(true);
         renderContinueShelf();
         renderFeedsGrid();
         if (state.activeFeedDetailUrl && typeof renderFeedDetail === 'function') {

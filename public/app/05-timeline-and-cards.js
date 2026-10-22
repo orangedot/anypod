@@ -8,7 +8,31 @@
 // wireEmptyStateEvents — wires up the onboarding empty state UI.
 // ─────────────────────────────────────────────────────────────────────────
 
-function renderTimeline(preserveScroll = false) {
+function getTimelineEmptyStateHtml() {
+  let emptyTitle = 'No episodes found';
+  let emptyMsg = 'Try clearing your search query or refreshing your feeds.';
+  if (state.filterMode === 'played') {
+    emptyTitle = 'No played episodes';
+    emptyMsg = 'Episodes you finish or mark as played will appear here.';
+  } else if (state.filterMode === 'continue') {
+    emptyTitle = 'No episodes in progress';
+    emptyMsg = 'Episodes you start listening to will appear here.';
+  } else if (state.filterMode === 'unplayed') {
+    emptyTitle = 'All caught up';
+    emptyMsg = 'You have listened to all episodes.';
+  } else if (state.filterMode === 'downloaded') {
+    emptyTitle = 'No downloaded episodes';
+    emptyMsg = 'Episodes you download for offline listening will appear here.';
+  }
+  return `
+    <div class="empty-state">
+      <h3>${emptyTitle}</h3>
+      <p>${emptyMsg}</p>
+    </div>
+  `;
+}
+
+function renderTimeline(preserveScroll = true) {
   // console.log('[Anypod Debug] renderTimeline called. preserveScroll:', preserveScroll, {
   //   scrollTopBeforeRender: elements.timelineList?.scrollTop,
   //   stack: new Error().stack.split('\n')[2] // Shows what triggered the render!
@@ -17,6 +41,16 @@ function renderTimeline(preserveScroll = false) {
   updateDockVisibility();
   const container = elements.timelineList;
   if (!container) return;
+
+  if (state.feeds.length === 0) {
+    navigateTo('discover');
+    return;
+  }
+
+  if (state.filteredEpisodes.length === 0) {
+    container.innerHTML = getTimelineEmptyStateHtml();
+    return;
+  }
 
   if (preserveScroll) {
     const prevWindowScroll = window.scrollY;
@@ -56,38 +90,7 @@ function renderTimeline(preserveScroll = false) {
     return;
   }
 
-  if (state.feeds.length === 0) {
-    navigateTo('discover');
-    return;
-  }
-
   container.innerHTML = '';
-
-  if (state.filteredEpisodes.length === 0) {
-    let emptyTitle = 'No episodes found';
-    let emptyMsg = 'Try clearing your search query or refreshing your feeds.';
-    if (state.filterMode === 'played') {
-      emptyTitle = 'No played episodes';
-      emptyMsg = 'Episodes you finish or mark as played will appear here.';
-    } else if (state.filterMode === 'continue') {
-      emptyTitle = 'No episodes in progress';
-      emptyMsg = 'Episodes you start listening to will appear here.';
-    } else if (state.filterMode === 'unplayed') {
-      emptyTitle = 'All caught up';
-      emptyMsg = 'You have listened to all episodes.';
-    } else if (state.filterMode === 'downloaded') {
-      emptyTitle = 'No downloaded episodes';
-      emptyMsg = 'Episodes you download for offline listening will appear here.';
-    }
-    container.innerHTML = `
-      <div class="empty-state">
-        <h3>${emptyTitle}</h3>
-        <p>${emptyMsg}</p>
-      </div>
-    `;
-    return;
-  }
-
   state.timelinePage = 1;
   appendTimelineBatch();
 }

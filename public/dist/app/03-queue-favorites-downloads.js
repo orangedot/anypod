@@ -962,7 +962,7 @@ async function removeDownloadedEpisode(guid) {
   updateEpisodeCardDownloadState(guid);
   if (state.filterMode === 'downloaded') {
     processAndSortEpisodes();
-    renderTimeline();
+    renderTimeline(true);
   }
 }
 
@@ -982,7 +982,7 @@ async function clearAllDownloads() {
   });
   if (state.filterMode === 'downloaded') {
     processAndSortEpisodes();
-    renderTimeline();
+    renderTimeline(false);
   }
 }
 

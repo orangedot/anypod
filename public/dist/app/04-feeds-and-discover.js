@@ -1981,12 +1981,256 @@ async function tryEnrichWithLocalLLM(profile) {
   }
 }
 
+/**
+ * Resolves up to 10 most recently played podcast feeds based on playbackPositions and library history.
+ */
+function getLastPlayedFeedUrls(limit = 10) {
+  const feedTimes = new Map();
+  const now = Math.floor(Date.now() / 1000);
+
+  // 1. Current active episode has highest recency priority
+  if (state.currentEpisode && state.currentEpisode.feedUrl) {
+    feedTimes.set(state.currentEpisode.feedUrl, now + 100000);
+  }
+
+  // 2. Build map of guid -> episode
+  const epMap = new Map();
+  (state.allEpisodes || []).forEach(ep => {
+    if (ep && ep.guid) epMap.set(ep.guid, ep);
+  });
+
+  // 3. Scan playback positions for playback timestamps
+  const positions = state.playbackPositions || {};
+  for (const [guid, pos] of Object.entries(positions)) {
+    if (!pos) continue;
+    const ep = epMap.get(guid) || (state.currentEpisode?.guid === guid ? state.currentEpisode : null);
+    if (!ep || !ep.feedUrl) continue;
+
+    let t = 0;
+    if (pos.lastListenedAt) {
+      t = pos.lastListenedAt > 1e11 ? Math.floor(pos.lastListenedAt / 1000) : pos.lastListenedAt;
+    } else if (pos.position > 2) {
+      t = (pos.position || 0) + (ep.timestamp ? Math.floor(ep.timestamp / 1000) : 0);
+    } else if (pos.completed) {
+      t = (ep.timestamp ? Math.floor(ep.timestamp / 1000) : 1);
+    }
+
+    if (t > 0) {
+      const prev = feedTimes.get(ep.feedUrl) || 0;
+      if (t > prev) {
+        feedTimes.set(ep.feedUrl, t);
+      }
+    }
+  }
+
+  // Feeds with actual playback sorted by recency
+  const sortedPlayedFeeds = Array.from(feedTimes.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(entry => entry[0]);
+
+  const result = [...sortedPlayedFeeds];
+
+  // If fewer than limit, backfill with remaining subscribed library feeds
+  if (result.length < limit && state.feeds && state.feeds.length > 0) {
+    const existingSet = new Set(result);
+    const remainingFeeds = state.feeds.filter(f => !existingSet.has(f));
+    remainingFeeds.sort((fA, fB) => {
+      const epsA = (state.allEpisodes || []).filter(e => e.feedUrl === fA);
+      const epsB = (state.allEpisodes || []).filter(e => e.feedUrl === fB);
+      const maxA = epsA.reduce((max, e) => Math.max(max, e.timestamp || 0), 0);
+      const maxB = epsB.reduce((max, e) => Math.max(max, e.timestamp || 0), 0);
+      return maxB - maxA;
+    });
+
+    for (const f of remainingFeeds) {
+      if (result.length >= limit) break;
+      result.push(f);
+    }
+  }
+
+  return result.slice(0, limit);
+}
+
+/**
+ * Builds a feed card with a 3-episode preview and share action for the Discover view.
+ */
+function buildDiscoverRecentFeedCard(url) {
+  const meta = state.feedMetadata[url] || {};
+  const isSubbed = state.feeds && state.feeds.includes(url);
+  const card = document.createElement('div');
+  card.className = 'feed-card starter-show-card discover-recent-feed-card';
+  card.dataset.feed = url;
+  card.dataset.title = meta.title || url;
+
+  const rawDesc = meta.description || '';
+  const plainDesc = rawDesc.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
+
+  const allForFeed = (state.allEpisodes || [])
+    .filter(e => e.feedUrl === url)
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+  const inProgressEps = allForFeed.filter(ep => {
+    const pos = state.playbackPositions ? state.playbackPositions[ep.guid] : null;
+    return pos && !pos.completed && pos.position > 2;
+  });
+
+  const unplayedEps = allForFeed.filter(ep => {
+    const pos = state.playbackPositions ? state.playbackPositions[ep.guid] : null;
+    const isProg = inProgressEps.some(p => p.guid === ep.guid);
+    return !isProg && (!pos || (!pos.completed && (!pos.position || pos.position <= 2)));
+  });
+
+  let feedEpisodes = [...inProgressEps, ...unplayedEps].slice(0, 3);
+  const hasUnplayed = feedEpisodes.length > 0;
+  if (feedEpisodes.length < 3) {
+    const existingGuids = new Set(feedEpisodes.map(e => e.guid));
+    const remaining = allForFeed.filter(e => !existingGuids.has(e.guid)).slice(0, 3 - feedEpisodes.length);
+    feedEpisodes.push(...remaining);
+  }
+
+  const widgetHeader = hasUnplayed
+    ? (inProgressEps.length > 0 ? 'Continue & up next' : 'Up next (unplayed)')
+    : 'Caught up • Latest';
+
+  let recentWidgetHtml = '';
+  if (feedEpisodes.length > 0) {
+    recentWidgetHtml = `
+      <div class="feed-recent-widget">
+        <div class="feed-recent-header">${widgetHeader}</div>
+        <div class="feed-recent-list">
+          ${feedEpisodes.map(ep => {
+            const isCurrent = state.currentEpisode && state.currentEpisode.guid === ep.guid;
+            const isEpPlaying = isCurrent && state.playbackStatus === 'playing';
+            const pos = state.playbackPositions ? state.playbackPositions[ep.guid] : null;
+            const isCompleted = pos && (pos.completed === 1 || pos.completed === true);
+            const isInProgress = pos && !isCompleted && pos.position > 2;
+            let durStr = ep.duration ? (typeof formatDurationCompact === 'function' ? formatDurationCompact(ep.duration) : ep.duration) : '';
+            if (isInProgress && typeof formatTime === 'function') {
+              durStr = `Resume ${formatTime(pos.position)}`;
+            } else if (isCompleted) {
+              durStr = `✓ ${durStr}`;
+            }
+            return `
+              <div class="recent-ep-row ${isCurrent ? 'active' : ''} ${isCompleted ? 'is-played' : ''} ${isInProgress ? 'is-in-progress' : ''}" data-guid="${escapeHtml(ep.guid)}" title="${escapeHtml(ep.title)}">
+                <button type="button" class="btn-recent-play ${isEpPlaying ? 'is-playing' : ''}" data-guid="${escapeHtml(ep.guid)}" aria-label="Play ${escapeHtml(ep.title)}">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">${isEpPlaying ? '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>' : '<polygon points="5 3 19 12 5 21 5 3"></polygon>'}</svg>
+                </button>
+                <span class="recent-ep-title">${escapeHtml(ep.title)}</span>
+                ${durStr ? `<span class="recent-ep-duration">${durStr}</span>` : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  } else {
+    recentWidgetHtml = `
+      <div class="feed-recent-widget feed-recent-preview-empty" data-feed="${escapeHtml(url)}">
+        <div class="feed-recent-header">latest episodes</div>
+        <div class="feed-recent-list">
+          <div class="recent-ep-row recent-ep-placeholder" style="color: var(--text-muted); font-size: 0.78rem; padding: 0.35rem 0.5rem;">
+            <span>Click card to view episodes</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  const epCountLabel = allForFeed.length > 0 ? `${allForFeed.length} episodes` : (meta.episodesCount ? `${meta.episodesCount} episodes` : 'Podcast');
+
+  card.innerHTML = `
+    <div class="feed-header">
+      <img class="feed-art" loading="lazy" decoding="async" width="48" height="48" src="${meta.artwork || FALLBACK_ARTWORK}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+      <div class="feed-info">
+        <h4>${escapeHtml(meta.title || url)}</h4>
+        <p><span class="hot-feed-chip">🔥 Hot</span> • ${escapeHtml(epCountLabel)}</p>
+      </div>
+      <div class="feed-header-actions">
+        <button type="button" class="btn-feed-share btn-feed-share-prominent" title="Share podcast" aria-label="Share podcast">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
+            <polyline points="16 6 12 2 8 6"></polyline>
+            <line x1="12" y1="2" x2="12" y2="15"></line>
+          </svg>
+        </button>
+        ${!isSubbed ? `
+          <button type="button" class="btn btn-primary btn-sm starter-chip-add" data-feed="${escapeHtml(url)}" data-title="${escapeHtml(meta.title || '')}">+ follow</button>
+        ` : ''}
+      </div>
+    </div>
+    ${plainDesc ? `<p class="feed-card-desc">${escapeHtml(plainDesc)}</p>` : ''}
+    ${recentWidgetHtml}
+  `;
+
+  // Wire events
+  card.addEventListener('click', (e) => {
+    if (e.target.closest('.feed-header-actions') || e.target.closest('.recent-ep-row')) return;
+    if (typeof openFeedDetail === 'function') {
+      openFeedDetail(url);
+    }
+  });
+
+  const shareBtn = card.querySelector('.btn-feed-share');
+  if (shareBtn) {
+    shareBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof shareFeed === 'function') {
+        shareFeed(url, meta.title);
+      }
+    });
+  }
+
+  const addBtn = card.querySelector('.starter-chip-add');
+  if (addBtn) {
+    addBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      addBtn.textContent = 'Adding...';
+      try {
+        await addFeed(url, meta.title, meta.artwork);
+        addBtn.textContent = '✓ followed';
+        addBtn.classList.remove('btn-primary');
+        addBtn.classList.add('btn-secondary');
+        addBtn.disabled = true;
+        if (typeof showStatus === 'function') showStatus('Subscribed! Added to your library');
+      } catch (err) {
+        addBtn.textContent = '+ follow';
+      }
+    });
+  }
+
+  card.querySelectorAll('.recent-ep-row').forEach(row => {
+    const guid = row.dataset.guid;
+    const ep = feedEpisodes.find(item => item.guid === guid) || (state.allEpisodes || []).find(item => item.guid === guid);
+    if (!ep) return;
+    row.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (typeof toggleEpisodePlayback === 'function') {
+        toggleEpisodePlayback(ep, {
+          type: 'feed',
+          id: url,
+          title: meta.title || 'Podcast Show',
+          items: allForFeed
+        });
+      } else if (typeof playEpisode === 'function') {
+        playEpisode(ep);
+      }
+    });
+  });
+
+  return card;
+}
+
 function renderDiscover() {
   const container = document.getElementById('discover-content-container');
   if (!container) return;
 
   const hasFeeds = state.feeds && state.feeds.length > 0;
   const profile = analyzeTasteProfile(state);
+
+  // Gather up to 10 last played / hot podcast feeds
+  const lastPlayedFeeds = getLastPlayedFeedUrls(10);
 
   // 1. Gather Unplayed/Backlog library episodes matching taste
   const completedGuids = new Set();
@@ -2163,6 +2407,20 @@ function renderDiscover() {
         <div class="discover-narrative-grid" id="discover-external-grid"></div>
       </div>
 
+      <!-- Section: Hot & Recently Played Shows -->
+      ${lastPlayedFeeds.length > 0 ? `
+        <div class="discover-section discover-recent-feeds-section">
+          <div class="discover-section-header">
+            <div class="discover-section-title-wrap">
+              <h3 class="discover-section-title">Hot &amp; Recently Played Shows</h3>
+              <span class="discover-section-pill">Your Rotation</span>
+            </div>
+            <p class="discover-section-narrative">Your 10 most recently played podcasts with 3-episode previews — tap to play, jump into full shows, or share with friends.</p>
+          </div>
+          <div class="feeds-grid discover-recent-feeds-grid" id="discover-recent-feeds-grid"></div>
+        </div>
+      ` : ''}
+
       <!-- Section 3: Curated Global Directory Catalog -->
       <div class="discover-section">
         <div class="discover-section-header">
@@ -2196,6 +2454,14 @@ function renderDiscover() {
     selectedExternalShows.forEach(item => {
       const card = buildDiscoverShowCard(item.show, item.whyNote);
       extGrid.appendChild(card);
+    });
+  }
+
+  const recentFeedsGrid = container.querySelector('#discover-recent-feeds-grid');
+  if (recentFeedsGrid && lastPlayedFeeds.length > 0) {
+    lastPlayedFeeds.forEach(url => {
+      const card = buildDiscoverRecentFeedCard(url);
+      if (card) recentFeedsGrid.appendChild(card);
     });
   }
 

@@ -1144,7 +1144,7 @@ async function startYouTubeBackgroundPaging(playlistId, feedUrl, initialToken) {
       if (addedAny) {
         saveCacheToStorage();
         processAndSortEpisodes();
-        renderTimeline();
+        renderTimeline(true);
         // Keep Feed Detail view up to date while user is browsing this feed
         if (state.activeFeedDetailUrl === feedUrl && typeof renderFeedDetail === 'function') {
           renderFeedDetail(feedUrl);
@@ -1438,7 +1438,7 @@ function playNextEpisode() {
     playEpisode(nextEp, null, state.playbackContext);
     if (!document.hidden) {
       processAndSortEpisodes();
-      renderTimeline();
+      renderTimeline(true);
       renderContinueShelf();
       if (state.activeFeedDetailUrl) {
         renderFeedDetail(state.activeFeedDetailUrl);

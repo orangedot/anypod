@@ -4149,6 +4149,51 @@ button.feed-link-badge:hover {
   box-sizing: border-box;
 }
 
+/* Hot Feed Chip & Prominent Share in Discover */
+.hot-feed-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-full);
+  background: rgba(249, 115, 22, 0.15);
+  color: #f97316;
+  vertical-align: middle;
+}
+
+[data-theme="light"] .hot-feed-chip {
+  background: rgba(234, 88, 12, 0.12);
+  color: #ea580c;
+}
+
+.discover-recent-feeds-grid .btn-feed-share-prominent {
+  opacity: 0.85;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+}
+
+[data-theme="light"] .discover-recent-feeds-grid .btn-feed-share-prominent {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-primary);
+}
+
+.discover-recent-feeds-grid .btn-feed-share-prominent:hover {
+  opacity: 1 !important;
+  color: #f97316 !important;
+  background: rgba(249, 115, 22, 0.15) !important;
+  transform: scale(1.08);
+}
+
+.discover-recent-feeds-section {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
 [data-theme="light"] .discover-why-badge {
   background: rgba(234, 88, 12, 0.08);
   border-color: rgba(234, 88, 12, 0.2);
