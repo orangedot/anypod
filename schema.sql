@@ -73,3 +73,15 @@ CREATE TABLE IF NOT EXISTS favorites (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS api_request_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at INTEGER NOT NULL,
+  endpoint TEXT NOT NULL,
+  target_param TEXT,
+  status_code INTEGER NOT NULL,
+  duration_ms INTEGER NOT NULL,
+  cache_status TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_req_logs_created_at ON api_request_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_req_logs_endpoint ON api_request_logs(endpoint);
+
