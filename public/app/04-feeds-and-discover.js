@@ -1472,6 +1472,10 @@ function renderContinueShelf() {
     return;
   }
 
+  const prevScroll = window.scrollY;
+  const prevGridHeight = elements.continueGrid.clientHeight;
+  if (prevGridHeight > 0) elements.continueGrid.style.minHeight = `${prevGridHeight}px`;
+
   elements.continueShelf.classList.remove('hidden');
   elements.continueGrid.innerHTML = '';
 
@@ -1501,6 +1505,13 @@ function renderContinueShelf() {
   };
   visibleEps.forEach(ep => {
     elements.continueGrid.appendChild(createEpisodeCard(ep, continueContext));
+  });
+
+  requestAnimationFrame(() => {
+    elements.continueGrid.style.minHeight = '';
+    if (window.scrollY !== prevScroll) {
+      window.scrollTo({ top: prevScroll, behavior: 'instant' });
+    }
   });
 }
 

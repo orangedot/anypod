@@ -969,21 +969,21 @@ body.has-active-episode .continue-sticky-bar {
 }
 
 .continue-shelf.is-expanded .continue-toggle-wrap {
-  position: sticky;
-  bottom: 20px; /* Above bottom edge on desktop */
+  position: fixed;
+  bottom: 25px; /* Above bottom edge on desktop */
   left: 0;
   right: 0;
   z-index: 150;
   pointer-events: none; /* Let clicks pass through empty sides */
   display: flex;
   justify-content: center;
-  margin-top: 1rem;
+  margin: 0;
 }
 body.has-active-episode .continue-shelf.is-expanded .continue-toggle-wrap {
-  bottom: 80px; /* Above desktop player bar */
+  bottom: 85px; /* Above desktop player bar */
 }
 
-/* Ensure the button inside is clickable and has elevation while sticky */
+/* Ensure the button inside is clickable and has elevation while floating */
 .continue-shelf.is-expanded .continue-toggle-wrap #btn-toggle-continue {
   pointer-events: auto;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
@@ -993,14 +993,17 @@ body.has-active-episode .continue-shelf.is-expanded .continue-toggle-wrap {
 
 @media (max-width: 768px) {
   .continue-shelf.is-expanded .continue-toggle-wrap {
+    position: fixed !important;
     bottom: calc(55px + env(safe-area-inset-bottom, 0px)) !important;
+    left: 0 !important;
+    right: 0 !important;
     z-index: 150 !important;
   }
   body.has-active-episode.has-mini-player .continue-shelf.is-expanded .continue-toggle-wrap {
     bottom: calc(105px + env(safe-area-inset-bottom, 0px)) !important;
   }
   body.has-active-episode:not(.has-mini-player) .continue-shelf.is-expanded .continue-toggle-wrap {
-    bottom: calc(220px + env(safe-area-inset-bottom, 0px)) !important;
+    bottom: calc(230px + env(safe-area-inset-bottom, 0px)) !important;
   }
 }
 

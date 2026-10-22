@@ -147,6 +147,7 @@ function setupSentinelObserver(sentinel) {
 // ─────────────────────────────────────────────────────────────────────────
 
 function toggleMarkPlayed(ep) {
+  const savedScrollY = window.scrollY;
   const current = state.playbackPositions[ep.guid];
   const isCompleted = current && (current.completed === 1 || current.completed === true);
 
@@ -173,8 +174,15 @@ function toggleMarkPlayed(ep) {
 
   if (state.filterMode === 'unplayed' || state.filterMode === 'continue' || state.filterMode === 'played') {
     processAndSortEpisodes();
-    renderTimeline();
+    renderTimeline(true);
   }
+
+  // Ensure scroll position remains rock-solid after card removal
+  requestAnimationFrame(() => {
+    if (window.scrollY !== savedScrollY) {
+      window.scrollTo({ top: savedScrollY, behavior: 'instant' });
+    }
+  });
 }
 
 function formatShowNotesHtml(rawInput) {
