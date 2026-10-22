@@ -28,7 +28,7 @@
   <link rel="preconnect" href="https://is1-ssl.mzstatic.com" crossorigin>
 
   <!-- Google Fonts (Non-blocking via print switch) -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" media="print" id="google-fonts-link">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" media="print" onload="this.media='all'" id="google-fonts-link">
   <noscript>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap">
   </noscript>
@@ -91,7 +91,7 @@
       </div>
 
       <nav class="nav-tabs" aria-label="main navigation">
-        <button class="nav-tab active" data-tab="timeline" id="tab-timeline">timeline</button>
+        <button class="nav-tab" data-tab="timeline" id="tab-timeline">timeline</button>
         <button class="nav-tab" data-tab="feeds" id="tab-feeds">
           <span>feeds</span><span class="tab-badge" id="feed-count">0</span>
         </button>
@@ -101,7 +101,7 @@
         <button class="nav-tab" data-tab="downloads" id="tab-downloads">
           <span>downloads</span><span class="tab-badge" id="downloads-tab-count"></span>
         </button>
-        <button class="nav-tab" data-tab="discover" id="tab-discover">discover</button>
+        <button class="nav-tab active" data-tab="discover" id="tab-discover">discover</button>
         <!-- Settings tab hidden from nav, triggered by gear icon in header -->
         <button class="nav-tab" data-tab="settings" id="tab-settings" style="display:none;" aria-hidden="true">settings</button>
       </nav>
@@ -184,7 +184,7 @@
         </div>
       </aside>
       
-      <section class="tab-panel active" id="panel-timeline">
+      <section class="tab-panel" id="panel-timeline">
         <div class="status-banner hidden" id="status-banner"></div>
         <div class="continue-shelf hidden" id="continue-shelf">
           <div class="shelf-grid" id="continue-grid"></div>
@@ -254,7 +254,7 @@
         <div class="episode-list" id="offline-episodes-list"></div>
       </section>
 
-      <section class="tab-panel" id="panel-discover">
+      <section class="tab-panel active" id="panel-discover">
         <div id="discover-content-container">
     <div class="discover-view-wrap" data-prerendered="true">
       <!-- AI Taste Persona Banner (Primary Text-First LCP Target) -->
@@ -1390,8 +1390,8 @@
   </div>
 
   <!-- Experimental defaults – must load before app scripts -->
-  <script src="scripts/settings.js?v=20261023c" defer></script>
+  <script src="scripts/settings.js?v=20261023d" defer></script>
 
-  <script src="app.min.js?v=1792711557915" defer></script>
+  <script src="app.min.js?v=1792712021299" defer></script>
 </body>
 </html>

@@ -93,15 +93,20 @@ let prodHtml = rawHtml
     '<div id="discover-content-container"></div>',
     `<div id="discover-content-container">${staticDiscoverHtml}</div>`
   )
-  // 2. Inline minified CSS directly (eliminates render-blocking audit and FOUC permanently)
+  // 2. Make Discover panel & tab active by default in initial HTML (eliminates Slow 4G JS wait for LCP)
+  .replace('<section class="tab-panel active" id="panel-timeline">', '<section class="tab-panel" id="panel-timeline">')
+  .replace('<section class="tab-panel" id="panel-discover">', '<section class="tab-panel active" id="panel-discover">')
+  .replace('<button class="nav-tab active" data-tab="timeline" id="tab-timeline">', '<button class="nav-tab" data-tab="timeline" id="tab-timeline">')
+  .replace('<button class="nav-tab" data-tab="discover" id="tab-discover">', '<button class="nav-tab active" data-tab="discover" id="tab-discover">')
+  // 3. Inline minified CSS directly (eliminates render-blocking audit and FOUC permanently)
   .replace(/<link[^>]*href=["']\/?style\.css(\?[^"']*)?["'][^>]*>/i, `<style>${minCss}</style>`)
-  // 3. Replace modular shared/ and app/ script tags (or legacy app.js tag) with single minified bundle
+  // 4. Replace modular shared/ and app/ script tags (or legacy app.js tag) with single minified bundle
   .replace(
     /<!-- Shared Functional Modules \(AnypodShared\) -->[\s\S]*?<script src="app\/08-waveform-and-ai\.js(\?[^"']*)?" defer><\/script>/i,
     `<script src="app.min.js?v=${v}" defer></script>`
   )
   .replace(/src=["']\/?app\.js(\?[^"']*)?["']/g, `src="app.min.js?v=${v}"`)
-  // 4. Normalize any duplicate rel attributes to standard rel="stylesheet"
+  // 5. Normalize any duplicate rel attributes to standard rel="stylesheet"
   .replace(/rel=["']?preload["']?\s+rel=["']?stylesheet["']?/g, 'rel="stylesheet"');
 
 fs.writeFileSync(path.join(distDir, 'index.html'), prodHtml, 'utf-8');
