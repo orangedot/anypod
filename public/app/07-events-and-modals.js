@@ -528,9 +528,13 @@ function setupEventListeners() {
       state.continueCollapsed = !state.continueCollapsed;
       renderContinueShelf();
 
-      // If user collapsed it from the bottom, scroll back to the top of the shelf
+      // If user collapsed it while scrolled down, keep shelf in view without jerky smooth-scroll fighting
       if (wasExpanded && elements.continueShelf) {
-        elements.continueShelf.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const shelfRect = elements.continueShelf.getBoundingClientRect();
+        if (shelfRect.top < 60) {
+          const targetY = Math.max(0, window.scrollY + shelfRect.top - 70);
+          window.scrollTo({ top: targetY, behavior: 'instant' });
+        }
       }
     });
   }

@@ -21,6 +21,9 @@ function renderTimeline(preserveScroll = false) {
   if (preserveScroll) {
     const prevWindowScroll = window.scrollY;
     const prevScroll = container.scrollTop;
+    const prevHeight = container.clientHeight;
+    if (prevHeight > 0) container.style.minHeight = `${prevHeight}px`;
+
     const existingSentinel = document.getElementById('timeline-sentinel');
     if (existingSentinel) existingSentinel.remove();
     container.innerHTML = '';
@@ -47,6 +50,9 @@ function renderTimeline(preserveScroll = false) {
     }
     if (container.scrollTop !== prevScroll) container.scrollTop = prevScroll;
     if (window.scrollY !== prevWindowScroll) window.scrollTo({ top: prevWindowScroll, behavior: 'instant' });
+    requestAnimationFrame(() => {
+      container.style.minHeight = '';
+    });
     return;
   }
 

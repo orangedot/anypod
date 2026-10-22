@@ -1504,6 +1504,35 @@ function renderContinueShelf() {
   });
 }
 
+function updateCardPlaybackProgress(episodeGuid, positionSeconds, durationSeconds) {
+  if (!episodeGuid) return;
+  const cards = document.querySelectorAll(`.episode-card[data-guid="${CSS.escape(episodeGuid)}"]`);
+  if (!cards || !cards.length) return;
+
+  const rawDur = durationSeconds || (state.currentEpisode && state.currentEpisode.guid === episodeGuid ? (elements.audio?.duration || (state.currentEpisode.duration ? parseDurationSeconds(state.currentEpisode.duration) : 0)) : 0);
+  const dur = (rawDur && isFinite(rawDur) && rawDur > 0) ? rawDur : 0;
+  const pct = dur > 0 ? Math.min(100, Math.max(1, Math.round((positionSeconds / dur) * 100))) : 5;
+
+  cards.forEach(card => {
+    let fill = card.querySelector('.ep-progress-fill');
+    if (!fill) {
+      const metaRow = card.querySelector('.ep-meta-row');
+      if (metaRow) {
+        const track = document.createElement('div');
+        track.className = 'ep-progress-track';
+        track.title = 'Click or scrub to resume at any point';
+        track.innerHTML = `<div class="ep-progress-fill" style="width: ${pct}%"></div>`;
+        card.insertBefore(track, metaRow.nextSibling);
+        if (typeof setupProgressTrackInteractivity === 'function') {
+          setupProgressTrackInteractivity(track, card, state.currentEpisode);
+        }
+      }
+    } else {
+      fill.style.width = `${pct}%`;
+    }
+  });
+}
+
 function setDirectoryCountry(code) {
   state.directoryCountry = code || 'all';
   document.querySelectorAll('.region-chip').forEach(c => {

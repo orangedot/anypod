@@ -519,10 +519,14 @@ async function savePlaybackPositionToD1(episodeGuid, positionSeconds, completed 
   };
   savePositionsToStorage();
 
-  // 2. Only update UI DOM when screen is visible
+  // 2. Only update UI DOM when screen is visible (without re-rendering DOM tree every 8s)
   if (!document.hidden) {
-    renderContinueShelf();
-    updateFilterBadges();
+    if (completed) {
+      renderContinueShelf();
+      updateFilterBadges();
+    } else if (typeof updateCardPlaybackProgress === 'function') {
+      updateCardPlaybackProgress(episodeGuid, positionSeconds);
+    }
   }
 
   if (!state.sessionToken) return;
