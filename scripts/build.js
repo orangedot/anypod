@@ -90,7 +90,7 @@ let prodHtml = rawHtml
   .replace(/<link[^>]*href=["']\/?style\.css(\?[^"']*)?["'][^>]*>/i, `<style>${minCss}</style>`)
   // 2. Replace modular shared/ and app/ script tags (or legacy app.js tag) with single minified bundle
   .replace(
-    /<!-- Shared Functional Modules \(AnypodShared\) -->[\s\S]*?<script src="app\/08-waveform-and-ai\.js" defer><\/script>/i,
+    /<!-- Shared Functional Modules \(AnypodShared\) -->[\s\S]*?<script src="app\/08-waveform-and-ai\.js(\?[^"']*)?" defer><\/script>/i,
     `<script src="app.min.js?v=${v}" defer></script>`
   )
   .replace(/src=["']\/?app\.js(\?[^"']*)?["']/g, `src="app.min.js?v=${v}"`)
