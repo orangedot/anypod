@@ -284,8 +284,17 @@ async function fetchTimelineFromPipeline(episode, duration) {
   if (!episode || !episode.guid) return;
   const cacheKey = 'anypod_timeline_v6_' + episode.guid;
 
+  const isTranscriptEnabled = state.experimentalSettings && state.experimentalSettings.enableTranscript !== false;
+  const isClassifierEnabled = state.experimentalSettings && !!state.experimentalSettings.enableAudioClassifier;
+
+  // If both transcripts and audio classifier are disabled, zero remote network calls needed
+  if (!isTranscriptEnabled && !isClassifierEnabled) {
+    if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
+    return;
+  }
+
   // TIER 1: Check Podcasting 2.0 <podcast:transcript>
-  if (episode.transcriptUrl) {
+  if (isTranscriptEnabled && episode.transcriptUrl) {
     if (elements.probeStatusPill) {
       elements.probeStatusPill.textContent = 'Reading transcript...';
       elements.probeStatusPill.classList.remove('hidden');
@@ -330,43 +339,45 @@ async function fetchTimelineFromPipeline(episode, duration) {
   }
 
   // TIER 2: Check Cloudflare D1 Community Cache (only accept transcript-backed entries, re-probe old probe entries)
-  try {
-    if (elements.probeStatusPill) {
-      elements.probeStatusPill.textContent = 'Checking community...';
-      elements.probeStatusPill.classList.remove('hidden');
-    }
-
-    const res = await fetch(`/api/community-transcripts?guid=${encodeURIComponent(episode.guid)}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data.found && data.bars && data.bars.length > 0 && data.source === 'transcript') {
-        state.episodeTimeline.bars = data.bars;
-        state.episodeTimeline.segments = data.segments || [];
-
-        try {
-          storage.setItem(cacheKey, JSON.stringify({
-            bars: data.bars,
-            segments: data.segments || []
-          }));
-        } catch (_) {}
-
-        renderWaveformChart();
-
-        if (elements.probeStatusPill) {
-          elements.probeStatusPill.textContent = '✓ Community Cached';
-          setTimeout(() => {
-            if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
-          }, 2500);
-        }
-        return;
+  if (isTranscriptEnabled) {
+    try {
+      if (elements.probeStatusPill) {
+        elements.probeStatusPill.textContent = 'Checking community...';
+        elements.probeStatusPill.classList.remove('hidden');
       }
+
+      const res = await fetch(`/api/community-transcripts?guid=${encodeURIComponent(episode.guid)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.found && data.bars && data.bars.length > 0 && data.source === 'transcript') {
+          state.episodeTimeline.bars = data.bars;
+          state.episodeTimeline.segments = data.segments || [];
+
+          try {
+            storage.setItem(cacheKey, JSON.stringify({
+              bars: data.bars,
+              segments: data.segments || []
+            }));
+          } catch (_) {}
+
+          renderWaveformChart();
+
+          if (elements.probeStatusPill) {
+            elements.probeStatusPill.textContent = '✓ Community Cached';
+            setTimeout(() => {
+              if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
+            }, 2500);
+          }
+          return;
+        }
+      }
+    } catch (_) {
+      // Fall through
     }
-  } catch (_) {
-    // Fall through
   }
 
   // TIER 2.5: Free LRCLIB Lyrics API for YouTube songs & music tracks
-  if (episode.isYouTube || episode.videoId || episode.guid?.startsWith('yt:') || !episode.transcriptUrl) {
+  if (isTranscriptEnabled && (episode.isYouTube || episode.videoId || episode.guid?.startsWith('yt:') || !episode.transcriptUrl)) {
     try {
       const lyricsFound = await fetchLyricsFromLrclib(episode, duration);
       if (lyricsFound) return;
@@ -676,6 +687,7 @@ function deriveSegmentsFromCues(cues, duration) {
 
 async function saveTimelineToCommunityCache(episode, duration, bars, segments, source, transcriptUrl) {
   if (!episode || !episode.guid) return;
+  if (!state.experimentalSettings || state.experimentalSettings.enableTranscript === false) return;
   try {
     fetch('/api/community-transcripts', {
       method: 'POST',
