@@ -505,8 +505,10 @@ async function loadPlaybackPositionsFromD1() {
 }
 
 let _lastCloudSyncTime = 0;
+let _lastSyncedGuid = null;
+let _lastSyncedPos = -1;
 
-async function savePlaybackPositionToD1(episodeGuid, positionSeconds, completed = false) {
+async function savePlaybackPositionToD1(episodeGuid, positionSeconds, completed = false, immediate = false) {
   if (!episodeGuid) return;
 
   // 1. Instant local storage update (instant crash-proofing, zero network)
@@ -525,12 +527,27 @@ async function savePlaybackPositionToD1(episodeGuid, positionSeconds, completed 
 
   if (!state.sessionToken) return;
 
-  // 3. Throttle remote HTTP sync: only sync remote D1 once every 60s unless paused/completed
+  // 3. Throttle remote HTTP sync:
+  // - If completed: always sync immediately
+  // - If immediate (pause, pagehide, tab hidden): sync if progress advanced >= 3s or different episode
+  // - Periodic: only sync once every 60s
   const now = Date.now();
-  if (!completed && (now - _lastCloudSyncTime < 60000)) {
-    return;
+  const posDiff = Math.abs(positionSeconds - _lastSyncedPos);
+  const isDifferentEpisode = _lastSyncedGuid !== episodeGuid;
+
+  if (!completed) {
+    if (immediate) {
+      if (!isDifferentEpisode && posDiff < 3) {
+        return; // No meaningful progress since last sync
+      }
+    } else if (now - _lastCloudSyncTime < 60000) {
+      return; // Periodic interval hasn't reached 60s
+    }
   }
+
   _lastCloudSyncTime = now;
+  _lastSyncedGuid = episodeGuid;
+  _lastSyncedPos = completed ? -1 : positionSeconds;
 
   try {
     const headers = { 'Content-Type': 'application/json' };
@@ -539,6 +556,7 @@ async function savePlaybackPositionToD1(episodeGuid, positionSeconds, completed 
       method: 'POST',
       headers,
       credentials: 'include',
+      keepalive: true,
       body: JSON.stringify({ episodeGuid, positionSeconds, completed })
     });
   } catch (_) {}

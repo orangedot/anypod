@@ -353,7 +353,7 @@ function setupAudioEngines() {
       logPlayerDiagnostic('audio.pause', `Audio paused at cur=${cur.toFixed(2)}s (userIntentional=${Boolean(state._userIntentionalPause)})`);
 
       if (state.currentEpisode && audio.currentTime > 2) {
-        savePlaybackPositionToD1(state.currentEpisode.guid, audio.currentTime, false);
+        savePlaybackPositionToD1(state.currentEpisode.guid, audio.currentTime, false, true);
       }
     }
   });
