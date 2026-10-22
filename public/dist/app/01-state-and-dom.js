@@ -930,19 +930,6 @@ document.addEventListener('visibilitychange', () => {
   state.isTabActive = !document.hidden;
 
   if (document.hidden) {
-    // Flush current playback position immediately to D1 on tab hide/switch if advanced >= 3s
-    if (state.currentEpisode && typeof savePlaybackPositionToD1 === 'function') {
-      let cur = 0;
-      if (state.activeEngine === 'audio' && elements.audio) {
-        cur = elements.audio.currentTime || 0;
-      } else if (state.activeEngine === 'youtube' && state.ytPlayer && typeof state.ytPlayer.getCurrentTime === 'function') {
-        cur = state.ytPlayer.getCurrentTime() || 0;
-      }
-      if (cur > 2) {
-        savePlaybackPositionToD1(state.currentEpisode.guid, cur, false, true);
-      }
-    }
-
     if (activeProbeAbortController) {
       activeProbeAbortController.abort();
       activeProbeAbortController = null;
@@ -1023,20 +1010,6 @@ document.addEventListener('visibilitychange', () => {
       if (state.playbackStatus === 'playing') {
         navigator.mediaSession.playbackState = 'playing';
       }
-    }
-  }
-});
-
-window.addEventListener('pagehide', () => {
-  if (state.currentEpisode && typeof savePlaybackPositionToD1 === 'function') {
-    let cur = 0;
-    if (state.activeEngine === 'audio' && elements.audio) {
-      cur = elements.audio.currentTime || 0;
-    } else if (state.activeEngine === 'youtube' && state.ytPlayer && typeof state.ytPlayer.getCurrentTime === 'function') {
-      cur = state.ytPlayer.getCurrentTime() || 0;
-    }
-    if (cur > 2) {
-      savePlaybackPositionToD1(state.currentEpisode.guid, cur, false, true);
     }
   }
 });
