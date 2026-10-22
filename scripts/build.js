@@ -2,6 +2,7 @@ import esbuild from 'esbuild';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { generateDiscoverShellHtml } from './generate_discover_shell.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
@@ -83,18 +84,24 @@ await esbuild.build({
 // 3. Prepare production HTML in public/dist/index.html
 const rawHtml = fs.readFileSync(path.join(publicDir, 'index.html'), 'utf-8');
 const minCss = fs.readFileSync(path.join(distDir, 'style.min.css'), 'utf-8');
+const staticDiscoverHtml = generateDiscoverShellHtml();
 const v = Date.now();
 
 let prodHtml = rawHtml
-  // 1. Inline minified CSS directly (eliminates render-blocking audit and FOUC permanently)
+  // 1. Pre-render default Discover Shell directly into HTML for instant LCP (<200ms)
+  .replace(
+    '<div id="discover-content-container"></div>',
+    `<div id="discover-content-container">${staticDiscoverHtml}</div>`
+  )
+  // 2. Inline minified CSS directly (eliminates render-blocking audit and FOUC permanently)
   .replace(/<link[^>]*href=["']\/?style\.css(\?[^"']*)?["'][^>]*>/i, `<style>${minCss}</style>`)
-  // 2. Replace modular shared/ and app/ script tags (or legacy app.js tag) with single minified bundle
+  // 3. Replace modular shared/ and app/ script tags (or legacy app.js tag) with single minified bundle
   .replace(
     /<!-- Shared Functional Modules \(AnypodShared\) -->[\s\S]*?<script src="app\/08-waveform-and-ai\.js(\?[^"']*)?" defer><\/script>/i,
     `<script src="app.min.js?v=${v}" defer></script>`
   )
   .replace(/src=["']\/?app\.js(\?[^"']*)?["']/g, `src="app.min.js?v=${v}"`)
-  // 3. Normalize any duplicate rel attributes to standard rel="stylesheet"
+  // 4. Normalize any duplicate rel attributes to standard rel="stylesheet"
   .replace(/rel=["']?preload["']?\s+rel=["']?stylesheet["']?/g, 'rel="stylesheet"');
 
 fs.writeFileSync(path.join(distDir, 'index.html'), prodHtml, 'utf-8');

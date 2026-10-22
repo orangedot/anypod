@@ -1873,7 +1873,7 @@ function buildDiscoverEpisodeCard(ep, whyNote, isExternal = false) {
   return card;
 }
 
-function buildDiscoverShowCard(show, whyNote) {
+function buildDiscoverShowCard(show, whyNote, idx = 0) {
   const card = document.createElement('div');
   card.className = 'episode-card discover-show-recommendation-card';
   card.dataset.feed = show.feed;
@@ -1889,13 +1889,15 @@ function buildDiscoverShowCard(show, whyNote) {
     text = text.slice(icon.length).trim();
   }
 
+  const loadingAttr = idx < 3 ? 'fetchpriority="high" decoding="async"' : 'loading="lazy" decoding="async"';
+
   card.innerHTML = `
     <div class="discover-why-badge">
       <span class="why-icon">${escapeHtml(icon)}</span>
       <span class="why-text">${escapeHtml(text)}</span>
     </div>
     <div class="episode-card-top">
-      <img class="episode-artwork feed-art" src="${escapeHtml(art)}" alt="" loading="lazy" width="52" height="52" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+      <img class="episode-artwork feed-art" src="${escapeHtml(art)}" alt="" ${loadingAttr} width="52" height="52" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
       <div class="episode-header-info">
         <div class="episode-podcast-name">${escapeHtml(show.badge || 'Recommended Show')}</div>
         <div class="episode-title">${escapeHtml(show.title)}</div>
@@ -1944,67 +1946,33 @@ function buildDiscoverShowCard(show, whyNote) {
   return card;
 }
 
-async function tryEnrichWithLocalLLM(profile) {
-  try {
-    const endpoint = storage.getItem('anypod_ollama_endpoint') || 'http://127.0.0.1:11434';
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 750);
-    
-    const prompt = `You are a personalized podcast curator. In 2 concise sentences, describe the listener's taste persona who loves ${profile.vibes.join(', ')}. Keep it warm, intellectual, and direct.`;
-    const res = await fetch(`${endpoint}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'llama3:latest',
-        prompt,
-        stream: false
-      }),
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-    if (!res.ok) return;
-    const data = await res.json();
-    if (data && data.response) {
-      const narEl = document.querySelector('.persona-narrative');
-      if (narEl) {
-        narEl.textContent = data.response.trim();
-      }
-      const tagEl = document.querySelector('.persona-engine-tag');
-      if (tagEl) {
-        tagEl.textContent = 'Enhanced by Local LLM (Ollama)';
-        tagEl.style.borderColor = 'var(--accent-orange)';
-        tagEl.style.color = 'var(--accent-orange)';
-      }
-    }
-  } catch (_) {
-    // Graceful fallback to client-side narrative
-  }
-}
-
 /**
- * Resolves up to 10 most recently played podcast feeds based on playbackPositions and library history.
+ * Resolves up to 10 recommended / hot podcast feeds that the user does NOT have subscribed already.
+ * Prioritizes any unsubscribed feeds with playback activity, followed by top-matched curated shows.
  */
-function getLastPlayedFeedUrls(limit = 10) {
+function getHotUnsubscribedFeeds(limit = 10, profile = null) {
+  const result = [];
+  const seenUrls = new Set();
+  const subbedSet = new Set(state.feeds || []);
+
+  // 1. Any podcasts with playback history that are NOT in state.feeds (e.g. played via discover, search, or shared link)
   const feedTimes = new Map();
   const now = Math.floor(Date.now() / 1000);
 
-  // 1. Current active episode has highest recency priority
-  if (state.currentEpisode && state.currentEpisode.feedUrl) {
+  if (state.currentEpisode && state.currentEpisode.feedUrl && !subbedSet.has(state.currentEpisode.feedUrl)) {
     feedTimes.set(state.currentEpisode.feedUrl, now + 100000);
   }
 
-  // 2. Build map of guid -> episode
   const epMap = new Map();
   (state.allEpisodes || []).forEach(ep => {
     if (ep && ep.guid) epMap.set(ep.guid, ep);
   });
 
-  // 3. Scan playback positions for playback timestamps
   const positions = state.playbackPositions || {};
   for (const [guid, pos] of Object.entries(positions)) {
     if (!pos) continue;
     const ep = epMap.get(guid) || (state.currentEpisode?.guid === guid ? state.currentEpisode : null);
-    if (!ep || !ep.feedUrl) continue;
+    if (!ep || !ep.feedUrl || subbedSet.has(ep.feedUrl)) continue;
 
     let t = 0;
     if (pos.lastListenedAt) {
@@ -2023,28 +1991,44 @@ function getLastPlayedFeedUrls(limit = 10) {
     }
   }
 
-  // Feeds with actual playback sorted by recency
-  const sortedPlayedFeeds = Array.from(feedTimes.entries())
+  const sortedPlayedUnsubbed = Array.from(feedTimes.entries())
     .sort((a, b) => b[1] - a[1])
     .map(entry => entry[0]);
 
-  const result = [...sortedPlayedFeeds];
+  for (const url of sortedPlayedUnsubbed) {
+    if (result.length >= limit) break;
+    if (!seenUrls.has(url)) {
+      seenUrls.add(url);
+      result.push(url);
+    }
+  }
 
-  // If fewer than limit, backfill with remaining subscribed library feeds
-  if (result.length < limit && state.feeds && state.feeds.length > 0) {
-    const existingSet = new Set(result);
-    const remainingFeeds = state.feeds.filter(f => !existingSet.has(f));
-    remainingFeeds.sort((fA, fB) => {
-      const epsA = (state.allEpisodes || []).filter(e => e.feedUrl === fA);
-      const epsB = (state.allEpisodes || []).filter(e => e.feedUrl === fB);
-      const maxA = epsA.reduce((max, e) => Math.max(max, e.timestamp || 0), 0);
-      const maxB = epsB.reduce((max, e) => Math.max(max, e.timestamp || 0), 0);
-      return maxB - maxA;
+  // 2. Fill up to limit with curated catalog shows that are NOT subscribed, ranked by taste profile
+  if (result.length < limit && typeof CURATED_SCIENCE_FEEDS !== 'undefined') {
+    const unsubscribedCurated = CURATED_SCIENCE_FEEDS.filter(item => !subbedSet.has(item.feed) && !seenUrls.has(item.feed));
+    const topTopics = profile?.topTopics || ['science', 'space', 'climate', 'nature'];
+    const scored = unsubscribedCurated.map(item => {
+      let score = 1.0;
+      const text = `${item.title} ${item.badge || ''} ${item.topic || ''}`.toLowerCase();
+      topTopics.forEach((tKey, idx) => {
+        const topic = (typeof DISCOVER_AI_TOPICS !== 'undefined') && DISCOVER_AI_TOPICS[tKey];
+        if (topic) {
+          if (item.topic === topic.key || topic.feedPatterns.some(p => text.includes(p))) {
+            score += (10 - idx * 2);
+          }
+        } else if (item.topic === tKey) {
+          score += (10 - idx * 2);
+        }
+      });
+      return { item, score };
     });
 
-    for (const f of remainingFeeds) {
+    scored.sort((a, b) => b.score - a.score);
+
+    for (const entry of scored) {
       if (result.length >= limit) break;
-      result.push(f);
+      seenUrls.add(entry.item.feed);
+      result.push(entry.item.feed);
     }
   }
 
@@ -2055,14 +2039,19 @@ function getLastPlayedFeedUrls(limit = 10) {
  * Builds a feed card with a 3-episode preview and share action for the Discover view.
  */
 function buildDiscoverRecentFeedCard(url) {
+  const curatedItem = (typeof CURATED_SCIENCE_FEEDS !== 'undefined')
+    ? CURATED_SCIENCE_FEEDS.find(c => c.feed === url)
+    : null;
   const meta = state.feedMetadata[url] || {};
   const isSubbed = state.feeds && state.feeds.includes(url);
+  const title = meta.title || curatedItem?.title || url;
+  const art = meta.artwork || curatedItem?.artwork || (_curatedArtworkCache && _curatedArtworkCache[url]) || FALLBACK_ARTWORK;
   const card = document.createElement('div');
   card.className = 'feed-card starter-show-card discover-recent-feed-card';
   card.dataset.feed = url;
-  card.dataset.title = meta.title || url;
+  card.dataset.title = title;
 
-  const rawDesc = meta.description || '';
+  const rawDesc = meta.description || curatedItem?.description || '';
   const plainDesc = rawDesc.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
 
   const allForFeed = (state.allEpisodes || [])
@@ -2129,20 +2118,22 @@ function buildDiscoverRecentFeedCard(url) {
         <div class="feed-recent-header">latest episodes</div>
         <div class="feed-recent-list">
           <div class="recent-ep-row recent-ep-placeholder" style="color: var(--text-muted); font-size: 0.78rem; padding: 0.35rem 0.5rem;">
-            <span>Click card to view episodes</span>
+            <span>Click card to explore episodes</span>
           </div>
         </div>
       </div>
     `;
   }
 
-  const epCountLabel = allForFeed.length > 0 ? `${allForFeed.length} episodes` : (meta.episodesCount ? `${meta.episodesCount} episodes` : 'Podcast');
+  const epCountLabel = allForFeed.length > 0 
+    ? `${allForFeed.length} episodes` 
+    : (meta.episodesCount ? `${meta.episodesCount} episodes` : (curatedItem?.badge || 'New Show'));
 
   card.innerHTML = `
     <div class="feed-header">
-      <img class="feed-art" loading="lazy" decoding="async" width="48" height="48" src="${meta.artwork || FALLBACK_ARTWORK}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+      <img class="feed-art" loading="lazy" decoding="async" width="48" height="48" src="${escapeHtml(art)}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
       <div class="feed-info">
-        <h4>${escapeHtml(meta.title || url)}</h4>
+        <h4>${escapeHtml(title)}</h4>
         <p><span class="hot-feed-chip">🔥 Hot</span> • ${escapeHtml(epCountLabel)}</p>
       </div>
       <div class="feed-header-actions">
@@ -2154,7 +2145,7 @@ function buildDiscoverRecentFeedCard(url) {
           </svg>
         </button>
         ${!isSubbed ? `
-          <button type="button" class="btn btn-primary btn-sm starter-chip-add" data-feed="${escapeHtml(url)}" data-title="${escapeHtml(meta.title || '')}">+ follow</button>
+          <button type="button" class="btn btn-primary btn-sm starter-chip-add" data-feed="${escapeHtml(url)}" data-title="${escapeHtml(title)}">+ follow</button>
         ` : ''}
       </div>
     </div>
@@ -2176,7 +2167,7 @@ function buildDiscoverRecentFeedCard(url) {
       e.preventDefault();
       e.stopPropagation();
       if (typeof shareFeed === 'function') {
-        shareFeed(url, meta.title);
+        shareFeed(url, title);
       }
     });
   }
@@ -2188,7 +2179,7 @@ function buildDiscoverRecentFeedCard(url) {
       e.stopPropagation();
       addBtn.textContent = 'Adding...';
       try {
-        await addFeed(url, meta.title, meta.artwork);
+        await addFeed(url, title, art);
         addBtn.textContent = '✓ followed';
         addBtn.classList.remove('btn-primary');
         addBtn.classList.add('btn-secondary');
@@ -2210,7 +2201,7 @@ function buildDiscoverRecentFeedCard(url) {
         toggleEpisodePlayback(ep, {
           type: 'feed',
           id: url,
-          title: meta.title || 'Podcast Show',
+          title: title || 'Podcast Show',
           items: allForFeed
         });
       } else if (typeof playEpisode === 'function') {
@@ -2227,10 +2218,19 @@ function renderDiscover() {
   if (!container) return;
 
   const hasFeeds = state.feeds && state.feeds.length > 0;
+  const existingWrap = container.querySelector('.discover-view-wrap');
+
+  // If new visitor with no custom feeds and pre-rendered shell is already present in DOM:
+  if (!hasFeeds && existingWrap && (existingWrap.dataset.prerendered === 'true' || existingWrap.dataset.prerendered === 'hydrated')) {
+    existingWrap.dataset.prerendered = 'hydrated';
+    wireEmptyStateEvents(container);
+    return;
+  }
+
   const profile = analyzeTasteProfile(state);
 
-  // Gather up to 10 last played / hot podcast feeds
-  const lastPlayedFeeds = getLastPlayedFeedUrls(10);
+  // Gather up to 10 hot / trending podcast feeds that are not yet in library
+  const lastPlayedFeeds = getHotUnsubscribedFeeds(10, profile);
 
   // 1. Gather Unplayed/Backlog library episodes matching taste
   const completedGuids = new Set();
@@ -2407,15 +2407,15 @@ function renderDiscover() {
         <div class="discover-narrative-grid" id="discover-external-grid"></div>
       </div>
 
-      <!-- Section: Hot & Recently Played Shows -->
+      <!-- Section: Hot Shows To Discover -->
       ${lastPlayedFeeds.length > 0 ? `
         <div class="discover-section discover-recent-feeds-section">
           <div class="discover-section-header">
             <div class="discover-section-title-wrap">
-              <h3 class="discover-section-title">Hot &amp; Recently Played Shows</h3>
-              <span class="discover-section-pill">Your Rotation</span>
+              <h3 class="discover-section-title">Hot Shows To Discover</h3>
+              <span class="discover-section-pill">New To You (${lastPlayedFeeds.length})</span>
             </div>
-            <p class="discover-section-narrative">Your 10 most recently played podcasts with 3-episode previews — tap to play, jump into full shows, or share with friends.</p>
+            <p class="discover-section-narrative">Top 10 recommended shows not yet in your library with 3-episode previews — tap to preview, subscribe (+ follow), or share with friends.</p>
           </div>
           <div class="feeds-grid discover-recent-feeds-grid" id="discover-recent-feeds-grid"></div>
         </div>
@@ -2430,7 +2430,7 @@ function renderDiscover() {
           </div>
           <p class="discover-section-narrative">Explore curated independent podcasts across English, German, French, Spanish, and global reporting.</p>
         </div>
-        ${buildStarterSuggestionsHTML('all')}
+        ${buildStarterSuggestionsHTML('all', 12)}
       </div>
 
       <!-- OPML import helper footer -->
@@ -2451,8 +2451,8 @@ function renderDiscover() {
 
   const extGrid = container.querySelector('#discover-external-grid');
   if (extGrid && selectedExternalShows.length > 0) {
-    selectedExternalShows.forEach(item => {
-      const card = buildDiscoverShowCard(item.show, item.whyNote);
+    selectedExternalShows.forEach((item, idx) => {
+      const card = buildDiscoverShowCard(item.show, item.whyNote, idx);
       extGrid.appendChild(card);
     });
   }
@@ -2463,6 +2463,9 @@ function renderDiscover() {
       const card = buildDiscoverRecentFeedCard(url);
       if (card) recentFeedsGrid.appendChild(card);
     });
+    if (typeof loadCuratedFeedEpisodes === 'function') {
+      loadCuratedFeedEpisodes(recentFeedsGrid);
+    }
   }
 
   // Wire events
@@ -2479,9 +2482,6 @@ function renderDiscover() {
       }, 200);
     });
   }
-
-  // Attempt local LLM enrichment asynchronously
-  tryEnrichWithLocalLLM(profile);
 }
 
 let emptySearchDebounceTimer = null;

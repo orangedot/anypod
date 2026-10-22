@@ -4194,6 +4194,48 @@ button.feed-link-badge:hover {
   margin-bottom: 0.5rem;
 }
 
+/* Discover LCP & Layout Stability Optimization */
+.discover-show-recommendation-card .episode-artwork.feed-art {
+  width: 52px;
+  height: 52px;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.starter-show-card .feed-header .feed-art {
+  width: 48px;
+  height: 48px;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.starter-pagination-wrap {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  padding: 1.25rem 0 0.5rem;
+}
+
+.btn-starter-load-more {
+  border-radius: var(--radius-full);
+  padding: 0.55rem 1.4rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-starter-load-more:hover {
+  border-color: #f97316;
+  color: #f97316;
+  transform: translateY(-1px);
+}
+
 [data-theme="light"] .discover-why-badge {
   background: rgba(234, 88, 12, 0.08);
   border-color: rgba(234, 88, 12, 0.2);

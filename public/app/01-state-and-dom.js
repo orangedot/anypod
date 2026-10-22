@@ -476,7 +476,39 @@ function wireStarterSuggestionsEvents(container = document) {
     });
   });
 
-  // 3. Load high-res cover art and the 3 real episodes for visible cards
+  // 3. Paginated "Show All" or Auto-Load on Scroll
+  container.querySelectorAll('.btn-starter-load-more').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const filter = btn.dataset.filter || 'all';
+      const section = container.querySelector('.starter-suggestions-section') || container.querySelector('.discover-curated-section');
+      if (section && typeof buildStarterSuggestionsHTML === 'function') {
+        const temp = document.createElement('div');
+        temp.innerHTML = buildStarterSuggestionsHTML(filter, 0); // 0 = all
+        const newSection = temp.firstElementChild;
+        if (newSection) {
+          section.replaceWith(newSection);
+          wireStarterSuggestionsEvents(container);
+          if (typeof loadCuratedFeedEpisodes === 'function') {
+            loadCuratedFeedEpisodes(newSection);
+          }
+        }
+      }
+    });
+
+    if ('IntersectionObserver' in window) {
+      const autoLoadObserver = new IntersectionObserver((entries) => {
+        if (entries[0] && entries[0].isIntersecting) {
+          autoLoadObserver.disconnect();
+          btn.click();
+        }
+      }, { rootMargin: '300px' });
+      autoLoadObserver.observe(btn);
+    }
+  });
+
+  // 4. Load high-res cover art and the 3 real episodes for visible cards
   if (typeof loadCuratedArtworks === 'function') {
     loadCuratedArtworks(container);
   }
@@ -484,7 +516,7 @@ function wireStarterSuggestionsEvents(container = document) {
 }
 
 // Helper to build curated science starter suggestions HTML
-function buildStarterSuggestionsHTML(activeFilter = 'all') {
+function buildStarterSuggestionsHTML(activeFilter = 'all', limit = 12) {
   const filters = [
     { id: 'all', label: 'all (50)' },
     { id: 'en', label: 'english (25)' },
@@ -510,17 +542,21 @@ function buildStarterSuggestionsHTML(activeFilter = 'all') {
     return item.lang === activeFilter;
   });
 
-  const chipsHTML = filtered.map(item => {
+  const visibleItems = (limit > 0) ? filtered.slice(0, limit) : filtered;
+  const hasMore = (limit > 0) && (filtered.length > limit);
+
+  const chipsHTML = visibleItems.map((item, idx) => {
     const isSubbed = state.feeds.includes(item.feed);
     const art = item.artwork || (state.feedMetadata[item.feed] && state.feedMetadata[item.feed].artwork) || (_curatedArtworkCache && _curatedArtworkCache[item.feed]) || FALLBACK_ARTWORK;
     const allForFeed = (state.allEpisodes || []).filter(e => e.feedUrl === item.feed);
     const recentWidgetHtml = typeof buildRecentEpisodesWidget === 'function' ? buildRecentEpisodesWidget(allForFeed, item.feed) : '';
     const epCountText = allForFeed.length > 0 ? `${allForFeed.length} episodes` : (item.badge || item.lang.toUpperCase());
+    const loadingAttr = (activeFilter === 'all' && idx < 3) ? 'fetchpriority="high" decoding="async"' : 'loading="lazy" decoding="async"';
 
     return `
       <div class="feed-card starter-show-card" data-feed="${escapeHtml(item.feed)}" data-title="${escapeHtml(item.title)}">
         <div class="feed-header">
-          <img class="feed-art" loading="lazy" decoding="async" width="48" height="48" src="${escapeHtml(art)}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+          <img class="feed-art" ${loadingAttr} width="48" height="48" src="${escapeHtml(art)}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
           <div class="feed-info">
             <h4>${escapeHtml(item.title)}</h4>
             <p>${escapeHtml(epCountText)}</p>
@@ -544,6 +580,14 @@ function buildStarterSuggestionsHTML(activeFilter = 'all') {
     `;
   }).join('');
 
+  const paginationHTML = hasMore ? `
+    <div class="starter-pagination-wrap" style="grid-column: 1 / -1; display: flex; justify-content: center; padding: 1rem 0;">
+      <button type="button" class="btn btn-secondary btn-sm btn-starter-load-more" data-filter="${activeFilter}">
+        show all ${filtered.length} shows (${filtered.length - limit} more)
+      </button>
+    </div>
+  ` : '';
+
   return `
     <div class="starter-suggestions-section">
       <div class="starter-suggestions-header">
@@ -555,6 +599,7 @@ function buildStarterSuggestionsHTML(activeFilter = 'all') {
       </div>
       <div class="feeds-grid starter-suggestions-grid">
         ${chipsHTML}
+        ${paginationHTML}
       </div>
     </div>
   `;
