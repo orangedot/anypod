@@ -1,0 +1,417 @@
+{
+  "id": "sports",
+  "title": "Sports & Athletics",
+  "emoji": "⚽",
+  "description": "Global football, endurance athletics, performance science, and sports journalism.",
+  "subtopics": [
+    {
+      "id": "all",
+      "label": "All Shows"
+    },
+    {
+      "id": "football",
+      "label": "⚽ Football / Soccer"
+    },
+    {
+      "id": "endurance",
+      "label": "🏃 Endurance & Running"
+    },
+    {
+      "id": "analytics",
+      "label": "📊 Analytics & Tactics"
+    },
+    {
+      "id": "motorsport",
+      "label": "🏎️ F1 & Motorsport"
+    }
+  ],
+  "featured": [
+    {
+      "title": "The Athletic Football Podcast",
+      "feed": "https://feeds.megaphone.fm/theathleticfootball",
+      "badge": "EN • Football",
+      "topic": "football",
+      "whyNote": "Authoritative insider analysis from premier football journalists"
+    },
+    {
+      "title": "30 for 30 Podcasts (ESPN)",
+      "feed": "https://feeds.megaphone.fm/ESP3845944111",
+      "badge": "EN • Documentaries",
+      "topic": "analytics",
+      "whyNote": "Cinematic, deeply told stories from sports history"
+    },
+    {
+      "title": "BBC 5 Live Football Daily",
+      "feed": "https://podcasts.files.bbci.co.uk/p02nrsln.rss",
+      "badge": "EN • Football",
+      "topic": "football",
+      "whyNote": "Daily debate and reactions from the Premier League & Europe"
+    },
+    {
+      "title": "The Rich Roll Podcast",
+      "feed": "https://feeds.simplecast.com/xlh6L_pL",
+      "badge": "EN • Endurance",
+      "topic": "endurance",
+      "whyNote": "Ultra-endurance, nutrition, and wellness mastery"
+    },
+    {
+      "title": "The Race F1 Podcast",
+      "feed": "https://feeds.acast.com/public/shows/the-race-f1-podcast",
+      "badge": "EN • Formula 1",
+      "topic": "motorsport",
+      "whyNote": "Expert insight and technical deep-dives into Grand Prix racing"
+    }
+  ],
+  "shows": [
+    {
+      "title": "The Athletic Football Podcast",
+      "feed": "https://feeds.megaphone.fm/theathleticfootball",
+      "lang": "en",
+      "badge": "EN • Football",
+      "topic": "football"
+    },
+    {
+      "title": "30 for 30 Podcasts (ESPN)",
+      "feed": "https://feeds.megaphone.fm/ESP3845944111",
+      "lang": "en",
+      "badge": "EN • Doku",
+      "topic": "analytics"
+    },
+    {
+      "title": "BBC 5 Live Football Daily",
+      "feed": "https://podcasts.files.bbci.co.uk/p02nrsln.rss",
+      "lang": "en",
+      "badge": "EN • Daily",
+      "topic": "football"
+    },
+    {
+      "title": "The Rich Roll Podcast",
+      "feed": "https://feeds.simplecast.com/xlh6L_pL",
+      "lang": "en",
+      "badge": "EN • Endurance",
+      "topic": "endurance"
+    },
+    {
+      "title": "The Race F1 Podcast",
+      "feed": "https://feeds.acast.com/public/shows/the-race-f1-podcast",
+      "lang": "en",
+      "badge": "EN • F1",
+      "topic": "motorsport"
+    },
+    {
+      "title": "Football Weekly (The Guardian)",
+      "feed": "https://www.theguardian.com/football/series/footballweekly/podcast.xml",
+      "lang": "en",
+      "badge": "EN • Wit & Tactics",
+      "topic": "football"
+    },
+    {
+      "title": "The Totally Football Show",
+      "feed": "https://feeds.acast.com/public/shows/the-totally-football-show",
+      "lang": "en",
+      "badge": "EN • Euro League",
+      "topic": "football"
+    },
+    {
+      "title": "Tifo Football Podcast",
+      "feed": "https://feeds.megaphone.fm/tifofootball",
+      "lang": "en",
+      "badge": "EN • Tactics",
+      "topic": "analytics"
+    },
+    {
+      "title": "Stadio (The Ringer)",
+      "feed": "https://feeds.megaphone.fm/stadio",
+      "lang": "en",
+      "badge": "EN • Culture",
+      "topic": "football"
+    },
+    {
+      "title": "Men in Blazers",
+      "feed": "https://feeds.simplecast.com/2Y1q2kF8",
+      "lang": "en",
+      "badge": "EN • Banter",
+      "topic": "football"
+    },
+    {
+      "title": "The Bill Simmons Podcast",
+      "feed": "https://feeds.megaphone.fm/the-bill-simmons-podcast",
+      "lang": "en",
+      "badge": "EN • NBA & NFL",
+      "topic": "analytics"
+    },
+    {
+      "title": "The Lowe Post (ESPN)",
+      "feed": "https://feeds.megaphone.fm/ESP3389035252",
+      "lang": "en",
+      "badge": "EN • Basketball",
+      "topic": "analytics"
+    },
+    {
+      "title": "The Ringer NFL Show",
+      "feed": "https://feeds.megaphone.fm/the-ringer-nfl-show",
+      "lang": "en",
+      "badge": "EN • American Football",
+      "topic": "analytics"
+    },
+    {
+      "title": "Trail Runner Nation",
+      "feed": "https://trailrunnernation.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • Trails",
+      "topic": "endurance"
+    },
+    {
+      "title": "The Peter Attia Drive",
+      "feed": "https://peterattiamd.com/feed/podcast/",
+      "lang": "en",
+      "badge": "EN • Longevity",
+      "topic": "endurance"
+    },
+    {
+      "title": "The Extramilest Show",
+      "feed": "https://extramilest.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • Marathon",
+      "topic": "endurance"
+    },
+    {
+      "title": "KoopCast (Ultra Training)",
+      "feed": "https://koopcast.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • Ultramarathon",
+      "topic": "endurance"
+    },
+    {
+      "title": "Science of Ultra",
+      "feed": "https://scienceofultra.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • Physiology",
+      "topic": "endurance"
+    },
+    {
+      "title": "Fast Talk (Cycling Science)",
+      "feed": "https://fasttalklabs.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • Cycling",
+      "topic": "endurance"
+    },
+    {
+      "title": "The Cycling Podcast",
+      "feed": "https://feeds.acast.com/public/shows/the-cycling-podcast",
+      "lang": "en",
+      "badge": "EN • Grand Tours",
+      "topic": "endurance"
+    },
+    {
+      "title": "Lanterne Rouge Cycling",
+      "feed": "https://anchor.fm/s/1e6d4ff8/podcast/rss",
+      "lang": "en",
+      "badge": "EN • Pelotons",
+      "topic": "endurance"
+    },
+    {
+      "title": "F1: Beyond The Grid",
+      "feed": "https://audioboom.com/channels/4964339.rss",
+      "lang": "en",
+      "badge": "EN • Drivers",
+      "topic": "motorsport"
+    },
+    {
+      "title": "Shift+F1",
+      "feed": "https://shiftf1.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • Racing",
+      "topic": "motorsport"
+    },
+    {
+      "title": "The Tennis Podcast",
+      "feed": "https://feeds.acast.com/public/shows/the-tennis-podcast",
+      "lang": "en",
+      "badge": "EN • Tennis",
+      "topic": "analytics"
+    },
+    {
+      "title": "Baseline Intelligence Tennis",
+      "feed": "https://feeds.buzzsprout.com/1758552.rss",
+      "lang": "en",
+      "badge": "EN • Coaching",
+      "topic": "analytics"
+    },
+    {
+      "title": "BBC Test Match Special",
+      "feed": "https://podcasts.files.bbci.co.uk/p02nrsl4.rss",
+      "lang": "en",
+      "badge": "EN • Cricket",
+      "topic": "analytics"
+    },
+    {
+      "title": "The Rugby Pod",
+      "feed": "https://feeds.acast.com/public/shows/therugbypod",
+      "lang": "en",
+      "badge": "EN • Rugby",
+      "topic": "football"
+    },
+    {
+      "title": "That Peter Crouch Podcast",
+      "feed": "https://feeds.acast.com/public/shows/that-peter-crouch-podcast",
+      "lang": "en",
+      "badge": "EN • Locker Room",
+      "topic": "football"
+    },
+    {
+      "title": "Rasenfunk (Indie Fußball)",
+      "feed": "https://rasenfunk.de/feed",
+      "lang": "de",
+      "badge": "DE • Bundesliga",
+      "topic": "football"
+    },
+    {
+      "title": "Bohndesliga (Rocket Beans)",
+      "feed": "https://rocketbeans.tv/feeds/bohndesliga.xml",
+      "lang": "de",
+      "badge": "DE • Fußball",
+      "topic": "football"
+    },
+    {
+      "title": "Kicker Meets DAZN",
+      "feed": "https://kickermeetsdazn.podigee.io/feed/mp3",
+      "lang": "de",
+      "badge": "DE • Bundesliga",
+      "topic": "football"
+    },
+    {
+      "title": "Calcio Berlin",
+      "feed": "https://calcioberlin.podigee.io/feed/mp3",
+      "lang": "de",
+      "badge": "DE • Taktik",
+      "topic": "football"
+    },
+    {
+      "title": "Stammplatz (BILD Sport)",
+      "feed": "https://stammplatz.podigee.io/feed/mp3",
+      "lang": "de",
+      "badge": "DE • Sport",
+      "topic": "football"
+    },
+    {
+      "title": "Sportschau Bundesliga-Update",
+      "feed": "https://www.sportschau.de/podcast/bundesliga-update/feed.xml",
+      "lang": "de",
+      "badge": "DE • ARD",
+      "topic": "football"
+    },
+    {
+      "title": "Sport Inside (WDR)",
+      "feed": "https://www1.wdr.de/mediathek/audio/wdr5/sport-inside/sport-inside-podcast-102.podcast",
+      "lang": "de",
+      "badge": "DE • Reportage",
+      "topic": "analytics"
+    },
+    {
+      "title": "Pfostenrettet (Handball)",
+      "feed": "https://pfostenrettet.podigee.io/feed/mp3",
+      "lang": "de",
+      "badge": "DE • Handball",
+      "topic": "analytics"
+    },
+    {
+      "title": "After Foot (RMC)",
+      "feed": "https://rmc.bfmtv.com/podcast/after-foot/rss.xml",
+      "lang": "fr",
+      "badge": "FR • Football",
+      "topic": "football"
+    },
+    {
+      "title": "L'Équipe du Soir",
+      "feed": "https://feed.ausha.co/7aP54H1Q8R3K",
+      "lang": "fr",
+      "badge": "FR • Débat",
+      "topic": "football"
+    },
+    {
+      "title": "El Larguero (Cadena SER)",
+      "feed": "https://feeds.elpais.com/audio/el-larguero",
+      "lang": "es",
+      "badge": "ES • Fútbol",
+      "topic": "football"
+    },
+    {
+      "title": "Tiempo de Juego (COPE)",
+      "feed": "https://feeds.cope.es/tiempodejuego.xml",
+      "lang": "es",
+      "badge": "ES • Radio",
+      "topic": "football"
+    },
+    {
+      "title": "El Chiringuito de Jugones",
+      "feed": "https://feeds.ivoox.com/feed_fg_f1138241_filtro_1.xml",
+      "lang": "es",
+      "badge": "ES • Tertulia",
+      "topic": "football"
+    },
+    {
+      "title": "BBC 5 Live Sport Specials",
+      "feed": "https://podcasts.files.bbci.co.uk/p02nrslz.rss",
+      "lang": "en",
+      "badge": "EN • Documentaries",
+      "topic": "analytics"
+    },
+    {
+      "title": "Tailenders (BBC)",
+      "feed": "https://podcasts.files.bbci.co.uk/p02pc9ny.rss",
+      "lang": "en",
+      "badge": "EN • Cricket",
+      "topic": "analytics"
+    },
+    {
+      "title": "No Dunks (The Athletic)",
+      "feed": "https://feeds.megaphone.fm/nodunks",
+      "lang": "en",
+      "badge": "EN • NBA",
+      "topic": "analytics"
+    },
+    {
+      "title": "The Lead (Wondery)",
+      "feed": "https://feeds.megaphone.fm/thelead",
+      "lang": "en",
+      "badge": "EN • In-Depth",
+      "topic": "analytics"
+    },
+    {
+      "title": "House of Rugby",
+      "feed": "https://feeds.acast.com/public/shows/house-of-rugby",
+      "lang": "en",
+      "badge": "EN • Rugby",
+      "topic": "football"
+    },
+    {
+      "title": "TalkSport Daily",
+      "feed": "https://feeds.acast.com/public/shows/talksport-daily",
+      "lang": "en",
+      "badge": "EN • UK Sport",
+      "topic": "football"
+    },
+    {
+      "title": "Formula For Success (Coulthard & Jordan)",
+      "feed": "https://feeds.acast.com/public/shows/formula-for-success",
+      "lang": "en",
+      "badge": "EN • F1 Icons",
+      "topic": "motorsport"
+    },
+    {
+      "title": "The Move (Lance Armstrong)",
+      "feed": "https://feeds.simplecast.com/HqP_L1vF",
+      "lang": "en",
+      "badge": "EN • Tour de France",
+      "topic": "endurance"
+    },
+    {
+      "title": "Athletics Weekly Podcast",
+      "feed": "https://feeds.acast.com/public/shows/athletics-weekly",
+      "lang": "en",
+      "badge": "EN • Track & Field",
+      "topic": "endurance"
+    }
+  ]
+}

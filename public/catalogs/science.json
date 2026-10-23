@@ -1,0 +1,417 @@
+{
+  "id": "science",
+  "title": "Science & Cosmos",
+  "emoji": "🔬",
+  "description": "Planetary science, cosmic mysteries, cutting-edge research, and ecology.",
+  "subtopics": [
+    {
+      "id": "all",
+      "label": "All Shows"
+    },
+    {
+      "id": "space",
+      "label": "🚀 Space & Cosmos"
+    },
+    {
+      "id": "science",
+      "label": "🔬 Research & Physics"
+    },
+    {
+      "id": "climate",
+      "label": "🌱 Climate & Energy"
+    },
+    {
+      "id": "nature",
+      "label": "🌿 Earth & Nature"
+    }
+  ],
+  "featured": [
+    {
+      "title": "NASA's Curious Universe",
+      "feed": "https://feeds.megaphone.fm/NATIONALAERONAUTICSANDSPACEADMINISTRATION8162188566",
+      "badge": "EN • Space",
+      "topic": "space",
+      "whyNote": "Explore cosmic wonders with NASA scientists"
+    },
+    {
+      "title": "Radiolab",
+      "feed": "https://feeds.simplecast.com/EmVW7VGp",
+      "badge": "EN • Science",
+      "topic": "science",
+      "whyNote": "Investigative curiosity and scientific wonder"
+    },
+    {
+      "title": "The Climate Question (BBC)",
+      "feed": "https://podcasts.files.bbci.co.uk/w13xtvb6.rss",
+      "badge": "EN • Climate",
+      "topic": "climate",
+      "whyNote": "World-class climate reporting from the BBC"
+    },
+    {
+      "title": "Science Vs",
+      "feed": "https://feeds.megaphone.fm/sciencevs",
+      "badge": "EN • Science",
+      "topic": "science",
+      "whyNote": "Fads, trends, and what the science really says"
+    },
+    {
+      "title": "Quanta Science Podcast",
+      "feed": "https://www.quantamagazine.org/feed/podcast/",
+      "badge": "EN • Physics",
+      "topic": "science",
+      "whyNote": "Frontier physics, mathematics, and cosmology"
+    }
+  ],
+  "shows": [
+    {
+      "title": "NASA's Curious Universe",
+      "feed": "https://feeds.megaphone.fm/NATIONALAERONAUTICSANDSPACEADMINISTRATION8162188566",
+      "lang": "en",
+      "badge": "EN • Space",
+      "topic": "space"
+    },
+    {
+      "title": "Radiolab",
+      "feed": "https://feeds.simplecast.com/EmVW7VGp",
+      "lang": "en",
+      "badge": "EN • Science",
+      "topic": "science"
+    },
+    {
+      "title": "The Climate Question (BBC)",
+      "feed": "https://podcasts.files.bbci.co.uk/w13xtvb6.rss",
+      "lang": "en",
+      "badge": "EN • Climate",
+      "topic": "climate"
+    },
+    {
+      "title": "Science Vs",
+      "feed": "https://feeds.megaphone.fm/sciencevs",
+      "lang": "en",
+      "badge": "EN • Science",
+      "topic": "science"
+    },
+    {
+      "title": "Ologies with Alie Ward",
+      "feed": "https://feeds.simplecast.com/FO6kxYGj",
+      "lang": "en",
+      "badge": "EN • Nature",
+      "topic": "nature"
+    },
+    {
+      "title": "Nature Podcast",
+      "feed": "https://feeds.acast.com/public/shows/nature",
+      "lang": "en",
+      "badge": "EN • Research",
+      "topic": "science"
+    },
+    {
+      "title": "StarTalk Radio",
+      "feed": "https://feeds.simplecast.com/4T39_jAj",
+      "lang": "en",
+      "badge": "EN • Space",
+      "topic": "space"
+    },
+    {
+      "title": "Science Friday",
+      "feed": "https://feeds.simplecast.com/h18ZIZD_",
+      "lang": "en",
+      "badge": "EN • Science",
+      "topic": "science"
+    },
+    {
+      "title": "TED Climate",
+      "feed": "https://feeds.feedburner.com/tedtalks_audio",
+      "lang": "en",
+      "badge": "EN • Climate",
+      "topic": "climate"
+    },
+    {
+      "title": "Costing the Earth (BBC)",
+      "feed": "https://podcasts.files.bbci.co.uk/b006r4wn.rss",
+      "lang": "en",
+      "badge": "EN • Ecology",
+      "topic": "climate"
+    },
+    {
+      "title": "BBC Earth Podcast",
+      "feed": "https://feeds.acast.com/public/shows/63fb67c5-f719-43f7-b264-390cd7edb120",
+      "lang": "en",
+      "badge": "EN • Planet",
+      "topic": "nature"
+    },
+    {
+      "title": "Future Ecologies",
+      "feed": "https://feeds.captivate.fm/future-ecologies/",
+      "lang": "en",
+      "badge": "EN • Ecology",
+      "topic": "nature"
+    },
+    {
+      "title": "Mongabay Newscast",
+      "feed": "https://mongabay.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • Forests",
+      "topic": "nature"
+    },
+    {
+      "title": "Living on Earth (PRI)",
+      "feed": "https://feeds.megaphone.fm/livingonearth",
+      "lang": "en",
+      "badge": "EN • Environment",
+      "topic": "climate"
+    },
+    {
+      "title": "Short Wave (NPR)",
+      "feed": "https://feeds.npr.org/510351/podcast.xml",
+      "lang": "en",
+      "badge": "EN • Science",
+      "topic": "science"
+    },
+    {
+      "title": "Huberman Lab",
+      "feed": "https://feeds.megaphone.fm/hubermanlab",
+      "lang": "en",
+      "badge": "EN • Biology",
+      "topic": "science"
+    },
+    {
+      "title": "Planetary Radio",
+      "feed": "https://www.omnycontent.com/d/playlist/d95da206-8ee8-4ba5-ba8d-ad1200b4e5a4/cf13d5f5-6040-458d-ab5a-ad200189747d/b75c9f7f-4a63-438e-b506-ad2001897499/podcast.rss",
+      "lang": "en",
+      "badge": "EN • Space",
+      "topic": "space"
+    },
+    {
+      "title": "The Infinite Monkey Cage (BBC)",
+      "feed": "https://podcasts.files.bbci.co.uk/b00snr0w.rss",
+      "lang": "en",
+      "badge": "EN • Science",
+      "topic": "science"
+    },
+    {
+      "title": "Quanta Science Podcast",
+      "feed": "https://www.quantamagazine.org/feed/podcast/",
+      "lang": "en",
+      "badge": "EN • Physics",
+      "topic": "science"
+    },
+    {
+      "title": "Outrage + Optimism",
+      "feed": "https://feeds.acast.com/public/shows/outrage-optimism",
+      "lang": "en",
+      "badge": "EN • Climate",
+      "topic": "climate"
+    },
+    {
+      "title": "CrowdScience (BBC)",
+      "feed": "https://podcasts.files.bbci.co.uk/p04d42rc.rss",
+      "lang": "en",
+      "badge": "EN • Global",
+      "topic": "science"
+    },
+    {
+      "title": "Climate One",
+      "feed": "https://feeds.megaphone.fm/CCC9544803627",
+      "lang": "en",
+      "badge": "EN • Climate",
+      "topic": "climate"
+    },
+    {
+      "title": "Volts (Clean Energy)",
+      "feed": "https://api.substack.com/feed/podcast/193024.rss",
+      "lang": "en",
+      "badge": "EN • Energy",
+      "topic": "climate"
+    },
+    {
+      "title": "Gastropod",
+      "feed": "https://feeds.megaphone.fm/VMP6255701211",
+      "lang": "en",
+      "badge": "EN • Food Sci",
+      "topic": "science"
+    },
+    {
+      "title": "The Energy Gang",
+      "feed": "https://rss.art19.com/the-energy-gang",
+      "lang": "en",
+      "badge": "EN • Energy",
+      "topic": "climate"
+    },
+    {
+      "title": "Forschung aktuell (DLF)",
+      "feed": "https://www.deutschlandfunk.de/forschung-aktuell-102.xml",
+      "lang": "de",
+      "badge": "DE • Wissen",
+      "topic": "science"
+    },
+    {
+      "title": "ARD Klima-Update",
+      "feed": "https://www.ndr.de/nachrichten/info/podcast4696.xml",
+      "lang": "de",
+      "badge": "DE • Klima",
+      "topic": "climate"
+    },
+    {
+      "title": "ZEIT WISSEN: Woher weißt du das?",
+      "feed": "https://feeds.simplecast.com/NM3_bR51",
+      "lang": "de",
+      "badge": "DE • Wissen",
+      "topic": "science"
+    },
+    {
+      "title": "Terra X Podcast (ZDF)",
+      "feed": "https://cdn.julephosting.de/podcasts/1350-terra-x-der-podcast/feed.rss",
+      "lang": "de",
+      "badge": "DE • Natur",
+      "topic": "nature"
+    },
+    {
+      "title": "radiowissen (Bayern 2)",
+      "feed": "https://feeds.br.de/radiowissen/feed.xml",
+      "lang": "de",
+      "badge": "DE • Wissen",
+      "topic": "science"
+    },
+    {
+      "title": "Synapsen (NDR Info)",
+      "feed": "https://www.ndr.de/nachrichten/info/podcast2994.xml",
+      "lang": "de",
+      "badge": "DE • Forschung",
+      "topic": "science"
+    },
+    {
+      "title": "Spektrum der Wissenschaft",
+      "feed": "https://www.spektrum.de/blatt/d_sdwv_podcast_rss&id=851833",
+      "lang": "de",
+      "badge": "DE • Natur",
+      "topic": "nature"
+    },
+    {
+      "title": "Das Klima (IPCC)",
+      "feed": "https://dasklima.podigee.io/feed/mp3",
+      "lang": "de",
+      "badge": "DE • Klima",
+      "topic": "climate"
+    },
+    {
+      "title": "Quarks Science-Cops (WDR)",
+      "feed": "https://www1.wdr.de/mediathek/audio/quarks-science-cops/science-cops-100.podcast",
+      "lang": "de",
+      "badge": "DE • Fakten",
+      "topic": "science"
+    },
+    {
+      "title": "Gradmesser (Tagesspiegel)",
+      "feed": "https://dergradmesser.podigee.io/feed/mp3",
+      "lang": "de",
+      "badge": "DE • Klima",
+      "topic": "climate"
+    },
+    {
+      "title": "Sternengeschichten",
+      "feed": "https://sternengeschichten.podigee.io/feed/mp3",
+      "lang": "de",
+      "badge": "DE • Raumfahrt",
+      "topic": "space"
+    },
+    {
+      "title": "Quarks Daily (WDR)",
+      "feed": "https://www1.wdr.de/mediathek/audio/daily-quarks/daily-quarks-podcast-104.podcast",
+      "lang": "de",
+      "badge": "DE • Wissen",
+      "topic": "science"
+    },
+    {
+      "title": "La Terre au carré (France Inter)",
+      "feed": "https://radiofrance-podcast.net/podcast09/rss_10078.xml",
+      "lang": "fr",
+      "badge": "FR • Écologie",
+      "topic": "nature"
+    },
+    {
+      "title": "La Science, CQFD (France Culture)",
+      "feed": "https://radiofrance-podcast.net/podcast09/rss_10076.xml",
+      "lang": "fr",
+      "badge": "FR • Sciences",
+      "topic": "science"
+    },
+    {
+      "title": "Chaleur Humaine (Le Monde)",
+      "feed": "https://feeds.acast.com/public/shows/68db9a016d92c33f9c2eff83",
+      "lang": "fr",
+      "badge": "FR • Climat",
+      "topic": "climate"
+    },
+    {
+      "title": "Sixième Science (20 Minutes)",
+      "feed": "https://feeds.acast.com/public/shows/sixieme-science",
+      "lang": "fr",
+      "badge": "FR • Sciences",
+      "topic": "science"
+    },
+    {
+      "title": "Baleine sous gravillon",
+      "feed": "https://feed.ausha.co/BNxwOTwv2gLX",
+      "lang": "fr",
+      "badge": "FR • Vivant",
+      "topic": "nature"
+    },
+    {
+      "title": "Sur les épaules de Darwin",
+      "feed": "https://radiofrance-podcast.net/podcast09/rss_11553.xml",
+      "lang": "fr",
+      "badge": "FR • Évolution",
+      "topic": "nature"
+    },
+    {
+      "title": "Coffee Break: Señal y Ruido",
+      "feed": "https://feeds.ivoox.com/feed_fg_f1172991_filtro_1.xml",
+      "lang": "es",
+      "badge": "ES • Cosmos",
+      "topic": "space"
+    },
+    {
+      "title": "Materia Oscura",
+      "feed": "https://feeds.ivoox.com/feed_fg_f1772652_filtro_1.xml",
+      "lang": "es",
+      "badge": "ES • Ciencia",
+      "topic": "science"
+    },
+    {
+      "title": "Aparici en Órbita",
+      "feed": "https://feeds.ivoox.com/feed_fg_f1646895_filtro_1.xml",
+      "lang": "es",
+      "badge": "ES • Cosmos",
+      "topic": "space"
+    },
+    {
+      "title": "A Hombros de Gigantes (RNE)",
+      "feed": "http://api.rtve.es/api/programas/1873/audios.rss",
+      "lang": "es",
+      "badge": "ES • Divulgación",
+      "topic": "science"
+    },
+    {
+      "title": "Catástrofe Ultravioleta",
+      "feed": "https://www.omnycontent.com/d/playlist/554539c9-b3b2-431a-9f3a-ada4006d04a0/d422d26a-b8b3-4c1f-b507-b2e20117a99d/d1a34000-0d86-4257-b229-b2e20117a9b8/podcast.rss",
+      "lang": "es",
+      "badge": "ES • Ciencia",
+      "topic": "science"
+    },
+    {
+      "title": "Ci vuole una scienza (Il Post)",
+      "feed": "https://feeds.megaphone.fm/IPS8073667277",
+      "lang": "it",
+      "badge": "IT • Scienza",
+      "topic": "science"
+    },
+    {
+      "title": "Vetenskapsradion Klotet (SR)",
+      "feed": "https://api.sr.se/api/rss/pod/3966",
+      "lang": "sv",
+      "badge": "SV • Miljö & Klimat",
+      "topic": "climate"
+    }
+  ]
+}

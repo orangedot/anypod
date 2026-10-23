@@ -1575,94 +1575,108 @@ function setDirectoryCountry(code) {
 // ─────────────────────────────────────────────────────────────────────────
 
 const DISCOVER_AI_TOPICS = {
-  space_cosmos: {
-    key: 'space_cosmos',
-    label: 'Space & Cosmology',
-    icon: '🚀',
-    shortLabel: 'Cosmology',
-    keywords: [
-      'space', 'cosmos', 'universe', 'nasa', 'astronomy', 'astrophysics',
-      'galaxy', 'black hole', 'star', 'telescope', 'orbit', 'mars', 'gravity',
-      'moon', 'planetary', 'cosmological', 'spacetime', 'solar', 'quantum',
-      'physics', 'exoplanet', 'supernova', 'relativity', 'james webb'
-    ],
-    feedPatterns: ['nasa', 'startalk', 'planetary', 'sternengeschichten', 'aparici', 'quanta', 'space']
-  },
-  climate_planet: {
-    key: 'climate_planet',
-    label: 'Climate & Earth Systems',
-    icon: '🌱',
-    shortLabel: 'Climate Systems',
-    keywords: [
-      'climate', 'planet', 'earth', 'nature', 'ocean', 'ecology', 'carbon',
-      'warming', 'renewable', 'energy', 'emission', 'biodiversity', 'forest',
-      'water', 'environment', 'green', 'sustainability', 'ice', 'atmosphere',
-      'wildlife', 'conservation', 'klima', 'umwelt', 'cop'
-    ],
-    feedPatterns: ['climate', 'earth', 'ecologies', 'mongabay', 'living on earth', 'volts', 'energy gang', 'klima', 'das klima', 'gradmesser', 'la terre', 'chaleur humaine', 'klotet']
-  },
-  mind_biology: {
-    key: 'mind_biology',
-    label: 'Neuroscience & Biology',
-    icon: '🧠',
-    shortLabel: 'Neuro & Biology',
-    keywords: [
-      'brain', 'neuroscience', 'biology', 'mind', 'psychology', 'cognitive',
-      'dna', 'genetic', 'evolution', 'health', 'neuron', 'sleep', 'behavior',
-      'consciousness', 'huberman', 'cellular', 'organism', 'species', 'synapsen',
-      'darwin', 'immune', 'microbiome'
-    ],
-    feedPatterns: ['huberman', 'ologies', 'gastropod', 'synapsen', 'darwin', 'baleine']
-  },
-  tech_futures: {
-    key: 'tech_futures',
-    label: 'AI & Technological Frontiers',
-    icon: '⚡',
-    shortLabel: 'AI & Tech',
-    keywords: [
-      'ai', 'artificial intelligence', 'algorithm', 'technology', 'computing',
-      'software', 'neural', 'machine learning', 'future', 'data', 'robot',
-      'code', 'cyber', 'silicon', 'digital', 'tech', 'automation', 'chip', 'model'
-    ],
-    feedPatterns: ['volts', 'sixième science', 'quarks']
-  },
-  electronic_audio: {
-    key: 'electronic_audio',
-    label: 'Electronic Music & Mixes',
-    icon: '🎵',
-    shortLabel: 'Electronic & Mixes',
-    keywords: [
-      'music', 'electronic', 'techno', 'ambient', 'mix', 'dj', 'club', 'house',
-      'synthesizer', 'beats', 'track', 'album', 'sound', 'artist', 'remix',
-      'soundtrack', 'resident advisor'
-    ],
-    feedPatterns: ['ra podcast', 'resident advisor', 'dj', 'mix']
-  },
-  investigative_ideas: {
-    key: 'investigative_ideas',
-    label: 'Global Inquiries & Deep Reporting',
-    icon: '🌐',
-    shortLabel: 'Deep Reporting',
-    keywords: [
-      'investigate', 'world', 'society', 'history', 'economy', 'politics',
-      'documentary', 'global', 'culture', 'human', 'democracy', 'report',
-      'future', 'analysis', 'philosophy', 'interview', 'zeit'
-    ],
-    feedPatterns: ['economist', 'zeit', 'dlf', 'bbc', 'ted', 'france culture']
-  },
-  pure_science: {
-    key: 'pure_science',
-    label: 'Frontier Research & Discovery',
+  science: {
+    key: 'science',
+    shelfId: 'science',
+    label: 'Science & Cosmos',
     icon: '🔬',
-    shortLabel: 'Frontier Research',
+    shortLabel: 'Science & Cosmos',
     keywords: [
-      'science', 'research', 'discovery', 'experiment', 'laboratory',
-      'nature podcast', 'quarks', 'forschung', 'wissen', 'spektrum',
-      'curiosity', 'scientist', 'evidence', 'study'
+      'science', 'space', 'cosmos', 'universe', 'nasa', 'astronomy', 'astrophysics',
+      'galaxy', 'physics', 'quantum', 'planet', 'climate', 'earth', 'nature', 'ocean',
+      'ecology', 'biology', 'evolution', 'dna', 'genetics', 'research', 'experiment',
+      'laboratory', 'wissen', 'forschung', 'spektrum', 'curiosity', 'quanta'
     ],
-    feedPatterns: ['science vs', 'nature podcast', 'science friday', 'short wave', 'infinite monkey cage', 'crowdscience', 'forschung aktuell', 'zeit wissen', 'terra x', 'radiowissen', 'spektrum']
+    feedPatterns: ['nasa', 'radiolab', 'climate question', 'science vs', 'quanta', 'startalk', 'planetary', 'nature', 'science friday', 'sternengeschichten', 'terra x', 'spektrum', 'quarks']
+  },
+  democracy: {
+    key: 'democracy',
+    shelfId: 'democracy',
+    label: 'Democracy & Free Press',
+    icon: '🏛️',
+    shortLabel: 'Democracy & Press',
+    keywords: [
+      'democracy', 'press', 'investigative', 'civics', 'politics', 'election', 'court',
+      'constitution', 'rights', 'freedom', 'justice', 'corruption', 'government', 'senate',
+      'law', 'propublica', 'frontline', 'the daily', 'whistleblower', 'journalism'
+    ],
+    feedPatterns: ['frontline', 'the daily', 'de correspondent', 'inside europe', 'propublica', 'lawfare', 'intercept', 'investigative', 'guardian', 'democracynow']
+  },
+  social: {
+    key: 'social',
+    shelfId: 'social',
+    label: 'Social & Human Stories',
+    icon: '🌍',
+    shortLabel: 'Human Stories',
+    keywords: [
+      'social', 'human', 'stories', 'culture', 'psychology', 'philosophy', 'society',
+      'empathy', 'relationships', 'mind', 'behavior', 'heavyweight', 'hidden brain',
+      'this american life', 'invisibilia', 'philosophize', 'personal', 'identity'
+    ],
+    feedPatterns: ['heavyweight', 'hidden brain', 'philosophize', 'this american life', 'invisibilia', 'rough translation', 'strangers', 'death, sex', 'modern love']
+  },
+  entertainment: {
+    key: 'entertainment',
+    shelfId: 'entertainment',
+    label: 'Entertainment & Culture',
+    icon: '🎭',
+    shortLabel: 'Entertainment & Arts',
+    keywords: [
+      'entertainment', 'cinema', 'film', 'movies', 'music', 'comedy', 'pop culture',
+      'television', 'critics', 'hollywood', 'song exploder', 'conan', 'humor',
+      'arts', 'the moth', 'screenplay', 'actor', 'director', 'album', 'sound'
+    ],
+    feedPatterns: ['song exploder', 'kermode', 'conan', 'pop culture happy hour', 'the moth', 'blank check', 'fresh air', 'sound opinions', 'wtf with marc maron']
+  },
+  sports: {
+    key: 'sports',
+    shelfId: 'sports',
+    label: 'Sports & Athletics',
+    icon: '⚽',
+    shortLabel: 'Sports & Athletics',
+    keywords: [
+      'sports', 'football', 'soccer', 'nba', 'nfl', 'athletics', 'endurance', 'running',
+      'marathon', 'f1', 'formula 1', 'tactics', 'premier league', 'bundesliga', 'champion',
+      'athletic', 'rasenfunk', 'training', 'fitness', 'cycling', 'racing'
+    ],
+    feedPatterns: ['athletic football', 'rasenfunk', 'trail runner', '30 for 30', 'football daily', 'ringer fc', 'bill simmons', 'cyclist', 'formula 1', 'f1']
+  },
+  technology: {
+    key: 'technology',
+    shelfId: 'technology',
+    label: 'Technology & Future',
+    icon: '💻',
+    shortLabel: 'Technology & Future',
+    keywords: [
+      'technology', 'software', 'programming', 'developer', 'code', 'open source', 'ai',
+      'artificial intelligence', 'security', 'cyber', 'engineering', 'linux', 'hardware',
+      'systems', 'computing', 'changelog', 'darknet', 'data', 'algorithm', 'robot'
+    ],
+    feedPatterns: ['changelog', 'darknet diaries', 'lex fridman', 'software engineering', 'internet health', 'syntax', 'latentspace', 'oxide', 'twit', 'vergecast']
+  },
+  history: {
+    key: 'history',
+    shelfId: 'history',
+    label: 'History & Ideas',
+    icon: '🏺',
+    shortLabel: 'History & Ideas',
+    keywords: [
+      'history', 'ancient', 'war', 'empire', 'civilization', 'medieval', 'century',
+      'historian', 'archaeology', 'revolution', 'historical', 'dan carlin', 'turning points',
+      'throughline', 'in our time', 'fall of civilizations', 'past', 'heritage', 'rome'
+    ],
+    feedPatterns: ['dan carlin', 'hardcore history', 'the rest is history', 'throughline', 'in our time', 'fall of civilizations', 'history of rome', 'history extra', 'revolutions']
   }
 };
+
+// Aliases for legacy topic keys
+DISCOVER_AI_TOPICS.space_cosmos = DISCOVER_AI_TOPICS.science;
+DISCOVER_AI_TOPICS.climate_planet = DISCOVER_AI_TOPICS.science;
+DISCOVER_AI_TOPICS.pure_science = DISCOVER_AI_TOPICS.science;
+DISCOVER_AI_TOPICS.tech_futures = DISCOVER_AI_TOPICS.technology;
+DISCOVER_AI_TOPICS.investigative_ideas = DISCOVER_AI_TOPICS.democracy;
+DISCOVER_AI_TOPICS.mind_biology = DISCOVER_AI_TOPICS.social;
+DISCOVER_AI_TOPICS.electronic_audio = DISCOVER_AI_TOPICS.entertainment;
 
 let _cachedTasteProfile = null;
 let _cachedTasteFingerprint = null;
@@ -1775,55 +1789,61 @@ function analyzeTasteProfile(currentState, force = false) {
 
   if (feeds.length === 0) {
     personaTitle = 'Curious Explorer';
-    personaNarrative = 'Welcome to Anypod! We have prepared a narrated discovery feed spanning planetary science, cosmic mysteries, and cutting-edge research to calibrate your personal taste profile.';
-    vibes.push('🌱 Planet & Space', '🔬 Frontier Research', '⚡ Zero Ads / Pure RSS');
-  } else if (top1 && top1.key === 'space_cosmos') {
-    personaTitle = 'Cosmic Explorer & Deep Systems Thinker';
-    personaNarrative = 'Your library reveals an insatiable appetite for astrophysics, space exploration, and fundamental physical laws. You seek out first-principles explanations and expansive perspectives on the universe.';
-    vibes.push('🚀 Cosmology', '🌌 Deep Space', durationVibe);
-    if (top2) vibes.push(top2.def.shortLabel);
-  } else if (top1 && top1.key === 'climate_planet') {
-    personaTitle = 'Planetary Ecologist & Earth Steward';
-    personaNarrative = 'Your collection reflects deep engagement with planetary systems, climate transitions, and ecological conservation. You gravitate toward investigative solutions and grounded reporting on the living world.';
-    vibes.push('🌱 Climate Systems', '🌊 Living Earth', durationVibe);
-    if (top2) vibes.push(top2.def.shortLabel);
-  } else if (top1 && top1.key === 'mind_biology') {
-    personaTitle = 'Cognitive Seeker & Biological Inquirer';
-    personaNarrative = 'You are fascinated by the human mind, neurobiology, and evolutionary mechanisms. You appreciate empirical rigor combined with actionable insights into human consciousness and health.';
-    vibes.push('🧠 Neuroscience', '🧬 Biology', durationVibe);
-    if (top2) vibes.push(top2.def.shortLabel);
-  } else if (top1 && top1.key === 'electronic_audio') {
-    personaTitle = 'Sonic Architect & Electronic Connoisseur';
-    personaNarrative = 'Your taste highlights long-form electronic audio journeys, club-level sound design, and masterfully curated mixes. You listen for production nuance, dynamic pacing, and sonic flow.';
-    vibes.push('🎵 Electronic Music', '🎧 Mix Flow', durationVibe);
-    if (top2) vibes.push(top2.def.shortLabel);
-  } else if (top1 && top1.key === 'tech_futures') {
-    personaTitle = 'Technological Futurist & Systems Strategist';
-    personaNarrative = 'Your feeds trace the cutting edge of artificial intelligence, computing architectures, and digital evolution. You prioritize substantive discussions about the technologies reshaping our collective future.';
-    vibes.push('⚡ AI & Tech', '🤖 Future Systems', durationVibe);
-    if (top2) vibes.push(top2.def.shortLabel);
-  } else if (top1 && top1.key === 'investigative_ideas') {
-    personaTitle = 'Global Inquirer & Investigative Mind';
-    personaNarrative = 'Your library seeks deep journalistic rigor, global economic perspectives, and cultural documentaries that unravel the complex layers of human societies.';
-    vibes.push('🌐 Global Affairs', '🔍 Investigative', durationVibe);
-    if (top2) vibes.push(top2.def.shortLabel);
-  } else if (top1 && top1.key === 'pure_science') {
-    if (top2 && top2.key === 'space_cosmos') {
-      personaTitle = 'Cosmic Explorer & Deep Systems Thinker';
-      personaNarrative = 'Your library reveals an insatiable appetite for astrophysics, space exploration, and fundamental physical laws. You seek out first-principles explanations and expansive perspectives on the cosmos.';
-      vibes.push('🚀 Cosmology', '🌌 Deep Space', durationVibe);
-      vibes.push('🔬 Frontier Science');
-    } else {
-      personaTitle = 'Frontier Scientist & Empirical Inquirer';
-      personaNarrative = 'Your library is anchored in cutting-edge laboratory research, fundamental inquiries, and original scientific findings. You prioritize empirical data and rigorous peer-reviewed insight over quick takes.';
-      vibes.push('🔬 Frontier Science', '💡 Research Depth', durationVibe);
-      if (top2) vibes.push(top2.def.shortLabel);
-    }
+    personaNarrative = 'Welcome to Anypod! We have prepared curated discovery shelves spanning planetary science, democracy & free press, technology, history, and human stories.';
+    vibes.push(
+      { label: '🔬 Science & Cosmos', target: 'shelf-science' },
+      { label: '🏛️ Democracy & Press', target: 'shelf-democracy' },
+      { label: '💻 Tech & AI', target: 'shelf-technology' },
+      { label: '🏺 History & Ideas', target: 'shelf-history' }
+    );
+  } else if (top1 && top1.key === 'technology') {
+    personaTitle = top2 && top2.key === 'democracy' ? 'Tech & Democracy Analyst' : 'Technological Futurist & Systems Strategist';
+    personaNarrative = 'Your feeds trace the cutting edge of artificial intelligence, computing architectures, and digital evolution.';
+    vibes.push({ label: '💻 Tech & Future', target: 'shelf-technology' });
+    if (top2) vibes.push({ label: `${top2.def.icon} ${top2.def.shortLabel}`, target: `shelf-${top2.def.shelfId || top2.key}` });
+    vibes.push({ label: durationVibe, target: null });
+  } else if (top1 && top1.key === 'democracy') {
+    personaTitle = top2 && top2.key === 'technology' ? 'Tech & Democracy Analyst' : 'Global Inquirer & Investigative Mind';
+    personaNarrative = 'Your library seeks deep journalistic rigor, civics, democratic integrity, and global investigative reporting.';
+    vibes.push({ label: '🏛️ Democracy & Press', target: 'shelf-democracy' });
+    if (top2) vibes.push({ label: `${top2.def.icon} ${top2.def.shortLabel}`, target: `shelf-${top2.def.shelfId || top2.key}` });
+    vibes.push({ label: durationVibe, target: null });
+  } else if (top1 && top1.key === 'science') {
+    personaTitle = 'Cosmic Explorer & Empirical Inquirer';
+    personaNarrative = 'Your library reveals an insatiable appetite for science, astrophysics, and fundamental research.';
+    vibes.push({ label: '🔬 Science & Cosmos', target: 'shelf-science' });
+    if (top2) vibes.push({ label: `${top2.def.icon} ${top2.def.shortLabel}`, target: `shelf-${top2.def.shelfId || top2.key}` });
+    vibes.push({ label: durationVibe, target: null });
+  } else if (top1 && top1.key === 'history') {
+    personaTitle = 'Historical Scholar & Deep Systems Thinker';
+    personaNarrative = 'Your listening journeys across civilizational turning points, ancient empires, and timeless ideas.';
+    vibes.push({ label: '🏺 History & Ideas', target: 'shelf-history' });
+    if (top2) vibes.push({ label: `${top2.def.icon} ${top2.def.shortLabel}`, target: `shelf-${top2.def.shelfId || top2.key}` });
+    vibes.push({ label: durationVibe, target: null });
+  } else if (top1 && top1.key === 'social') {
+    personaTitle = 'Humanist & Cultural Inquirer';
+    personaNarrative = 'You explore human psychology, empathy, and rich narrative storytelling across cultures.';
+    vibes.push({ label: '🌍 Human Stories', target: 'shelf-social' });
+    if (top2) vibes.push({ label: `${top2.def.icon} ${top2.def.shortLabel}`, target: `shelf-${top2.def.shelfId || top2.key}` });
+    vibes.push({ label: durationVibe, target: null });
+  } else if (top1 && top1.key === 'entertainment') {
+    personaTitle = 'Cultural Connoisseur & Arts Explorer';
+    personaNarrative = 'Your collection embraces great cinema, music, comedy, and artistic discussions.';
+    vibes.push({ label: '🎭 Arts & Culture', target: 'shelf-entertainment' });
+    if (top2) vibes.push({ label: `${top2.def.icon} ${top2.def.shortLabel}`, target: `shelf-${top2.def.shelfId || top2.key}` });
+    vibes.push({ label: durationVibe, target: null });
+  } else if (top1 && top1.key === 'sports') {
+    personaTitle = 'Athletic Strategist & Sports Enthusiast';
+    personaNarrative = 'Your feeds focus on high performance, analytics, football tactics, and athletic endurance.';
+    vibes.push({ label: '⚽ Sports & Athletics', target: 'shelf-sports' });
+    if (top2) vibes.push({ label: `${top2.def.icon} ${top2.def.shortLabel}`, target: `shelf-${top2.def.shelfId || top2.key}` });
+    vibes.push({ label: durationVibe, target: null });
   } else {
     personaTitle = 'Scientific Polymath & Inquisitive Mind';
-    personaNarrative = 'Your listening spans fundamental science, exploratory reporting, and thoughtful commentary. You prefer substantive, curious audio over fast hot takes.';
-    vibes.push('🔬 Frontier Science', '💡 Thoughtful Audio', durationVibe);
-    if (top1) vibes.push(top1.def.shortLabel);
+    personaNarrative = 'Your listening spans fundamental science, exploratory reporting, and thoughtful audio.';
+    vibes.push({ label: '🔬 Science & Cosmos', target: 'shelf-science' });
+    if (top1) vibes.push({ label: `${top1.def.icon} ${top1.def.shortLabel}`, target: `shelf-${top1.def.shelfId || top1.key}` });
+    vibes.push({ label: durationVibe, target: null });
   }
 
   const statText = feeds.length > 0 
@@ -1906,7 +1926,7 @@ function buildDiscoverEpisodeCard(ep, whyNote, isExternal = false) {
 
 function buildDiscoverShowCard(show, whyNote, idx = 0) {
   const card = document.createElement('div');
-  card.className = 'episode-card discover-show-recommendation-card';
+  card.className = 'episode-card discover-show-recommendation-card discover-shelf-card';
   card.dataset.feed = show.feed;
 
   const isSubbed = state.feeds.includes(show.feed);
@@ -1937,7 +1957,14 @@ function buildDiscoverShowCard(show, whyNote, idx = 0) {
         <div class="episode-title">${escapeHtml(show.title)}</div>
       </div>
     </div>
-    ${show.description ? `<div class="episode-desc">${escapeHtml(show.description)}</div>` : ''}
+    <div class="feed-recent-widget feed-recent-preview-empty" data-feed="${escapeHtml(show.feed)}">
+      <div class="feed-recent-header">latest episode</div>
+      <div class="feed-recent-list">
+        <div class="recent-ep-row recent-ep-placeholder" style="color: var(--text-muted); font-size: 0.78rem; padding: 0.35rem 0.5rem;">
+          <span>Click card to explore episodes</span>
+        </div>
+      </div>
+    </div>
     <div class="episode-footer" style="margin-top:auto;">
       <div class="episode-meta">
         <span class="date-line">${escapeHtml(show.topic ? show.topic.toUpperCase() : 'PODCAST')}</span>
@@ -2247,6 +2274,258 @@ function buildDiscoverRecentFeedCard(url) {
   return card;
 }
 
+// ── Curated Catalog Modal & Multi-Category Shelves ─────────────────────────
+let _currentCatalogCategory = null;
+let _currentCatalogData = null;
+const _catalogCache = {};
+
+async function openCategoryCatalogModal(categoryKey) {
+  if (!elements.catalogModal) return;
+  _currentCatalogCategory = categoryKey;
+
+  const catMeta = (typeof CURATED_CATEGORIES !== 'undefined')
+    ? CURATED_CATEGORIES.find(c => c.id === categoryKey)
+    : null;
+
+  const title = catMeta ? `${catMeta.emoji} ${catMeta.title}` : 'Curated Catalog';
+  if (elements.catalogModalTitle) elements.catalogModalTitle.innerHTML = title;
+  if (elements.catalogModalCount) elements.catalogModalCount.textContent = 'Loading...';
+  if (elements.catalogSearchInput) elements.catalogSearchInput.value = '';
+  if (elements.btnClearCatalogSearch) elements.btnClearCatalogSearch.classList.add('hidden');
+
+  // Render subtopic filter pills
+  if (elements.catalogSubtopicsRow) {
+    elements.catalogSubtopicsRow.innerHTML = '';
+    const subtopics = catMeta?.subtopics || [{ id: 'all', label: 'All Shows' }];
+    subtopics.forEach((st, idx) => {
+      const pill = document.createElement('button');
+      pill.type = 'button';
+      pill.className = `catalog-topic-pill ${idx === 0 ? 'active' : ''}`;
+      pill.dataset.topic = st.id;
+      pill.textContent = st.label;
+      pill.addEventListener('click', () => {
+        elements.catalogSubtopicsRow.querySelectorAll('.catalog-topic-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        filterAndRenderCatalogShows();
+      });
+      elements.catalogSubtopicsRow.appendChild(pill);
+    });
+  }
+
+  // Wire search input events once
+  if (elements.catalogSearchInput && !elements.catalogSearchInput.dataset.wired) {
+    elements.catalogSearchInput.dataset.wired = 'true';
+    elements.catalogSearchInput.addEventListener('input', () => {
+      const q = elements.catalogSearchInput.value.trim();
+      if (elements.btnClearCatalogSearch) {
+        if (q) elements.btnClearCatalogSearch.classList.remove('hidden');
+        else elements.btnClearCatalogSearch.classList.add('hidden');
+      }
+      filterAndRenderCatalogShows();
+    });
+    elements.btnClearCatalogSearch?.addEventListener('click', () => {
+      elements.catalogSearchInput.value = '';
+      elements.btnClearCatalogSearch.classList.add('hidden');
+      elements.catalogSearchInput.focus();
+      filterAndRenderCatalogShows();
+    });
+  }
+
+  // Open modal
+  elements.catalogModal.classList.remove('hidden');
+  window.history.pushState({ modal: 'catalog', category: categoryKey }, '', window.location.hash);
+
+  // Check in-memory cache
+  if (_catalogCache[categoryKey]) {
+    _currentCatalogData = _catalogCache[categoryKey];
+    if (elements.catalogModalCount) elements.catalogModalCount.textContent = `${_currentCatalogData.shows.length} shows`;
+    filterAndRenderCatalogShows();
+    return;
+  }
+
+  // Loading indicator
+  if (elements.catalogGrid) {
+    elements.catalogGrid.innerHTML = `
+      <div class="catalog-empty-msg" style="padding: 2.5rem 0;">
+        <p style="color: var(--text-muted);">Loading ${catMeta?.title || 'catalog'} shows...</p>
+      </div>
+    `;
+  }
+
+  try {
+    const res = await fetch(`/catalogs/${categoryKey}.json`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    _catalogCache[categoryKey] = data;
+    _currentCatalogData = data;
+    if (elements.catalogModalCount) elements.catalogModalCount.textContent = `${data.shows.length} shows`;
+    filterAndRenderCatalogShows();
+  } catch (err) {
+    console.error('Failed to load catalog:', err);
+    if (elements.catalogGrid) {
+      elements.catalogGrid.innerHTML = `
+        <div class="catalog-empty-msg">
+          <p>⚠️ Unable to load catalog shows.</p>
+        </div>
+      `;
+    }
+  }
+}
+
+function filterAndRenderCatalogShows() {
+  if (!_currentCatalogData || !elements.catalogGrid) return;
+  const shows = _currentCatalogData.shows || [];
+  const searchQuery = (elements.catalogSearchInput?.value || '').trim().toLowerCase();
+  const activeTopicPill = elements.catalogSubtopicsRow?.querySelector('.catalog-topic-pill.active');
+  const activeTopic = activeTopicPill?.dataset.topic || 'all';
+
+  const filtered = shows.filter(show => {
+    if (activeTopic !== 'all' && show.topic !== activeTopic) {
+      return false;
+    }
+    if (searchQuery) {
+      const text = `${show.title} ${show.badge || ''} ${show.description || ''} ${show.lang || ''}`.toLowerCase();
+      if (!text.includes(searchQuery)) return false;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    elements.catalogGrid.innerHTML = `
+      <div class="catalog-empty-msg">
+        <p>No shows found matching your filter.</p>
+      </div>
+    `;
+    return;
+  }
+
+  elements.catalogGrid.innerHTML = '';
+  filtered.forEach(show => {
+    const card = renderCatalogShowCard(show);
+    elements.catalogGrid.appendChild(card);
+  });
+}
+
+function renderCatalogShowCard(show) {
+  const card = document.createElement('div');
+  card.className = 'catalog-show-card';
+  card.dataset.feed = show.feed;
+  const isSubbed = state.feeds && state.feeds.includes(show.feed);
+  const art = show.artwork || (_curatedArtworkCache && _curatedArtworkCache[show.feed]) || FALLBACK_ARTWORK;
+
+  card.innerHTML = `
+    <div class="catalog-card-header">
+      <img class="catalog-card-art feed-art" src="${escapeHtml(art)}" alt="" loading="lazy" decoding="async" width="48" height="48" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+      <div class="catalog-card-info">
+        <h4 class="catalog-card-title">${escapeHtml(show.title)}</h4>
+        <span class="catalog-card-badge">${escapeHtml(show.badge || show.lang?.toUpperCase() || 'PODCAST')}</span>
+      </div>
+    </div>
+    ${show.description ? `<p class="catalog-card-desc">${escapeHtml(show.description)}</p>` : ''}
+    <div class="catalog-card-actions">
+      <button type="button" class="btn ${isSubbed ? 'btn-secondary' : 'btn-primary'} btn-sm btn-catalog-follow" ${isSubbed ? 'disabled' : ''}>
+        ${isSubbed ? '✓ Followed' : '+ Follow'}
+      </button>
+    </div>
+  `;
+
+  const followBtn = card.querySelector('.btn-catalog-follow');
+  if (followBtn && !isSubbed) {
+    followBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      followBtn.textContent = 'Adding...';
+      followBtn.disabled = true;
+      try {
+        await addFeed(show.feed, show.title, art);
+        followBtn.textContent = '✓ Followed';
+        followBtn.classList.remove('btn-primary');
+        followBtn.classList.add('btn-secondary');
+        showToast(`Subscribed to ${show.title}!`);
+      } catch (err) {
+        followBtn.textContent = '+ Follow';
+        followBtn.disabled = false;
+      }
+    });
+  }
+
+  card.addEventListener('click', (e) => {
+    if (e.target.closest('.btn-catalog-follow')) return;
+    closeCatalogModal();
+    if (typeof openFeedDetail === 'function') {
+      openFeedDetail(show.feed);
+    }
+  });
+
+  return card;
+}
+
+function closeCatalogModal() {
+  if (elements.catalogModal) {
+    elements.catalogModal.classList.add('hidden');
+  }
+  if (window.history.state && window.history.state.modal === 'catalog') {
+    window.history.back();
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.openCategoryCatalogModal = openCategoryCatalogModal;
+  window.closeCatalogModal = closeCatalogModal;
+}
+
+function renderDiscoverShelves() {
+  const container = document.createElement('div');
+  container.className = 'discover-shelves-container';
+  container.id = 'discover-shelves-container';
+
+  const categories = (typeof CURATED_CATEGORIES !== 'undefined') ? CURATED_CATEGORIES : [];
+  categories.forEach((cat, catIdx) => {
+    const shelf = document.createElement('section');
+    shelf.className = 'discover-shelf';
+    shelf.id = `shelf-${cat.id}`;
+    shelf.dataset.category = cat.id;
+
+    shelf.innerHTML = `
+      <div class="discover-shelf-header">
+        <div class="discover-shelf-title-wrap">
+          <h3 class="discover-shelf-title">
+            <span>${cat.emoji}</span>
+            <span>${escapeHtml(cat.title)}</span>
+          </h3>
+          <p class="discover-shelf-sub">${escapeHtml(cat.description)}</p>
+        </div>
+        <div class="discover-shelf-actions">
+          <div class="discover-shelf-scroll-controls">
+            <button type="button" class="btn-shelf-scroll btn-shelf-scroll-left" data-target="shelf-track-${cat.id}" aria-label="Scroll left" title="Scroll left">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            <button type="button" class="btn-shelf-scroll btn-shelf-scroll-right" data-target="shelf-track-${cat.id}" aria-label="Scroll right" title="Scroll right">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+          </div>
+          <button type="button" class="btn-shelf-see-all" data-category="${cat.id}">
+            <span>See all ${cat.totalShows || 50}</span>
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
+      </div>
+      <div class="discover-shelf-track" id="shelf-track-${cat.id}"></div>
+    `;
+
+    const track = shelf.querySelector('.discover-shelf-track');
+    const featuredShows = cat.featured || [];
+    featuredShows.forEach((show, showIdx) => {
+      const card = buildDiscoverShowCard(show, show.whyNote || `✦ Curated ${cat.title} selection`, catIdx === 0 && showIdx < 2 ? 0 : 2);
+      card.classList.add('discover-shelf-card');
+      track.appendChild(card);
+    });
+
+    container.appendChild(shelf);
+  });
+
+  return container;
+}
+
 function renderDiscover(forceRebuild = false) {
   const container = document.getElementById('discover-content-container');
   if (!container) return;
@@ -2386,7 +2665,11 @@ function renderDiscover(forceRebuild = false) {
         </div>
         <div class="persona-footer">
           <div class="persona-vibes">
-            ${profile.vibes.map(v => `<span class="persona-vibe-chip">${escapeHtml(v)}</span>`).join('')}
+            ${profile.vibes.map(v => {
+              const label = typeof v === 'object' ? v.label : v;
+              const target = typeof v === 'object' ? v.target : null;
+              return `<span class="persona-vibe-chip ${target ? 'clickable' : ''}" ${target ? `data-target-shelf="${escapeHtml(target)}"` : ''}>${escapeHtml(label)}</span>`;
+            }).join('')}
           </div>
           <div class="persona-stats">
             <span>${escapeHtml(profile.stats)}</span>
@@ -2438,18 +2721,6 @@ function renderDiscover(forceRebuild = false) {
         </div>
       ` : ''}
 
-      <!-- Section 2: Explore New Horizons -->
-      <div class="discover-section">
-        <div class="discover-section-header">
-          <div class="discover-section-title-wrap">
-            <h3 class="discover-section-title">Explore New Horizons</h3>
-            <span class="discover-section-pill">Matched To Your Taste</span>
-          </div>
-          <p class="discover-section-narrative">${escapeHtml(externalSectionNarrative)}</p>
-        </div>
-        <div class="discover-narrative-grid" id="discover-external-grid"></div>
-      </div>
-
       <!-- Section: Hot Shows To Discover -->
       ${lastPlayedFeeds.length > 0 ? `
         <div class="discover-section discover-recent-feeds-section">
@@ -2458,23 +2729,14 @@ function renderDiscover(forceRebuild = false) {
               <h3 class="discover-section-title">Hot Shows To Discover</h3>
               <span class="discover-section-pill">New To You (${lastPlayedFeeds.length})</span>
             </div>
-            <p class="discover-section-narrative">Top 10 recommended shows not yet in your library with 3-episode previews — tap to preview, subscribe (+ follow), or share with friends.</p>
+            <p class="discover-section-narrative">Top recommended shows not yet in your library with 3-episode previews — tap to preview, subscribe (+ follow), or share with friends.</p>
           </div>
           <div class="feeds-grid discover-recent-feeds-grid" id="discover-recent-feeds-grid"></div>
         </div>
       ` : ''}
 
-      <!-- Section 3: Curated Global Directory Catalog -->
-      <div class="discover-section">
-        <div class="discover-section-header">
-          <div class="discover-section-title-wrap">
-            <h3 class="discover-section-title">Curated Planetary &amp; Science Catalog</h3>
-            <span class="discover-section-pill">50 Worldwide Shows</span>
-          </div>
-          <p class="discover-section-narrative">Explore curated independent podcasts across English, German, French, Spanish, and global reporting.</p>
-        </div>
-        ${buildStarterSuggestionsHTML('all', 12)}
-      </div>
+      <!-- Multi-Category Curated Shelves (7 Categories x 5 Featured Shows) -->
+      <div id="discover-shelves-mount"></div>
 
       <!-- OPML import helper footer -->
       <div class="discover-opml-footer">
@@ -2483,20 +2745,18 @@ function renderDiscover(forceRebuild = false) {
     </div>
   `;
 
+  // Mount shelves
+  const shelvesMount = container.querySelector('#discover-shelves-mount');
+  if (shelvesMount) {
+    shelvesMount.replaceWith(renderDiscoverShelves());
+  }
+
   // Populate dynamic cards
   const libGrid = container.querySelector('#discover-library-grid');
   if (libGrid && selectedLibraryEps.length > 0) {
     selectedLibraryEps.forEach(item => {
       const card = buildDiscoverEpisodeCard(item.ep, item.whyNote, false);
       libGrid.appendChild(card);
-    });
-  }
-
-  const extGrid = container.querySelector('#discover-external-grid');
-  if (extGrid && selectedExternalShows.length > 0) {
-    selectedExternalShows.forEach((item, idx) => {
-      const card = buildDiscoverShowCard(item.show, item.whyNote, idx);
-      extGrid.appendChild(card);
     });
   }
 
@@ -2640,6 +2900,93 @@ function wireEmptyStateEvents(targetRoot = document) {
         searchPodcastDirectory(cat, quickResults);
       });
     });
+  }
+
+  // Wire clickable vibe chips to smooth-scroll to shelves
+  targetRoot.querySelectorAll('.persona-vibe-chip[data-target-shelf]').forEach(chip => {
+    chip.addEventListener('click', (e) => {
+      e.preventDefault();
+      const targetId = chip.dataset.targetShelf;
+      const shelfEl = document.getElementById(targetId);
+      if (shelfEl) {
+        shelfEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  });
+
+  // Wire "See all 50" buttons
+  targetRoot.querySelectorAll('.btn-shelf-see-all').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const catId = btn.dataset.category;
+      if (catId) openCategoryCatalogModal(catId);
+    });
+  });
+
+  // Wire horizontal shelf scroll buttons
+  targetRoot.querySelectorAll('.btn-shelf-scroll').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const targetTrackId = btn.dataset.target;
+      const track = document.getElementById(targetTrackId);
+      if (!track) return;
+      const isLeft = btn.classList.contains('btn-shelf-scroll-left');
+      track.scrollBy({ left: isLeft ? -300 : 300, behavior: 'smooth' });
+    });
+  });
+
+  // Wire discover show card clicks (open feed detail preview)
+  targetRoot.querySelectorAll('.discover-shelf-card, .discover-show-recommendation-card').forEach(card => {
+    if (card.dataset.cardWired) return;
+    card.dataset.cardWired = 'true';
+    const feedUrl = card.dataset.feed;
+    if (!feedUrl) return;
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.btn-discover-follow') || e.target.closest('.recent-ep-row')) return;
+      if (typeof openFeedDetail === 'function') {
+        openFeedDetail(feedUrl);
+      }
+    });
+  });
+
+  // Wire follow buttons on pre-rendered or dynamically rendered show cards
+  targetRoot.querySelectorAll('.btn-discover-follow').forEach(btn => {
+    if (btn.dataset.wired) return;
+    btn.dataset.wired = 'true';
+    const card = btn.closest('[data-feed]');
+    const feedUrl = card?.dataset.feed;
+    if (!feedUrl) return;
+    if (state.feeds && state.feeds.includes(feedUrl)) {
+      btn.textContent = '✓ Followed';
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-secondary');
+      btn.disabled = true;
+      return;
+    }
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      btn.textContent = 'Adding...';
+      btn.disabled = true;
+      try {
+        const title = card.querySelector('.episode-title, h4')?.textContent || 'Podcast';
+        const art = card.querySelector('.episode-artwork, .feed-art')?.src || '';
+        await addFeed(feedUrl, title, art);
+        btn.textContent = '✓ Followed';
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-secondary');
+        showToast(`Subscribed to ${title}!`);
+      } catch (err) {
+        btn.textContent = '+ Follow Show';
+        btn.disabled = false;
+      }
+    });
+  });
+
+  if (typeof loadCuratedFeedEpisodes === 'function') {
+    loadCuratedFeedEpisodes(targetRoot);
   }
 
   wireStarterSuggestionsEvents(targetRoot);

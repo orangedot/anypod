@@ -558,6 +558,37 @@
       </div>
     </div>
 
+    <!-- Modal: Catalog Browser (All 50 Curated Shows per Category) -->
+    <div class="modal-overlay hidden" id="catalog-browser-modal" role="dialog" aria-modal="true" aria-labelledby="catalog-modal-title">
+      <div class="modal-card modal-card-wide catalog-modal-card">
+        <div class="modal-header">
+          <div class="catalog-modal-header-info">
+            <h2 id="catalog-modal-title">🔬 Science &amp; Cosmos</h2>
+            <span class="catalog-modal-count-badge" id="catalog-modal-count">50 shows</span>
+          </div>
+          <button class="btn-close" id="btn-close-catalog-modal" aria-label="close">&times;</button>
+        </div>
+        <div class="catalog-modal-controls">
+          <div class="catalog-search-wrap">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="catalog-search-icon" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="catalog-search-input" class="catalog-search-input" placeholder="filter shows in this category..." autocomplete="off">
+            <button type="button" class="catalog-search-clear hidden" id="btn-clear-catalog-search" aria-label="clear search">&times;</button>
+          </div>
+          <div class="catalog-subtopics-row" id="catalog-subtopics-row">
+            <!-- Dynamic Subtopic Filter Pills -->
+          </div>
+        </div>
+        <div class="catalog-modal-body" id="catalog-modal-body">
+          <div class="catalog-grid" id="catalog-grid">
+            <!-- Dynamic 50 show cards -->
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-overlay hidden" id="show-notes-modal">
       <div class="modal-card show-notes-modal-card">
         <button class="btn-apple-close" id="btn-close-notes" aria-label="Close">

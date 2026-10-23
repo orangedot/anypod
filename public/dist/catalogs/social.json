@@ -1,0 +1,417 @@
+{
+  "id": "social",
+  "title": "Social & Human Stories",
+  "emoji": "🌍",
+  "description": "Culture, human experience, philosophy, psychology, and personal journeys.",
+  "subtopics": [
+    {
+      "id": "all",
+      "label": "All Shows"
+    },
+    {
+      "id": "culture",
+      "label": "🎭 Culture & Society"
+    },
+    {
+      "id": "psychology",
+      "label": "🧠 Mind & Behavior"
+    },
+    {
+      "id": "philosophy",
+      "label": "💡 Philosophy"
+    },
+    {
+      "id": "stories",
+      "label": "📖 Personal Stories"
+    }
+  ],
+  "featured": [
+    {
+      "title": "This American Life",
+      "feed": "https://www.thisamericanlife.org/podcast/rss.xml",
+      "badge": "EN • Storytelling",
+      "topic": "stories",
+      "whyNote": "Pioneering journalistic storytelling and human empathy"
+    },
+    {
+      "title": "Heavyweight",
+      "feed": "https://feeds.megaphone.fm/heavyweight",
+      "badge": "EN • Life",
+      "topic": "stories",
+      "whyNote": "Jonathan Goldstein helps people resolve past regrets"
+    },
+    {
+      "title": "Hidden Brain",
+      "feed": "https://feeds.simplecast.com/kwSerialization",
+      "badge": "EN • Psychology",
+      "topic": "psychology",
+      "whyNote": "Exploring unseen patterns that drive human behavior"
+    },
+    {
+      "title": "Philosophize This!",
+      "feed": "https://philosophizethis.libsyn.com/rss",
+      "badge": "EN • Philosophy",
+      "topic": "philosophy",
+      "whyNote": "Accessible deep-dives into human thought through the ages"
+    },
+    {
+      "title": "Invisibilia (NPR)",
+      "feed": "https://feeds.npr.org/510307/podcast.xml",
+      "badge": "EN • Ideas",
+      "topic": "psychology",
+      "whyNote": "Unseeable forces controlling human behavior and beliefs"
+    }
+  ],
+  "shows": [
+    {
+      "title": "This American Life",
+      "feed": "https://www.thisamericanlife.org/podcast/rss.xml",
+      "lang": "en",
+      "badge": "EN • Stories",
+      "topic": "stories"
+    },
+    {
+      "title": "Heavyweight",
+      "feed": "https://feeds.megaphone.fm/heavyweight",
+      "lang": "en",
+      "badge": "EN • Stories",
+      "topic": "stories"
+    },
+    {
+      "title": "Hidden Brain",
+      "feed": "https://feeds.simplecast.com/kwSerialization",
+      "lang": "en",
+      "badge": "EN • Psychology",
+      "topic": "psychology"
+    },
+    {
+      "title": "Philosophize This!",
+      "feed": "https://philosophizethis.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • Philosophy",
+      "topic": "philosophy"
+    },
+    {
+      "title": "Invisibilia (NPR)",
+      "feed": "https://feeds.npr.org/510307/podcast.xml",
+      "lang": "en",
+      "badge": "EN • Mind",
+      "topic": "psychology"
+    },
+    {
+      "title": "The Moth",
+      "feed": "https://feeds.megaphone.fm/themoth",
+      "lang": "en",
+      "badge": "EN • True Stories",
+      "topic": "stories"
+    },
+    {
+      "title": "Snap Judgment",
+      "feed": "https://feeds.simplecast.com/2m-kQc94",
+      "lang": "en",
+      "badge": "EN • Storytelling",
+      "topic": "stories"
+    },
+    {
+      "title": "Ear Hustle",
+      "feed": "https://feeds.radiotopia.fm/earhustle",
+      "lang": "en",
+      "badge": "EN • Society",
+      "topic": "culture"
+    },
+    {
+      "title": "Death, Sex & Money",
+      "feed": "https://feeds.simplecast.com/n6b3r4_5",
+      "lang": "en",
+      "badge": "EN • Intimacy",
+      "topic": "culture"
+    },
+    {
+      "title": "Modern Love (NYT)",
+      "feed": "https://feeds.simplecast.com/u_pWfX09",
+      "lang": "en",
+      "badge": "EN • Relationships",
+      "topic": "stories"
+    },
+    {
+      "title": "Code Switch (NPR)",
+      "feed": "https://feeds.npr.org/510312/podcast.xml",
+      "lang": "en",
+      "badge": "EN • Identity",
+      "topic": "culture"
+    },
+    {
+      "title": "Rough Translation (NPR)",
+      "feed": "https://feeds.npr.org/510324/podcast.xml",
+      "lang": "en",
+      "badge": "EN • World Culture",
+      "topic": "culture"
+    },
+    {
+      "title": "The Anthropocene Reviewed",
+      "feed": "https://feeds.simplecast.com/pZ6sD_gH",
+      "lang": "en",
+      "badge": "EN • Essays",
+      "topic": "culture"
+    },
+    {
+      "title": "TED Radio Hour",
+      "feed": "https://feeds.npr.org/510298/podcast.xml",
+      "lang": "en",
+      "badge": "EN • Big Ideas",
+      "topic": "culture"
+    },
+    {
+      "title": "Revisionist History",
+      "feed": "https://feeds.megaphone.fm/revisionisthistory",
+      "lang": "en",
+      "badge": "EN • Overlooked",
+      "topic": "culture"
+    },
+    {
+      "title": "Unexplainable (Vox)",
+      "feed": "https://feeds.megaphone.fm/unexplainable",
+      "lang": "en",
+      "badge": "EN • Mystery",
+      "topic": "psychology"
+    },
+    {
+      "title": "You're Wrong About",
+      "feed": "https://feeds.buzzsprout.com/1112270.rss",
+      "lang": "en",
+      "badge": "EN • Mythbusting",
+      "topic": "culture"
+    },
+    {
+      "title": "Maintenance Phase",
+      "feed": "https://feeds.buzzsprout.com/1411126.rss",
+      "lang": "en",
+      "badge": "EN • Wellness",
+      "topic": "culture"
+    },
+    {
+      "title": "Normal Gossip",
+      "feed": "https://feeds.megaphone.fm/normalgossip",
+      "lang": "en",
+      "badge": "EN • Human Nature",
+      "topic": "stories"
+    },
+    {
+      "title": "Where Should We Begin?",
+      "feed": "https://feeds.megaphone.fm/whereshouldwebegin",
+      "lang": "en",
+      "badge": "EN • Couples Therapy",
+      "topic": "psychology"
+    },
+    {
+      "title": "Beautiful Stories From Anonymous People",
+      "feed": "https://feeds.simplecast.com/7bF3fT6R",
+      "lang": "en",
+      "badge": "EN • Honest Talk",
+      "topic": "stories"
+    },
+    {
+      "title": "Strangers",
+      "feed": "https://feeds.simplecast.com/6t4S8yL_",
+      "lang": "en",
+      "badge": "EN • Empathy",
+      "topic": "stories"
+    },
+    {
+      "title": "Love and Radio",
+      "feed": "https://feeds.simplecast.com/Z4w21_yF",
+      "lang": "en",
+      "badge": "EN • Soundscape",
+      "topic": "stories"
+    },
+    {
+      "title": "Everything is Alive",
+      "feed": "https://feeds.radiotopia.fm/everything-is-alive",
+      "lang": "en",
+      "badge": "EN • Perspective",
+      "topic": "philosophy"
+    },
+    {
+      "title": "The Memory Palace",
+      "feed": "https://feeds.radiotopia.fm/thememorypalace",
+      "lang": "en",
+      "badge": "EN • Vignettes",
+      "topic": "stories"
+    },
+    {
+      "title": "The Stoic Coffee Break",
+      "feed": "https://stoic.coffee/feed/podcast/",
+      "lang": "en",
+      "badge": "EN • Stoicism",
+      "topic": "philosophy"
+    },
+    {
+      "title": "Daily Stoic",
+      "feed": "https://feeds.megaphone.fm/dailystoic",
+      "lang": "en",
+      "badge": "EN • Ancient Wisdom",
+      "topic": "philosophy"
+    },
+    {
+      "title": "Very Bad Wizards",
+      "feed": "https://verybadwizards.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • Ethics",
+      "topic": "philosophy"
+    },
+    {
+      "title": "The Partially Examined Life",
+      "feed": "https://partiallyexaminedlife.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • Thought",
+      "topic": "philosophy"
+    },
+    {
+      "title": "Making Sense (Sam Harris)",
+      "feed": "https://feeds.megaphone.fm/makingsense",
+      "lang": "en",
+      "badge": "EN • Consciousness",
+      "topic": "philosophy"
+    },
+    {
+      "title": "Daily Meditation Podcast",
+      "feed": "https://dailymeditation.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • Mindfulness",
+      "topic": "psychology"
+    },
+    {
+      "title": "99% Invisible",
+      "feed": "https://feeds.simplecast.com/BqKfgTG5",
+      "lang": "en",
+      "badge": "EN • Design",
+      "topic": "culture"
+    },
+    {
+      "title": "Twenty Thousand Hertz",
+      "feed": "https://feeds.megaphone.fm/twentythousandhertz",
+      "lang": "en",
+      "badge": "EN • Sound Stories",
+      "topic": "culture"
+    },
+    {
+      "title": "Rumble Strip",
+      "feed": "https://feeds.feedburner.com/RumbleStripVermont",
+      "lang": "en",
+      "badge": "EN • Community",
+      "topic": "stories"
+    },
+    {
+      "title": "Hotel Matze",
+      "feed": "https://hotelmatze.podigee.io/feed/mp3",
+      "lang": "de",
+      "badge": "DE • Gespräche",
+      "topic": "stories"
+    },
+    {
+      "title": "Alles gesagt? (ZEIT)",
+      "feed": "https://feeds.simplecast.com/t_K8_fM1",
+      "lang": "de",
+      "badge": "DE • Ausdauer",
+      "topic": "culture"
+    },
+    {
+      "title": "Betreutes Fühlen",
+      "feed": "https://betreutesfuehlen.podigee.io/feed/mp3",
+      "lang": "de",
+      "badge": "DE • Gefühle",
+      "topic": "psychology"
+    },
+    {
+      "title": "Zeit Verbrechen",
+      "feed": "https://feeds.simplecast.com/V8W9H_oP",
+      "lang": "de",
+      "badge": "DE • Justiz",
+      "topic": "stories"
+    },
+    {
+      "title": "Hörsaal (DLF Nova)",
+      "feed": "https://www.deutschlandfunknova.de/podcast/hoersaal.xml",
+      "lang": "de",
+      "badge": "DE • Universität",
+      "topic": "philosophy"
+    },
+    {
+      "title": "Das philosophische Radio (WDR 5)",
+      "feed": "https://www1.wdr.de/mediathek/audio/wdr5/wdr5-das-philosophische-radio/philosophisches-radio-100.podcast",
+      "lang": "de",
+      "badge": "DE • Denken",
+      "topic": "philosophy"
+    },
+    {
+      "title": "Sein und Streit (DLF Kultur)",
+      "feed": "https://www.deutschlandfunkkultur.de/sein-und-streit-102.xml",
+      "lang": "de",
+      "badge": "DE • Philosophie",
+      "topic": "philosophy"
+    },
+    {
+      "title": "Transfert (Slate FR)",
+      "feed": "https://rss.audiomeans.fr/feed/show/e8e7a68e-5b12-4217-a9a7-9e7f5bf516cf.xml",
+      "lang": "fr",
+      "badge": "FR • Intime",
+      "topic": "stories"
+    },
+    {
+      "title": "Les Pieds sur terre (France Culture)",
+      "feed": "https://radiofrance-podcast.net/podcast09/rss_10077.xml",
+      "lang": "fr",
+      "badge": "FR • Vrai",
+      "topic": "stories"
+    },
+    {
+      "title": "Émotions (Louie Media)",
+      "feed": "https://feeds.acast.com/public/shows/emotions",
+      "lang": "fr",
+      "badge": "FR • Ressenti",
+      "topic": "psychology"
+    },
+    {
+      "title": "Deforme Semanal Ideal Total",
+      "feed": "https://feeds.acast.com/public/shows/deforme-semanal",
+      "lang": "es",
+      "badge": "ES • Cultura",
+      "topic": "culture"
+    },
+    {
+      "title": "Entiende Tu Mente",
+      "feed": "https://feeds.acast.com/public/shows/entiende-tu-mente",
+      "lang": "es",
+      "badge": "ES • Psicología",
+      "topic": "psychology"
+    },
+    {
+      "title": "Nadie Sabe Nada (SER)",
+      "feed": "https://feeds.elpais.com/audio/nadie-sabe-nada",
+      "lang": "es",
+      "badge": "ES • Humor",
+      "topic": "culture"
+    },
+    {
+      "title": "On Being with Krista Tippett",
+      "feed": "https://feeds.simplecast.com/4N3m9kK_",
+      "lang": "en",
+      "badge": "EN • Spirit",
+      "topic": "philosophy"
+    },
+    {
+      "title": "Terrestrials",
+      "feed": "https://feeds.simplecast.com/FwYmK_69",
+      "lang": "en",
+      "badge": "EN • Wonder",
+      "topic": "stories"
+    },
+    {
+      "title": "Family Secrets",
+      "feed": "https://feeds.megaphone.fm/familysecrets",
+      "lang": "en",
+      "badge": "EN • Truth",
+      "topic": "stories"
+    }
+  ]
+}

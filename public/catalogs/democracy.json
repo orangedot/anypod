@@ -1,0 +1,417 @@
+{
+  "id": "democracy",
+  "title": "Democracy & Free Press",
+  "emoji": "🏛️",
+  "description": "Investigative journalism, civics, democratic integrity, and global affairs.",
+  "subtopics": [
+    {
+      "id": "all",
+      "label": "All Shows"
+    },
+    {
+      "id": "investigative",
+      "label": "🔍 Investigative"
+    },
+    {
+      "id": "global",
+      "label": "🌐 Global Affairs"
+    },
+    {
+      "id": "civics",
+      "label": "⚖️ Civics & Law"
+    },
+    {
+      "id": "press",
+      "label": "📰 Free Press"
+    }
+  ],
+  "featured": [
+    {
+      "title": "Frontline PBS",
+      "feed": "https://feeds.feedburner.com/pbs/frontline",
+      "badge": "EN • Investigative",
+      "topic": "investigative",
+      "whyNote": "Deep investigative reporting on critical issues"
+    },
+    {
+      "title": "The Daily",
+      "feed": "https://feeds.simplecast.com/54nAGcIl",
+      "badge": "EN • Journalism",
+      "topic": "press",
+      "whyNote": "Essential news reporting and analysis from NYT"
+    },
+    {
+      "title": "Global News Podcast (BBC)",
+      "feed": "https://podcasts.files.bbci.co.uk/p02nq0gn.rss",
+      "badge": "EN • Global",
+      "topic": "global",
+      "whyNote": "Comprehensive world news coverage from the BBC"
+    },
+    {
+      "title": "On the Media (WNYC)",
+      "feed": "https://feeds.simplecast.com/b_x3O7Q_",
+      "badge": "EN • Free Press",
+      "topic": "press",
+      "whyNote": "How media shapes narrative, politics, and democracy"
+    },
+    {
+      "title": "Hintergrund (DLF)",
+      "feed": "https://www.deutschlandfunk.de/hintergrund-102.xml",
+      "badge": "DE • Politik",
+      "topic": "civics",
+      "whyNote": "Gründliche Analysen zu Politik und Gesellschaft"
+    }
+  ],
+  "shows": [
+    {
+      "title": "Frontline PBS",
+      "feed": "https://feeds.feedburner.com/pbs/frontline",
+      "lang": "en",
+      "badge": "EN • Investigative",
+      "topic": "investigative"
+    },
+    {
+      "title": "The Daily",
+      "feed": "https://feeds.simplecast.com/54nAGcIl",
+      "lang": "en",
+      "badge": "EN • Journalism",
+      "topic": "press"
+    },
+    {
+      "title": "Global News Podcast (BBC)",
+      "feed": "https://podcasts.files.bbci.co.uk/p02nq0gn.rss",
+      "lang": "en",
+      "badge": "EN • Global",
+      "topic": "global"
+    },
+    {
+      "title": "On the Media (WNYC)",
+      "feed": "https://feeds.simplecast.com/b_x3O7Q_",
+      "lang": "en",
+      "badge": "EN • Free Press",
+      "topic": "press"
+    },
+    {
+      "title": "Hintergrund (DLF)",
+      "feed": "https://www.deutschlandfunk.de/hintergrund-102.xml",
+      "lang": "de",
+      "badge": "DE • Politik",
+      "topic": "civics"
+    },
+    {
+      "title": "Today, Explained (Vox)",
+      "feed": "https://feeds.megaphone.fm/VMP5705694065",
+      "lang": "en",
+      "badge": "EN • Politics",
+      "topic": "civics"
+    },
+    {
+      "title": "Throughline (NPR)",
+      "feed": "https://feeds.npr.org/510333/podcast.xml",
+      "lang": "en",
+      "badge": "EN • History",
+      "topic": "global"
+    },
+    {
+      "title": "Embedded (NPR)",
+      "feed": "https://feeds.npr.org/510311/podcast.xml",
+      "lang": "en",
+      "badge": "EN • Investigative",
+      "topic": "investigative"
+    },
+    {
+      "title": "The Lawfare Podcast",
+      "feed": "https://feeds.acast.com/public/shows/the-lawfare-podcast",
+      "lang": "en",
+      "badge": "EN • Law",
+      "topic": "civics"
+    },
+    {
+      "title": "Stay Tuned with Preet",
+      "feed": "https://feeds.megaphone.fm/staytunedwithpreet",
+      "lang": "en",
+      "badge": "EN • Justice",
+      "topic": "civics"
+    },
+    {
+      "title": "The Intelligence (The Economist)",
+      "feed": "https://feeds.acast.com/public/shows/the-intelligence",
+      "lang": "en",
+      "badge": "EN • Global",
+      "topic": "global"
+    },
+    {
+      "title": "Inside Europe (DW)",
+      "feed": "https://rss.dw.com/xml/podcast_inside-europe",
+      "lang": "en",
+      "badge": "EN • Europe",
+      "topic": "global"
+    },
+    {
+      "title": "Reveal (Center for Investigative Reporting)",
+      "feed": "https://feeds.revealnews.org/revealpodcast",
+      "lang": "en",
+      "badge": "EN • Investigative",
+      "topic": "investigative"
+    },
+    {
+      "title": "Post Reports (Washington Post)",
+      "feed": "https://podcast.postreports.com/rss",
+      "lang": "en",
+      "badge": "EN • Journalism",
+      "topic": "press"
+    },
+    {
+      "title": "1A (NPR)",
+      "feed": "https://feeds.npr.org/510316/podcast.xml",
+      "lang": "en",
+      "badge": "EN • Civics",
+      "topic": "civics"
+    },
+    {
+      "title": "The Ezra Klein Show",
+      "feed": "https://feeds.simplecast.com/82FI35Px",
+      "lang": "en",
+      "badge": "EN • Ideas",
+      "topic": "civics"
+    },
+    {
+      "title": "Fresh Air (NPR)",
+      "feed": "https://feeds.npr.org/381444908/podcast.xml",
+      "lang": "en",
+      "badge": "EN • Culture",
+      "topic": "press"
+    },
+    {
+      "title": "The Weeds (Vox)",
+      "feed": "https://feeds.megaphone.fm/theweeds",
+      "lang": "en",
+      "badge": "EN • Policy",
+      "topic": "civics"
+    },
+    {
+      "title": "What Next (Slate)",
+      "feed": "https://feeds.megaphone.fm/whatnext",
+      "lang": "en",
+      "badge": "EN • Politics",
+      "topic": "civics"
+    },
+    {
+      "title": "Political Scene (The New Yorker)",
+      "feed": "https://feeds.simplecast.com/h5T2_u-D",
+      "lang": "en",
+      "badge": "EN • Analysis",
+      "topic": "civics"
+    },
+    {
+      "title": "The Daily Blast (The New Republic)",
+      "feed": "https://feeds.megaphone.fm/TNR1056587602",
+      "lang": "en",
+      "badge": "EN • Politics",
+      "topic": "civics"
+    },
+    {
+      "title": "Pod Save the World",
+      "feed": "https://feeds.simplecast.com/l2i9YnTd",
+      "lang": "en",
+      "badge": "EN • Global",
+      "topic": "global"
+    },
+    {
+      "title": "BBC Assignment",
+      "feed": "https://podcasts.files.bbci.co.uk/p029399x.rss",
+      "lang": "en",
+      "badge": "EN • World",
+      "topic": "global"
+    },
+    {
+      "title": "BBC HARDtalk",
+      "feed": "https://podcasts.files.bbci.co.uk/p004t1s0.rss",
+      "lang": "en",
+      "badge": "EN • Interviews",
+      "topic": "press"
+    },
+    {
+      "title": "The Inquiry (BBC)",
+      "feed": "https://podcasts.files.bbci.co.uk/p029399x.rss",
+      "lang": "en",
+      "badge": "EN • Analysis",
+      "topic": "global"
+    },
+    {
+      "title": "Media Show (BBC)",
+      "feed": "https://podcasts.files.bbci.co.uk/b00dv9hq.rss",
+      "lang": "en",
+      "badge": "EN • Media",
+      "topic": "press"
+    },
+    {
+      "title": "The Globalist (Monocle)",
+      "feed": "https://feeds.megaphone.fm/theglobalist",
+      "lang": "en",
+      "badge": "EN • Diplomacy",
+      "topic": "global"
+    },
+    {
+      "title": "The Foreign Desk (Monocle)",
+      "feed": "https://feeds.megaphone.fm/theforeigndesk",
+      "lang": "en",
+      "badge": "EN • Foreign Policy",
+      "topic": "global"
+    },
+    {
+      "title": "Chatham House Podcast",
+      "feed": "https://chathamhouse.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • Strategy",
+      "topic": "global"
+    },
+    {
+      "title": "Carnegie Global Ethics",
+      "feed": "https://carnegiecouncil.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • Ethics",
+      "topic": "civics"
+    },
+    {
+      "title": "Das Politikteil (ZEIT)",
+      "feed": "https://feeds.simplecast.com/pZ2G8N1R",
+      "lang": "de",
+      "badge": "DE • Debatte",
+      "topic": "civics"
+    },
+    {
+      "title": "Der Tag (DLF)",
+      "feed": "https://www.deutschlandfunk.de/der-tag-100.xml",
+      "lang": "de",
+      "badge": "DE • Nachrichten",
+      "topic": "press"
+    },
+    {
+      "title": "Lage der Nation",
+      "feed": "https://feeds.lagedernation.org/ldn",
+      "lang": "de",
+      "badge": "DE • Politik",
+      "topic": "civics"
+    },
+    {
+      "title": "11KM: der tagesschau-Podcast",
+      "feed": "https://www.ndr.de/nachrichten/info/podcast5216.xml",
+      "lang": "de",
+      "badge": "DE • Recherche",
+      "topic": "investigative"
+    },
+    {
+      "title": "Das Feature (DLF Kultur)",
+      "feed": "https://www.deutschlandfunkkultur.de/das-feature-102.xml",
+      "lang": "de",
+      "badge": "DE • Doku",
+      "topic": "investigative"
+    },
+    {
+      "title": "Servus. Grüezi. Hallo. (ZEIT)",
+      "feed": "https://feeds.simplecast.com/5R9M4h8K",
+      "lang": "de",
+      "badge": "DE • Alpen",
+      "topic": "global"
+    },
+    {
+      "title": "Jung & Naiv Audio",
+      "feed": "https://jungundnaiv.libsyn.com/rss",
+      "lang": "de",
+      "badge": "DE • Politik",
+      "topic": "civics"
+    },
+    {
+      "title": "Conflict Zone (DW)",
+      "feed": "https://rss.dw.com/xml/podcast_conflict-zone",
+      "lang": "en",
+      "badge": "EN • Debate",
+      "topic": "press"
+    },
+    {
+      "title": "France Culture - Enjeux internationaux",
+      "feed": "https://radiofrance-podcast.net/podcast09/rss_10351.xml",
+      "lang": "fr",
+      "badge": "FR • Monde",
+      "topic": "global"
+    },
+    {
+      "title": "RFI - Géopolitique, le débat",
+      "feed": "https://www.rfi.fr/fr/podcasts/g%C3%A9opolitique-le-d%C3%A9bat/podcast",
+      "lang": "fr",
+      "badge": "FR • Débat",
+      "topic": "global"
+    },
+    {
+      "title": "Radio Ambulante (NPR)",
+      "feed": "https://feeds.npr.org/510315/podcast.xml",
+      "lang": "es",
+      "badge": "ES • Crónica",
+      "topic": "investigative"
+    },
+    {
+      "title": "El Hilo",
+      "feed": "https://feeds.megaphone.fm/PRX5743419998",
+      "lang": "es",
+      "badge": "ES • América Latina",
+      "topic": "global"
+    },
+    {
+      "title": "Hoy en EL PAÍS",
+      "feed": "https://feeds.elpais.com/audio/hoy-en-el-pais",
+      "lang": "es",
+      "badge": "ES • Actualidad",
+      "topic": "press"
+    },
+    {
+      "title": "Al Jazeera - The Take",
+      "feed": "https://feeds.megaphone.fm/thetake",
+      "lang": "en",
+      "badge": "EN • News",
+      "topic": "global"
+    },
+    {
+      "title": "Al Jazeera - Inside Story",
+      "feed": "https://feeds.megaphone.fm/AJE7654165768",
+      "lang": "en",
+      "badge": "EN • Analysis",
+      "topic": "global"
+    },
+    {
+      "title": "Europarl Highlights",
+      "feed": "https://audiovisual.ec.europa.eu/en/podcast",
+      "lang": "en",
+      "badge": "EN • EU",
+      "topic": "civics"
+    },
+    {
+      "title": "The Intercepted",
+      "feed": "https://feeds.acast.com/public/shows/intercepted-with-jeremy-scahill",
+      "lang": "en",
+      "badge": "EN • Investigative",
+      "topic": "investigative"
+    },
+    {
+      "title": "Open Source with Christopher Lydon",
+      "feed": "https://radioopensource.org/feed/podcast/",
+      "lang": "en",
+      "badge": "EN • Culture & Civics",
+      "topic": "civics"
+    },
+    {
+      "title": "De Correspondent",
+      "feed": "https://decorrespondent.nl/podcast.rss",
+      "lang": "nl",
+      "badge": "NL • Journalistiek",
+      "topic": "investigative"
+    },
+    {
+      "title": "ProPublica Investigations",
+      "feed": "https://feeds.soundcloud.com/users/soundcloud:users:19641755/sounds.rss",
+      "lang": "en",
+      "badge": "EN • Public Interest",
+      "topic": "investigative"
+    }
+  ]
+}

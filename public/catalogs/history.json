@@ -1,0 +1,417 @@
+{
+  "id": "history",
+  "title": "History & Ideas",
+  "emoji": "🏺",
+  "description": "Epic historical journeys, archaeology, pivotal events, and intellectual evolution.",
+  "subtopics": [
+    {
+      "id": "all",
+      "label": "All Shows"
+    },
+    {
+      "id": "epic",
+      "label": "⚔️ Epic & Military History"
+    },
+    {
+      "id": "world",
+      "label": "🌍 World History"
+    },
+    {
+      "id": "ideas",
+      "label": "💡 History of Ideas"
+    },
+    {
+      "id": "archaeology",
+      "label": "🏛️ Ancient & Archaeology"
+    }
+  ],
+  "featured": [
+    {
+      "title": "Dan Carlin's Hardcore History",
+      "feed": "https://feeds.feedburner.com/dancarlin/history?format=xml",
+      "badge": "EN • Epic",
+      "topic": "epic",
+      "whyNote": "Epic, intense deep-dives into humanity's most dramatic crucibles"
+    },
+    {
+      "title": "The Rest is History",
+      "feed": "https://feeds.acast.com/public/shows/the-rest-is-history",
+      "badge": "EN • Acclaimed",
+      "topic": "world",
+      "whyNote": "Tom Holland and Dominic Sandbrook explore history with sharp wit"
+    },
+    {
+      "title": "Throughline (NPR)",
+      "feed": "https://feeds.npr.org/510333/podcast.xml",
+      "badge": "EN • Perspectives",
+      "topic": "world",
+      "whyNote": "How past events directly created our present dilemmas"
+    },
+    {
+      "title": "In Our Time (BBC)",
+      "feed": "https://podcasts.files.bbci.co.uk/b006qykl.rss",
+      "badge": "EN • Intellectual",
+      "topic": "ideas",
+      "whyNote": "Melvyn Bragg and top scholars dissect the history of ideas"
+    },
+    {
+      "title": "Fall of Civilizations Podcast",
+      "feed": "https://feeds.soundcloud.com/users/soundcloud:users:572119410/sounds.rss",
+      "badge": "EN • Ancient",
+      "topic": "archaeology",
+      "whyNote": "Haunting, beautifully scored stories of societies that collapsed"
+    }
+  ],
+  "shows": [
+    {
+      "title": "Dan Carlin's Hardcore History",
+      "feed": "https://feeds.feedburner.com/dancarlin/history?format=xml",
+      "lang": "en",
+      "badge": "EN • Epic",
+      "topic": "epic"
+    },
+    {
+      "title": "The Rest is History",
+      "feed": "https://feeds.acast.com/public/shows/the-rest-is-history",
+      "lang": "en",
+      "badge": "EN • World",
+      "topic": "world"
+    },
+    {
+      "title": "Throughline (NPR)",
+      "feed": "https://feeds.npr.org/510333/podcast.xml",
+      "lang": "en",
+      "badge": "EN • Perspective",
+      "topic": "world"
+    },
+    {
+      "title": "In Our Time (BBC)",
+      "feed": "https://podcasts.files.bbci.co.uk/b006qykl.rss",
+      "lang": "en",
+      "badge": "EN • Ideas",
+      "topic": "ideas"
+    },
+    {
+      "title": "Fall of Civilizations Podcast",
+      "feed": "https://feeds.soundcloud.com/users/soundcloud:users:572119410/sounds.rss",
+      "lang": "en",
+      "badge": "EN • Ancient",
+      "topic": "archaeology"
+    },
+    {
+      "title": "Revolutions (Mike Duncan)",
+      "feed": "https://revolutionspodcast.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • Politics",
+      "topic": "world"
+    },
+    {
+      "title": "The History of Rome",
+      "feed": "https://thehistoryofrome.typepad.com/the_history_of_rome/rss.xml",
+      "lang": "en",
+      "badge": "EN • Rome",
+      "topic": "archaeology"
+    },
+    {
+      "title": "History on Fire",
+      "feed": "https://feeds.megaphone.fm/historyonfire",
+      "lang": "en",
+      "badge": "EN • Passion",
+      "topic": "epic"
+    },
+    {
+      "title": "You're Dead To Me (BBC)",
+      "feed": "https://podcasts.files.bbci.co.uk/p07mddqh.rss",
+      "lang": "en",
+      "badge": "EN • Comedy History",
+      "topic": "world"
+    },
+    {
+      "title": "Dan Snow's History Hit",
+      "feed": "https://feeds.acast.com/public/shows/historyhit",
+      "lang": "en",
+      "badge": "EN • Daily",
+      "topic": "world"
+    },
+    {
+      "title": "Hardcore History: Addendum",
+      "feed": "https://feeds.feedburner.com/dancarlin/addendum?format=xml",
+      "lang": "en",
+      "badge": "EN • Interviews",
+      "topic": "epic"
+    },
+    {
+      "title": "Empire (Dalrymple & Anand)",
+      "feed": "https://feeds.acast.com/public/shows/empire",
+      "lang": "en",
+      "badge": "EN • Colonialism",
+      "topic": "world"
+    },
+    {
+      "title": "Tides of History",
+      "feed": "https://feeds.megaphone.fm/tidesofhistory",
+      "lang": "en",
+      "badge": "EN • Archaeology",
+      "topic": "archaeology"
+    },
+    {
+      "title": "Our Fake History",
+      "feed": "https://ourfakehistory.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • Myths",
+      "topic": "ideas"
+    },
+    {
+      "title": "Noble Blood",
+      "feed": "https://feeds.megaphone.fm/nobleblood",
+      "lang": "en",
+      "badge": "EN • Royalty",
+      "topic": "world"
+    },
+    {
+      "title": "Stuff You Missed in History Class",
+      "feed": "https://feeds.megaphone.fm/stuffyoumissedinhistoryclass",
+      "lang": "en",
+      "badge": "EN • Curiosities",
+      "topic": "world"
+    },
+    {
+      "title": "The Ancients (History Hit)",
+      "feed": "https://feeds.acast.com/public/shows/the-ancients",
+      "lang": "en",
+      "badge": "EN • Antiquity",
+      "topic": "archaeology"
+    },
+    {
+      "title": "Warfare (History Hit)",
+      "feed": "https://feeds.acast.com/public/shows/warfare",
+      "lang": "en",
+      "badge": "EN • Battles",
+      "topic": "epic"
+    },
+    {
+      "title": "A History of the World in 100 Objects",
+      "feed": "https://podcasts.files.bbci.co.uk/b00nrtd2.rss",
+      "lang": "en",
+      "badge": "EN • Artefacts",
+      "topic": "archaeology"
+    },
+    {
+      "title": "The British History Podcast",
+      "feed": "https://www.thebritishhistorypodcast.com/feed/podcast/",
+      "lang": "en",
+      "badge": "EN • Britain",
+      "topic": "world"
+    },
+    {
+      "title": "History of English Podcast",
+      "feed": "https://historyofenglishpodcast.com/feed/podcast/",
+      "lang": "en",
+      "badge": "EN • Linguistics",
+      "topic": "ideas"
+    },
+    {
+      "title": "The History of Byzantium",
+      "feed": "https://thehistoryofbyzantium.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • Byzantium",
+      "topic": "archaeology"
+    },
+    {
+      "title": "The Hellenistic Age Podcast",
+      "feed": "https://hellenisticagepodcast.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • Greece",
+      "topic": "archaeology"
+    },
+    {
+      "title": "History of Philosophy Without Any Gaps",
+      "feed": "https://hopwag.podbean.com/feed.xml",
+      "lang": "en",
+      "badge": "EN • Philosophy",
+      "topic": "ideas"
+    },
+    {
+      "title": "The Iron Dice (Dan Arrows)",
+      "feed": "https://theirondice.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • Weimar",
+      "topic": "world"
+    },
+    {
+      "title": "Blowback",
+      "feed": "https://feeds.sounder.fm/11797/rss.xml",
+      "lang": "en",
+      "badge": "EN • Modern War",
+      "topic": "epic"
+    },
+    {
+      "title": "Slow Burn (Slate)",
+      "feed": "https://feeds.megaphone.fm/slowburn",
+      "lang": "en",
+      "badge": "EN • Politics",
+      "topic": "world"
+    },
+    {
+      "title": "One Year (Slate)",
+      "feed": "https://feeds.megaphone.fm/oneyear",
+      "lang": "en",
+      "badge": "EN • Chronology",
+      "topic": "world"
+    },
+    {
+      "title": "Geschichten aus der Geschichte",
+      "feed": "https://geschichtenausdergeschichte.podigee.io/feed/mp3",
+      "lang": "de",
+      "badge": "DE • Anekdoten",
+      "topic": "world"
+    },
+    {
+      "title": "Eine Stunde History (DLF Nova)",
+      "feed": "https://www.deutschlandfunknova.de/podcast/eine-stunde-history.xml",
+      "lang": "de",
+      "badge": "DE • Ereignisse",
+      "topic": "world"
+    },
+    {
+      "title": "Zeitsprung (Geschichte)",
+      "feed": "https://www.geschichte.fm/feed/mp3/",
+      "lang": "de",
+      "badge": "DE • Historie",
+      "topic": "world"
+    },
+    {
+      "title": "WDR ZeitZeichen",
+      "feed": "https://www1.wdr.de/mediathek/audio/zeitzeichen/zeitzeichen-podcast-102.podcast",
+      "lang": "de",
+      "badge": "DE • Kalender",
+      "topic": "world"
+    },
+    {
+      "title": "WDR Stichtag",
+      "feed": "https://www1.wdr.de/mediathek/audio/stichtag/stichtag-podcast-102.podcast",
+      "lang": "de",
+      "badge": "DE • Momente",
+      "topic": "world"
+    },
+    {
+      "title": "Tatort Geschichte (Bayern 2)",
+      "feed": "https://feeds.br.de/tatort-geschichte/feed.xml",
+      "lang": "de",
+      "badge": "DE • Verbrechen",
+      "topic": "world"
+    },
+    {
+      "title": "SWR2 Wissen: Geschichte",
+      "feed": "https://www.swr.de/swr2/wissen/podcast-swr2-wissen-100.xml",
+      "lang": "de",
+      "badge": "DE • Epochen",
+      "topic": "ideas"
+    },
+    {
+      "title": "ARD Radiofeature",
+      "feed": "https://www.ndr.de/nachrichten/info/podcast2988.xml",
+      "lang": "de",
+      "badge": "DE • Doku",
+      "topic": "world"
+    },
+    {
+      "title": "Zeitkapsel (Irene Bluche)",
+      "feed": "https://zeitkapsel.podigee.io/feed/mp3",
+      "lang": "de",
+      "badge": "DE • Briefe",
+      "topic": "world"
+    },
+    {
+      "title": "Paroles d'histoire (FR)",
+      "feed": "https://parolesdhistoire.fr/index.php/feed/podcast/",
+      "lang": "fr",
+      "badge": "FR • Débats",
+      "topic": "ideas"
+    },
+    {
+      "title": "Le cours de l'histoire (France Culture)",
+      "feed": "https://radiofrance-podcast.net/podcast09/rss_10075.xml",
+      "lang": "fr",
+      "badge": "FR • Savoirs",
+      "topic": "ideas"
+    },
+    {
+      "title": "Concordance des temps",
+      "feed": "https://radiofrance-podcast.net/podcast09/rss_10074.xml",
+      "lang": "fr",
+      "badge": "FR • Temps",
+      "topic": "world"
+    },
+    {
+      "title": "Histocast",
+      "feed": "https://feeds.feedburner.com/histocast",
+      "lang": "es",
+      "badge": "ES • Bélica",
+      "topic": "epic"
+    },
+    {
+      "title": "Memorias de un tambor",
+      "feed": "https://feeds.feedburner.com/MemoriasDeUnTambor",
+      "lang": "es",
+      "badge": "ES • España",
+      "topic": "world"
+    },
+    {
+      "title": "SER Historia",
+      "feed": "https://feeds.elpais.com/audio/ser-historia",
+      "lang": "es",
+      "badge": "ES • Enigmas",
+      "topic": "archaeology"
+    },
+    {
+      "title": "La Escóbula de la Brújula",
+      "feed": "https://feeds.ivoox.com/feed_fg_f168853_filtro_1.xml",
+      "lang": "es",
+      "badge": "ES • Misterios",
+      "topic": "world"
+    },
+    {
+      "title": "Witness History (BBC)",
+      "feed": "https://podcasts.files.bbci.co.uk/p004t1hd.rss",
+      "lang": "en",
+      "badge": "EN • Eye Witness",
+      "topic": "world"
+    },
+    {
+      "title": "Short History Of...",
+      "feed": "https://feeds.acast.com/public/shows/short-history-of",
+      "lang": "en",
+      "badge": "EN • Profiles",
+      "topic": "world"
+    },
+    {
+      "title": "Real Dictators",
+      "feed": "https://feeds.acast.com/public/shows/real-dictators",
+      "lang": "en",
+      "badge": "EN • Tyranny",
+      "topic": "epic"
+    },
+    {
+      "title": "Lions Led By Donkeys",
+      "feed": "https://feeds.soundcloud.com/users/soundcloud:users:524674062/sounds.rss",
+      "lang": "en",
+      "badge": "EN • Military Fails",
+      "topic": "epic"
+    },
+    {
+      "title": "Días Extraños",
+      "feed": "https://feeds.ivoox.com/feed_fg_f1422773_filtro_1.xml",
+      "lang": "es",
+      "badge": "ES • Heterodoxo",
+      "topic": "ideas"
+    },
+    {
+      "title": "Dan Carlin Hardcore History",
+      "feed": "https://feeds.feedburner.com/dancarlin/history?format=xml",
+      "lang": "en",
+      "badge": "EN • Masterpiece",
+      "topic": "epic"
+    }
+  ]
+}

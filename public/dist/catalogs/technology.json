@@ -1,0 +1,417 @@
+{
+  "id": "technology",
+  "title": "Technology & Future",
+  "emoji": "💻",
+  "description": "Open source, software craftsmanship, artificial intelligence, security, and digital freedom.",
+  "subtopics": [
+    {
+      "id": "all",
+      "label": "All Shows"
+    },
+    {
+      "id": "opensource",
+      "label": "🐧 Open Source"
+    },
+    {
+      "id": "ai",
+      "label": "🤖 AI & Machine Learning"
+    },
+    {
+      "id": "dev",
+      "label": "⚙️ Engineering & Code"
+    },
+    {
+      "id": "privacy",
+      "label": "🛡️ Security & Privacy"
+    }
+  ],
+  "featured": [
+    {
+      "title": "The Changelog",
+      "feed": "https://changelog.com/podcast/feed",
+      "badge": "EN • Open Source",
+      "topic": "opensource",
+      "whyNote": "Conversations with open source creators, hackers, and leaders"
+    },
+    {
+      "title": "Darknet Diaries",
+      "feed": "https://feeds.megaphone.fm/darknetdiaries",
+      "badge": "EN • Security",
+      "topic": "privacy",
+      "whyNote": "Thrilling true stories from the dark side of the Internet"
+    },
+    {
+      "title": "Lex Fridman Podcast",
+      "feed": "https://lexfridman.com/feed/podcast/",
+      "badge": "EN • AI & Tech",
+      "topic": "ai",
+      "whyNote": "Deep dialogues on AI, physics, computing, and intelligence"
+    },
+    {
+      "title": "Software Engineering Daily",
+      "feed": "https://softwareengineeringdaily.com/feed/podcast/",
+      "badge": "EN • Architecture",
+      "topic": "dev",
+      "whyNote": "Technical interviews on distributed systems and software design"
+    },
+    {
+      "title": "Hard Fork (NYT)",
+      "feed": "https://feeds.simplecast.com/l2i9YnTd",
+      "badge": "EN • Future",
+      "topic": "ai",
+      "whyNote": "Fast-moving reporting on AI breakthroughs and tech titans"
+    }
+  ],
+  "shows": [
+    {
+      "title": "The Changelog",
+      "feed": "https://changelog.com/podcast/feed",
+      "lang": "en",
+      "badge": "EN • Open Source",
+      "topic": "opensource"
+    },
+    {
+      "title": "Darknet Diaries",
+      "feed": "https://feeds.megaphone.fm/darknetdiaries",
+      "lang": "en",
+      "badge": "EN • Security",
+      "topic": "privacy"
+    },
+    {
+      "title": "Lex Fridman Podcast",
+      "feed": "https://lexfridman.com/feed/podcast/",
+      "lang": "en",
+      "badge": "EN • AI",
+      "topic": "ai"
+    },
+    {
+      "title": "Software Engineering Daily",
+      "feed": "https://softwareengineeringdaily.com/feed/podcast/",
+      "lang": "en",
+      "badge": "EN • Dev",
+      "topic": "dev"
+    },
+    {
+      "title": "Hard Fork (NYT)",
+      "feed": "https://feeds.simplecast.com/l2i9YnTd",
+      "lang": "en",
+      "badge": "EN • Tech",
+      "topic": "ai"
+    },
+    {
+      "title": "The Vergecast",
+      "feed": "https://feeds.megaphone.fm/vergecast",
+      "lang": "en",
+      "badge": "EN • Gadgets",
+      "topic": "dev"
+    },
+    {
+      "title": "Practical AI (Changelog)",
+      "feed": "https://changelog.com/practicalai/feed",
+      "lang": "en",
+      "badge": "EN • AI in Action",
+      "topic": "ai"
+    },
+    {
+      "title": "Latent Space (AI Engineering)",
+      "feed": "https://api.substack.com/feed/podcast/1084089.rss",
+      "lang": "en",
+      "badge": "EN • LLMs",
+      "topic": "ai"
+    },
+    {
+      "title": "Waveform: The MKBHD Podcast",
+      "feed": "https://feeds.megaphone.fm/VMP8620807085",
+      "lang": "en",
+      "badge": "EN • Hardware",
+      "topic": "dev"
+    },
+    {
+      "title": "Accidental Tech Podcast",
+      "feed": "https://atp.fm/episodes?format=rss",
+      "lang": "en",
+      "badge": "EN • Nerds",
+      "topic": "dev"
+    },
+    {
+      "title": "Decoder with Nilay Patel",
+      "feed": "https://feeds.megaphone.fm/decoder",
+      "lang": "en",
+      "badge": "EN • Strategy",
+      "topic": "dev"
+    },
+    {
+      "title": "Machine Learning Street Talk",
+      "feed": "https://anchor.fm/s/1e6d4ff8/podcast/rss",
+      "lang": "en",
+      "badge": "EN • Deep Learning",
+      "topic": "ai"
+    },
+    {
+      "title": "Gradient Dissent (W&B)",
+      "feed": "https://feeds.buzzsprout.com/1023775.rss",
+      "lang": "en",
+      "badge": "EN • Industry AI",
+      "topic": "ai"
+    },
+    {
+      "title": "The TWIML AI Podcast",
+      "feed": "https://twimlai.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • Research",
+      "topic": "ai"
+    },
+    {
+      "title": "Smashing Security",
+      "feed": "https://feeds.fireside.fm/smashingsecurity/rss",
+      "lang": "en",
+      "badge": "EN • Breaches",
+      "topic": "privacy"
+    },
+    {
+      "title": "Security Now",
+      "feed": "https://feeds.twit.tv/sn.xml",
+      "lang": "en",
+      "badge": "EN • Cryptography",
+      "topic": "privacy"
+    },
+    {
+      "title": "Risky Business",
+      "feed": "https://risky.biz/feeds/risky-business/",
+      "lang": "en",
+      "badge": "EN • InfoSec",
+      "topic": "privacy"
+    },
+    {
+      "title": "Click Here",
+      "feed": "https://feeds.megaphone.fm/clickhere",
+      "lang": "en",
+      "badge": "EN • Cyber Warfare",
+      "topic": "privacy"
+    },
+    {
+      "title": "CYBER (Motherboard)",
+      "feed": "https://feeds.acast.com/public/shows/cyber",
+      "lang": "en",
+      "badge": "EN • Hackers",
+      "topic": "privacy"
+    },
+    {
+      "title": "Command Line Heroes (Red Hat)",
+      "feed": "https://feeds.pacific-content.com/commandlineheroes",
+      "lang": "en",
+      "badge": "EN • OS History",
+      "topic": "opensource"
+    },
+    {
+      "title": "Talk Python To Me",
+      "feed": "https://talkpython.fm/episodes/rss",
+      "lang": "en",
+      "badge": "EN • Python",
+      "topic": "dev"
+    },
+    {
+      "title": "Python Bytes",
+      "feed": "https://pythonbytes.fm/episodes/rss",
+      "lang": "en",
+      "badge": "EN • Python",
+      "topic": "dev"
+    },
+    {
+      "title": "JS Party (Changelog)",
+      "feed": "https://changelog.com/jsparty/feed",
+      "lang": "en",
+      "badge": "EN • Web",
+      "topic": "dev"
+    },
+    {
+      "title": "Syntax - Tasty Web Development",
+      "feed": "https://feed.syntax.fm/rss",
+      "lang": "en",
+      "badge": "EN • Fullstack",
+      "topic": "dev"
+    },
+    {
+      "title": "Front End Happy Hour",
+      "feed": "https://feeds.soundcloud.com/users/soundcloud:users:206137308/sounds.rss",
+      "lang": "en",
+      "badge": "EN • Frontend",
+      "topic": "dev"
+    },
+    {
+      "title": "Rustacean Station",
+      "feed": "https://rustacean-station.org/podcast.rss",
+      "lang": "en",
+      "badge": "EN • Rust",
+      "topic": "opensource"
+    },
+    {
+      "title": "CoRecursive",
+      "feed": "https://feed.corecursive.com/rss",
+      "lang": "en",
+      "badge": "EN • Stories",
+      "topic": "dev"
+    },
+    {
+      "title": "Hanselminutes",
+      "feed": "https://hanselminutes.com/subscribe",
+      "lang": "en",
+      "badge": "EN • Fresh Tech",
+      "topic": "dev"
+    },
+    {
+      "title": "Spark (CBC Radio)",
+      "feed": "https://www.cbc.ca/podcasting/includes/spark.xml",
+      "lang": "en",
+      "badge": "EN • Society",
+      "topic": "dev"
+    },
+    {
+      "title": "Logbuch:Netzpolitik",
+      "feed": "https://logbuch-netzpolitik.de/feed/m4a",
+      "lang": "de",
+      "badge": "DE • Netzpolitik",
+      "topic": "privacy"
+    },
+    {
+      "title": "Freak Show",
+      "feed": "https://freakshow.fm/feed/m4a",
+      "lang": "de",
+      "badge": "DE • Geek",
+      "topic": "dev"
+    },
+    {
+      "title": "CRE: Technik & Kultur",
+      "feed": "https://cre.fm/feed/m4a",
+      "lang": "de",
+      "badge": "DE • Monolog",
+      "topic": "opensource"
+    },
+    {
+      "title": "heise show",
+      "feed": "https://www.heise.de/developer/rss/heiseshow-podcast.rdf",
+      "lang": "de",
+      "badge": "DE • IT",
+      "topic": "dev"
+    },
+    {
+      "title": "c't uplink",
+      "feed": "https://www.heise.de/ct/uplink/ct-uplink.rss",
+      "lang": "de",
+      "badge": "DE • Computer",
+      "topic": "dev"
+    },
+    {
+      "title": "Doppelgänger Tech Talk",
+      "feed": "https://doppelgaenger.io/feed/mp3",
+      "lang": "de",
+      "badge": "DE • Business",
+      "topic": "dev"
+    },
+    {
+      "title": "Clean Code Podcast",
+      "feed": "https://cleancode.libsyn.com/rss",
+      "lang": "de",
+      "badge": "DE • Architektur",
+      "topic": "dev"
+    },
+    {
+      "title": "Future Histories",
+      "feed": "https://www.futurehistories.today/podcast?format=rss",
+      "lang": "de",
+      "badge": "DE • Zukunft",
+      "topic": "ai"
+    },
+    {
+      "title": "Underscore (FR)",
+      "feed": "https://feed.ausha.co/7aP54H1Q8R3M",
+      "lang": "fr",
+      "badge": "FR • Tech & Dev",
+      "topic": "dev"
+    },
+    {
+      "title": "Tech Café (FR)",
+      "feed": "https://techcafe.fr/feed/podcast",
+      "lang": "fr",
+      "badge": "FR • Actualité",
+      "topic": "dev"
+    },
+    {
+      "title": "Mixx.io (Álex Barredo)",
+      "feed": "https://feeds.feedburner.com/mixxio",
+      "lang": "es",
+      "badge": "ES • Diario",
+      "topic": "dev"
+    },
+    {
+      "title": "Kernel (ES)",
+      "feed": "https://feeds.feedburner.com/kernel-podcast",
+      "lang": "es",
+      "badge": "ES • Profundo",
+      "topic": "dev"
+    },
+    {
+      "title": "EFF's How to Fix the Internet",
+      "feed": "https://feeds.eff.org/howtofixtheinternet",
+      "lang": "en",
+      "badge": "EN • Digital Rights",
+      "topic": "privacy"
+    },
+    {
+      "title": "Mozilla IRL Podcast",
+      "feed": "https://irlpodcast.org/feed/",
+      "lang": "en",
+      "badge": "EN • Open Web",
+      "topic": "privacy"
+    },
+    {
+      "title": "Eye on AI",
+      "feed": "https://eyeonai.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • AI News",
+      "topic": "ai"
+    },
+    {
+      "title": "All-In Podcast",
+      "feed": "https://allinpodcast.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • Ventures",
+      "topic": "dev"
+    },
+    {
+      "title": "Ship It! (Changelog)",
+      "feed": "https://changelog.com/shipit/feed",
+      "lang": "en",
+      "badge": "EN • DevOps",
+      "topic": "dev"
+    },
+    {
+      "title": "Founder's Journal",
+      "feed": "https://feeds.megaphone.fm/foundersjournal",
+      "lang": "en",
+      "badge": "EN • Startups",
+      "topic": "dev"
+    },
+    {
+      "title": "Computerphile Audio",
+      "feed": "https://feeds.feedburner.com/computerphile",
+      "lang": "en",
+      "badge": "EN • Concepts",
+      "topic": "dev"
+    },
+    {
+      "title": "Open Source Security Podcast",
+      "feed": "https://opensourcesecuritypodcast.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • Hardening",
+      "topic": "privacy"
+    },
+    {
+      "title": "The Cloudcast",
+      "feed": "https://thecloudcast.libsyn.com/rss",
+      "lang": "en",
+      "badge": "EN • Cloud",
+      "topic": "dev"
+    }
+  ]
+}

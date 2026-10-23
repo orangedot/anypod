@@ -172,6 +172,472 @@ const CANONICAL_FEED_MIGRATIONS = {
   'https://api.quantamagazine.org/feed/podcast/': 'https://www.quantamagazine.org/feed/podcast/' // Quanta direct
 };
 
+const CURATED_CATEGORIES = [
+  {
+    "id": "science",
+    "title": "Science & Cosmos",
+    "emoji": "🔬",
+    "description": "Planetary science, cosmic mysteries, cutting-edge research, and ecology.",
+    "totalShows": 50,
+    "featured": [
+      {
+        "title": "NASA's Curious Universe",
+        "feed": "https://feeds.megaphone.fm/NATIONALAERONAUTICSANDSPACEADMINISTRATION8162188566",
+        "badge": "EN • Space",
+        "topic": "space",
+        "whyNote": "Explore cosmic wonders with NASA scientists"
+      },
+      {
+        "title": "Radiolab",
+        "feed": "https://feeds.simplecast.com/EmVW7VGp",
+        "badge": "EN • Science",
+        "topic": "science",
+        "whyNote": "Investigative curiosity and scientific wonder"
+      },
+      {
+        "title": "The Climate Question (BBC)",
+        "feed": "https://podcasts.files.bbci.co.uk/w13xtvb6.rss",
+        "badge": "EN • Climate",
+        "topic": "climate",
+        "whyNote": "World-class climate reporting from the BBC"
+      },
+      {
+        "title": "Science Vs",
+        "feed": "https://feeds.megaphone.fm/sciencevs",
+        "badge": "EN • Science",
+        "topic": "science",
+        "whyNote": "Fads, trends, and what the science really says"
+      },
+      {
+        "title": "Quanta Science Podcast",
+        "feed": "https://www.quantamagazine.org/feed/podcast/",
+        "badge": "EN • Physics",
+        "topic": "science",
+        "whyNote": "Frontier physics, mathematics, and cosmology"
+      }
+    ],
+    "subtopics": [
+      {
+        "id": "all",
+        "label": "All Shows"
+      },
+      {
+        "id": "space",
+        "label": "🚀 Space & Cosmos"
+      },
+      {
+        "id": "science",
+        "label": "🔬 Research & Physics"
+      },
+      {
+        "id": "climate",
+        "label": "🌱 Climate & Energy"
+      },
+      {
+        "id": "nature",
+        "label": "🌿 Earth & Nature"
+      }
+    ]
+  },
+  {
+    "id": "democracy",
+    "title": "Democracy & Free Press",
+    "emoji": "🏛️",
+    "description": "Investigative journalism, civics, democratic integrity, and global affairs.",
+    "totalShows": 50,
+    "featured": [
+      {
+        "title": "Frontline PBS",
+        "feed": "https://feeds.feedburner.com/pbs/frontline",
+        "badge": "EN • Investigative",
+        "topic": "investigative",
+        "whyNote": "Deep investigative reporting on critical issues"
+      },
+      {
+        "title": "The Daily",
+        "feed": "https://feeds.simplecast.com/54nAGcIl",
+        "badge": "EN • Journalism",
+        "topic": "press",
+        "whyNote": "Essential news reporting and analysis from NYT"
+      },
+      {
+        "title": "Global News Podcast (BBC)",
+        "feed": "https://podcasts.files.bbci.co.uk/p02nq0gn.rss",
+        "badge": "EN • Global",
+        "topic": "global",
+        "whyNote": "Comprehensive world news coverage from the BBC"
+      },
+      {
+        "title": "On the Media (WNYC)",
+        "feed": "https://feeds.simplecast.com/b_x3O7Q_",
+        "badge": "EN • Free Press",
+        "topic": "press",
+        "whyNote": "How media shapes narrative, politics, and democracy"
+      },
+      {
+        "title": "Hintergrund (DLF)",
+        "feed": "https://www.deutschlandfunk.de/hintergrund-102.xml",
+        "badge": "DE • Politik",
+        "topic": "civics",
+        "whyNote": "Gründliche Analysen zu Politik und Gesellschaft"
+      }
+    ],
+    "subtopics": [
+      {
+        "id": "all",
+        "label": "All Shows"
+      },
+      {
+        "id": "investigative",
+        "label": "🔍 Investigative"
+      },
+      {
+        "id": "global",
+        "label": "🌐 Global Affairs"
+      },
+      {
+        "id": "civics",
+        "label": "⚖️ Civics & Law"
+      },
+      {
+        "id": "press",
+        "label": "📰 Free Press"
+      }
+    ]
+  },
+  {
+    "id": "social",
+    "title": "Social & Human Stories",
+    "emoji": "🌍",
+    "description": "Culture, human experience, philosophy, psychology, and personal journeys.",
+    "totalShows": 50,
+    "featured": [
+      {
+        "title": "This American Life",
+        "feed": "https://www.thisamericanlife.org/podcast/rss.xml",
+        "badge": "EN • Storytelling",
+        "topic": "stories",
+        "whyNote": "Pioneering journalistic storytelling and human empathy"
+      },
+      {
+        "title": "Heavyweight",
+        "feed": "https://feeds.megaphone.fm/heavyweight",
+        "badge": "EN • Life",
+        "topic": "stories",
+        "whyNote": "Jonathan Goldstein helps people resolve past regrets"
+      },
+      {
+        "title": "Hidden Brain",
+        "feed": "https://feeds.simplecast.com/kwSerialization",
+        "badge": "EN • Psychology",
+        "topic": "psychology",
+        "whyNote": "Exploring unseen patterns that drive human behavior"
+      },
+      {
+        "title": "Philosophize This!",
+        "feed": "https://philosophizethis.libsyn.com/rss",
+        "badge": "EN • Philosophy",
+        "topic": "philosophy",
+        "whyNote": "Accessible deep-dives into human thought through the ages"
+      },
+      {
+        "title": "Invisibilia (NPR)",
+        "feed": "https://feeds.npr.org/510307/podcast.xml",
+        "badge": "EN • Ideas",
+        "topic": "psychology",
+        "whyNote": "Unseeable forces controlling human behavior and beliefs"
+      }
+    ],
+    "subtopics": [
+      {
+        "id": "all",
+        "label": "All Shows"
+      },
+      {
+        "id": "culture",
+        "label": "🎭 Culture & Society"
+      },
+      {
+        "id": "psychology",
+        "label": "🧠 Mind & Behavior"
+      },
+      {
+        "id": "philosophy",
+        "label": "💡 Philosophy"
+      },
+      {
+        "id": "stories",
+        "label": "📖 Personal Stories"
+      }
+    ]
+  },
+  {
+    "id": "entertainment",
+    "title": "Entertainment & Culture",
+    "emoji": "🎭",
+    "description": "Cinema, comedy, music, storytelling, and contemporary pop culture.",
+    "totalShows": 50,
+    "featured": [
+      {
+        "title": "Song Exploder",
+        "feed": "https://feeds.simplecast.com/Z6tY_B0X",
+        "badge": "EN • Music",
+        "topic": "music",
+        "whyNote": "Musicians break down the creative anatomy of their songs"
+      },
+      {
+        "title": "Conan O'Brien Needs A Friend",
+        "feed": "https://feeds.simplecast.com/dHoohavC",
+        "badge": "EN • Comedy",
+        "topic": "comedy",
+        "whyNote": "Hilarious, heartfelt conversations with extraordinary people"
+      },
+      {
+        "title": "Kermode & Mayo's Take",
+        "feed": "https://feeds.acast.com/public/shows/kermode-and-mayos-take",
+        "badge": "EN • Cinema",
+        "topic": "cinema",
+        "whyNote": "The UK's leading cinematic critics and cultural banter"
+      },
+      {
+        "title": "Pop Culture Happy Hour (NPR)",
+        "feed": "https://feeds.npr.org/510282/podcast.xml",
+        "badge": "EN • Culture",
+        "topic": "pop",
+        "whyNote": "Lively, thoughtful examinations of TV, movies, and arts"
+      },
+      {
+        "title": "SmartLess",
+        "feed": "https://rss.art19.com/smartless",
+        "badge": "EN • Comedy",
+        "topic": "comedy",
+        "whyNote": "Surprise guest interviews with Jason, Sean, and Will"
+      }
+    ],
+    "subtopics": [
+      {
+        "id": "all",
+        "label": "All Shows"
+      },
+      {
+        "id": "cinema",
+        "label": "🎬 Film & TV"
+      },
+      {
+        "id": "comedy",
+        "label": "😂 Comedy & Wit"
+      },
+      {
+        "id": "music",
+        "label": "🎵 Music & Sound"
+      },
+      {
+        "id": "pop",
+        "label": "🍿 Pop Culture"
+      }
+    ]
+  },
+  {
+    "id": "sports",
+    "title": "Sports & Athletics",
+    "emoji": "⚽",
+    "description": "Global football, endurance athletics, performance science, and sports journalism.",
+    "totalShows": 50,
+    "featured": [
+      {
+        "title": "The Athletic Football Podcast",
+        "feed": "https://feeds.megaphone.fm/theathleticfootball",
+        "badge": "EN • Football",
+        "topic": "football",
+        "whyNote": "Authoritative insider analysis from premier football journalists"
+      },
+      {
+        "title": "30 for 30 Podcasts (ESPN)",
+        "feed": "https://feeds.megaphone.fm/ESP3845944111",
+        "badge": "EN • Documentaries",
+        "topic": "analytics",
+        "whyNote": "Cinematic, deeply told stories from sports history"
+      },
+      {
+        "title": "BBC 5 Live Football Daily",
+        "feed": "https://podcasts.files.bbci.co.uk/p02nrsln.rss",
+        "badge": "EN • Football",
+        "topic": "football",
+        "whyNote": "Daily debate and reactions from the Premier League & Europe"
+      },
+      {
+        "title": "The Rich Roll Podcast",
+        "feed": "https://feeds.simplecast.com/xlh6L_pL",
+        "badge": "EN • Endurance",
+        "topic": "endurance",
+        "whyNote": "Ultra-endurance, nutrition, and wellness mastery"
+      },
+      {
+        "title": "The Race F1 Podcast",
+        "feed": "https://feeds.acast.com/public/shows/the-race-f1-podcast",
+        "badge": "EN • Formula 1",
+        "topic": "motorsport",
+        "whyNote": "Expert insight and technical deep-dives into Grand Prix racing"
+      }
+    ],
+    "subtopics": [
+      {
+        "id": "all",
+        "label": "All Shows"
+      },
+      {
+        "id": "football",
+        "label": "⚽ Football / Soccer"
+      },
+      {
+        "id": "endurance",
+        "label": "🏃 Endurance & Running"
+      },
+      {
+        "id": "analytics",
+        "label": "📊 Analytics & Tactics"
+      },
+      {
+        "id": "motorsport",
+        "label": "🏎️ F1 & Motorsport"
+      }
+    ]
+  },
+  {
+    "id": "technology",
+    "title": "Technology & Future",
+    "emoji": "💻",
+    "description": "Open source, software craftsmanship, artificial intelligence, security, and digital freedom.",
+    "totalShows": 50,
+    "featured": [
+      {
+        "title": "The Changelog",
+        "feed": "https://changelog.com/podcast/feed",
+        "badge": "EN • Open Source",
+        "topic": "opensource",
+        "whyNote": "Conversations with open source creators, hackers, and leaders"
+      },
+      {
+        "title": "Darknet Diaries",
+        "feed": "https://feeds.megaphone.fm/darknetdiaries",
+        "badge": "EN • Security",
+        "topic": "privacy",
+        "whyNote": "Thrilling true stories from the dark side of the Internet"
+      },
+      {
+        "title": "Lex Fridman Podcast",
+        "feed": "https://lexfridman.com/feed/podcast/",
+        "badge": "EN • AI & Tech",
+        "topic": "ai",
+        "whyNote": "Deep dialogues on AI, physics, computing, and intelligence"
+      },
+      {
+        "title": "Software Engineering Daily",
+        "feed": "https://softwareengineeringdaily.com/feed/podcast/",
+        "badge": "EN • Architecture",
+        "topic": "dev",
+        "whyNote": "Technical interviews on distributed systems and software design"
+      },
+      {
+        "title": "Hard Fork (NYT)",
+        "feed": "https://feeds.simplecast.com/l2i9YnTd",
+        "badge": "EN • Future",
+        "topic": "ai",
+        "whyNote": "Fast-moving reporting on AI breakthroughs and tech titans"
+      }
+    ],
+    "subtopics": [
+      {
+        "id": "all",
+        "label": "All Shows"
+      },
+      {
+        "id": "opensource",
+        "label": "🐧 Open Source"
+      },
+      {
+        "id": "ai",
+        "label": "🤖 AI & Machine Learning"
+      },
+      {
+        "id": "dev",
+        "label": "⚙️ Engineering & Code"
+      },
+      {
+        "id": "privacy",
+        "label": "🛡️ Security & Privacy"
+      }
+    ]
+  },
+  {
+    "id": "history",
+    "title": "History & Ideas",
+    "emoji": "🏺",
+    "description": "Epic historical journeys, archaeology, pivotal events, and intellectual evolution.",
+    "totalShows": 50,
+    "featured": [
+      {
+        "title": "Dan Carlin's Hardcore History",
+        "feed": "https://feeds.feedburner.com/dancarlin/history?format=xml",
+        "badge": "EN • Epic",
+        "topic": "epic",
+        "whyNote": "Epic, intense deep-dives into humanity's most dramatic crucibles"
+      },
+      {
+        "title": "The Rest is History",
+        "feed": "https://feeds.acast.com/public/shows/the-rest-is-history",
+        "badge": "EN • Acclaimed",
+        "topic": "world",
+        "whyNote": "Tom Holland and Dominic Sandbrook explore history with sharp wit"
+      },
+      {
+        "title": "Throughline (NPR)",
+        "feed": "https://feeds.npr.org/510333/podcast.xml",
+        "badge": "EN • Perspectives",
+        "topic": "world",
+        "whyNote": "How past events directly created our present dilemmas"
+      },
+      {
+        "title": "In Our Time (BBC)",
+        "feed": "https://podcasts.files.bbci.co.uk/b006qykl.rss",
+        "badge": "EN • Intellectual",
+        "topic": "ideas",
+        "whyNote": "Melvyn Bragg and top scholars dissect the history of ideas"
+      },
+      {
+        "title": "Fall of Civilizations Podcast",
+        "feed": "https://feeds.soundcloud.com/users/soundcloud:users:572119410/sounds.rss",
+        "badge": "EN • Ancient",
+        "topic": "archaeology",
+        "whyNote": "Haunting, beautifully scored stories of societies that collapsed"
+      }
+    ],
+    "subtopics": [
+      {
+        "id": "all",
+        "label": "All Shows"
+      },
+      {
+        "id": "epic",
+        "label": "⚔️ Epic & Military History"
+      },
+      {
+        "id": "world",
+        "label": "🌍 World History"
+      },
+      {
+        "id": "ideas",
+        "label": "💡 History of Ideas"
+      },
+      {
+        "id": "archaeology",
+        "label": "🏛️ Ancient & Archaeology"
+      }
+    ]
+  }
+];
+
+
 // Curated 50 Science, Planet & Climate shows worldwide across multiple languages
 const CURATED_SCIENCE_FEEDS = [
   // --- English (EN) ---
@@ -375,7 +841,7 @@ function updateCardWithEpisodes(card, eps, feedUrl) {
 
 function loadCuratedFeedEpisodes(container = document) {
   if (!container || !('IntersectionObserver' in window)) return;
-  const cards = container.querySelectorAll('.starter-show-card, .feed-card[data-feed]');
+  const cards = container.querySelectorAll('.starter-show-card, .feed-card[data-feed], .discover-shelf-card[data-feed], .discover-show-recommendation-card[data-feed]');
 
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
@@ -904,6 +1370,15 @@ const elements = {
   queueItemsContainer: document.getElementById('queue-items-container'),
 
   showNotesModal: document.getElementById('show-notes-modal'),
+  catalogModal: document.getElementById('catalog-browser-modal'),
+  btnCloseCatalogModal: document.getElementById('btn-close-catalog-modal'),
+  catalogModalTitle: document.getElementById('catalog-modal-title'),
+  catalogModalCount: document.getElementById('catalog-modal-count'),
+  catalogSearchInput: document.getElementById('catalog-search-input'),
+  btnClearCatalogSearch: document.getElementById('btn-clear-catalog-search'),
+  catalogSubtopicsRow: document.getElementById('catalog-subtopics-row'),
+  catalogModalBody: document.getElementById('catalog-modal-body'),
+  catalogGrid: document.getElementById('catalog-grid'),
   btnCloseNotes: document.getElementById('btn-close-notes'),
   showNotesArt: document.getElementById('show-notes-art'),
   showNotesPodcastTitle: document.getElementById('show-notes-podcast-title'),
@@ -1568,7 +2043,7 @@ function navigateTo(tab, feedUrl, pushBrowser = true) {
 
 function navigateBack() {
   // If a modal is open, let back close it
-  const openModal = [elements.showNotesModal, elements.queueModal, elements.addModal, elements.sleepModal, elements.confirmModal]
+  const openModal = [elements.showNotesModal, elements.catalogModal, elements.queueModal, elements.addModal, elements.sleepModal, elements.confirmModal]
     .find(m => m && !m.classList.contains('hidden'));
   if (openModal) {
     openModal.classList.add('hidden');
@@ -1592,7 +2067,7 @@ function initNavigationRoute() {
   window.addEventListener('popstate', (e) => {
     // 1. Close any modal if open
     let modalClosed = false;
-    const modals = [elements.showNotesModal, elements.queueModal, elements.addModal, elements.sleepModal, elements.confirmModal];
+    const modals = [elements.showNotesModal, elements.catalogModal, elements.queueModal, elements.addModal, elements.sleepModal, elements.confirmModal];
     for (const m of modals) {
       if (m && !m.classList.contains('hidden')) {
         m.classList.add('hidden');

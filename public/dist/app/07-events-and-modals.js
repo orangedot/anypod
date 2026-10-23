@@ -688,6 +688,14 @@ function setupEventListeners() {
   if (elements.btnCancelAdd) {
     elements.btnCancelAdd.addEventListener('click', closeAddModal);
   }
+  elements.btnCloseCatalogModal?.addEventListener('click', () => {
+    if (typeof closeCatalogModal === 'function') closeCatalogModal();
+  });
+  elements.catalogModal?.addEventListener('click', (e) => {
+    if (e.target === elements.catalogModal && typeof closeCatalogModal === 'function') {
+      closeCatalogModal();
+    }
+  });
   const handleModalFeedSubmit = async () => {
     const val = elements.feedUrlInput ? elements.feedUrlInput.value.trim() : '';
     if (!val) return;
@@ -1096,6 +1104,9 @@ function setupEventListeners() {
     if (e.key === 'Escape') {
       if (elements.showNotesModal && !elements.showNotesModal.classList.contains('hidden')) {
         closeShowNotes();
+        return;
+      } else if (elements.catalogModal && !elements.catalogModal.classList.contains('hidden')) {
+        closeCatalogModal();
         return;
       } else if (elements.queueModal && !elements.queueModal.classList.contains('hidden')) {
         closeQueueModal();

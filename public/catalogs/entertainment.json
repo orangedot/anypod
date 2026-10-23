@@ -1,0 +1,417 @@
+{
+  "id": "entertainment",
+  "title": "Entertainment & Culture",
+  "emoji": "🎭",
+  "description": "Cinema, comedy, music, storytelling, and contemporary pop culture.",
+  "subtopics": [
+    {
+      "id": "all",
+      "label": "All Shows"
+    },
+    {
+      "id": "cinema",
+      "label": "🎬 Film & TV"
+    },
+    {
+      "id": "comedy",
+      "label": "😂 Comedy & Wit"
+    },
+    {
+      "id": "music",
+      "label": "🎵 Music & Sound"
+    },
+    {
+      "id": "pop",
+      "label": "🍿 Pop Culture"
+    }
+  ],
+  "featured": [
+    {
+      "title": "Song Exploder",
+      "feed": "https://feeds.simplecast.com/Z6tY_B0X",
+      "badge": "EN • Music",
+      "topic": "music",
+      "whyNote": "Musicians break down the creative anatomy of their songs"
+    },
+    {
+      "title": "Conan O'Brien Needs A Friend",
+      "feed": "https://feeds.simplecast.com/dHoohavC",
+      "badge": "EN • Comedy",
+      "topic": "comedy",
+      "whyNote": "Hilarious, heartfelt conversations with extraordinary people"
+    },
+    {
+      "title": "Kermode & Mayo's Take",
+      "feed": "https://feeds.acast.com/public/shows/kermode-and-mayos-take",
+      "badge": "EN • Cinema",
+      "topic": "cinema",
+      "whyNote": "The UK's leading cinematic critics and cultural banter"
+    },
+    {
+      "title": "Pop Culture Happy Hour (NPR)",
+      "feed": "https://feeds.npr.org/510282/podcast.xml",
+      "badge": "EN • Culture",
+      "topic": "pop",
+      "whyNote": "Lively, thoughtful examinations of TV, movies, and arts"
+    },
+    {
+      "title": "SmartLess",
+      "feed": "https://rss.art19.com/smartless",
+      "badge": "EN • Comedy",
+      "topic": "comedy",
+      "whyNote": "Surprise guest interviews with Jason, Sean, and Will"
+    }
+  ],
+  "shows": [
+    {
+      "title": "Song Exploder",
+      "feed": "https://feeds.simplecast.com/Z6tY_B0X",
+      "lang": "en",
+      "badge": "EN • Music",
+      "topic": "music"
+    },
+    {
+      "title": "Conan O'Brien Needs A Friend",
+      "feed": "https://feeds.simplecast.com/dHoohavC",
+      "lang": "en",
+      "badge": "EN • Comedy",
+      "topic": "comedy"
+    },
+    {
+      "title": "Kermode & Mayo's Take",
+      "feed": "https://feeds.acast.com/public/shows/kermode-and-mayos-take",
+      "lang": "en",
+      "badge": "EN • Cinema",
+      "topic": "cinema"
+    },
+    {
+      "title": "Pop Culture Happy Hour (NPR)",
+      "feed": "https://feeds.npr.org/510282/podcast.xml",
+      "lang": "en",
+      "badge": "EN • Pop Culture",
+      "topic": "pop"
+    },
+    {
+      "title": "SmartLess",
+      "feed": "https://rss.art19.com/smartless",
+      "lang": "en",
+      "badge": "EN • Comedy",
+      "topic": "comedy"
+    },
+    {
+      "title": "How Did This Get Made?",
+      "feed": "https://feeds.simplecast.com/k6V9_r1F",
+      "lang": "en",
+      "badge": "EN • Bad Movies",
+      "topic": "cinema"
+    },
+    {
+      "title": "Blank Check with Griffin & David",
+      "feed": "https://audioboom.com/channels/4259988.rss",
+      "lang": "en",
+      "badge": "EN • Filmography",
+      "topic": "cinema"
+    },
+    {
+      "title": "Films To Be Buried With",
+      "feed": "https://feeds.acast.com/public/shows/films-to-be-buried-with",
+      "lang": "en",
+      "badge": "EN • Cinema & Death",
+      "topic": "cinema"
+    },
+    {
+      "title": "The Rewatchables",
+      "feed": "https://feeds.megaphone.fm/the-rewatchables",
+      "lang": "en",
+      "badge": "EN • Classic Movies",
+      "topic": "cinema"
+    },
+    {
+      "title": "The Big Picture (The Ringer)",
+      "feed": "https://feeds.megaphone.fm/the-big-picture",
+      "lang": "en",
+      "badge": "EN • Hollywood",
+      "topic": "cinema"
+    },
+    {
+      "title": "Dissect (Spotify)",
+      "feed": "https://feeds.megaphone.fm/dissect",
+      "lang": "en",
+      "badge": "EN • Album Analysis",
+      "topic": "music"
+    },
+    {
+      "title": "Switched on Pop",
+      "feed": "https://feeds.megaphone.fm/VMP6207074311",
+      "lang": "en",
+      "badge": "EN • Musicology",
+      "topic": "music"
+    },
+    {
+      "title": "Broken Record",
+      "feed": "https://feeds.megaphone.fm/brokenrecord",
+      "lang": "en",
+      "badge": "EN • Music Legends",
+      "topic": "music"
+    },
+    {
+      "title": "Sound Opinions",
+      "feed": "https://feeds.soundopinions.org/soundopinions",
+      "lang": "en",
+      "badge": "EN • Rock & Talk",
+      "topic": "music"
+    },
+    {
+      "title": "All Songs Considered (NPR)",
+      "feed": "https://feeds.npr.org/510019/podcast.xml",
+      "lang": "en",
+      "badge": "EN • Discovery",
+      "topic": "music"
+    },
+    {
+      "title": "Tiny Desk Concerts - Audio",
+      "feed": "https://feeds.npr.org/510306/podcast.xml",
+      "lang": "en",
+      "badge": "EN • Live Sessions",
+      "topic": "music"
+    },
+    {
+      "title": "Tape Notes",
+      "feed": "https://feeds.acast.com/public/shows/tapenotes",
+      "lang": "en",
+      "badge": "EN • Studio Craft",
+      "topic": "music"
+    },
+    {
+      "title": "Fly on the Wall",
+      "feed": "https://feeds.simplecast.com/5u8L_2jR",
+      "lang": "en",
+      "badge": "EN • SNL Alumni",
+      "topic": "comedy"
+    },
+    {
+      "title": "Comedy Bang Bang",
+      "feed": "https://feeds.simplecast.com/G5q_P6kF",
+      "lang": "en",
+      "badge": "EN • Improv",
+      "topic": "comedy"
+    },
+    {
+      "title": "WTF with Marc Maron",
+      "feed": "https://feeds.libsyn.com/39379/rss",
+      "lang": "en",
+      "badge": "EN • Interviews",
+      "topic": "comedy"
+    },
+    {
+      "title": "Office Ladies",
+      "feed": "https://feeds.simplecast.com/lM_LdZ_l",
+      "lang": "en",
+      "badge": "EN • The Office",
+      "topic": "pop"
+    },
+    {
+      "title": "Las Culturistas",
+      "feed": "https://feeds.megaphone.fm/lasculturistas",
+      "lang": "en",
+      "badge": "EN • Pop Culture",
+      "topic": "pop"
+    },
+    {
+      "title": "Wait Wait... Don't Tell Me!",
+      "feed": "https://feeds.npr.org/344098539/podcast.xml",
+      "lang": "en",
+      "badge": "EN • News Quiz",
+      "topic": "comedy"
+    },
+    {
+      "title": "Judge John Hodgman",
+      "feed": "https://feeds.feedburner.com/todayinthepast",
+      "lang": "en",
+      "badge": "EN • Petty Court",
+      "topic": "comedy"
+    },
+    {
+      "title": "My Brother, My Brother and Me",
+      "feed": "https://feeds.simplecast.com/w4p8bK9A",
+      "lang": "en",
+      "badge": "EN • Advice",
+      "topic": "comedy"
+    },
+    {
+      "title": "LeVar Burton Reads",
+      "feed": "https://feeds.simplecast.com/F0_xYn59",
+      "lang": "en",
+      "badge": "EN • Fiction",
+      "topic": "pop"
+    },
+    {
+      "title": "Welcome to Night Vale",
+      "feed": "https://feeds.nightvalepresents.com/welcometonightvalepodcast",
+      "lang": "en",
+      "badge": "EN • Audio Drama",
+      "topic": "pop"
+    },
+    {
+      "title": "The Bright Sessions",
+      "feed": "https://feeds.simplecast.com/V9K9q_p8",
+      "lang": "en",
+      "badge": "EN • Sci-Fi Drama",
+      "topic": "pop"
+    },
+    {
+      "title": "Desert Island Discs (BBC)",
+      "feed": "https://podcasts.files.bbci.co.uk/b006qnmr.rss",
+      "lang": "en",
+      "badge": "EN • Archive",
+      "topic": "music"
+    },
+    {
+      "title": "Soul Music (BBC)",
+      "feed": "https://podcasts.files.bbci.co.uk/b008mj7p.rss",
+      "lang": "en",
+      "badge": "EN • Emotion",
+      "topic": "music"
+    },
+    {
+      "title": "Books and Authors (BBC)",
+      "feed": "https://podcasts.files.bbci.co.uk/p02nrsfl.rss",
+      "lang": "en",
+      "badge": "EN • Literature",
+      "topic": "pop"
+    },
+    {
+      "title": "Slate Culture Gabfest",
+      "feed": "https://feeds.megaphone.fm/culturegabfest",
+      "lang": "en",
+      "badge": "EN • Cultural Debate",
+      "topic": "pop"
+    },
+    {
+      "title": "The Treatment (KCRW)",
+      "feed": "https://feeds.kcrw.com/the-treatment",
+      "lang": "en",
+      "badge": "EN • Artists",
+      "topic": "cinema"
+    },
+    {
+      "title": "Gemischtes Hack",
+      "feed": "https://gemischteshack.podigee.io/feed/mp3",
+      "lang": "de",
+      "badge": "DE • Comedy",
+      "topic": "comedy"
+    },
+    {
+      "title": "Fest & Flauschig",
+      "feed": "https://festundflauschig.podigee.io/feed/mp3",
+      "lang": "de",
+      "badge": "DE • Unterhaltung",
+      "topic": "comedy"
+    },
+    {
+      "title": "Baywatch Berlin",
+      "feed": "https://baywatch-berlin.podigee.io/feed/mp3",
+      "lang": "de",
+      "badge": "DE • Quatsch",
+      "topic": "comedy"
+    },
+    {
+      "title": "Das Podcast Ufo",
+      "feed": "https://podcast-ufo.fail/feed/mp3/",
+      "lang": "de",
+      "badge": "DE • Absurd",
+      "topic": "comedy"
+    },
+    {
+      "title": "Kalk & Welk (ARD)",
+      "feed": "https://www.rbb-online.de/rbbkultur/radio/programm/schema/sendungen/kalk_und_welk.xml",
+      "lang": "de",
+      "badge": "DE • Fernsehen",
+      "topic": "pop"
+    },
+    {
+      "title": "Kino oder Couch",
+      "feed": "https://kinoodercouch.podigee.io/feed/mp3",
+      "lang": "de",
+      "badge": "DE • Film",
+      "topic": "cinema"
+    },
+    {
+      "title": "Deutschland3000",
+      "feed": "https://www.ndr.de/nachrichten/info/podcast4968.xml",
+      "lang": "de",
+      "badge": "DE • Popkultur",
+      "topic": "pop"
+    },
+    {
+      "title": "Pop Cult (France Inter)",
+      "feed": "https://radiofrance-podcast.net/podcast09/rss_10079.xml",
+      "lang": "fr",
+      "badge": "FR • Culture Pop",
+      "topic": "pop"
+    },
+    {
+      "title": "Blockbusters (France Inter)",
+      "feed": "https://radiofrance-podcast.net/podcast09/rss_10080.xml",
+      "lang": "fr",
+      "badge": "FR • Cinéma",
+      "topic": "cinema"
+    },
+    {
+      "title": "Todopoderosos",
+      "feed": "https://feeds.ivoox.com/feed_fg_f1137072_filtro_1.xml",
+      "lang": "es",
+      "badge": "ES • Cine & Libros",
+      "topic": "cinema"
+    },
+    {
+      "title": "Cinemascopazo",
+      "feed": "https://feeds.ivoox.com/feed_fg_f1454506_filtro_1.xml",
+      "lang": "es",
+      "badge": "ES • Películas",
+      "topic": "cinema"
+    },
+    {
+      "title": "Campamento Krypton",
+      "feed": "https://feeds.ivoox.com/feed_fg_f168759_filtro_1.xml",
+      "lang": "es",
+      "badge": "ES • Freak Culture",
+      "topic": "pop"
+    },
+    {
+      "title": "Kermode on Film",
+      "feed": "https://feeds.acast.com/public/shows/kermodeonfilm",
+      "lang": "en",
+      "badge": "EN • Reviews",
+      "topic": "cinema"
+    },
+    {
+      "title": "Composer of the Week (BBC)",
+      "feed": "https://podcasts.files.bbci.co.uk/b006tnxf.rss",
+      "lang": "en",
+      "badge": "EN • Classical",
+      "topic": "music"
+    },
+    {
+      "title": "Filmcast",
+      "feed": "https://feeds.feedburner.com/slashfilmcast",
+      "lang": "en",
+      "badge": "EN • Opinions",
+      "topic": "cinema"
+    },
+    {
+      "title": "The Screenwriting Life",
+      "feed": "https://feeds.buzzsprout.com/1126744.rss",
+      "lang": "en",
+      "badge": "EN • Writers",
+      "topic": "cinema"
+    },
+    {
+      "title": "Song vs. Song",
+      "feed": "https://feeds.megaphone.fm/songvssong",
+      "lang": "en",
+      "badge": "EN • Music Faceoff",
+      "topic": "music"
+    }
+  ]
+}
