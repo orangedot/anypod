@@ -1645,13 +1645,21 @@ const DISCOVER_AI_TOPICS = {
   }
 };
 
-function analyzeTasteProfile(currentState) {
+let _cachedTasteProfile = null;
+let _cachedTasteFingerprint = null;
+
+function analyzeTasteProfile(currentState, force = false) {
   const feeds = currentState.feeds || [];
   const feedMeta = currentState.feedMetadata || {};
   const allEps = currentState.allEpisodes || [];
   const positions = currentState.playbackPositions || {};
   const favorites = currentState.favorites || [];
   const queue = currentState.queue || [];
+
+  const fingerprint = `${feeds.length}_${allEps.length}_${Object.keys(positions).length}_${favorites.length}_${queue.length}`;
+  if (!force && _cachedTasteProfile && _cachedTasteFingerprint === fingerprint) {
+    return _cachedTasteProfile;
+  }
 
   const topicScores = {};
   Object.keys(DISCOVER_AI_TOPICS).forEach(k => { topicScores[k] = 0; });
@@ -1803,7 +1811,7 @@ function analyzeTasteProfile(currentState) {
     ? `Based on ${feeds.length} subscribed ${feeds.length === 1 ? 'show' : 'shows'}${totalEngagedEps > 0 ? `, ${totalEngagedEps} listened episodes` : ''}`
     : 'Starter Profile • Calibrates with your listening';
 
-  return {
+  const profile = {
     title: personaTitle,
     narrative: personaNarrative,
     vibes: vibes.slice(0, 4),
@@ -1812,6 +1820,10 @@ function analyzeTasteProfile(currentState) {
     topTopics: sortedTopics.filter(t => t.score > 0).map(t => t.key),
     engineLabel: 'Local AI Taste Engine'
   };
+
+  _cachedTasteProfile = profile;
+  _cachedTasteFingerprint = fingerprint;
+  return profile;
 }
 
 function buildDiscoverEpisodeCard(ep, whyNote, isExternal = false) {
@@ -1910,7 +1922,7 @@ function buildDiscoverShowCard(show, whyNote, idx = 0) {
     <div class="episode-footer" style="margin-top:auto;">
       <div class="episode-meta">
         <span class="date-line">${escapeHtml(show.topic ? show.topic.toUpperCase() : 'PODCAST')}</span>
-        <span class="time-line"><span class="btn-preview-link" style="color:var(--text-muted); cursor:pointer;">Explore episodes →</span></span>
+        <span class="time-line"><span class="btn-preview-link">Explore episodes →</span></span>
       </div>
       <div class="episode-card-actions" style="display:flex; gap:6px;">
         <button type="button" class="btn ${isSubbed ? 'btn-secondary' : 'btn-primary'} btn-sm btn-discover-follow" ${isSubbed ? 'disabled' : ''}>
@@ -2216,16 +2228,25 @@ function buildDiscoverRecentFeedCard(url) {
   return card;
 }
 
-function renderDiscover() {
+function renderDiscover(forceRebuild = false) {
   const container = document.getElementById('discover-content-container');
   if (!container) return;
 
   const hasFeeds = state.feeds && state.feeds.length > 0;
   const existingWrap = container.querySelector('.discover-view-wrap');
+  const currentFeedsKey = hasFeeds ? `${state.feeds.join(',')}_${(state.allEpisodes || []).length}` : 'empty';
 
-  // If new visitor with no custom feeds and pre-rendered shell is already present in DOM:
+  // 1. If already hydrated and state hasn't changed, instant 0ms tab return!
+  if (!forceRebuild && existingWrap && existingWrap.dataset.prerendered === 'hydrated') {
+    if (existingWrap.dataset.feedsKey === currentFeedsKey) {
+      return;
+    }
+  }
+
+  // 2. If new visitor with no custom feeds and pre-rendered shell is already present in DOM:
   if (!hasFeeds && existingWrap && (existingWrap.dataset.prerendered === 'true' || existingWrap.dataset.prerendered === 'hydrated')) {
     existingWrap.dataset.prerendered = 'hydrated';
+    existingWrap.dataset.feedsKey = 'empty';
     wireEmptyStateEvents(container);
     return;
   }
@@ -2323,7 +2344,7 @@ function renderDiscover() {
     : `Curated starter shows from worldwide producers to introduce fresh perspectives and tune your profile.`;
 
   container.innerHTML = `
-    <div class="discover-view-wrap">
+    <div class="discover-view-wrap" data-prerendered="hydrated" data-feeds-key="${escapeHtml(currentFeedsKey)}">
       <!-- AI Taste Persona Banner -->
       <div class="discover-persona-banner">
         <div class="persona-banner-header">
@@ -2481,7 +2502,8 @@ function renderDiscover() {
       recalibrateBtn.style.opacity = '0.5';
       showToast('✨ AI taste profile recalibrated against your library!');
       setTimeout(() => {
-        renderDiscover();
+        _cachedTasteProfile = null;
+        renderDiscover(true);
       }, 200);
     });
   }

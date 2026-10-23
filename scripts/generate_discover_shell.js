@@ -91,7 +91,7 @@ export function generateDiscoverShellHtml() {
         <div class="episode-footer" style="margin-top:auto;">
           <div class="episode-meta">
             <span class="date-line">${escapeHtml(show.topic.toUpperCase())}</span>
-            <span class="time-line"><span class="btn-preview-link" style="color:var(--text-muted); cursor:pointer;">Explore episodes →</span></span>
+            <span class="time-line"><span class="btn-preview-link">Explore episodes →</span></span>
           </div>
           <div class="episode-card-actions" style="display:flex; gap:6px;">
             <button type="button" class="btn btn-primary btn-sm btn-discover-follow">+ Follow Show</button>
@@ -148,7 +148,7 @@ export function generateDiscoverShellHtml() {
   ].map(f => `<button type="button" class="starter-filter-pill ${f.active ? 'active' : ''}" data-filter="${f.id}">${f.label}</button>`).join('');
 
   return `
-    <div class="discover-view-wrap" data-prerendered="true">
+    <div class="discover-view-wrap" data-prerendered="true" data-feeds-key="empty">
       <!-- AI Taste Persona Banner (Primary Text-First LCP Target) -->
       <div class="discover-persona-banner">
         <div class="persona-banner-header">

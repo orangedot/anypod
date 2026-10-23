@@ -43,14 +43,14 @@
     --primary-hover: #1c1916;
     --primary-glow: rgba(46, 42, 37, 0.12);
     --primary-fg: #f5f2eb;
-    --accent-orange: #ea580c;
-    --accent-orange-hover: #c2410c;
-    --accent: #ea580c;
+    --accent-orange: #c2410c;
+    --accent-orange-hover: #9a3412;
+    --accent: #c2410c;
     --danger: #dc2626;
     
     --text-primary: #18181b;
     --text-secondary: #52525c;
-    --text-muted: #71717a;
+    --text-muted: #52525b;
     
     --border-light: rgba(0, 0, 0, 0.08);
     --border-focus: #635c53;
@@ -69,14 +69,14 @@
   --primary-hover: #1c1916;
   --primary-glow: rgba(46, 42, 37, 0.12);
   --primary-fg: #f5f2eb;
-  --accent-orange: #ea580c;
-  --accent-orange-hover: #c2410c;
-  --accent: #ea580c;
+  --accent-orange: #c2410c;
+  --accent-orange-hover: #9a3412;
+  --accent: #c2410c;
   --danger: #dc2626;
   
   --text-primary: #18181b;
   --text-secondary: #52525c;
-  --text-muted: #71717a;
+  --text-muted: #52525b;
   
   --border-light: rgba(0, 0, 0, 0.08);
   --border-focus: #635c53;
@@ -4107,6 +4107,45 @@ button.feed-link-badge:hover {
   color: var(--text-muted);
 }
 
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .discover-section-pill {
+    color: #3f3f46;
+    font-weight: 700;
+  }
+}
+
+[data-theme="light"] .discover-section-pill {
+  color: #3f3f46;
+  font-weight: 700;
+}
+
+.btn-preview-link {
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .btn-preview-link {
+    color: #3f3f46;
+    font-weight: 600;
+  }
+  :root:not([data-theme="dark"]) .episode-meta .date-line {
+    color: #3f3f46;
+    font-weight: 600;
+  }
+}
+
+[data-theme="light"] .btn-preview-link {
+  color: #3f3f46;
+  font-weight: 600;
+}
+
+[data-theme="light"] .episode-meta .date-line {
+  color: #3f3f46;
+  font-weight: 600;
+}
+
 .discover-section-narrative {
   font-size: 0.86rem;
   line-height: 1.5;
@@ -4236,10 +4275,20 @@ button.feed-link-badge:hover {
   transform: translateY(-1px);
 }
 
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .discover-why-badge {
+    background: rgba(194, 65, 12, 0.08);
+    border-color: rgba(194, 65, 12, 0.25);
+    color: #9a3412;
+    font-weight: 600;
+  }
+}
+
 [data-theme="light"] .discover-why-badge {
-  background: rgba(234, 88, 12, 0.08);
-  border-color: rgba(234, 88, 12, 0.2);
-  color: #c2410c;
+  background: rgba(194, 65, 12, 0.08);
+  border-color: rgba(194, 65, 12, 0.25);
+  color: #9a3412;
+  font-weight: 600;
 }
 
 .discover-why-badge .why-icon {
