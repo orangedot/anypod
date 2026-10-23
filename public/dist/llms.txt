@@ -1,0 +1,23 @@
+# Anypod
+
+> Private, ad-free, open-source podcast player and RSS client.
+
+Anypod is a modern web podcast client and progressive web app (PWA) designed with complete privacy:
+- No tracking, no user profiles, no advertisements.
+- Direct RSS podcast subscription without central server accounts.
+- YouTube audio streaming and channel feeds.
+- Built-in AI Taste profile running privately on-device.
+- Offline-ready Progressive Web App (PWA) via service worker and IndexedDB.
+- Optional client-side encrypted cloud sync.
+- User data automatically expires and deletes after 50 days of inactivity.
+
+## Features
+- Direct RSS feed subscription and XML/JSON parsing.
+- YouTube channel, playlist, and video audio streaming.
+- Local playback progress tracking with resume.
+- Queue management, favorites, download manager, speed controls (0.5x - 3.0x).
+- Curated directory of science, space, nature, and technology shows.
+
+## Core Endpoints
+- Web App: https://anypod.org/
+- Source Code: https://github.com/orangedot/anypod

@@ -1,0 +1,22 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "Anypod",
+    "identifier": "did:web:anypod.org"
+  },
+  "entries": [
+    {
+      "identifier": "urn:ai:anypod.org:services:podcast-player",
+      "displayName": "Anypod Private Podcast Player",
+      "type": "text/html",
+      "url": "https://anypod.org",
+      "description": "Private, open-source podcast player with direct RSS subscription, local listening history, and zero user tracking.",
+      "representativeQueries": [
+        "Play podcast feeds without account tracking",
+        "Subscribe to open RSS podcast feeds privately",
+        "Listen to YouTube podcast audio with offline support"
+      ],
+      "tags": ["podcast", "rss", "privacy", "audio", "pwa"]
+    }
+  ]
+}

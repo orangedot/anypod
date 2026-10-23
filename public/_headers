@@ -27,6 +27,11 @@
 /shared/*
   Cache-Control: no-cache, no-store, must-revalidate
 
+# Permanent caching for self-hosted immutable fonts
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *
+
 # Fingerprinted production bundles cached forever as immutable static files
 /dist/app.min.js
   Cache-Control: public, max-age=31536000, immutable

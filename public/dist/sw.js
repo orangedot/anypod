@@ -1,10 +1,12 @@
-const CACHE_NAME = 'anypod-v19';
+const CACHE_NAME = 'anypod-v20';
 const AUDIO_CACHE_NAME = 'anypod-audio-v1';
 
 const APP_SHELL = [
   '/',
   '/index.html',
   '/style.min.css',
+  '/fonts/outfit-latin.woff2',
+  '/fonts/outfit-latin-ext.woff2',
   '/app.min.js',
   '/manifest.webmanifest',
   '/icon.svg',
