@@ -669,9 +669,6 @@ function loadCacheFromStorage() {
       renderTimeline(false);
       renderContinueShelf();
       renderFeedsGrid();
-      if (typeof scheduleDiscoverPrecompute === 'function') {
-        scheduleDiscoverPrecompute(800);
-      }
     }
   } catch (e) {}
 
@@ -687,9 +684,6 @@ function loadCacheFromStorage() {
         renderFeedsGrid();
         if (state.activeFeedDetailUrl && typeof renderFeedDetail === 'function') {
           renderFeedDetail(state.activeFeedDetailUrl);
-        }
-        if (typeof scheduleDiscoverPrecompute === 'function') {
-          scheduleDiscoverPrecompute(800);
         }
       }
     }

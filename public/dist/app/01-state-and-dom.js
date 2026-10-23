@@ -166,19 +166,19 @@ const CURATED_SCIENCE_FEEDS = [
   { title: "Radiolab", feed: "https://feeds.simplecast.com/EmVW7VGp", lang: "en", badge: "EN • Science", topic: "science" },
   { title: "The Climate Question (BBC)", feed: "https://podcasts.files.bbci.co.uk/w13xtvb6.rss", lang: "en", badge: "EN • Climate", topic: "climate" },
   { title: "Science Vs", feed: "https://feeds.megaphone.fm/sciencevs", lang: "en", badge: "EN • Science", topic: "science" },
-  { title: "Ologies with Alie Ward", feed: "https://feeds.simplecast.com/FO6kxYGj", lang: "en", badge: "EN • Nature", topic: "nature" },
+  { title: "Ologies with Alie Ward", feed: "https://feeds.simplecast.com/S-J-2z2f", lang: "en", badge: "EN • Nature", topic: "nature" },
   { title: "Nature Podcast", feed: "https://feeds.acast.com/public/shows/nature", lang: "en", badge: "EN • Research", topic: "science" },
   { title: "StarTalk Radio", feed: "https://feeds.simplecast.com/4T39_jAj", lang: "en", badge: "EN • Space", topic: "space" },
-  { title: "Science Friday", feed: "https://feeds.simplecast.com/h18ZIZD_", lang: "en", badge: "EN • Science", topic: "science" },
+  { title: "Science Friday", feed: "https://feeds.simplecast.com/8Px3L_y8", lang: "en", badge: "EN • Science", topic: "science" },
   { title: "TED Climate", feed: "https://feeds.feedburner.com/tedtalks_audio", lang: "en", badge: "EN • Climate", topic: "climate" },
   { title: "Costing the Earth (BBC)", feed: "https://podcasts.files.bbci.co.uk/b006r4wn.rss", lang: "en", badge: "EN • Ecology", topic: "climate" },
-  { title: "BBC Earth Podcast", feed: "https://feeds.acast.com/public/shows/63fb67c5-f719-43f7-b264-390cd7edb120", lang: "en", badge: "EN • Planet", topic: "nature" },
+  { title: "BBC Earth Podcast", feed: "https://feeds.acast.com/public/shows/bbc-earth-podcast", lang: "en", badge: "EN • Planet", topic: "nature" },
   { title: "Future Ecologies", feed: "https://feeds.captivate.fm/future-ecologies/", lang: "en", badge: "EN • Ecology", topic: "nature" },
   { title: "Mongabay Newscast", feed: "https://mongabay.libsyn.com/rss", lang: "en", badge: "EN • Forests", topic: "nature" },
   { title: "Living on Earth (PRI)", feed: "https://feeds.megaphone.fm/livingonearth", lang: "en", badge: "EN • Environment", topic: "climate" },
   { title: "Short Wave (NPR)", feed: "https://feeds.npr.org/510351/podcast.xml", lang: "en", badge: "EN • Science", topic: "science" },
   { title: "Huberman Lab", feed: "https://feeds.megaphone.fm/hubermanlab", lang: "en", badge: "EN • Biology", topic: "science" },
-  { title: "Planetary Radio", feed: "https://www.omnycontent.com/d/playlist/d95da206-8ee8-4ba5-ba8d-ad1200b4e5a4/cf13d5f5-6040-458d-ab5a-ad200189747d/b75c9f7f-4a63-438e-b506-ad2001897499/podcast.rss", lang: "en", badge: "EN • Space", topic: "space" },
+  { title: "Planetary Radio", feed: "https://www.planetary.org/feed/podcast", lang: "en", badge: "EN • Space", topic: "space" },
   { title: "The Infinite Monkey Cage (BBC)", feed: "https://podcasts.files.bbci.co.uk/b00snr0w.rss", lang: "en", badge: "EN • Science", topic: "science" },
   { title: "Quanta Science Podcast", feed: "https://api.quantamagazine.org/feed/podcast/", lang: "en", badge: "EN • Physics", topic: "science" },
   { title: "Outrage + Optimism", feed: "https://feeds.acast.com/public/shows/outrage-optimism", lang: "en", badge: "EN • Climate", topic: "climate" },
@@ -195,7 +195,7 @@ const CURATED_SCIENCE_FEEDS = [
   { title: "Terra X Podcast (ZDF)", feed: "https://cdn.julephosting.de/podcasts/1350-terra-x-der-podcast/feed.rss", lang: "de", badge: "DE • Natur", topic: "nature" },
   { title: "radiowissen (Bayern 2)", feed: "https://feeds.br.de/radiowissen/feed.xml", lang: "de", badge: "DE • Wissen", topic: "science" },
   { title: "Synapsen (NDR Info)", feed: "https://www.ndr.de/nachrichten/info/podcast2994.xml", lang: "de", badge: "DE • Forschung", topic: "science" },
-  { title: "Spektrum der Wissenschaft", feed: "https://www.spektrum.de/blatt/d_sdwv_podcast_rss&id=851833", lang: "de", badge: "DE • Natur", topic: "nature" },
+  { title: "Spektrum der Wissenschaft", feed: "https://detektor.fm/podcasts/spektrum-der-wissenschaft/feed", lang: "de", badge: "DE • Natur", topic: "nature" },
   { title: "Das Klima (IPCC)", feed: "https://dasklima.podigee.io/feed/mp3", lang: "de", badge: "DE • Klima", topic: "climate" },
   { title: "Quarks Science-Cops (WDR)", feed: "https://www1.wdr.de/mediathek/audio/quarks-science-cops/science-cops-100.podcast", lang: "de", badge: "DE • Fakten", topic: "science" },
   { title: "Gradmesser (Tagesspiegel)", feed: "https://dergradmesser.podigee.io/feed/mp3", lang: "de", badge: "DE • Klima", topic: "climate" },
@@ -1471,7 +1471,7 @@ function _applyView({ tab, feedUrl }) {
       //   elements.btnHeaderBackLabel.textContent = prevName;
       // }
     }
-    window.scrollTo(0, 0);
+    if (window.scrollY > 0) window.scrollTo(0, 0);
     const meta = state.feedMetadata[feedUrl] || {};
     if (elements.searchInput) {
       elements.searchInput.placeholder = `Search in ${meta.title || 'podcast'}...`;
@@ -1518,7 +1518,7 @@ function _applyView({ tab, feedUrl }) {
       updateDownloadedCountUI();
     } else if (targetTab === 'discover') {
       if (elements.searchInput) elements.searchInput.placeholder = 'Search directory or paste URL...';
-      window.scrollTo(0, 0);
+      if (window.scrollY > 0) window.scrollTo(0, 0);
       renderDiscover();
     } else if (targetTab === 'settings') {
       if (elements.searchInput) elements.searchInput.placeholder = 'Search episodes...';
@@ -1700,25 +1700,21 @@ function init() {
   loadFavoritesFromStorage();
   loadDownloadsFromStorage();
   setupEventListeners();
-  if (typeof setupAudioEngines === 'function') setupAudioEngines();
-  if (typeof hookVisualizerToAudio === 'function') hookVisualizerToAudio();
+  setupAudioEngines();
+  hookVisualizerToAudio();
   setupNetworkListeners();
   updateQueueUI();
   updateDownloadedCountUI();
   updateDockVisibility();
-  if (typeof updateAutoplayButtonUI === 'function') updateAutoplayButtonUI();
-  if (typeof updateShuffleButtonUI === 'function') updateShuffleButtonUI();
+  updateAutoplayButtonUI();
+  updateShuffleButtonUI();
   initServiceWorker();
   initNavigationRoute();
   checkAuth();
-  if (typeof loadExperimentalSettings === 'function') loadExperimentalSettings();
-  if (typeof setupExperimentalSettings === 'function') setupExperimentalSettings();
-  if (typeof restoreLastActiveEpisode === 'function') restoreLastActiveEpisode();
+  loadExperimentalSettings();
+  setupExperimentalSettings();
+  restoreLastActiveEpisode();
   checkStoragePermissionAlert();
-
-  if (storage.getItem(STORAGE_KEYS.LAST_EPISODE) && typeof loadPlayerBundle === 'function') {
-    loadPlayerBundle();
-  }
 }
 
 function checkStoragePermissionAlert() {
