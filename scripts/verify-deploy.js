@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { runSmokeTest } from './smoke_test.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -75,6 +76,21 @@ try {
   if (fs.existsSync(tmpOut)) {
     fs.rmSync(tmpOut, { recursive: true, force: true });
   }
+}
+
+// 4. Run automated production build & headless browser smoke test
+console.log('📦 Ensuring clean production build for verification...');
+execSync('node scripts/build.js', { cwd: appDir, stdio: 'inherit' });
+
+console.log('🧪 Executing automated headless browser smoke test...');
+try {
+  await runSmokeTest();
+  console.log('✅ Browser smoke test verified: zero runtime errors, state & navigation clean.');
+} catch (smokeErr) {
+  console.error('\n❌ CRITICAL DEPLOYMENT GATE: Headless browser smoke test failed!');
+  console.error(smokeErr.message);
+  console.error('🚫 DEPLOYMENT ABORTED: Fix the browser runtime errors before deploying to production.\n');
+  process.exit(1);
 }
 
 console.log('🎉 Pre-flight verification passed! Safe to deploy.\n');

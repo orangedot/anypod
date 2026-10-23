@@ -346,6 +346,10 @@ function sanitizeFeedUrl(rawUrl) {
     if (match) clean = match[0];
   }
   clean = clean.replace(/[\]\)>]+$/, '');
+  const migrations = (typeof CANONICAL_FEED_MIGRATIONS !== 'undefined') ? CANONICAL_FEED_MIGRATIONS : {};
+  if (migrations[clean]) {
+    clean = migrations[clean];
+  }
   return clean;
 }
 
@@ -369,7 +373,22 @@ const KNOWN_NO_CORS_HOSTS = new Set([
   'www.trueunderground.one',
   'thecreativeprocess.squarespace.com',
   'podcast.audiocon.de',
-  'podcast.daskoimladja.com'
+  'podcast.daskoimladja.com',
+  'api.substack.com',
+  'substack.com',
+  'feeds.br.de',
+  'br.de',
+  'feed.ausha.co',
+  'ausha.co',
+  'api.sr.se',
+  'public-api.sr.se',
+  'sr.se',
+  'rss.art19.com',
+  'art19.com',
+  'api.quantamagazine.org',
+  'www.planetary.org',
+  'planetary.org',
+  'detektor.fm'
 ]);
 
 function getCachedNoCorsHosts() {

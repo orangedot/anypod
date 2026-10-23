@@ -332,7 +332,8 @@ async function syncFeedsWithD1() {
 
     const remoteFeeds = Array.isArray(data.feeds) ? data.feeds : [];
     if (remoteFeeds.length > 0 || !state.feeds || state.feeds.length === 0) {
-      state.feeds = remoteFeeds.map(f => f.feed_url);
+      const migrations = (typeof CANONICAL_FEED_MIGRATIONS !== 'undefined') ? CANONICAL_FEED_MIGRATIONS : {};
+      state.feeds = [...new Set(remoteFeeds.map(f => migrations[f.feed_url] || f.feed_url))];
       saveFeedsToStorage();
     }
 
@@ -577,7 +578,26 @@ async function savePlaybackPositionToD1(episodeGuid, positionSeconds, completed 
 function loadFeedsFromStorage() {
   try {
     const saved = storage.getItem(STORAGE_KEYS.FEEDS) || storage.getItem('podcast_pulse_feeds');
-    state.feeds = saved ? JSON.parse(saved) : [];
+    let loaded = saved ? JSON.parse(saved) : [];
+    if (Array.isArray(loaded)) {
+      let migrated = false;
+      const migrations = (typeof CANONICAL_FEED_MIGRATIONS !== 'undefined') ? CANONICAL_FEED_MIGRATIONS : {};
+      loaded = loaded.map(url => {
+        if (migrations[url]) {
+          migrated = true;
+          return migrations[url];
+        }
+        return url;
+      });
+      // Deduplicate
+      loaded = [...new Set(loaded)];
+      state.feeds = loaded;
+      if (migrated) {
+        saveFeedsToStorage();
+      }
+    } else {
+      state.feeds = [];
+    }
     updateFeedCountUI();
   } catch (e) {
     state.feeds = [];

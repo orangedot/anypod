@@ -7,6 +7,7 @@
   "scripts": {
     "build": "node scripts/build.js",
     "predeploy": "node scripts/verify-deploy.js",
+    "test:smoke": "node scripts/smoke_test.js",
     "dev": "wrangler pages dev public --ip 0.0.0.0 --port 8788",
     "dev:prod": "npm run build && wrangler pages dev public/dist --ip 0.0.0.0 --port 8788",
     "dev:init-db": "mkdir -p .wrangler/state/v3/d1/miniflare-D1DatabaseObject && sqlite3 .wrangler/state/v3/d1/miniflare-D1DatabaseObject/1d2c6f471d53ebbab1505a69a966ce3e563bc9428255f6f61ad83474526c0fe6.sqlite < schema.sql",
@@ -19,6 +20,7 @@
     "screenshot:discover:all": "node scripts/capture_discover_screenshot.js --all"
   },
   "devDependencies": {
+    "puppeteer-core": "^25.16.0",
     "wrangler": "^4.145.0"
   },
   "keywords": [
