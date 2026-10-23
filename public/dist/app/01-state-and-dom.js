@@ -1471,22 +1471,19 @@ if (window.YT && window.YT.Player) {
 // ─────────────────────────────────────────────────────────────────────────
 
 function _applyView({ tab, feedUrl }) {
-  elements.tabs.forEach(t => t.classList.remove('active'));
-  elements.panels.forEach(p => p.classList.remove('active'));
   if (elements.btnOpenSettings) elements.btnOpenSettings.classList.remove('is-active');
 
   if (feedUrl) {
     state.activeFeedDetailUrl = feedUrl;
+    elements.tabs.forEach(t => t.classList.remove('active'));
+    elements.panels.forEach(p => p.classList.remove('active'));
     if (elements.panelFeedDetail) elements.panelFeedDetail.classList.add('active');
     if (elements.btnHeaderBack) {
       elements.btnHeaderBack.classList.remove('hidden');
       const prev = state.navHistory[state.navHistory.length - 1];
       const prevName = prev?.tab ? (prev.tab.charAt(0).toUpperCase() + prev.tab.slice(1)) : 'Back';
-      // if (elements.btnHeaderBackLabel) {
-      //   elements.btnHeaderBackLabel.textContent = prevName;
-      // }
     }
-    if (window.scrollY > 0) window.scrollTo(0, 0);
+    window.scrollTo(0, 0);
     const meta = state.feedMetadata[feedUrl] || {};
     if (elements.searchInput) {
       elements.searchInput.placeholder = `Search in ${meta.title || 'podcast'}...`;
@@ -1512,9 +1509,18 @@ function _applyView({ tab, feedUrl }) {
     }
 
     const tabEl = document.getElementById(`tab-${targetTab}`);
-    if (tabEl) tabEl.classList.add('active');
     const panelEl = document.getElementById(`panel-${targetTab}`);
-    if (panelEl) panelEl.classList.add('active');
+
+    // If already active (e.g. pre-rendered Discover shell on initial boot), avoid layout shifts
+    const isAlreadyActive = panelEl && panelEl.classList.contains('active') && tabEl && tabEl.classList.contains('active');
+
+    if (!isAlreadyActive) {
+      elements.tabs.forEach(t => t.classList.remove('active'));
+      elements.panels.forEach(p => p.classList.remove('active'));
+      if (tabEl) tabEl.classList.add('active');
+      if (panelEl) panelEl.classList.add('active');
+    }
+
     if (targetTab === 'settings' && elements.btnOpenSettings) {
       elements.btnOpenSettings.classList.add('is-active');
     }
@@ -1533,7 +1539,7 @@ function _applyView({ tab, feedUrl }) {
       updateDownloadedCountUI();
     } else if (targetTab === 'discover') {
       if (elements.searchInput) elements.searchInput.placeholder = 'Search directory or paste URL...';
-      if (window.scrollY > 0) window.scrollTo(0, 0);
+      if (!isAlreadyActive) window.scrollTo(0, 0);
       renderDiscover();
     } else if (targetTab === 'settings') {
       if (elements.searchInput) elements.searchInput.placeholder = 'Search episodes...';
