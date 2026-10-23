@@ -18,6 +18,7 @@ if (!fs.existsSync(distDir)) {
 
 // 0. Assemble in-memory JS bundle from shared/* + app/* modular files
 const sharedModules = [
+  'scripts/settings.js',
   'shared/formatters.js',
   'shared/storage.js',
   'shared/sync-bridge.js',
@@ -93,14 +94,18 @@ let prodHtml = rawHtml
     '<div id="discover-content-container"></div>',
     `<div id="discover-content-container">${staticDiscoverHtml}</div>`
   )
-  // 2. Make Discover panel & tab active by default in initial HTML (eliminates Slow 4G JS wait for LCP)
-  .replace('<section class="tab-panel active" id="panel-timeline">', '<section class="tab-panel" id="panel-timeline">')
-  .replace('<section class="tab-panel" id="panel-discover">', '<section class="tab-panel active" id="panel-discover">')
-  .replace('<button class="nav-tab active" data-tab="timeline" id="tab-timeline">', '<button class="nav-tab" data-tab="timeline" id="tab-timeline">')
-  .replace('<button class="nav-tab" data-tab="discover" id="tab-discover">', '<button class="nav-tab active" data-tab="discover" id="tab-discover">')
+  // 2. Ensure Discover panel & tab are active by default in initial HTML (eliminates Slow 4G JS wait for LCP)
+  .replace(/<section class="tab-panel active" id="panel-timeline">/g, '<section class="tab-panel" id="panel-timeline">')
+  .replace(/<section class="tab-panel" id="panel-discover">/g, '<section class="tab-panel active" id="panel-discover">')
+  .replace(/<button class="nav-tab active" data-tab="timeline" id="tab-timeline">/g, '<button class="nav-tab" data-tab="timeline" id="tab-timeline">')
+  .replace(/<button class="nav-tab" data-tab="discover" id="tab-discover">/g, '<button class="nav-tab active" data-tab="discover" id="tab-discover">')
   // 3. Inline minified CSS directly (eliminates render-blocking audit and FOUC permanently)
   .replace(/<link[^>]*href=["']\/?style\.css(\?[^"']*)?["'][^>]*>/i, `<style>${minCss}</style>`)
-  // 4. Replace modular shared/ and app/ script tags (or legacy app.js tag) with single minified bundle
+  // 4. Replace modular shared/ and app/ script tags (and settings.js) with single minified bundle
+  .replace(
+    /<!-- Experimental defaults[\s\S]*?<script src="app\/08-waveform-and-ai\.js(\?[^"']*)?" defer><\/script>/i,
+    `<script src="app.min.js?v=${v}" defer></script>`
+  )
   .replace(
     /<!-- Shared Functional Modules \(AnypodShared\) -->[\s\S]*?<script src="app\/08-waveform-and-ai\.js(\?[^"']*)?" defer><\/script>/i,
     `<script src="app.min.js?v=${v}" defer></script>`
@@ -110,6 +115,10 @@ let prodHtml = rawHtml
   .replace(/rel=["']?preload["']?\s+rel=["']?stylesheet["']?/g, 'rel="stylesheet"');
 
 fs.writeFileSync(path.join(distDir, 'index.html'), prodHtml, 'utf-8');
+
+// Provide fallback for any legacy requests to /app.js and /style.css
+fs.copyFileSync(path.join(distDir, 'app.min.js'), path.join(distDir, 'app.js'));
+fs.copyFileSync(path.join(distDir, 'style.min.css'), path.join(distDir, 'style.css'));
 
 // 4. Auto-copy ALL root static files to dist/
 // (Automatically includes robots.txt, sw.js, _headers, manifest, icon.svg, llms.txt, shared/, app/, dj.js, sets.js, etc.)
@@ -128,13 +137,20 @@ for (const entry of fs.readdirSync(publicDir, { withFileTypes: true })) {
   }
 }
 
+// Provide fallback for any legacy requests to /app.js and /style.css
+fs.copyFileSync(path.join(distDir, 'app.min.js'), path.join(distDir, 'app.js'));
+fs.copyFileSync(path.join(distDir, 'style.min.css'), path.join(distDir, 'style.css'));
+
 // 5. Customize dist/sw.js to cache production bundle
 const swDistPath = path.join(distDir, 'sw.js');
 if (fs.existsSync(swDistPath)) {
   let swContent = fs.readFileSync(swDistPath, 'utf-8');
   swContent = swContent
-    .replace(/'\/app\.js',?\n?/g, "'/app.min.js',\n")
-    .replace(/'\/style\.css',?\n?/g, "'/style.min.css',\n");
+    .replace(/'\/style\.css',?\n?/g, "'/style.min.css',\n")
+    .replace(
+      /'\/shared\/formatters\.js',[\s\S]*?'\/app\/08-waveform-and-ai\.js',?\n?/g,
+      "'/app.min.js',\n"
+    );
   fs.writeFileSync(swDistPath, swContent, 'utf-8');
 }
 

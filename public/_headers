@@ -34,6 +34,12 @@
 /dist/style.min.css
   Cache-Control: public, max-age=31536000, immutable
 
+/app.min.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/style.min.css
+  Cache-Control: public, max-age=31536000, immutable
+
 /app.js
   Cache-Control: no-cache, no-store, must-revalidate
 
