@@ -1394,7 +1394,7 @@ function setupEventListeners() {
     });
   }
 
-  let lastScrollY = window.scrollY;
+  let lastScrollY = 0;
   let scrollCollapseTimer = null;
 
   window.addEventListener('scroll', () => {

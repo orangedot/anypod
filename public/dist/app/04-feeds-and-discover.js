@@ -1879,7 +1879,10 @@ function buildDiscoverShowCard(show, whyNote, idx = 0) {
   card.dataset.feed = show.feed;
 
   const isSubbed = state.feeds.includes(show.feed);
-  const art = show.artwork || (state.feedMetadata[show.feed] && state.feedMetadata[show.feed].artwork) || (_curatedArtworkCache && _curatedArtworkCache[show.feed]) || FALLBACK_ARTWORK;
+  let art = show.artwork || (state.feedMetadata[show.feed] && state.feedMetadata[show.feed].artwork) || (_curatedArtworkCache && _curatedArtworkCache[show.feed]) || FALLBACK_ARTWORK;
+  if (typeof art === 'string' && art.includes('600x600bb')) {
+    art = art.replace('600x600bb', '100x100bb');
+  }
 
   let icon = '✦';
   let text = String(whyNote || '').trim();
@@ -1889,7 +1892,7 @@ function buildDiscoverShowCard(show, whyNote, idx = 0) {
     text = text.slice(icon.length).trim();
   }
 
-  const loadingAttr = idx < 3 ? 'fetchpriority="high" decoding="async"' : 'loading="lazy" decoding="async"';
+  const loadingAttr = idx < 2 ? 'decoding="async"' : 'loading="lazy" decoding="async"';
 
   card.innerHTML = `
     <div class="discover-why-badge">

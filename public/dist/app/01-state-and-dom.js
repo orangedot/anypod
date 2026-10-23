@@ -243,33 +243,41 @@ function saveCuratedArtworkCache() {
 async function loadCuratedArtworks(container) {
   if (!container) return;
   const cards = container.querySelectorAll('.starter-show-card');
-  let cacheChanged = false;
+  if (!cards.length) return;
 
-  for (const card of cards) {
+  const fetchCardArtwork = async (card) => {
     const feedUrl = card.dataset.feed;
     const title = card.dataset.title;
     const img = card.querySelector('.feed-art');
-    if (!img || !feedUrl) continue;
+    if (!img || !feedUrl) return;
 
     // 1. Return from existing state or persistent localStorage cache (0 network requests!)
     if (state.feedMetadata[feedUrl]?.artwork) {
-      img.src = state.feedMetadata[feedUrl].artwork;
-      continue;
+      let art = state.feedMetadata[feedUrl].artwork;
+      if (typeof art === 'string' && art.includes('600x600bb')) {
+        art = art.replace('600x600bb', '100x100bb');
+      }
+      img.src = art;
+      return;
     }
     if (_curatedArtworkCache[feedUrl]) {
-      img.src = _curatedArtworkCache[feedUrl];
-      continue;
+      let art = _curatedArtworkCache[feedUrl];
+      if (typeof art === 'string' && art.includes('600x600bb')) {
+        art = art.replace('600x600bb', '100x100bb');
+      }
+      img.src = art;
+      return;
     }
 
-    // 2. Fetch fresh high-res artwork directly from iTunes Search API first (0 Cloudflare requests!), fallback to proxy only if blocked
+    // 2. Fetch lightweight responsive artwork (100x100 ~6 KB) directly from iTunes Search API
     try {
       let artUrl = null;
       try {
         const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(title)}&media=podcast&entity=podcast&limit=1`);
         if (res.ok) {
           const data = await res.json();
-          if (data.results && data.results[0]?.artworkUrl600) {
-            artUrl = data.results[0].artworkUrl600;
+          if (data.results && data.results[0]) {
+            artUrl = data.results[0].artworkUrl100 || data.results[0].artworkUrl60 || data.results[0].artworkUrl600;
           }
         }
       } catch (_) {}
@@ -279,23 +287,39 @@ async function loadCuratedArtworks(container) {
           const res = await fetch(`/api/search-directory?term=${encodeURIComponent(title)}&limit=1`);
           if (res.ok) {
             const data = await res.json();
-            if (data.results && data.results[0]?.artworkUrl600) {
-              artUrl = data.results[0].artworkUrl600;
+            if (data.results && data.results[0]) {
+              artUrl = data.results[0].artworkUrl100 || data.results[0].artworkUrl60 || data.results[0].artworkUrl600;
             }
           }
         } catch (_) {}
       }
 
       if (artUrl) {
+        if (typeof artUrl === 'string' && artUrl.includes('600x600bb')) {
+          artUrl = artUrl.replace('600x600bb', '100x100bb');
+        }
         _curatedArtworkCache[feedUrl] = artUrl;
         img.src = artUrl;
-        cacheChanged = true;
+        saveCuratedArtworkCache();
       }
     } catch (_) {}
-  }
+  };
 
-  if (cacheChanged) {
-    saveCuratedArtworkCache();
+  // Lazy-load artwork as cards enter viewport (prevents bandwidth contention on page boot)
+  if ('IntersectionObserver' in window) {
+    const artObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        artObserver.unobserve(entry.target);
+        fetchCardArtwork(entry.target);
+      });
+    }, { rootMargin: '200px' });
+
+    cards.forEach(card => artObserver.observe(card));
+  } else {
+    for (const card of cards) {
+      await fetchCardArtwork(card);
+    }
   }
 }
 
@@ -547,11 +571,14 @@ function buildStarterSuggestionsHTML(activeFilter = 'all', limit = 12) {
 
   const chipsHTML = visibleItems.map((item, idx) => {
     const isSubbed = state.feeds.includes(item.feed);
-    const art = item.artwork || (state.feedMetadata[item.feed] && state.feedMetadata[item.feed].artwork) || (_curatedArtworkCache && _curatedArtworkCache[item.feed]) || FALLBACK_ARTWORK;
+    let art = item.artwork || (state.feedMetadata[item.feed] && state.feedMetadata[item.feed].artwork) || (_curatedArtworkCache && _curatedArtworkCache[item.feed]) || FALLBACK_ARTWORK;
+    if (typeof art === 'string' && art.includes('600x600bb')) {
+      art = art.replace('600x600bb', '100x100bb');
+    }
     const allForFeed = (state.allEpisodes || []).filter(e => e.feedUrl === item.feed);
     const recentWidgetHtml = typeof buildRecentEpisodesWidget === 'function' ? buildRecentEpisodesWidget(allForFeed, item.feed) : '';
     const epCountText = allForFeed.length > 0 ? `${allForFeed.length} episodes` : (item.badge || item.lang.toUpperCase());
-    const loadingAttr = (activeFilter === 'all' && idx < 3) ? 'fetchpriority="high" decoding="async"' : 'loading="lazy" decoding="async"';
+    const loadingAttr = 'loading="lazy" decoding="async"';
 
     return `
       <div class="feed-card starter-show-card" data-feed="${escapeHtml(item.feed)}" data-title="${escapeHtml(item.title)}">
@@ -1444,7 +1471,7 @@ function _applyView({ tab, feedUrl }) {
       //   elements.btnHeaderBackLabel.textContent = prevName;
       // }
     }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (window.scrollY > 0) window.scrollTo(0, 0);
     const meta = state.feedMetadata[feedUrl] || {};
     if (elements.searchInput) {
       elements.searchInput.placeholder = `Search in ${meta.title || 'podcast'}...`;
@@ -1491,7 +1518,7 @@ function _applyView({ tab, feedUrl }) {
       updateDownloadedCountUI();
     } else if (targetTab === 'discover') {
       if (elements.searchInput) elements.searchInput.placeholder = 'Search directory or paste URL...';
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (window.scrollY > 0) window.scrollTo(0, 0);
       renderDiscover();
     } else if (targetTab === 'settings') {
       if (elements.searchInput) elements.searchInput.placeholder = 'Search episodes...';
