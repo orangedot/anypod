@@ -1716,26 +1716,39 @@ function init() {
   checkUrlSessionParam();
   loadPositionsFromStorage();
   loadFeedsFromStorage();
-  loadCacheFromStorage();
-  loadQueueFromStorage();
-  loadFavoritesFromStorage();
-  loadDownloadsFromStorage();
+
+  const hasFeeds = state.feeds && state.feeds.length > 0;
+  if (hasFeeds) {
+    loadCacheFromStorage();
+  }
+
   setupEventListeners();
   setupAudioEngines();
-  hookVisualizerToAudio();
-  setupNetworkListeners();
-  updateQueueUI();
-  updateDownloadedCountUI();
-  updateDockVisibility();
-  updateAutoplayButtonUI();
-  updateShuffleButtonUI();
-  initServiceWorker();
   initNavigationRoute();
-  checkAuth();
-  loadExperimentalSettings();
-  setupExperimentalSettings();
-  restoreLastActiveEpisode();
   checkStoragePermissionAlert();
+
+  // Defer non-critical background services to requestIdleCallback to guarantee zero main-thread blockage
+  const scheduleDeferred = window.requestIdleCallback || ((cb) => setTimeout(cb, 20));
+  scheduleDeferred(() => {
+    if (!hasFeeds) {
+      loadCacheFromStorage();
+    }
+    loadQueueFromStorage();
+    loadFavoritesFromStorage();
+    loadDownloadsFromStorage();
+    hookVisualizerToAudio();
+    setupNetworkListeners();
+    updateQueueUI();
+    updateDownloadedCountUI();
+    updateDockVisibility();
+    updateAutoplayButtonUI();
+    updateShuffleButtonUI();
+    initServiceWorker();
+    checkAuth();
+    loadExperimentalSettings();
+    setupExperimentalSettings();
+    restoreLastActiveEpisode();
+  });
 }
 
 function checkStoragePermissionAlert() {
