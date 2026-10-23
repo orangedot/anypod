@@ -328,6 +328,7 @@ async function refreshAllFeeds(options = {}) {
   renderTimeline(true);
   renderFeedsGrid();
   updateFeedCountUI();
+  scheduleDiscoverPrecompute(800);
 
   let finalSummary = `Updated ${totalFeeds} feed${totalFeeds === 1 ? '' : 's'}`;
   if (newEpisodesCount > 0) {
@@ -2228,7 +2229,7 @@ function buildDiscoverRecentFeedCard(url) {
   return card;
 }
 
-function renderDiscover(forceRebuild = false) {
+function renderDiscover(forceRebuild = false, isSilentBackground = false) {
   const container = document.getElementById('discover-content-container');
   if (!container) return;
 
@@ -2264,15 +2265,18 @@ function renderDiscover(forceRebuild = false) {
     }
   });
 
+  const feedsSet = new Set(state.feeds || []);
+  const favGuids = new Set((state.favorites || []).map(fav => (typeof fav === 'string' ? fav : fav?.guid)));
+
   const libraryCandidates = [];
   (state.allEpisodes || []).forEach(ep => {
     if (!ep || !ep.guid) return;
-    if (!state.feeds.includes(ep.feedUrl)) return;
+    if (!feedsSet.has(ep.feedUrl)) return;
     if (completedGuids.has(ep.guid)) return;
 
-    const pos = state.playbackPositions[ep.guid];
+    const pos = state.playbackPositions ? state.playbackPositions[ep.guid] : null;
     const isResuming = pos && pos.position > 10;
-    const isFav = state.favorites.some(fav => (typeof fav === 'string' ? fav === ep.guid : fav.guid === ep.guid));
+    const isFav = favGuids.has(ep.guid);
 
     let score = 1.0;
     let whyNote = '✦ From your subscribed library backlog';
@@ -2309,7 +2313,7 @@ function renderDiscover(forceRebuild = false) {
 
   // 2. Gather External Recommendations outside library matching taste
   const externalCandidates = [];
-  const unsubscribedCurated = CURATED_SCIENCE_FEEDS.filter(item => !state.feeds.includes(item.feed));
+  const unsubscribedCurated = CURATED_SCIENCE_FEEDS.filter(item => !feedsSet.has(item.feed));
 
   unsubscribedCurated.forEach(show => {
     let score = 1.0;
@@ -2518,6 +2522,12 @@ function wireEmptyStateEvents(targetRoot = document) {
   const quickResults = targetRoot.querySelector('#empty-quick-results');
 
   if (quickInput && quickForm) {
+    if (quickForm.dataset.wired === 'true') {
+      wireStarterSuggestionsEvents(targetRoot);
+      return;
+    }
+    quickForm.dataset.wired = 'true';
+
     const normalizeUrl = (str) => {
       let u = str.trim();
       if ((u.startsWith('www.') || u.includes('youtube.com/') || u.includes('youtu.be/')) && !u.startsWith('http://') && !u.startsWith('https://')) {
@@ -2624,5 +2634,232 @@ function wireEmptyStateEvents(targetRoot = document) {
   }
 
   wireStarterSuggestionsEvents(targetRoot);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Background Idle Precomputation for Discover Feed (0ms Tab Click)
+// ─────────────────────────────────────────────────────────────────────────
+
+let _discoverPrecomputeTimer = null;
+function scheduleDiscoverPrecompute(delay = 800) {
+  if (_discoverPrecomputeTimer) clearTimeout(_discoverPrecomputeTimer);
+  _discoverPrecomputeTimer = setTimeout(() => {
+    _discoverPrecomputeTimer = null;
+    const isIdle = typeof requestIdleCallback === 'function';
+    const runner = () => {
+      const container = document.getElementById('discover-content-container');
+      if (!container) return;
+      const hasFeeds = state.feeds && state.feeds.length > 0;
+      if (!hasFeeds) return;
+      const currentFeedsKey = `${state.feeds.join(',')}_${(state.allEpisodes || []).length}`;
+      const existingWrap = container.querySelector('.discover-view-wrap');
+      if (existingWrap && existingWrap.dataset.feedsKey === currentFeedsKey && existingWrap.dataset.prerendered === 'hydrated') {
+        return;
+      }
+      renderDiscover(false, true);
+    };
+    if (isIdle) {
+      requestIdleCallback(runner, { timeout: 2500 });
+    } else {
+      setTimeout(runner, 100);
+    }
+  }, delay);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 25 · Feed Management
+// addFeed, promptRemoveFeed, purgeOrphanedDownloads, removeFeed
+// ─────────────────────────────────────────────────────────────────────────
+
+async function addFeed(url, title = '', artwork = '') {
+  const cleanUrl = url.trim();
+  if (!cleanUrl) return false;
+
+  if (!state.feeds.includes(cleanUrl)) {
+    state.feeds.push(cleanUrl);
+    saveFeedsToStorage();
+    try {
+      await saveFeedToD1(cleanUrl, title, artwork);
+    } catch (_) {}
+
+    // Fetch ONLY the newly subscribed feed instead of re-fetching the entire library
+    showStatus(`Adding ${title || 'podcast'}...`);
+    const incoming = [];
+    const updatedMeta = { ...state.feedMetadata };
+    await fetchSingleFeed(cleanUrl, incoming, updatedMeta, { force: true });
+    if (incoming.length > 0) {
+      const existingGuids = new Set(state.allEpisodes.map(e => e.guid).filter(Boolean));
+      const newBatch = incoming.filter(ep => ep && ep.guid && !existingGuids.has(ep.guid));
+      state.allEpisodes = [...newBatch, ...state.allEpisodes];
+    }
+    state.feedMetadata = updatedMeta;
+    saveCacheToStorage();
+    processAndSortEpisodes();
+    renderTimeline(true);
+    renderFeedsGrid();
+    updateFeedCountUI();
+    showStatus(`Added ${updatedMeta[cleanUrl]?.title || title || 'podcast'}`);
+    setTimeout(hideStatus, 2500);
+
+    if (elements.feedUrlInput && elements.feedUrlInput.value.trim() === cleanUrl) {
+      elements.feedUrlInput.value = '';
+    }
+    scheduleDiscoverPrecompute(600);
+    return true;
+  } else {
+    showStatus('This podcast is already in your subscriptions');
+    return true;
+  }
+}
+
+function openConfirmDialog({ title, message, actionLabel = 'Confirm', onConfirm }) {
+  state.confirmModalAction = onConfirm;
+  const titleEl = elements.confirmModal?.querySelector('h2');
+  if (titleEl && title) titleEl.textContent = title;
+  if (elements.confirmModalMsg && message) elements.confirmModalMsg.textContent = message;
+  if (elements.btnConfirmDelete && actionLabel) elements.btnConfirmDelete.textContent = actionLabel;
+  if (elements.confirmModal) elements.confirmModal.classList.remove('hidden');
+}
+
+function promptRemoveFeed(url) {
+  state.feedToDelete = url;
+  state.confirmModalAction = null;
+  const meta = state.feedMetadata[url] || {};
+  const title = meta.title || 'this podcast';
+  openConfirmDialog({
+    title: 'Remove from Library',
+    message: `Do you want to unsubscribe from "${title}"?`,
+    actionLabel: 'Remove',
+    onConfirm: () => {
+      removeFeed(url);
+      state.feedToDelete = null;
+    }
+  });
+}
+
+function purgeOrphanedDownloads() {
+  if (!state.feeds || !state.downloadedEpisodes) return;
+  const activeFeedSet = new Set(state.feeds);
+  const activeGuidSet = new Set(state.allEpisodes.map(e => e.guid));
+  let changed = false;
+  for (const [guid, dl] of Object.entries(state.downloadedEpisodes)) {
+    const isFeedMissing = dl.feedUrl && !activeFeedSet.has(dl.feedUrl);
+    const isGuidMissing = state.allEpisodes.length > 0 && !activeGuidSet.has(guid);
+    const isAllFeedsGone = state.feeds.length === 0;
+    if (isAllFeedsGone || isFeedMissing || (!dl.feedUrl && isGuidMissing)) {
+      if ('caches' in window) {
+        try {
+          caches.open('anypod-audio-v1').then(cache => cache.delete(dl.audioUrl)).catch(() => {});
+        } catch (e) {}
+      }
+      delete state.downloadedEpisodes[guid];
+      changed = true;
+    }
+  }
+  if (changed) {
+    saveDownloadsToStorage();
+  }
+}
+
+function removeFeed(url) {
+  if (state.activeFeedDetailUrl === url) {
+    state.activeFeedDetailUrl = null;
+    if (elements.panelFeedDetail) elements.panelFeedDetail.classList.remove('active');
+    const feedsTab = document.getElementById('tab-feeds');
+    const feedsPanel = document.getElementById('panel-feeds');
+    elements.tabs.forEach(t => t.classList.remove('active'));
+    elements.panels.forEach(p => p.classList.remove('active'));
+    if (feedsTab) feedsTab.classList.add('active');
+    if (feedsPanel) feedsPanel.classList.add('active');
+  }
+
+  const epsToRemove = state.allEpisodes.filter(ep => ep.feedUrl === url);
+  const guidsToRemove = new Set(epsToRemove.map(ep => ep.guid));
+  let downloadsChanged = false;
+  for (const [guid, dl] of Object.entries(state.downloadedEpisodes)) {
+    if (guidsToRemove.has(guid) || dl.feedUrl === url) {
+      if ('caches' in window) {
+        try {
+          caches.open('anypod-audio-v1').then(cache => cache.delete(dl.audioUrl)).catch(() => {});
+        } catch (e) {}
+      }
+      delete state.downloadedEpisodes[guid];
+      downloadsChanged = true;
+    }
+  }
+  if (downloadsChanged) {
+    saveDownloadsToStorage();
+  }
+
+  state.allEpisodes = state.allEpisodes.filter(ep => ep.feedUrl !== url);
+  state.feeds = state.feeds.filter(f => f !== url);
+  if (state.mutedFeeds) {
+    state.mutedFeeds = state.mutedFeeds.filter(f => f !== url);
+    saveMutedFeedsToStorage();
+  }
+  delete state.feedMetadata[url];
+  saveFeedsToStorage();
+  saveCacheToStorage();
+  removeFeedFromD1(url);
+  processAndSortEpisodes();
+  if (state.feeds.length === 0) {
+    navigateTo('discover');
+  } else {
+    renderTimeline();
+    renderFeedsGrid();
+  }
+  scheduleDiscoverPrecompute(600);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 26 · OPML Import / Export
+// ─────────────────────────────────────────────────────────────────────────
+
+function importOpml(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const xmlText = e.target.result;
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlText, 'text/xml');
+    const outlines = doc.querySelectorAll('outline[xmlUrl], outline[xmlurl]');
+
+    let addedCount = 0;
+    outlines.forEach(node => {
+      const feedUrl = node.getAttribute('xmlUrl') || node.getAttribute('xmlurl');
+      if (feedUrl && !state.feeds.includes(feedUrl)) {
+        state.feeds.push(feedUrl);
+        saveFeedToD1(feedUrl, node.getAttribute('text') || '');
+        addedCount++;
+      }
+    });
+
+    if (addedCount > 0) {
+      saveFeedsToStorage();
+      refreshAllFeeds();
+      scheduleDiscoverPrecompute(1000);
+      alert(`Successfully imported ${addedCount} podcast feeds!`);
+    } else {
+      alert('No new podcast feeds found in this OPML file.');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function exportOpml() {
+  let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<opml version="2.0">\n  <head>\n    <title>Anypod Export</title>\n  </head>\n  <body>\n`;
+  
+  state.feeds.forEach(url => {
+    const meta = state.feedMetadata[url] || {};
+    const title = meta.title ? escapeHtml(meta.title) : 'Podcast';
+    xml += `    <outline type="rss" text="${title}" title="${title}" xmlUrl="${escapeHtml(url)}"/>\n`;
+  });
+
+  xml += `  </body>\n</opml>`;
+
+  const blob = new Blob([xml], { type: 'text/xml' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'anypod_subscriptions.opml';
+  a.click();
 }
 
