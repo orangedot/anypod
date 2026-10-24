@@ -518,11 +518,8 @@ function saveFavoritesToStorage() {
 }
 
 function updateFavoritesCountUI() {
-  const count = (state.favorites || []).length;
-  if (elements.favoritesTabCount) {
-    elements.favoritesTabCount.textContent = count > 0 ? count : '';
-  }
   if (elements.favoritesHeaderCount) {
+    const count = (state.favorites || []).length;
     elements.favoritesHeaderCount.textContent = `${count} ${count === 1 ? 'favorite' : 'favorites'}`;
   }
 }
@@ -830,9 +827,6 @@ function updateDownloadedCountUI() {
   const count = list.length;
   if (elements.downloadedCount) {
     elements.downloadedCount.textContent = count;
-  }
-  if (elements.downloadsTabCount) {
-    elements.downloadsTabCount.textContent = count > 0 ? count : '';
   }
   if (elements.offlineStorageCount) {
     const totalBytes = list.reduce((sum, item) => sum + (item.size || 0), 0);

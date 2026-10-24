@@ -1324,9 +1324,6 @@ const elements = {
   favoritesEpisodesList: document.getElementById('favorites-episodes-list'),
   favoritesHeaderCount: document.getElementById('favorites-header-count'),
   themeBtns: document.querySelectorAll('.btn-theme'),
-  feedCount: document.getElementById('feed-count'),
-  favoritesTabCount: document.getElementById('favorites-tab-count'),
-  downloadsTabCount: document.getElementById('downloads-tab-count'),
   btnOpenSettings: document.getElementById('btn-open-settings'),
   btnPlayerFav: document.getElementById('btn-player-fav'),
 

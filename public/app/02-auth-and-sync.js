@@ -651,9 +651,6 @@ function saveFeedsToStorage() {
 }
 
 function updateFeedCountUI() {
-  if (elements.feedCount) {
-    elements.feedCount.textContent = state.feeds.length;
-  }
   updateDockVisibility();
 }
 
