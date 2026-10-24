@@ -224,6 +224,7 @@
 
   .episode-meta .date-line {
     font-size: 0.65rem;
+    font-weight: 100;
     white-space: nowrap;
   }
 

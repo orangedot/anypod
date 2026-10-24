@@ -234,7 +234,7 @@
   }
   :root:not([data-theme="dark"]) .episode-meta .date-line {
     color: #3f3f46;
-    font-weight: 600;
+    font-weight: 100;
   }
 }
 
@@ -245,7 +245,7 @@
 
 [data-theme="light"] .episode-meta .date-line {
   color: #3f3f46;
-  font-weight: 600;
+  font-weight: 100;
 }
 
 .discover-section-narrative {

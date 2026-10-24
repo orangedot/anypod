@@ -193,6 +193,7 @@ mark.search-highlight {
 .episode-meta .date-line {
   color: var(--text-muted);
   font-size: 0.73rem;
+  font-weight: 100;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
