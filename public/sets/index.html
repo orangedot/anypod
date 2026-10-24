@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#050505">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>DJ Anypod Sets — 30-Min Workout Sequencer & Loop Studio</title>
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
+
+  <link rel="stylesheet" href="/sets.css">
+  <!-- YouTube IFrame API for YouTube & Shorts Workout Loops -->
+  <script src="https://www.youtube.com/iframe_api" async></script>
+</head>
+<body>
+
+  <!-- Full-Screen Phase Transition Flash & Ambient BPM Pulse -->
+  <div class="phase-flash-overlay" id="phase-flash-overlay"></div>
+  <div class="ambient-beat-glow" id="ambient-beat-glow"></div>
+
+  <div class="app-container" id="app-root">
+    
+    <!-- ═════════════════════════════════════════════════════════════════════
+         HEADER: BRAND LOGO, AUDIO TOGGLES & 3-MODE NAVIGATION
+         ═════════════════════════════════════════════════════════════════════ -->
+    <div>
+      <header class="header-bar">
+        <a href="/" class="brand-link" title="Anypod Home">
+          <div class="brand-icon">⚡</div>
+          <div>
+            <div class="brand-title">DJ ANYPOD <span>SETS</span></div>
+            <span class="brand-subtitle">30-Min Workout & Loop Studio</span>
+          </div>
+        </a>
+
+        <div class="nav-actions">
+          <!-- Screen WakeLock Badge -->
+          <div class="wake-badge" id="wake-badge" title="Phone screen kept awake">
+            <div class="wake-dot"></div>
+            <span>Awake</span>
+          </div>
+
+          <!-- Synthesized Countdown Beep Toggle -->
+          <button type="button" class="btn-icon active" id="btn-toggle-beeps" title="Toggle 3-2-1 Countdown Beeps (440Hz / 880Hz)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+              <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+            </svg>
+          </button>
+
+          <!-- Voice Cue Toggle -->
+          <button type="button" class="btn-icon active" id="btn-toggle-voice" title="Toggle Synthesized Voice Announcements">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+              <line x1="12" y1="19" x2="12" y2="22"></line>
+            </svg>
+          </button>
+
+          <!-- Share Workout / Loop -->
+          <button type="button" class="btn-icon" id="btn-open-share" title="Share Workout Routine or Loop">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="18" cy="5" r="3"></circle>
+              <circle cx="6" cy="12" r="3"></circle>
+              <circle cx="18" cy="19" r="3"></circle>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+            </svg>
+          </button>
+
+          <!-- Legacy quick toggle compatibility -->
+          <button type="button" class="btn-icon" id="btn-toggle-view" title="Quick Switch View" style="display:none;">
+            <span id="view-toggle-text">Edit Routine</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- 3-Way Mode Navigation Bar -->
+      <nav class="mode-tabs-bar" aria-label="Sets Workspace Views">
+        <button type="button" class="mode-tab-btn active" data-tab="player" id="tab-btn-player">
+          <span>🔥 Workout</span>
+        </button>
+        <button type="button" class="mode-tab-btn" data-tab="builder" id="tab-btn-builder">
+          <span>📋 Routine (30m)</span>
+        </button>
+        <button type="button" class="mode-tab-btn" data-tab="studio" id="tab-btn-studio">
+          <span>🎛️ Loop Studio</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- ═════════════════════════════════════════════════════════════════════
+         VIEW 1: PLAYER (ACTIVE WORKOUT EXECUTION)
+         ═════════════════════════════════════════════════════════════════════ -->
+    <main class="player-view" id="view-player">
+      <!-- Status Top Row + Segmented Timeline -->
+      <div class="segmented-timeline-wrap">
+        <div class="player-top-row">
+          <div class="top-badges-left">
+            <span class="interval-type-badge badge-work" id="badge-interval-type">WORK</span>
+            <span class="flow-mode-badge" id="badge-playback-mode" title="Audio Loop / Flow Mode">🔁 A-B LOOP</span>
+          </div>
+          <div class="round-meta">
+            <div class="round-title" id="label-round-progress">Round 1 of 8</div>
+            <div class="total-time-val" id="label-total-time">Total: 00:00 / 04:00</div>
+          </div>
+        </div>
+
+        <!-- Interactive 30-Min Segmented Routine Map -->
+        <div class="segmented-timeline-bar" id="segmented-timeline-bar" title="Tap any interval block to jump directly"></div>
+      </div>
+
+      <!-- Hero Timer Display -->
+      <div class="hero-timer-display">
+        <div class="interval-label-heading" id="label-interval-name">Sprint / Max Effort</div>
+        
+        <!-- MASSIVE DIGITS -->
+        <div class="giant-digits digits-work" id="display-giant-countdown">00:20</div>
+
+        <!-- Interval Progress Bar -->
+        <div class="interval-progress-wrapper">
+          <div class="progress-track">
+            <div class="progress-fill" id="interval-progress-fill" style="width: 0%; background: var(--work-primary); box-shadow: 0 0 14px var(--work-primary);"></div>
+          </div>
+          <div class="progress-meta-row">
+            <span id="label-section-name">Tabata Work / Rest</span>
+            <span id="label-interval-pct">0%</span>
+          </div>
+        </div>
+
+        <!-- Live Audio / Video Loop Deck -->
+        <div class="player-media-deck" id="audio-cue-pill">
+          <div class="media-deck-top">
+            <!-- Embedded YouTube / Shorts Viewport -->
+            <div class="player-yt-viewport" id="player-yt-viewport">
+              <div id="player-yt-slot" class="player-yt-slot"></div>
+            </div>
+
+            <div class="media-deck-info">
+              <div class="audio-cue-header">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #ef4444; flex-shrink: 0;">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <span class="audio-cue-title" id="audio-cue-title">909 Deep Tech Beat</span>
+              </div>
+              <div class="audio-cue-sub">
+                <span class="audio-bpm-tag" id="audio-cue-bpm">128 BPM</span>
+                <span class="loop-range-pill" id="audio-loop-range">Loop 0:00 → 0:20</span>
+              </div>
+            </div>
+
+            <button type="button" class="audio-dj-link" id="btn-edit-active-loop" title="Edit Loop in Loop Studio">
+              ✂️
+            </button>
+            <a href="/dj.html" class="audio-dj-link" id="audio-dj-link" target="_blank" title="Open in DJ Studio">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+            </a>
+          </div>
+
+          <!-- Live Loop Waveform & Playhead Scrubber -->
+          <div class="player-loop-wave-wrap" id="player-loop-wave-wrap" title="Live Audio Loop Playhead">
+            <canvas class="player-loop-canvas" id="player-loop-canvas"></canvas>
+          </div>
+        </div>
+
+        <!-- Quick On-Screen Gym Actions -->
+        <div class="gym-quick-actions">
+          <button type="button" class="btn-gym-pill" id="btn-extend-30s" title="Add +30 Seconds to Current Interval">
+            <span>+30s Time</span>
+          </button>
+          <button type="button" class="btn-gym-pill" id="btn-repeat-interval" title="Restart Current Interval">
+            <span>↺ Repeat</span>
+          </button>
+          <button type="button" class="btn-gym-pill" id="btn-loop-hold" title="Freeze Timer & Keep Current Audio Loop Rolling">
+            <span>∞ Loop Hold</span>
+          </button>
+          <button type="button" class="btn-gym-pill" id="btn-beat-overlay" title="Layer a 128 BPM Workout Beat Under Podcasts/Audio During Work">
+            <span>🥁 Beat Overlay</span>
+          </button>
+        </div>
+
+        <!-- Up Next Preview -->
+        <div class="up-next-row" id="up-next-row">
+          <span class="up-next-tag">Up Next:</span>
+          <span class="up-next-label" id="up-next-label">Catch Breath & Shake Out</span>
+          <span style="font-size: 11px; font-family: ui-monospace, monospace;" id="up-next-duration">(00:10)</span>
+        </div>
+      </div>
+
+      <!-- Controls Zone -->
+      <div class="player-controls-zone">
+        <div class="controls-row">
+          <!-- Reset (60px) -->
+          <button type="button" class="btn-gym-secondary" id="btn-reset" title="Reset Workout">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+              <path d="M3 3v5h5"></path>
+            </svg>
+          </button>
+
+          <!-- Skip Back (60px) -->
+          <button type="button" class="btn-gym-secondary" id="btn-skip-prev" title="Previous Interval">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="19 20 9 12 19 4 19 20"></polygon>
+              <line x1="5" y1="19" x2="5" y2="5"></line>
+            </svg>
+          </button>
+
+          <!-- PRIMARY PLAY / PAUSE (86px) -->
+          <button type="button" class="btn-gym-primary state-idle" id="btn-play-pause" title="Start Workout">
+            <svg id="icon-play" width="42" height="42" viewBox="0 0 24 24" fill="currentColor" style="margin-left: 3px;">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            <svg id="icon-pause" width="42" height="42" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
+              <rect x="6" y="4" width="4" height="16"></rect>
+              <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>
+          </button>
+
+          <!-- Skip Forward (60px) -->
+          <button type="button" class="btn-gym-secondary" id="btn-skip-next" title="Skip to Next Interval">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5 4 15 12 5 20 5 4"></polygon>
+              <line x1="19" y1="5" x2="19" y2="19"></line>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Overall Routine Progress Bar -->
+        <div class="overall-progress-bar">
+          <span class="overall-time-label" id="label-overall-elapsed">00:00</span>
+          <div class="overall-track">
+            <div class="overall-fill" id="overall-progress-fill" style="width: 0%;"></div>
+          </div>
+          <span class="overall-time-label" id="label-overall-total">04:00</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- ═════════════════════════════════════════════════════════════════════
+         VIEW 2: ROUTINE BUILDER (30-MIN WORKOUT TEMPLATES & ASSEMBLER)
+         ═════════════════════════════════════════════════════════════════════ -->
+    <main class="builder-view" id="view-builder" style="display: none;">
+      <!-- 30-Minute & Fast Presets Selector -->
+      <div class="preset-card">
+        <div class="preset-header">
+          <span class="preset-title">🔥 30-Minute & Express Workout Presets</span>
+          <span style="font-size: 10px; color: #9ca3af;">Tap any template to load</span>
+        </div>
+        <div class="preset-grid">
+          <button type="button" class="preset-btn preset-30m" data-preset="hiit30m">
+            <span class="preset-badge-30m">30 MIN</span>
+            <div class="preset-btn-name">30-Min HIIT Sweat</div>
+            <div class="preset-btn-sub">3m Warm • 24x (40s/20s) • 3m Cool</div>
+          </button>
+          <button type="button" class="preset-btn preset-30m" data-preset="emom30m">
+            <span class="preset-badge-30m">30 MIN</span>
+            <div class="preset-btn-name">30-Min EMOM Power</div>
+            <div class="preset-btn-sub">26 Rounds • 45s Work / 15s Rest</div>
+          </button>
+          <button type="button" class="preset-btn preset-30m" data-preset="boxing30m">
+            <span class="preset-badge-30m">30 MIN</span>
+            <div class="preset-btn-name">30-Min Boxing / MMA</div>
+            <div class="preset-btn-sub">6x (3m Round + 1m Corner)</div>
+          </button>
+          <button type="button" class="preset-btn preset-30m" data-preset="podcastRun30m">
+            <span class="preset-badge-30m">30 MIN</span>
+            <div class="preset-btn-name">30-Min Podcast Run</div>
+            <div class="preset-btn-sub">Zone 2 Flow + 30s Sprint Surges</div>
+          </button>
+          <button type="button" class="preset-btn" data-preset="tabata">
+            <div class="preset-btn-name">Classic Tabata</div>
+            <div class="preset-btn-sub">5 min • 20s / 10s × 8</div>
+          </button>
+          <button type="button" class="preset-btn" data-preset="circuit5x5">
+            <div class="preset-btn-name">5x5 Circuit</div>
+            <div class="preset-btn-sub">25 min • Full Body Strength</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Routine Title + Save to My Routines -->
+      <div class="preset-card">
+        <div class="preset-header">
+          <span class="preset-title">Routine Details & Saved Workouts</span>
+          <span id="builder-total-summary" style="font-size: 11px; font-weight: 800; color: #ef4444;">Total: 30:00</span>
+        </div>
+        <div class="routine-manage-row">
+          <input type="text" class="url-input" id="input-routine-title" value="30-Min HIIT Sweat Session" style="flex: 1;">
+          <button type="button" class="btn-save-routine" id="btn-save-custom-routine">💾 Save Routine</button>
+        </div>
+        <div class="saved-routines-chips" id="saved-routines-list"></div>
+      </div>
+
+      <!-- Section Container -->
+      <div id="builder-sections-list"></div>
+
+      <!-- Add New Section Button -->
+      <button type="button" class="btn-add-section" id="btn-add-section">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <span>Add Workout Section</span>
+      </button>
+    </main>
+
+    <!-- ═════════════════════════════════════════════════════════════════════
+         VIEW 3: LOOP STUDIO & CONTENT CREATOR (CLIPPER + AUTO-SLICER)
+         ═════════════════════════════════════════════════════════════════════ -->
+    <main class="studio-view" id="view-studio" style="display: none;">
+      
+      <!-- 1. Source Picker: Anypod Library, YouTube/Shorts URL, Local File, Synth Beats -->
+      <section class="studio-card">
+        <div class="studio-card-header">
+          <div class="studio-card-title">
+            <span>🎧 1. Load Source Audio / Podcast / YouTube Short</span>
+          </div>
+          <div class="studio-source-tabs">
+            <button type="button" class="source-tab-btn active" data-srctab="library">Anypod Library</button>
+            <button type="button" class="source-tab-btn" data-srctab="url">Paste YT / Shorts / MP3</button>
+            <button type="button" class="source-tab-btn" data-srctab="local">Local Audio File</button>
+            <button type="button" class="source-tab-btn" data-srctab="beats">Synth Beats</button>
+          </div>
+        </div>
+
+        <!-- Tab A: Anypod Library (Podcasts, YT Playlists, Downloads) -->
+        <div id="studio-src-library">
+          <input type="search" class="url-input" id="studio-library-search" placeholder="Search podcasts, YouTube videos, downloads..." style="margin-bottom: 8px;">
+          <div class="studio-library-list" id="studio-library-list"></div>
+        </div>
+
+        <!-- Tab B: Paste YouTube / Shorts / Direct Audio URL -->
+        <div id="studio-src-url" style="display: none;">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <input type="url" class="url-input" id="studio-url-input" placeholder="Paste YouTube video, YT Short (youtube.com/shorts/...), or MP3 URL" style="flex: 2; min-width: 220px;">
+            <input type="text" class="url-input" id="studio-url-title" placeholder="Custom Title (optional)" style="flex: 1; min-width: 140px;">
+            <button type="button" class="btn-studio-action primary-purple" id="btn-studio-load-url">Load into Clipper</button>
+          </div>
+        </div>
+
+        <!-- Tab C: Local Audio Upload -->
+        <div id="studio-src-local" style="display: none;">
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <input type="file" id="studio-file-input" accept="audio/*,video/mp4,video/webm" class="url-input" style="flex: 1;">
+          </div>
+        </div>
+
+        <!-- Tab D: Built-in Procedural Synth Beats -->
+        <div id="studio-src-beats" style="display: none;">
+          <div class="studio-library-list" id="studio-beats-list"></div>
+        </div>
+      </section>
+
+      <!-- 2. Interactive Waveform Clipper & A-B Loop Trimmer -->
+      <section class="studio-card">
+        <div class="studio-card-header">
+          <div class="studio-card-title">
+            <span>✂️ 2. Visual Loop Clipper & Trimmer</span>
+          </div>
+          <span id="studio-loaded-badge" style="font-size: 11px; color: #d8b4fe; font-weight: 800;">909 Deep Tech Beat</span>
+        </div>
+
+        <div class="clipper-stage">
+          <div class="clipper-top-bar">
+            <div class="studio-yt-preview" id="studio-yt-preview">
+              <div id="studio-yt-slot" style="width:100%; height:100%;"></div>
+            </div>
+            <div style="flex: 1; min-width: 0;">
+              <input type="text" class="url-input" id="studio-loop-name" placeholder="Loop Name (e.g. Heavy Drop 30s)" value="909 Deep Tech Loop">
+              <div style="display: flex; gap: 8px; margin-top: 6px; align-items: center; flex-wrap: wrap;">
+                <label style="font-size: 10px; color: #9ca3af; font-weight: 800;">BPM:</label>
+                <input type="number" class="url-input" id="studio-loop-bpm" value="128" min="60" max="220" style="width: 68px; padding: 4px 8px;">
+                <label style="font-size: 10px; color: #9ca3af; font-weight: 800;">Mode:</label>
+                <select class="select-block-type" id="studio-loop-mode">
+                  <option value="loop">🔁 Seamless A-B Loop</option>
+                  <option value="flow">🌊 Continuous Podcast Flow</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interactive Canvas Scrubber with Drag Handles -->
+          <div class="waveform-clipper-box" id="studio-waveform-box" title="Drag green [IN] or pink [OUT] handles, or drag inside region to slide loop window">
+            <canvas class="studio-waveform-canvas" id="studio-waveform-canvas"></canvas>
+          </div>
+
+          <div class="clipper-time-readout">
+            <span>IN: <strong class="time-pill-in" id="label-loop-in">00:00.0</strong></span>
+            <span>PLAYHEAD: <strong id="label-loop-cur" style="color:#fff;">00:00.0</strong></span>
+            <span>OUT: <strong class="time-pill-out" id="label-loop-out">00:20.0</strong></span>
+            <span>LENGTH: <strong class="time-pill-len" id="label-loop-len">20.0s</strong></span>
+          </div>
+
+          <!-- Quick Loop Length Presets + Live Tap IN/OUT + Preview -->
+          <div class="clipper-controls-grid">
+            <div class="loop-len-group">
+              <span style="font-size: 10px; font-weight: 800; color: #9ca3af; text-transform: uppercase;">Quick Len:</span>
+              <button type="button" class="btn-loop-len" data-looplen="5">5s</button>
+              <button type="button" class="btn-loop-len" data-looplen="10">10s</button>
+              <button type="button" class="btn-loop-len" data-looplen="15">15s</button>
+              <button type="button" class="btn-loop-len active" data-looplen="20">20s</button>
+              <button type="button" class="btn-loop-len" data-looplen="30">30s</button>
+              <button type="button" class="btn-loop-len" data-looplen="45">45s</button>
+              <button type="button" class="btn-loop-len" data-looplen="60">60s</button>
+            </div>
+
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <button type="button" class="btn-studio-action" id="btn-set-in" title="Mark Loop Start at Current Playhead">[ Set IN</button>
+              <button type="button" class="btn-studio-action" id="btn-set-out" title="Mark Loop End at Current Playhead">Set OUT ]</button>
+              <button type="button" class="btn-studio-action primary-purple" id="btn-studio-preview">▶ Preview Loop</button>
+            </div>
+          </div>
+
+          <!-- Save / Apply / Export Actions -->
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; padding-top: 6px; border-top: 1px solid var(--border-subtle);">
+            <button type="button" class="btn-studio-action primary-purple" id="btn-save-to-crate">➕ Save to Loop Crate</button>
+            <button type="button" class="btn-studio-action primary-red" id="btn-apply-all-work">⚡ Apply to All WORK Intervals</button>
+            <button type="button" class="btn-studio-action" id="btn-export-wav" title="Render & Download Sliced WAV Audio Loop">⬇️ Export WAV Loop</button>
+            <button type="button" class="btn-studio-action" id="btn-sync-dj-cues" title="Save Loop into DJ Studio (dj.html) Hot Cues">🎛️ Sync to DJ Studio</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Auto-Slice into 30-Minute Workout Generator -->
+      <section class="studio-card">
+        <div class="studio-card-header">
+          <div class="studio-card-title">
+            <span>⚡ 3. Auto-Slice Podcast / YouTube into 30-Min Workout</span>
+          </div>
+          <span style="font-size: 10px; color: #9ca3af;">One-Click 30m Generator</span>
+        </div>
+
+        <p style="font-size: 11px; color: #9ca3af; line-height: 1.4;">
+          Automatically turn the loaded long podcast episode, DJ mix, or YouTube video into a complete 30-minute interval workout. Choose <strong>Highlight Drops</strong> to extract distinct looped segments for each Work interval, or <strong>Continuous Flow</strong> to listen chronologically with automatic workout beat overlays and Rest ducking.
+        </p>
+
+        <div class="autoslicer-grid">
+          <div class="slicer-field">
+            <label>Total Workout</label>
+            <select id="slicer-total-mins">
+              <option value="30" selected>30 Minutes</option>
+              <option value="20">20 Minutes</option>
+              <option value="15">15 Minutes</option>
+              <option value="45">45 Minutes</option>
+            </select>
+          </div>
+          <div class="slicer-field">
+            <label>Work / Rest</label>
+            <select id="slicer-interval-split">
+              <option value="40/20" selected>40s Work / 20s Rest</option>
+              <option value="30/30">30s Work / 30s Rest</option>
+              <option value="45/15">45s Work / 15s Rest (EMOM)</option>
+              <option value="20/10">20s Work / 10s Rest (Tabata)</option>
+              <option value="180/60">3m Round / 1m Rest (Boxing)</option>
+            </select>
+          </div>
+          <div class="slicer-field">
+            <label>Audio Mapping Mode</label>
+            <select id="slicer-audio-mode">
+              <option value="highlights" selected>🔥 Highlight Drops (A-B Loops)</option>
+              <option value="flow">🌊 Continuous Flow + Beat Overlay</option>
+            </select>
+          </div>
+          <div class="slicer-field">
+            <label>Rest Audio</label>
+            <select id="slicer-rest-mode">
+              <option value="duck" selected>🔉 Chill / Ducked Audio</option>
+              <option value="silent">🔇 Beeps Only (Silent Rest)</option>
+            </select>
+          </div>
+        </div>
+
+        <button type="button" class="btn-studio-action primary-red" id="btn-generate-30m-workout" style="justify-content: center; padding: 12px; font-size: 12px;">
+          🚀 Generate 30-Minute Workout from Loaded Source & Launch Player
+        </button>
+      </section>
+
+      <!-- 4. Saved Loop Crate Library -->
+      <section class="studio-card">
+        <div class="studio-card-header">
+          <div class="studio-card-title">
+            <span>📦 4. My Loop Crate (Saved Training Loops)</span>
+          </div>
+          <span id="crate-count-label" style="font-size: 11px; color: #9ca3af;">0 Loops</span>
+        </div>
+        <div class="loop-crate-grid" id="loop-crate-list"></div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- ═════════════════════════════════════════════════════════════════════
+       MODAL: AUDIO / LOOP SELECTOR FOR INTERVAL BLOCK
+       ═════════════════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay" id="modal-audio" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #ef4444;"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+          <span>Attach Training Loop or Audio</span>
+        </div>
+        <button type="button" class="btn-modal-close" id="btn-close-audio-modal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <!-- 0. Saved Custom Loops from Loop Crate -->
+      <div class="modal-subhead">My Loop Crate (Custom Sliced Loops)</div>
+      <div id="modal-crate-loops-list"></div>
+
+      <!-- 1. DJ Workout Sample Tracks -->
+      <div class="modal-subhead" style="margin-top: 14px;">DJ Workout Beats (Offline Synth & Loops)</div>
+      <div id="modal-sample-beats-list"></div>
+
+      <!-- 2. Downloaded Offline Episodes from app.js -->
+      <div class="modal-subhead" style="margin-top: 14px;">Downloaded Offline Episodes</div>
+      <div id="modal-downloads-list"></div>
+
+      <!-- 3. Currently Playing in Main Anypod App -->
+      <div class="modal-subhead" style="margin-top: 14px;">Anypod Live Player Episode</div>
+      <div id="modal-live-ep-container"></div>
+
+      <!-- 4. Direct Audio / YouTube URL Form with Start & End Loop Points -->
+      <div class="modal-subhead" style="margin-top: 14px;">Direct Audio / YouTube / Shorts Loop</div>
+      <form class="url-form" id="form-direct-audio">
+        <input type="url" class="url-input" id="input-direct-url" required placeholder="https://... (Podcast MP3, YouTube, or YT Short)">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <input type="text" class="url-input" id="input-direct-title" placeholder="Title (e.g. Heavy Drop)" style="flex: 1; min-width: 120px;">
+          <input type="number" class="url-input" id="input-direct-start" placeholder="Start (s)" value="0" min="0" style="width: 78px; text-align: center;" title="Loop Start Second">
+          <input type="number" class="url-input" id="input-direct-end" placeholder="End (s)" value="30" min="0" style="width: 78px; text-align: center;" title="Loop End Second (0 = full)">
+        </div>
+        <button type="submit" class="btn-submit-audio">Attach Loop to Interval</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═════════════════════════════════════════════════════════════════════
+       MODAL: SHARE ROUTINE
+       ═════════════════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay" id="modal-share" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #ef4444;"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+          <span>Share 30-Min Workout & Loops</span>
+        </div>
+        <button type="button" class="btn-modal-close" id="btn-close-share-modal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <p style="font-size: 12px; color: #9ca3af; line-height: 1.5;">
+        Generate a direct link with your workout intervals and custom A-B loop coordinates encoded into the URL. Anyone opening the link loads your exact routine.
+      </p>
+
+      <div class="share-input-row">
+        <input type="text" class="share-link-input" id="input-share-url" readonly>
+        <button type="button" class="btn-copy-share" id="btn-copy-share">Copy</button>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid var(--border-surface);">
+        <button type="button" id="btn-download-json" style="background: transparent; border: none; color: #9ca3af; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+          <span>⬇️ Download Workout JSON</span>
+        </button>
+        <a href="/dj.html" style="color: #06b6d4; font-size: 12px; font-weight: 800; text-decoration: none;">
+          Open DJ Studio &rarr;
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Feedback -->
+  <div class="sets-toast" id="sets-toast">Saved!</div>
+
+  <!-- Shared Anypod Functional Scripts + Sets Sequencer & Loop Studio -->
+  <script src="/shared/formatters.js"></script>
+  <script src="/shared/storage.js"></script>
+  <script src="/shared/sync-bridge.js"></script>
+  <script src="/shared/audio-utils.js"></script>
+  <script src="/sets.js"></script>
+</body>
+</html>

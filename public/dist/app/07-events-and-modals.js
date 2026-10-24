@@ -351,7 +351,7 @@ function setupEventListeners() {
 
             return `
               <div class="discover-preview-item" data-feed-url="${encodeURIComponent(feedUrl)}" data-title="${escapeHtml(title)}" data-artwork="${escapeHtml(artwork)}">
-                <img loading="lazy" decoding="async" width="48" height="48" src="${artwork}" alt="">
+                <img loading="lazy" decoding="async" width="48" height="48" src="${escapeHtml(artwork)}" alt="">
                 <div class="discover-preview-item-info">
                   <span class="discover-preview-title">${escapeHtml(title)}</span>
                   <span class="discover-preview-artist">${escapeHtml(artist)}</span>

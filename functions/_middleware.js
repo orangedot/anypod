@@ -63,14 +63,14 @@ export async function onRequest(context) {
 
   // 2. Subdomain Redirects to primary origin (ensures unpartitioned IndexedDB / storage access)
   if (hostname === 'dj.anypod.org') {
-    const dest = new URL('/dj', 'https://anypod.org');
+    const dest = new URL(url.pathname === '/' || url.pathname === '' ? '/dj' : url.pathname, 'https://anypod.org');
     dest.search = url.search;
     return Response.redirect(dest.toString(), 301);
   }
 
   // 3. sets.anypod.org & pulse.anypod.org -> anypod.org/sets
   if (hostname === 'sets.anypod.org' || hostname === 'pulse.anypod.org') {
-    const dest = new URL('/sets', 'https://anypod.org');
+    const dest = new URL(url.pathname === '/' || url.pathname === '' ? '/sets' : url.pathname, 'https://anypod.org');
     dest.search = url.search;
     return Response.redirect(dest.toString(), 301);
   }
@@ -81,7 +81,13 @@ export async function onRequest(context) {
     return context.env.ASSETS.fetch(assetUrl);
   }
 
-  // 5. /audio and /audio/ rewrite directly to /audio.html
+  // 5. /sets, /sets/, and /sets.html rewrite directly to /sets.html
+  if (url.pathname === '/sets' || url.pathname === '/sets/' || url.pathname === '/sets.html') {
+    const assetUrl = new URL('/sets.html', url.origin);
+    return context.env.ASSETS.fetch(assetUrl);
+  }
+
+  // 6. /audio and /audio/ rewrite directly to /audio.html
   if (url.pathname === '/audio' || url.pathname === '/audio/') {
     const assetUrl = new URL('/audio.html', url.origin);
     return context.env.ASSETS.fetch(assetUrl);

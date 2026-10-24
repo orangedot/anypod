@@ -100,6 +100,7 @@ const coreExportBridge = `
     setupProgressTrackInteractivity,
     renderFeedsGrid,
     renderFeedDetail,
+    formatShowNotesHtml,
     closeSleepModal,
     showStatus,
     hideStatus

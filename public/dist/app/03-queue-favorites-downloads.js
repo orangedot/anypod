@@ -262,7 +262,7 @@ function renderQueueModalContent() {
       <div class="queue-now-playing-card">
         <div class="queue-now-playing-label">now playing</div>
         <div class="queue-now-playing-row">
-          <img class="queue-item-artwork" src="${cur.artwork || FALLBACK_ARTWORK}" alt="">
+          <img class="queue-item-artwork" src="${escapeHtml(cur.artwork || FALLBACK_ARTWORK)}" alt="">
           <div class="queue-item-info">
             <div class="queue-item-title">${escapeHtml(cur.title)}</div>
             <div class="queue-item-meta">${cur.isYouTube ? 'YouTube' : escapeHtml(cur.podcastTitle)}</div>
@@ -304,7 +304,7 @@ function renderQueueModalContent() {
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
         </span>
         <span class="queue-item-index">${idx + 1}</span>
-        <img class="queue-item-artwork" src="${ep.artwork || FALLBACK_ARTWORK}" alt="">
+        <img class="queue-item-artwork" src="${escapeHtml(ep.artwork || FALLBACK_ARTWORK)}" alt="">
         <div class="queue-item-info">
           <div class="queue-item-title">${escapeHtml(ep.title)}</div>
           <div class="queue-item-meta">${escapeHtml(ep.podcastTitle)}${ep.duration ? ` • ${escapeHtml(ep.duration)}` : ''}</div>
@@ -439,7 +439,7 @@ function renderQueueModalContent() {
         row.dataset.guid = ep.guid;
         row.innerHTML = `
           <span class="queue-item-index" style="color:var(--text-muted);">↳</span>
-          <img class="queue-item-artwork" src="${ep.artwork || FALLBACK_ARTWORK}" alt="">
+          <img class="queue-item-artwork" src="${escapeHtml(ep.artwork || FALLBACK_ARTWORK)}" alt="">
           <div class="queue-item-info">
             <div class="queue-item-title">${escapeHtml(ep.title)}</div>
             <div class="queue-item-meta">${escapeHtml(ep.podcastTitle)}${ep.duration ? ` • ${escapeHtml(ep.duration)}` : ''}</div>

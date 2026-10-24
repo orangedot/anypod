@@ -207,7 +207,54 @@ export async function runSmokeTest() {
       if (tabDiscover) tabDiscover.click();
     });
 
-    // Step 3: Wait for idle execution (deferred scripts like player bundle, timers)
+    // Step 3: Verify Show Notes HTML sanitization against XSS payloads in live browser
+    console.log('🛡️ Verifying Show Notes HTML sanitization against XSS payloads...');
+    const sanitizeResult = await page.evaluate(() => {
+      if (typeof window.formatShowNotesHtml !== 'function') {
+        return { ok: false, reason: 'formatShowNotesHtml is not exported or defined' };
+      }
+      const maliciousPayload = `
+        <p>Check out this episode!</p>
+        <img src="https://example.com/art.jpg" onerror="window.__xss_fired=true">
+        <a href="javascript:window.__xss_fired=true">Click here</a>
+        <div onmouseover="window.__xss_fired=true">Hover</div>
+        <script>window.__xss_fired=true</script>
+        <span>Timestamps: 05:20 Intro, 12:45 Conclusion</span>
+      `;
+      const sanitized = window.formatShowNotesHtml(maliciousPayload);
+
+      // Mount into DOM to test for execution
+      const testDiv = document.createElement('div');
+      testDiv.id = '__xss_test_div';
+      testDiv.innerHTML = sanitized;
+      document.body.appendChild(testDiv);
+
+      const hasOnerror = sanitized.includes('onerror=');
+      const hasOnmouseover = sanitized.includes('onmouseover=');
+      const hasJsUri = /href=["']\s*javascript:/i.test(sanitized);
+      const hasScriptTag = sanitized.includes('<script');
+      const hasTimestampBtn = !!testDiv.querySelector('.note-timestamp');
+      const xssExecuted = !!window.__xss_fired;
+
+      testDiv.remove();
+
+      return {
+        ok: !hasOnerror && !hasOnmouseover && !hasJsUri && !hasScriptTag && hasTimestampBtn && !xssExecuted,
+        hasOnerror,
+        hasOnmouseover,
+        hasJsUri,
+        hasScriptTag,
+        hasTimestampBtn,
+        xssExecuted
+      };
+    });
+
+    if (!sanitizeResult.ok) {
+      throw new Error('Show notes HTML sanitization failed in live browser: ' + JSON.stringify(sanitizeResult));
+    }
+    console.log('✅ Live browser XSS sanitization verified: all malicious handlers stripped, valid timestamps preserved.');
+
+    // Step 4: Wait for idle execution (deferred scripts like player bundle, timers)
     console.log('⏳ Awaiting idle callbacks and deferred script execution (3s)...');
     await new Promise(r => setTimeout(r, 3200));
 

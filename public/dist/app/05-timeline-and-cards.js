@@ -203,8 +203,29 @@ function formatShowNotesHtml(rawInput) {
     const doc = parser.parseFromString(`<div>${processed}</div>`, 'text/html');
     const container = doc.body.firstElementChild || doc.body;
 
-    const dangerous = container.querySelectorAll('script, style, iframe, object, embed, form, input, button');
+    const dangerous = container.querySelectorAll('script, style, iframe, object, embed, form, input, button, applet, meta, link');
     dangerous.forEach(el => el.remove());
+
+    // Scrub all inline event handlers (onerror, onload, onclick, etc.) and dangerous URI schemes
+    container.querySelectorAll('*').forEach(el => {
+      for (const attr of Array.from(el.attributes)) {
+        if (attr.name.toLowerCase().startsWith('on')) {
+          el.removeAttribute(attr.name);
+        }
+      }
+      if (el.hasAttribute('href')) {
+        const href = (el.getAttribute('href') || '').trim();
+        if (/^(?:javascript|vbscript|data):/i.test(href)) {
+          el.removeAttribute('href');
+        }
+      }
+      if (el.hasAttribute('src')) {
+        const src = (el.getAttribute('src') || '').trim();
+        if (/^(?:javascript|vbscript):/i.test(src)) {
+          el.removeAttribute('src');
+        }
+      }
+    });
 
     const links = container.querySelectorAll('a');
     links.forEach(a => {
@@ -910,11 +931,13 @@ function renderChaptersTab() {
       : '';
 
     const thumbHtml = ch.img
-      ? `<img class="chapter-thumb" src="${ch.img}" alt="" onerror="this.style.display='none'">`
+      ? `<img class="chapter-thumb" src="${escapeHtml(ch.img)}" alt="" onerror="this.style.display='none'">`
       : '';
 
-    const linkHtml = ch.url
-      ? `<a href="${ch.url}" target="_blank" rel="noopener noreferrer" class="chapter-link-btn" title="Open chapter link" onclick="event.stopPropagation()">
+    const isSafeUrl = typeof ch.url === 'string' && /^https?:\/\//i.test(ch.url.trim());
+    const safeChapterUrl = isSafeUrl ? escapeHtml(ch.url.trim()) : '';
+    const linkHtml = safeChapterUrl
+      ? `<a href="${safeChapterUrl}" target="_blank" rel="noopener noreferrer" class="chapter-link-btn" title="Open chapter link" onclick="event.stopPropagation()">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
          </a>`
       : '';
@@ -1226,7 +1249,7 @@ function createEpisodeCard(ep, context = null, cardIndex = 0) {
   const isAboveTheFold = typeof cardIndex === 'number' && cardIndex < 4;
   card.innerHTML = `
     <div class="episode-card-top">
-      <img class="episode-artwork" src="${ep.artwork || FALLBACK_ARTWORK}" alt="" ${isAboveTheFold ? 'loading="eager" fetchpriority="high"' : 'loading="lazy" decoding="async"'} width="52" height="52">
+      <img class="episode-artwork" src="${escapeHtml(ep.artwork || FALLBACK_ARTWORK)}" alt="" ${isAboveTheFold ? 'loading="eager" fetchpriority="high"' : 'loading="lazy" decoding="async"'} width="52" height="52">
       <div class="episode-header-info">
         <div class="episode-podcast-name">${ep.isYouTube ? 'YouTube' : highlightText(ep.podcastTitle, state.searchQuery)}</div>
         <div class="episode-title">${highlightText(ep.title, state.searchQuery)}</div>
@@ -1720,7 +1743,7 @@ function renderFeedsGrid() {
 
     card.innerHTML = `
       <div class="feed-header">
-        <img class="feed-art" loading="lazy" decoding="async" width="48" height="48" src="${meta.artwork || FALLBACK_ARTWORK}" alt="">
+        <img class="feed-art" loading="lazy" decoding="async" width="48" height="48" src="${escapeHtml(meta.artwork || FALLBACK_ARTWORK)}" alt="">
         <div class="feed-info">
           <h4>${highlightText(meta.title || url, state.searchQuery)}</h4>
           <p>${meta.error ? `<span style="color: #ef4444;">${escapeHtml(meta.error)}</span>` : `${meta.episodesCount || feedEpisodes.length} episodes`}${isFeedMuted(url) ? ' • <span style="color: var(--danger); font-weight: 500;">Muted</span>' : ''}</p>
@@ -1910,7 +1933,7 @@ function renderFeedDetail(feedUrl) {
         </div>
       </div>
       <div class="feed-detail-main">
-        <img class="feed-detail-art" loading="lazy" decoding="async" width="48" height="48" src="${meta.artwork || FALLBACK_ARTWORK}" alt="">
+        <img class="feed-detail-art" loading="lazy" decoding="async" width="48" height="48" src="${escapeHtml(meta.artwork || FALLBACK_ARTWORK)}" alt="">
         <div class="feed-detail-info">
           <div class="feed-detail-title">${escapeHtml(meta.title || 'Untitled Podcast')}</div>
           <div class="feed-detail-author">${escapeHtml(meta.author || '')}</div>
