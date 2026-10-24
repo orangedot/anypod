@@ -3,13 +3,10 @@
   "include": [
     "/",
     "/dj",
-    "/dj/",
     "/dj/*",
     "/sets",
-    "/sets/",
     "/sets/*",
     "/audio",
-    "/audio/",
     "/audio/*",
     "/api/*"
   ],
