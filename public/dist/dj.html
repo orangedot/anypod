@@ -59,7 +59,7 @@
           </div>
           <div class="clock-actions">
             <button type="button" class="btn-bpm-tap" id="btn-bpm-tap" title="Tap BPM">TAP</button>
-            <button type="button" class="btn-bpm-sync active" id="btn-master-sync" title="Sync Both Decks">SYNC</button>
+            <button type="button" class="btn-bpm-sync" id="btn-master-sync" title="Sync Both Decks">SYNC</button>
           </div>
         </div>
 
@@ -129,8 +129,9 @@
         <div class="deck-top-row">
           <div class="deck-badge-wrap">
             <span class="deck-id-tag">A</span>
-            <button type="button" class="deck-mode-btn active" id="btn-sync-a">SYNC</button>
+            <button type="button" class="deck-mode-btn" id="btn-sync-a">SYNC</button>
             <button type="button" class="deck-mode-btn" id="btn-master-a">MASTER</button>
+            <button type="button" class="deck-mode-btn active" id="btn-vinyl-a" title="Toggle Vinyl Mode (On: Scratch, Off: Jog Bend)">VINYL</button>
           </div>
           <div class="track-header-info">
             <div class="track-title" id="deck-a-title" title="Track Title">Select track to load</div>
@@ -151,10 +152,20 @@
           <div id="yt-embed-a" class="yt-player-slot"></div>
         </div>
 
-        <!-- Primary Multi-Band Waveform Canvas -->
-        <div class="waveform-container" id="waveform-wrap-a">
-          <canvas class="waveform-canvas" id="wave-canvas-a" aria-label="Deck A Multi-band Waveform"></canvas>
-          <div class="playhead-needle" id="playhead-needle-a"></div>
+        <!-- Deck Mid Section: Touch Jog Platter + Scrolling Waveform Display -->
+        <div class="deck-mid-section">
+          <div class="jog-platter-wrap" id="jog-wrap-a" data-deck="A" title="Touch Jog Platter (Scratch center, Rim nudge)">
+            <canvas class="jog-platter-canvas" id="jog-canvas-a" width="96" height="96"></canvas>
+            <div class="jog-center-cap">
+              <span class="jog-deck-letter">A</span>
+              <span class="jog-mode-tag" id="jog-mode-tag-a">VINYL</span>
+            </div>
+          </div>
+          <div class="waveform-container" id="waveform-wrap-a" data-deck="A" title="Click & Drag to Scratch / Scrub (Vinyl Mode)">
+            <canvas class="waveform-canvas" id="wave-canvas-a" aria-label="Deck A Multi-band Waveform"></canvas>
+            <div class="playhead-needle" id="playhead-needle-a"></div>
+            <div class="scratch-hud hidden" id="scratch-hud-a">SCRATCH 0.0x</div>
+          </div>
         </div>
 
         <!-- Overview Stripe Canvas (Full Track Envelope + Cues) -->
@@ -183,7 +194,7 @@
           <!-- Loop Section -->
           <div class="loop-group">
             <button type="button" class="loop-btn" id="loop-a-half" title="Half Loop Size">½</button>
-            <button type="button" class="loop-btn active" id="loop-a-active" title="Toggle 4-Beat Loop">LOOP 4</button>
+            <button type="button" class="loop-btn" id="loop-a-active" title="Toggle 4-Beat Loop">LOOP 4</button>
             <button type="button" class="loop-btn" id="loop-a-double" title="Double Loop Size">2×</button>
           </div>
 
@@ -304,6 +315,29 @@
 
         </div>
 
+        <!-- Headphone Cue / PFL Monitoring Section -->
+        <div class="cue-monitor-module" aria-label="Headphone Monitor Controls">
+          <div class="cue-monitor-header">
+            <span class="cue-monitor-tag">PHONES</span>
+            <button type="button" class="btn-cue-mode" id="btn-cue-mode" title="Toggle Monitoring Mode (STEREO, SPLIT CABLE, 4-CHANNEL)">
+              <span class="cue-mode-label" id="cue-mode-label">STEREO</span>
+            </button>
+          </div>
+          <div class="cue-knobs-row">
+            <!-- Cue Mix Knob (Cue vs Master) -->
+            <div class="knob-wrap mini-knob" data-knob="cue-mix" data-min="0" data-max="100" data-default="0" data-unit="%" title="Cue / Master Mix: 0% = Pure Cue, 100% = Pure Master">
+              <div class="knob"><div class="knob-dial"><div class="knob-pointer"></div></div></div>
+              <span class="knob-label">MIX</span>
+            </div>
+
+            <!-- Cue Volume Knob -->
+            <div class="knob-wrap mini-knob" data-knob="cue-vol" data-min="0" data-max="100" data-default="85" data-unit="%" title="Headphone Cue Volume">
+              <div class="knob"><div class="knob-dial"><div class="knob-pointer"></div></div></div>
+              <span class="knob-label">VOL</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Crossfader Section -->
         <div class="crossfader-module">
           <div class="xfader-tags">
@@ -322,8 +356,9 @@
         <div class="deck-top-row">
           <div class="deck-badge-wrap">
             <span class="deck-id-tag">B</span>
-            <button type="button" class="deck-mode-btn active" id="btn-sync-b">SYNC</button>
+            <button type="button" class="deck-mode-btn" id="btn-sync-b">SYNC</button>
             <button type="button" class="deck-mode-btn" id="btn-master-b">MASTER</button>
+            <button type="button" class="deck-mode-btn active" id="btn-vinyl-b" title="Toggle Vinyl Mode (On: Scratch, Off: Jog Bend)">VINYL</button>
           </div>
           <div class="track-header-info">
             <div class="track-title" id="deck-b-title" title="Track Title">Select track to load</div>
@@ -344,10 +379,20 @@
           <div id="yt-embed-b" class="yt-player-slot"></div>
         </div>
 
-        <!-- Primary Multi-Band Waveform Canvas -->
-        <div class="waveform-container" id="waveform-wrap-b">
-          <canvas class="waveform-canvas" id="wave-canvas-b" aria-label="Deck B Multi-band Waveform"></canvas>
-          <div class="playhead-needle" id="playhead-needle-b"></div>
+        <!-- Deck Mid Section: Touch Jog Platter + Scrolling Waveform Display -->
+        <div class="deck-mid-section">
+          <div class="jog-platter-wrap" id="jog-wrap-b" data-deck="B" title="Touch Jog Platter (Scratch center, Rim nudge)">
+            <canvas class="jog-platter-canvas" id="jog-canvas-b" width="96" height="96"></canvas>
+            <div class="jog-center-cap">
+              <span class="jog-deck-letter">B</span>
+              <span class="jog-mode-tag" id="jog-mode-tag-b">VINYL</span>
+            </div>
+          </div>
+          <div class="waveform-container" id="waveform-wrap-b" data-deck="B" title="Click & Drag to Scratch / Scrub (Vinyl Mode)">
+            <canvas class="waveform-canvas" id="wave-canvas-b" aria-label="Deck B Multi-band Waveform"></canvas>
+            <div class="playhead-needle" id="playhead-needle-b"></div>
+            <div class="scratch-hud hidden" id="scratch-hud-b">SCRATCH 0.0x</div>
+          </div>
         </div>
 
         <!-- Overview Stripe Canvas (Full Track Envelope + Cues) -->
@@ -376,7 +421,7 @@
           <!-- Loop Section -->
           <div class="loop-group">
             <button type="button" class="loop-btn" id="loop-b-half" title="Half Loop Size">½</button>
-            <button type="button" class="loop-btn active" id="loop-b-active" title="Toggle 4-Beat Loop">LOOP 4</button>
+            <button type="button" class="loop-btn" id="loop-b-active" title="Toggle 4-Beat Loop">LOOP 4</button>
             <button type="button" class="loop-btn" id="loop-b-double" title="Double Loop Size">2×</button>
           </div>
 

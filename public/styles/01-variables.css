@@ -1,0 +1,503 @@
+/* Self-Hosted Variable Outfit Font (0ms Render-Blocking & Instant First Paint) */
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 200 700;
+  font-display: optional;
+  src: url('/fonts/outfit-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 200 700;
+  font-display: optional;
+  src: url('/fonts/outfit-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  --font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  
+  /* Softer Dark Mode (Zinc / Charcoal base) */
+  --bg-dark: #161618;
+  --bg-card: #202024;
+  --bg-card-hover: #2a2a30;
+  --bg-glass: rgba(22, 22, 24, 0.9);
+  
+  --primary: #d8cdbe;
+  --primary-hover: #c9bea9;
+  --primary-glow: rgba(216, 205, 190, 0.15);
+  --primary-fg: #141414;
+  --accent-orange: #f97316;
+  --accent-orange-hover: #ea580c;
+  --accent: #f97316;
+  --danger: #ef4444;
+  
+  --text-primary: #f2f2f4;
+  --text-secondary: #a8a8b3;
+  --text-muted: #787885;
+  
+  --border-light: rgba(255, 255, 255, 0.08);
+  --border-focus: #d8cdbe;
+  
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 9999px;
+  --shadow-main: 0 10px 30px rgba(0, 0, 0, 0.4);
+  --backdrop-blur: blur(16px);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    /* Soft Light Grey Mode (No harsh #ffffff) */
+    --bg-dark: #e8eaed;
+    --bg-card: #f3f4f6;
+    --bg-card-hover: #e5e7eb;
+    --bg-glass: rgba(232, 234, 237, 0.95);
+    
+    --primary: #2e2a25;
+    --primary-hover: #1c1916;
+    --primary-glow: rgba(46, 42, 37, 0.12);
+    --primary-fg: #f5f2eb;
+    --accent-orange: #c2410c;
+    --accent-orange-hover: #9a3412;
+    --accent: #c2410c;
+    --danger: #dc2626;
+    
+    --text-primary: #18181b;
+    --text-secondary: #52525c;
+    --text-muted: #52525b;
+    
+    --border-light: rgba(0, 0, 0, 0.08);
+    --border-focus: #635c53;
+    --shadow-main: 0 8px 24px rgba(0, 0, 0, 0.06);
+  }
+}
+
+[data-theme="light"] {
+  /* Soft Light Grey Mode (No harsh #ffffff) */
+  --bg-dark: #e8eaed;
+  --bg-card: #f3f4f6;
+  --bg-card-hover: #e5e7eb;
+  --bg-glass: rgba(232, 234, 237, 0.92);
+  
+  --primary: #2e2a25;
+  --primary-hover: #1c1916;
+  --primary-glow: rgba(46, 42, 37, 0.12);
+  --primary-fg: #f5f2eb;
+  --accent-orange: #c2410c;
+  --accent-orange-hover: #9a3412;
+  --accent: #c2410c;
+  --danger: #dc2626;
+  
+  --text-primary: #18181b;
+  --text-secondary: #52525c;
+  --text-muted: #52525b;
+  
+  --border-light: rgba(0, 0, 0, 0.08);
+  --border-focus: #635c53;
+  --shadow-main: 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="dark"] {
+  /* Softer Dark Mode */
+  --bg-dark: #161618;
+  --bg-card: #202024;
+  --bg-card-hover: #2a2a30;
+  --bg-glass: rgba(22, 22, 24, 0.88);
+  
+  --primary: #d8cdbe;
+  --primary-hover: #c9bea9;
+  --primary-glow: rgba(216, 205, 190, 0.15);
+  --primary-fg: #141414;
+  --accent-orange: #f97316;
+  --accent-orange-hover: #ea580c;
+  --accent: #f97316;
+  --danger: #ef4444;
+  
+  --text-primary: #f2f2f4;
+  --text-secondary: #a8a8b3;
+  --text-muted: #787885;
+  
+  --border-light: rgba(255, 255, 255, 0.08);
+  --border-focus: #d8cdbe;
+  --shadow-main: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+/* ───────────────────────────────────────────────────────────
+   Minimal palette – fewer borders, no orange accent, no icons
+   ─────────────────────────────────────────────────────────── */
+
+/* Strip all borders and shadows globally, except for inputs, buttons with explicit borders, toast, and badges */
+*:not(input):not(textarea):not(select):not(.search-bar):not(.quick-add-input-wrap):not(.btn-header-back):not(.app-toast):not(.status-badge) {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* ───────────────────────────────────────────────────────────
+   Modern Apple-Style Input System
+   (Outer containers have borders; inner inputs are completely borderless)
+   ─────────────────────────────────────────────────────────── */
+
+.search-bar,
+.quick-add-input-wrap,
+.modal-body input[type="text"],
+.modal-body input[type="url"],
+.auth-form-card input[type="email"],
+#podcast-search-query,
+#feed-url-input,
+#magic-email-input,
+#transcript-search-input,
+.transcript-search-input {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: var(--radius-full) !important;
+  color: #ffffff !important;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 450;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+}
+
+[data-theme="light"] .search-bar,
+[data-theme="light"] .quick-add-input-wrap,
+[data-theme="light"] .modal-body input[type="text"],
+[data-theme="light"] .modal-body input[type="url"],
+[data-theme="light"] .auth-form-card input[type="email"],
+[data-theme="light"] #podcast-search-query,
+[data-theme="light"] #feed-url-input,
+[data-theme="light"] #magic-email-input,
+[data-theme="light"] #transcript-search-input,
+[data-theme="light"] .transcript-search-input,
+:root:not([data-theme="dark"]) .search-bar,
+:root:not([data-theme="dark"]) .quick-add-input-wrap,
+:root:not([data-theme="dark"]) .modal-body input[type="text"],
+:root:not([data-theme="dark"]) .modal-body input[type="url"],
+:root:not([data-theme="dark"]) .auth-form-card input[type="email"],
+:root:not([data-theme="dark"]) #podcast-search-query,
+:root:not([data-theme="dark"]) #feed-url-input,
+:root:not([data-theme="dark"]) #magic-email-input,
+:root:not([data-theme="dark"]) #transcript-search-input,
+:root:not([data-theme="dark"]) .transcript-search-input {
+  background: rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid rgba(0, 0, 0, 0.13) !important;
+  color: #111111 !important;
+}
+
+.search-bar:hover,
+.quick-add-input-wrap:hover,
+.modal-body input[type="text"]:hover,
+.modal-body input[type="url"]:hover,
+.auth-form-card input[type="email"]:hover,
+#podcast-search-query:hover,
+#feed-url-input:hover,
+#magic-email-input:hover,
+#transcript-search-input:hover,
+.transcript-search-input:hover {
+  background: rgba(255, 255, 255, 0.11) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+[data-theme="light"] .search-bar:hover,
+[data-theme="light"] .quick-add-input-wrap:hover,
+[data-theme="light"] .modal-body input[type="text"]:hover,
+[data-theme="light"] .modal-body input[type="url"]:hover,
+[data-theme="light"] .auth-form-card input[type="email"]:hover,
+[data-theme="light"] #podcast-search-query:hover,
+[data-theme="light"] #feed-url-input:hover,
+[data-theme="light"] #magic-email-input:hover,
+[data-theme="light"] #transcript-search-input:hover,
+[data-theme="light"] .transcript-search-input:hover,
+:root:not([data-theme="dark"]) .search-bar:hover,
+:root:not([data-theme="dark"]) .quick-add-input-wrap:hover,
+:root:not([data-theme="dark"]) .modal-body input[type="text"]:hover,
+:root:not([data-theme="dark"]) .modal-body input[type="url"]:hover,
+:root:not([data-theme="dark"]) .auth-form-card input[type="email"]:hover,
+:root:not([data-theme="dark"]) #podcast-search-query:hover,
+:root:not([data-theme="dark"]) #feed-url-input:hover,
+:root:not([data-theme="dark"]) #magic-email-input:hover,
+:root:not([data-theme="dark"]) #transcript-search-input:hover,
+:root:not([data-theme="dark"]) .transcript-search-input:hover {
+  background: rgba(0, 0, 0, 0.08) !important;
+  border-color: rgba(0, 0, 0, 0.22) !important;
+}
+
+.search-bar:focus-within,
+.quick-add-input-wrap:focus-within,
+.modal-body input[type="text"]:focus,
+.modal-body input[type="url"]:focus,
+.auth-form-card input[type="email"]:focus,
+#podcast-search-query:focus,
+#feed-url-input:focus,
+#magic-email-input:focus,
+#transcript-search-input:focus,
+.transcript-search-input:focus {
+  background: rgba(255, 255, 255, 0.14) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08) !important;
+  outline: none !important;
+}
+
+[data-theme="light"] .search-bar:focus-within,
+[data-theme="light"] .quick-add-input-wrap:focus-within,
+[data-theme="light"] .modal-body input[type="text"]:focus,
+[data-theme="light"] .modal-body input[type="url"]:focus,
+[data-theme="light"] .auth-form-card input[type="email"]:focus,
+[data-theme="light"] #podcast-search-query:focus,
+[data-theme="light"] #feed-url-input:focus,
+[data-theme="light"] #magic-email-input:focus,
+[data-theme="light"] #transcript-search-input:focus,
+[data-theme="light"] .transcript-search-input:focus,
+:root:not([data-theme="dark"]) .search-bar:focus-within,
+:root:not([data-theme="dark"]) .quick-add-input-wrap:focus-within,
+:root:not([data-theme="dark"]) .modal-body input[type="text"]:focus,
+:root:not([data-theme="dark"]) .modal-body input[type="url"]:focus,
+:root:not([data-theme="dark"]) .auth-form-card input[type="email"]:focus,
+:root:not([data-theme="dark"]) #podcast-search-query:focus,
+:root:not([data-theme="dark"]) #feed-url-input:focus,
+:root:not([data-theme="dark"]) #magic-email-input:focus,
+:root:not([data-theme="dark"]) #transcript-search-input:focus,
+:root:not([data-theme="dark"]) .transcript-search-input:focus {
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.35) !important;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08) !important;
+  outline: none !important;
+}
+
+/* Inner inputs inside wrapper bars - absolutely NO borders or backgrounds (only outer wrapper has border) */
+.search-bar input,
+.quick-add-input-wrap input,
+#search-input,
+#empty-quick-input,
+#feeds-empty-quick-input {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 450;
+  width: 100%;
+  outline: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+}
+
+.search-bar input:focus,
+.quick-add-input-wrap input:focus,
+#search-input:focus,
+#empty-quick-input:focus,
+#feeds-empty-quick-input:focus {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* High contrast placeholders */
+input::placeholder,
+.search-bar input::placeholder,
+.quick-add-input-wrap input::placeholder {
+  color: var(--text-muted) !important;
+  opacity: 0.8 !important;
+  font-weight: 400;
+}
+
+/* ───────────────────────────────────────────────────────────
+   Player Episode Status Badges & Share Buttons
+   ─────────────────────────────────────────────────────────── */
+
+.player-episode-status-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-right: 0.25rem;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.09) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+[data-theme="light"] .status-badge,
+:root:not([data-theme="dark"]) .status-badge {
+  background: rgba(0, 0, 0, 0.06) !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+.status-badge.badge-downloaded {
+  color: #10b981; /* Emerald green for offline ready */
+}
+
+.status-badge.badge-fav {
+  color: #ef4444; /* Heart coral red */
+}
+
+.status-badge.badge-queue {
+  color: #3b82f6; /* Blue for queue */
+}
+
+.status-badge svg {
+  display: block !important;
+}
+
+.status-badge.hidden {
+  display: none !important;
+}
+
+.mini-status-badges {
+  margin-right: 0.15rem;
+}
+
+.mini-status-badges .status-badge {
+  width: 20px;
+  height: 20px;
+}
+
+/* One-tap Copy Stream URL button in player */
+.btn-copy-stream-url {
+  opacity: 0.65;
+  transition: opacity 0.2s, color 0.2s, transform 0.15s ease;
+  margin-right: 0.15rem;
+}
+
+.btn-copy-stream-url:hover {
+  opacity: 1;
+  color: var(--accent, #3b82f6);
+}
+
+.btn-copy-stream-url.is-copied {
+  opacity: 1;
+  color: #10b981;
+  transform: scale(1.15);
+}
+
+/* App Toast Notification (Apple-style HUD) */
+.app-toast {
+  position: fixed;
+  top: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(-24px);
+  background: rgba(24, 24, 28, 0.94);
+  color: #ffffff;
+  padding: 0.55rem 1.25rem;
+  border-radius: var(--radius-full);
+  font-size: 0.84rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 10000;
+}
+
+[data-theme="light"] .app-toast,
+:root:not([data-theme="dark"]) .app-toast {
+  background: rgba(255, 255, 255, 0.95);
+  color: #111111;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12) !important;
+}
+
+.app-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Hide SVG icons and font-awesome icons throughout the UI.
+   The player controls keep their SVG via .player-bar svg overrides below. */
+.empty-icon-wrap svg,
+.nav-tab svg,
+.shelf-header svg,
+.feed-detail-header svg,
+.empty-quick-add svg,
+.quick-add-icon {
+  display: none !important;
+}
+
+/* Reduce orange accent – keep it only on active/interactive states */
+:root {
+  --accent-orange: var(--text-muted);
+  --accent-orange-hover: var(--text-secondary);
+}
+
+/* ───────────────────────────────────────────────────────────
+   Top navigation modern back button
+   ─────────────────────────────────────────────────────────── */
+.btn-header-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-full);
+  padding: 0.35rem 0.75rem 0.35rem 0.55rem;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+  user-select: none;
+}
+
+.btn-header-back:hover {
+  background: var(--bg-card-hover);
+  color: var(--accent-orange);
+}
+
+.btn-header-back.hidden {
+  display: none !important;
+}
+
+.btn-header-back svg {
+  display: block !important;
+  flex-shrink: 0;
+}
+
+/* ───────────────────────────────────────────────────────────
+   Empty-episode screen – plain text only, no colours, no icons
+   ─────────────────────────────────────────────────────────── */
+.empty-state.onboarding-card,
+.empty-episode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 55vh;
+  color: var(--text-muted);
+  background: transparent;
+  text-align: center;
+  padding: 2rem;
+  gap: 0.75rem;
+}
+.empty-state.onboarding-card svg,
+.empty-state.onboarding-card .empty-icon-wrap,
+.empty-episode svg,
+.empty-episode .empty-icon-wrap {
+  display: none !important;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+

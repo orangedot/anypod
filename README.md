@@ -141,11 +141,14 @@ Anypod is a free, open-source podcast player that respects you. Open it, search 
 ## 🎚️ Companion Apps & Specialized Modes
 
 ### 1. DJ Studio (`dj.anypod.org` / `/dj`)
-- **Dual-Deck Web Audio Engine**: Separate Deck A & Deck B players with equal-power crossfader.
-- **BPM & Pitch Controls**: Variable playback rate (0.5x to 2.0x), beat pitch bending, and tap tempo.
-- **Hot Cues & Loops**: Instant cue triggers (Cue 1–4) and precision audio looping (1, 2, 4, 8, 16 beats).
-- **3-Band EQ & Filters**: Real-time Low, Mid, and High shelf filters with kill switches.
-- **DJ Crate & Feed Picker**: Browse your subscribed podcasts, search individual episodes, or import external audio streams directly into either deck.
+- **Dual-Deck Web Audio & YouTube Hybrid Engine**: Independent Deck A & Deck B players supporting both high-fidelity Web Audio files and interactive YouTube IFrame audio with equal-power crossfader.
+- **Automatic BPM & Key Detection**: Client-side DSP analysis running onset energy flux and autocorrelation for real-time BPM detection, plus Goertzel chroma analysis with Krumhansl-Schmuckler profiles mapped to Camelot (`1A`–`12B`) and Traktor OpenKey (`1m`–`12m`) notation. Includes metadata parsing and persistent cache.
+- **Headphone Monitoring & PFL Routing**: Pre-Fade Listen bus with 3 cue routing modes: Multi-Device Bluetooth/USB-C split (`setSinkId`), DJ Splitter Cable (Mono Master Left / Cue Right), and Stereo Cue Mix blend.
+- **Modular Studio FX Processors**: Real-time tempo-synced Delay (DLY), algorithmic Reverb (REV), resonant Filter Sweep (FLT), and square-wave Beat Gater (GATE) with Dry/Wet mix controls.
+- **Tactile Scratch Platters & Vinyl Mode**: Interactive touch jog wheels and waveform scrubbing backed by a procedural `VinylScratchAudio` physical modeling synthesizer (groove friction, formant filter, and needle contact audio).
+- **Performance Transport & Loops**: 4 persistent Hot Cue pads per deck, seamless beat looping with dynamic `½` halve and `2×` double multipliers, pitch nudge buttons, and smooth tempo faders.
+- **Hardware-Style 3-Band EQ & Bipolar Filters**: Isolator High/Mid/Low EQ and morphing low-pass/high-pass color filters with double-click center snap.
+- **DJ Crate & Unified Collection**: Direct integration with your subscribed podcasts, YouTube playlists, favorites, and queued tracks, plus quick `+ Add URL` import.
 
 ### 2. Workout Interval DJ Sequencer (`sets.anypod.org` / `/sets.html`)
 - **OLED High-Contrast UI**: Electric Red (Work), Neon Cyan (Rest), Amber (Warmup), and Emerald (Cooldown).

@@ -375,9 +375,26 @@ html, body {
   border-radius: 3px;
   background: #191925;
   border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.telemetry-badge:hover {
+  background: #252538;
+  border-color: rgba(255, 255, 255, 0.2);
 }
 .key-badge { color: #f59e0b; }
 .bpm-badge { color: #38bdf8; }
+
+.telemetry-badge.analyzing {
+  animation: pulse-telemetry 0.8s infinite alternate ease-in-out;
+  color: #a855f7;
+  border-color: rgba(168, 85, 247, 0.4);
+}
+@keyframes pulse-telemetry {
+  from { opacity: 0.4; transform: scale(0.97); }
+  to { opacity: 1.0; transform: scale(1.0); }
+}
 
 .time-display {
   display: flex;
@@ -399,6 +416,102 @@ html, body {
   pointer-events: none;
 }
 
+/* Deck Mid Section (Touch Jog Platter + Scrolling Waveform) */
+.deck-mid-section {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  min-height: 94px;
+  flex: 1;
+  position: relative;
+}
+
+/* Touch Jog Platter */
+.jog-platter-wrap {
+  position: relative;
+  width: 94px;
+  height: 94px;
+  flex: 0 0 94px;
+  align-self: center;
+  border-radius: 50%;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.75), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  background: radial-gradient(circle, #1a1a26 0%, #0d0d16 85%, #050508 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #232332;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.jog-platter-wrap:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+.jog-platter-wrap:active, .jog-platter-wrap.scratching {
+  cursor: grabbing;
+}
+.deck-a .jog-platter-wrap.scratching {
+  border-color: var(--deck-a);
+  box-shadow: 0 0 16px rgba(255, 59, 92, 0.6), inset 0 0 10px rgba(255, 59, 92, 0.4);
+}
+.deck-b .jog-platter-wrap.scratching {
+  border-color: var(--deck-b);
+  box-shadow: 0 0 16px rgba(0, 210, 255, 0.6), inset 0 0 10px rgba(0, 210, 255, 0.4);
+}
+.jog-platter-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.jog-center-cap {
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #222232 0%, #101018 100%);
+  border: 1.5px solid #2f2f42;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
+  z-index: 2;
+}
+.jog-deck-letter {
+  font-size: 11px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  line-height: 1;
+}
+.deck-a .jog-deck-letter { color: var(--deck-a); text-shadow: 0 0 4px rgba(255, 59, 92, 0.6); }
+.deck-b .jog-deck-letter { color: var(--deck-b); text-shadow: 0 0 4px rgba(0, 210, 255, 0.6); }
+.jog-mode-tag {
+  font-size: 6.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  line-height: 1;
+  margin-top: 1px;
+}
+
+/* Vinyl Mode Header Button Highlight */
+.deck-mode-btn.active#btn-vinyl-a {
+  background: var(--deck-a);
+  color: #fff;
+  border-color: var(--deck-a);
+  box-shadow: 0 0 6px rgba(255, 59, 92, 0.4);
+}
+.deck-mode-btn.active#btn-vinyl-b {
+  background: var(--deck-b);
+  color: #000;
+  border-color: var(--deck-b);
+  box-shadow: 0 0 6px rgba(0, 210, 255, 0.4);
+}
+
 /* Primary Multi-Band Waveform Canvas */
 .waveform-container {
   flex: 1;
@@ -409,7 +522,39 @@ html, body {
   border-radius: 6px;
   overflow: hidden;
   cursor: ew-resize;
+  user-select: none;
+  touch-action: none;
 }
+.waveform-container.scratching {
+  cursor: grabbing;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+.deck-a .waveform-container.scratching {
+  box-shadow: inset 0 0 10px rgba(255, 59, 92, 0.2);
+}
+.deck-b .waveform-container.scratching {
+  box-shadow: inset 0 0 10px rgba(0, 210, 255, 0.2);
+}
+.scratch-hud {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  padding: 2px 7px;
+  background: rgba(10, 10, 16, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 800;
+  color: #38bdf8;
+  pointer-events: none;
+  z-index: 20;
+  letter-spacing: 0.5px;
+  backdrop-filter: blur(4px);
+}
+.deck-a .scratch-hud { color: var(--deck-a); border-color: var(--deck-a); }
+.deck-b .scratch-hud { color: var(--deck-b); border-color: var(--deck-b); }
+.scratch-hud.hidden { display: none; }
 .waveform-canvas {
   width: 100%;
   height: 100%;
@@ -582,18 +727,47 @@ html, body {
   align-items: center;
   gap: 3px;
 }
+.pitch-pct.nudging {
+  color: #f59e0b;
+  font-weight: 800;
+  text-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+}
 .pitch-nudge {
   background: #181824;
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text-secondary);
-  font-size: 10px;
-  width: 16px;
-  height: 18px;
-  border-radius: 2px;
+  font-size: 11px;
+  font-weight: 800;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  user-select: none;
+  touch-action: none;
+  transition: background 0.08s, box-shadow 0.08s, transform 0.05s;
+}
+.pitch-nudge:hover {
+  background: #252538;
+  color: #fff;
+}
+.pitch-nudge:active, .pitch-nudge.nudging {
+  transform: scale(0.92);
+  background: #38bdf8;
+  color: #000;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+}
+.deck-a .pitch-nudge:active, .deck-a .pitch-nudge.nudging {
+  background: var(--deck-a);
+  color: #fff;
+  box-shadow: 0 0 10px var(--deck-a);
+}
+.deck-b .pitch-nudge:active, .deck-b .pitch-nudge.nudging {
+  background: var(--deck-b);
+  color: #000;
+  box-shadow: 0 0 10px var(--deck-b);
 }
 .pitch-slider {
   flex: 1;
@@ -757,6 +931,60 @@ html, body {
   height: 64px;
   cursor: pointer;
   accent-color: #f3f3f8;
+}
+
+/* Headphone Cue / PFL Monitor Module */
+.cue-monitor-module {
+  background: #12121a;
+  border: 1px solid var(--border-dark);
+  border-radius: 6px;
+  padding: 4px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cue-monitor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.cue-monitor-tag {
+  font-size: 8px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+.btn-cue-mode {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-dark);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-cue-mode:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+.btn-cue-mode.split {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.12);
+}
+.btn-cue-mode.multichannel {
+  color: var(--neon-blue);
+  border-color: rgba(59, 130, 246, 0.4);
+  background: rgba(59, 130, 246, 0.12);
+}
+.cue-knobs-row {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
 }
 
 /* Crossfader Module */

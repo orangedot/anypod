@@ -8,6 +8,7 @@ const APP_SHELL = [
   '/fonts/outfit-latin.woff2',
   '/fonts/outfit-latin-ext.woff2',
   '/app.min.js',
+    '/player.min.js',
   '/manifest.webmanifest',
   '/icon.svg',
   '/icon-192.png',

@@ -804,6 +804,7 @@ async function loadCuratedArtworks(container) {
 
 // ── Auto-load 3 Real Episodes for Visible Discover Cards ──────────────────
 const _fetchingFeedPreviews = new Set();
+const _previewEpisodesCache = new Map();
 
 function updateCardWithEpisodes(card, eps, feedUrl) {
   if (!card || !eps || eps.length === 0) return;
@@ -820,7 +821,7 @@ function updateCardWithEpisodes(card, eps, feedUrl) {
         const guid = row.dataset.guid;
         row.addEventListener('click', (e) => {
           e.stopPropagation();
-          const ep = (state.allEpisodes || []).find(item => item.guid === guid);
+          const ep = eps.find(item => item.guid === guid) || (state.allEpisodes || []).find(item => item.guid === guid);
           if (ep) {
             if (typeof toggleEpisodePlayback === 'function') {
               toggleEpisodePlayback(ep);
@@ -840,8 +841,26 @@ function updateCardWithEpisodes(card, eps, feedUrl) {
 }
 
 function loadCuratedFeedEpisodes(container = document) {
-  if (!container || !('IntersectionObserver' in window)) return;
-  const cards = container.querySelectorAll('.starter-show-card, .feed-card[data-feed], .discover-shelf-card[data-feed], .discover-show-recommendation-card[data-feed]');
+  if (!container) return;
+  // Exclude .discover-shelf-card — the 35 carousel shows stay clean and lazy to avoid tab switch freeze!
+  const cards = container.querySelectorAll('.starter-show-card, .feed-card[data-feed], .discover-show-recommendation-card:not(.discover-shelf-card)[data-feed]');
+  if (cards.length === 0) return;
+
+  const unhydratedCards = [];
+  cards.forEach(card => {
+    const feedUrl = card.dataset.feed;
+    if (!feedUrl) return;
+    const existing = (state.allEpisodes || []).filter(e => e.feedUrl === feedUrl);
+    if (existing.length > 0) {
+      updateCardWithEpisodes(card, existing, feedUrl);
+    } else if (_previewEpisodesCache.has(feedUrl)) {
+      updateCardWithEpisodes(card, _previewEpisodesCache.get(feedUrl), feedUrl);
+    } else {
+      unhydratedCards.push(card);
+    }
+  });
+
+  if (unhydratedCards.length === 0 || !('IntersectionObserver' in window)) return;
 
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
@@ -857,31 +876,39 @@ function loadCuratedFeedEpisodes(container = document) {
         updateCardWithEpisodes(card, existing, feedUrl);
         return;
       }
+      if (_previewEpisodesCache.has(feedUrl)) {
+        updateCardWithEpisodes(card, _previewEpisodesCache.get(feedUrl), feedUrl);
+        return;
+      }
 
       _fetchingFeedPreviews.add(feedUrl);
+      // Isolated fetch: NEVER mutate state.allEpisodes with un-subscribed previews!
+      const isolatedEpisodes = [];
+      const tempMeta = {};
       if (typeof fetchSingleFeed === 'function') {
-        fetchSingleFeed(feedUrl, state.allEpisodes, state.feedMetadata).then(() => {
-          _fetchingFeedPreviews.delete(feedUrl);
-          const eps = (state.allEpisodes || []).filter(e => e.feedUrl === feedUrl);
-          if (eps.length > 0) {
-            updateCardWithEpisodes(card, eps, feedUrl);
-          }
-        }).catch(() => {
-          _fetchingFeedPreviews.delete(feedUrl);
-        });
+        const fetchPreview = () => {
+          fetchSingleFeed(feedUrl, isolatedEpisodes, tempMeta).then(() => {
+            _fetchingFeedPreviews.delete(feedUrl);
+            const eps = isolatedEpisodes.slice(0, 3);
+            if (eps.length > 0) {
+              _previewEpisodesCache.set(feedUrl, eps);
+              updateCardWithEpisodes(card, eps, feedUrl);
+            }
+          }).catch(() => {
+            _fetchingFeedPreviews.delete(feedUrl);
+          });
+        };
+
+        if (typeof requestIdleCallback === 'function') {
+          requestIdleCallback(fetchPreview, { timeout: 3000 });
+        } else {
+          setTimeout(fetchPreview, 1200);
+        }
       }
     });
-  }, { rootMargin: '250px' });
+  }, { rootMargin: '100px' });
 
-  cards.forEach(card => {
-    const feedUrl = card.dataset.feed;
-    const existing = (state.allEpisodes || []).filter(e => e.feedUrl === feedUrl);
-    if (existing.length > 0) {
-      updateCardWithEpisodes(card, existing, feedUrl);
-    } else {
-      observer.observe(card);
-    }
-  });
+  unhydratedCards.forEach(card => observer.observe(card));
 }
 // ── Wire Discover Curated Show Interactivity ──────────────────────────────
 function wireStarterSuggestionsEvents(container = document) {
@@ -2198,7 +2225,9 @@ function init() {
   }
 
   setupEventListeners();
-  setupAudioEngines();
+  if (typeof setupAudioEngines === 'function') {
+    setupAudioEngines();
+  }
   initNavigationRoute();
   checkStoragePermissionAlert();
 
@@ -2211,18 +2240,18 @@ function init() {
     loadQueueFromStorage();
     loadFavoritesFromStorage();
     loadDownloadsFromStorage();
-    hookVisualizerToAudio();
+    if (typeof hookVisualizerToAudio === 'function') hookVisualizerToAudio();
     setupNetworkListeners();
     updateQueueUI();
     updateDownloadedCountUI();
     updateDockVisibility();
-    updateAutoplayButtonUI();
-    updateShuffleButtonUI();
+    if (typeof updateAutoplayButtonUI === 'function') updateAutoplayButtonUI();
+    if (typeof updateShuffleButtonUI === 'function') updateShuffleButtonUI();
     initServiceWorker();
     checkAuth();
-    loadExperimentalSettings();
-    setupExperimentalSettings();
-    restoreLastActiveEpisode();
+    if (typeof loadExperimentalSettings === 'function') loadExperimentalSettings();
+    if (typeof setupExperimentalSettings === 'function') setupExperimentalSettings();
+    if (typeof restoreLastActiveEpisode === 'function') restoreLastActiveEpisode();
   });
 }
 

@@ -308,12 +308,16 @@ async function refreshAllFeeds(options = {}) {
   // Final merge and deduplication
   if (incomingEpisodes.length > 0) {
     const epMap = new Map();
+    const refreshedFeedUrls = new Set(incomingEpisodes.map(e => e.feedUrl).filter(Boolean));
     incomingEpisodes.forEach(ep => {
       if (ep && ep.guid) epMap.set(ep.guid, ep);
     });
     state.allEpisodes.forEach(ep => {
+      // Retain existing episodes for feeds that were NOT successfully refreshed in this pass
       if (ep && ep.guid && !epMap.has(ep.guid) && state.feeds.includes(ep.feedUrl)) {
-        epMap.set(ep.guid, ep);
+        if (!refreshedFeedUrls.has(ep.feedUrl)) {
+          epMap.set(ep.guid, ep);
+        }
       }
     });
     state.allEpisodes = Array.from(epMap.values());
@@ -607,6 +611,14 @@ const formatEpisodeDuration = window.AnypodShared.formatEpisodeDuration;
 function processAndSortEpisodes() {
   //console.log('[Anypod Debug] processAndSortEpisodes running. FilterMode:', state.filterMode);
   let list = [...state.allEpisodes];
+
+  // Exclude false YouTube playlist/shelf items that lack playable duration and contain playlist indicators
+  list = list.filter(ep => {
+    if (ep && ep.isYouTube && (!ep.duration || ep.duration === '0' || ep.duration === '0:00')) {
+      if (/\bplaylist\b/i.test(ep.title || '')) return false;
+    }
+    return true;
+  });
 
   if (!state.searchQuery && state.mutedFeeds && state.mutedFeeds.length > 0) {
     list = list.filter(ep => !state.mutedFeeds.includes(ep.feedUrl));
@@ -1689,7 +1701,7 @@ function analyzeTasteProfile(currentState, force = false) {
   const favorites = currentState.favorites || [];
   const queue = currentState.queue || [];
 
-  const fingerprint = `${feeds.length}_${allEps.length}_${Object.keys(positions).length}_${favorites.length}_${queue.length}`;
+  const fingerprint = `${feeds.join(',')}_${Math.min(allEps.length, 100)}_${favorites.length}_${queue.length}`;
   if (!force && _cachedTasteProfile && _cachedTasteFingerprint === fingerprint) {
     return _cachedTasteProfile;
   }
@@ -1718,14 +1730,19 @@ function analyzeTasteProfile(currentState, force = false) {
     });
   });
 
-  // 2. Score based on episodes with engagement weights
-  allEps.forEach(ep => {
+  // 2. Score based on episodes with engagement weights (O(1) Set lookups + top 100 sample for <1ms speed)
+  const favGuids = new Set(favorites.map(f => (typeof f === 'string' ? f : f?.guid)).filter(Boolean));
+  const queueGuids = new Set(queue.map(q => (typeof q === 'string' ? q : q?.guid)).filter(Boolean));
+  const sampleEps = allEps.length > 100 ? allEps.slice(0, 100) : allEps;
+
+  sampleEps.forEach(ep => {
+    if (!ep || !ep.guid) return;
     const guid = ep.guid;
     const pos = positions[guid];
     const isCompleted = pos && (pos.completed === 1 || pos.completed === true);
     const hasProgress = pos && pos.position > 10;
-    const isFav = favorites.some(fav => (typeof fav === 'string' ? fav === guid : fav.guid === guid));
-    const isQueued = queue.some(q => (typeof q === 'string' ? q === guid : q.guid === guid));
+    const isFav = favGuids.has(guid);
+    const isQueued = queueGuids.has(guid);
 
     let weight = 1.0;
     if (isCompleted) { weight = 4.0; totalEngagedEps++; }
@@ -2473,6 +2490,106 @@ if (typeof window !== 'undefined') {
   window.closeCatalogModal = closeCatalogModal;
 }
 
+function updateDiscoverPersonaBanner(wrap, profile) {
+  if (!wrap || !profile) return;
+  const banner = wrap.querySelector('.discover-persona-banner');
+  if (!banner) return;
+
+  const titleEl = banner.querySelector('.persona-title');
+  if (titleEl) titleEl.textContent = profile.title;
+
+  const narrativeEl = banner.querySelector('.persona-narrative');
+  if (narrativeEl) narrativeEl.textContent = profile.narrative;
+
+  const vibesEl = banner.querySelector('.persona-vibes');
+  if (vibesEl && Array.isArray(profile.vibes)) {
+    vibesEl.innerHTML = profile.vibes.map(v => {
+      const label = typeof v === 'object' ? v.label : v;
+      const target = typeof v === 'object' ? v.target : null;
+      return `<span class="persona-vibe-chip ${target ? 'clickable' : ''}" ${target ? `data-target-shelf="${escapeHtml(target)}"` : ''}>${escapeHtml(label)}</span>`;
+    }).join('');
+
+    vibesEl.querySelectorAll('.persona-vibe-chip[data-target-shelf]').forEach(chip => {
+      chip.addEventListener('click', (e) => {
+        e.preventDefault();
+        const targetId = chip.dataset.targetShelf;
+        const shelfEl = document.getElementById(targetId);
+        if (shelfEl) shelfEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+  }
+
+  const statsEl = banner.querySelector('.persona-stats');
+  if (statsEl) {
+    statsEl.innerHTML = `
+      <span>${escapeHtml(profile.stats)}</span>
+      <span class="persona-engine-tag" title="Runs privately and locally on your device">${escapeHtml(profile.engineLabel)}</span>
+    `;
+  }
+}
+
+function updateDiscoverLibrarySection(wrap, selectedLibraryEps, hasFeeds) {
+  if (!wrap) return;
+  let libSection = wrap.querySelector('.discover-library-section');
+  if (!hasFeeds || !selectedLibraryEps || selectedLibraryEps.length === 0) {
+    if (libSection) libSection.remove();
+    return;
+  }
+
+  const narrative = `Curated unplayed gems and in-progress deep cuts from your ${state.feeds.length} subscribed shows, aligned with your current listening persona.`;
+
+  if (!libSection) {
+    libSection = document.createElement('div');
+    libSection.className = 'discover-section discover-library-section';
+    libSection.innerHTML = `
+      <div class="discover-section-header">
+        <div class="discover-section-title-wrap">
+          <h3 class="discover-section-title">Rediscover Your Library</h3>
+          <span class="discover-section-pill">From Your Shows</span>
+        </div>
+        <p class="discover-section-narrative">${escapeHtml(narrative)}</p>
+      </div>
+      <div class="discover-narrative-grid" id="discover-library-grid"></div>
+    `;
+    const shelves = wrap.querySelector('.discover-shelves-container');
+    if (shelves && shelves.parentNode) {
+      shelves.parentNode.insertBefore(libSection, shelves);
+    } else {
+      wrap.appendChild(libSection);
+    }
+  }
+
+  const libGrid = libSection.querySelector('#discover-library-grid');
+  if (libGrid) {
+    libGrid.innerHTML = '';
+    selectedLibraryEps.forEach(item => {
+      const card = buildDiscoverEpisodeCard(item.ep, item.whyNote, false);
+      if (card) libGrid.appendChild(card);
+    });
+  }
+}
+
+function updateDiscoverFollowButtons(wrap) {
+  if (!wrap) return;
+  const subbed = new Set(state.feeds || []);
+  wrap.querySelectorAll('.btn-discover-follow').forEach(btn => {
+    const card = btn.closest('[data-feed]');
+    const feedUrl = card?.dataset.feed;
+    if (!feedUrl) return;
+    if (subbed.has(feedUrl)) {
+      btn.textContent = '✓ Followed';
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-secondary');
+      btn.disabled = true;
+    } else {
+      btn.textContent = '+ Follow Show';
+      btn.classList.remove('btn-secondary');
+      btn.classList.add('btn-primary');
+      btn.disabled = false;
+    }
+  });
+}
+
 function renderDiscoverShelves() {
   const container = document.createElement('div');
   container.className = 'discover-shelves-container';
@@ -2532,11 +2649,12 @@ function renderDiscover(forceRebuild = false) {
 
   const hasFeeds = state.feeds && state.feeds.length > 0;
   const existingWrap = container.querySelector('.discover-view-wrap');
-  const currentFeedsKey = hasFeeds ? `${state.feeds.join(',')}_${(state.allEpisodes || []).length}` : 'empty';
+  const currentFeedsKey = hasFeeds ? state.feeds.join(',') : 'empty';
 
   // 1. If already hydrated and state hasn't changed, instant 0ms tab return!
   if (!forceRebuild && existingWrap && existingWrap.dataset.prerendered === 'hydrated') {
     if (existingWrap.dataset.feedsKey === currentFeedsKey) {
+      updateDiscoverFollowButtons(existingWrap);
       return;
     }
   }
@@ -2554,7 +2672,7 @@ function renderDiscover(forceRebuild = false) {
   // Gather up to 10 hot / trending podcast feeds that are not yet in library
   const lastPlayedFeeds = getHotUnsubscribedFeeds(10, profile);
 
-  // 1. Gather Unplayed/Backlog library episodes matching taste
+  // 1. Gather Unplayed/Backlog library episodes matching taste (scan top 150 candidate library episodes)
   const completedGuids = new Set();
   Object.entries(state.playbackPositions || {}).forEach(([g, pos]) => {
     if (pos && (pos.completed === 1 || pos.completed === true)) {
@@ -2562,15 +2680,15 @@ function renderDiscover(forceRebuild = false) {
     }
   });
 
+  const favGuids = new Set((state.favorites || []).map(f => (typeof f === 'string' ? f : f?.guid)).filter(Boolean));
+  const subbedSet = new Set(state.feeds || []);
   const libraryCandidates = [];
-  (state.allEpisodes || []).forEach(ep => {
-    if (!ep || !ep.guid) return;
-    if (!state.feeds.includes(ep.feedUrl)) return;
-    if (completedGuids.has(ep.guid)) return;
+  const candidatePool = (state.allEpisodes || []).filter(ep => ep && ep.guid && subbedSet.has(ep.feedUrl) && !completedGuids.has(ep.guid)).slice(0, 150);
 
+  candidatePool.forEach(ep => {
     const pos = state.playbackPositions[ep.guid];
     const isResuming = pos && pos.position > 10;
-    const isFav = state.favorites.some(fav => (typeof fav === 'string' ? fav === ep.guid : fav.guid === ep.guid));
+    const isFav = favGuids.has(ep.guid);
 
     let score = 1.0;
     let whyNote = '✦ From your subscribed library backlog';
@@ -2605,7 +2723,18 @@ function renderDiscover(forceRebuild = false) {
   libraryCandidates.sort((a, b) => b.score - a.score);
   const selectedLibraryEps = libraryCandidates.slice(0, 6);
 
-  // 2. Gather External Recommendations outside library matching taste
+  // 2. Fast In-Place DOM Update if shelves are already mounted! (0ms, no DOM destruction)
+  const existingShelves = existingWrap ? existingWrap.querySelector('.discover-shelves-container') : null;
+  if (!forceRebuild && existingWrap && existingShelves) {
+    updateDiscoverPersonaBanner(existingWrap, profile);
+    updateDiscoverLibrarySection(existingWrap, selectedLibraryEps, hasFeeds);
+    updateDiscoverFollowButtons(existingWrap);
+    existingWrap.dataset.prerendered = 'hydrated';
+    existingWrap.dataset.feedsKey = currentFeedsKey;
+    return;
+  }
+
+  // 3. Gather External Recommendations outside library matching taste
   const externalCandidates = [];
   const unsubscribedCurated = CURATED_SCIENCE_FEEDS.filter(item => !state.feeds.includes(item.feed));
 
@@ -2709,7 +2838,7 @@ function renderDiscover(forceRebuild = false) {
 
       <!-- Section 1: From Your Library -->
       ${hasFeeds && selectedLibraryEps.length > 0 ? `
-        <div class="discover-section">
+        <div class="discover-section discover-library-section">
           <div class="discover-section-header">
             <div class="discover-section-title-wrap">
               <h3 class="discover-section-title">Rediscover Your Library</h3>
@@ -2989,6 +3118,8 @@ function wireEmptyStateEvents(targetRoot = document) {
     loadCuratedFeedEpisodes(targetRoot);
   }
 
-  wireStarterSuggestionsEvents(targetRoot);
+  if (targetRoot.querySelector('.starter-filter-pill') && typeof wireStarterSuggestionsEvents === 'function') {
+    wireStarterSuggestionsEvents(targetRoot);
+  }
 }
 

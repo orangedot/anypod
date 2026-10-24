@@ -286,6 +286,18 @@
         (String(key).match(/(?:v=|\/embed\/|\/watch\?v=|youtu\.be\/)([\w-]{11})/)?.[1])
       ) : null);
 
+      let cachedAnalysis = null;
+      try {
+        const rawAnalysis = localStorage.getItem('anypod_dj_analysis_cache');
+        if (rawAnalysis) {
+          const aMap = JSON.parse(rawAnalysis);
+          cachedAnalysis = aMap[key] || aMap[ep.audioUrl] || aMap[ep.guid] || aMap[ep.videoId] || aMap[ep.title] || null;
+        }
+      } catch (_) {}
+
+      const trackBpm = cachedAnalysis ? cachedAnalysis.bpm : (ep.bpm || estimateBpm(ep, epMap.size));
+      const trackKey = cachedAnalysis ? (cachedAnalysis.camelot || cachedAnalysis.key) : (ep.key || estimateKey(ep, epMap.size));
+
       const norm = {
         guid: ep.guid || key,
         title: ep.title || 'Untitled Track',
@@ -299,8 +311,10 @@
         videoId: vId,
         isSample: !!ep.isSample || (ep.guid && ep.guid.startsWith('sample-')),
         isDownloaded: !!ep.isDownloaded,
-        bpm: estimateBpm(ep, epMap.size),
-        key: estimateKey(ep, epMap.size)
+        bpm: trackBpm,
+        key: trackKey,
+        camelot: cachedAnalysis?.camelot || trackKey,
+        musicalKey: cachedAnalysis?.key || null
       };
 
       epMap.set(key, norm);
@@ -718,6 +732,364 @@
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // TOUCH JOG PLATTER TURNTABLE RENDERER (60 FPS)
+  // ─────────────────────────────────────────────────────────────────────────
+  const jogState = {
+    A: { rotation: 0, isScratching: false, isRimNudge: false, lastAngle: 0, lastTime: 0, velocity: 0 },
+    B: { rotation: 0, isScratching: false, isRimNudge: false, lastAngle: 0, lastTime: 0, velocity: 0 }
+  };
+
+  function drawJogPlatter(deckId) {
+    const canvas = document.getElementById(`jog-canvas-${deckId.toLowerCase()}`);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+
+    const targetW = Math.round(rect.width * dpr);
+    const targetH = Math.round(rect.height * dpr);
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+      canvas.width = targetW;
+      canvas.height = targetH;
+    }
+
+    const w = canvas.width;
+    const h = canvas.height;
+    const cx = w / 2;
+    const cy = h / 2;
+    const r = Math.min(cx, cy) - 2 * dpr;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // 1. Outer Chassis / Platter Rim (Brushed gunmetal)
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = '#14141d';
+    ctx.fill();
+    ctx.lineWidth = 1.5 * dpr;
+    ctx.strokeStyle = '#28283a';
+    ctx.stroke();
+
+    // 2. Turntable Strobe Bezel Notches (40 notches around outer rim)
+    const strobeCount = 40;
+    const strobeRInner = r - 6 * dpr;
+    const strobeROuter = r - 1.5 * dpr;
+    for (let i = 0; i < strobeCount; i++) {
+      const ang = (i / strobeCount) * Math.PI * 2;
+      const x1 = cx + Math.cos(ang) * strobeRInner;
+      const y1 = cy + Math.sin(ang) * strobeRInner;
+      const x2 = cx + Math.cos(ang) * strobeROuter;
+      const y2 = cy + Math.sin(ang) * strobeROuter;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.strokeStyle = i % 4 === 0 ? 'rgba(255, 255, 255, 0.45)' : 'rgba(255, 255, 255, 0.15)';
+      ctx.lineWidth = 1.2 * dpr;
+      ctx.stroke();
+    }
+
+    // 3. Dark Vinyl Body
+    const vinylR = strobeRInner - 2 * dpr;
+    ctx.beginPath();
+    ctx.arc(cx, cy, vinylR, 0, Math.PI * 2);
+    ctx.fillStyle = '#0a0a10';
+    ctx.fill();
+
+    // Concentric micro-groove rings
+    const grooves = [0.88, 0.76, 0.64, 0.52];
+    ctx.lineWidth = 1 * dpr;
+    grooves.forEach((fraction, idx) => {
+      ctx.beginPath();
+      ctx.arc(cx, cy, vinylR * fraction, 0, Math.PI * 2);
+      ctx.strokeStyle = idx % 2 === 0 ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.02)';
+      ctx.stroke();
+    });
+
+    // 4. Center Label Recess
+    const centerRecessR = vinylR * 0.42;
+    ctx.beginPath();
+    ctx.arc(cx, cy, centerRecessR, 0, Math.PI * 2);
+    ctx.fillStyle = '#161622';
+    ctx.fill();
+    ctx.strokeStyle = '#222232';
+    ctx.stroke();
+
+    // 5. Spinning Strobe / Needle Position Indicator
+    const angle = jogState[deckId].rotation;
+    const deckColor = deckId === 'A' ? '#ff3b5c' : '#00d2ff';
+    const isScratching = jogState[deckId].isScratching;
+
+    // Strobe Marker Line
+    const innerPip = centerRecessR + 3 * dpr;
+    const outerPip = vinylR - 2 * dpr;
+    const px1 = cx + Math.cos(angle) * innerPip;
+    const py1 = cy + Math.sin(angle) * innerPip;
+    const px2 = cx + Math.cos(angle) * outerPip;
+    const py2 = cy + Math.sin(angle) * outerPip;
+
+    ctx.save();
+    ctx.shadowColor = deckColor;
+    ctx.shadowBlur = isScratching ? 12 * dpr : 6 * dpr;
+    ctx.beginPath();
+    ctx.moveTo(px1, py1);
+    ctx.lineTo(px2, py2);
+    ctx.lineWidth = (isScratching ? 3.5 : 2.5) * dpr;
+    ctx.strokeStyle = deckColor;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    // Outer Position Dot LED
+    const dotX = cx + Math.cos(angle) * (outerPip - 2 * dpr);
+    const dotY = cy + Math.sin(angle) * (outerPip - 2 * dpr);
+    ctx.beginPath();
+    ctx.arc(dotX, dotY, (isScratching ? 4 : 3) * dpr, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  let lastPlatterTime = performance.now();
+  function platterRenderLoop(now) {
+    const dt = Math.max(0.001, Math.min(0.1, (now - lastPlatterTime) / 1000));
+    lastPlatterTime = now;
+
+    ['A', 'B'].forEach((id) => {
+      const js = jogState[id];
+      if (mixer.isPlaying(id) && !js.isScratching) {
+        const rate = mixer.decks[id]?.playbackRate || 1.0;
+        // Standard 33 1/3 RPM = 0.5555 rev/sec = 3.49065 rad/sec
+        js.rotation += dt * (33.333 / 60) * Math.PI * 2 * rate;
+      }
+      drawJogPlatter(id);
+    });
+
+    requestAnimationFrame(platterRenderLoop);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // TOUCH JOG PLATTER & VINYL SCRATCH INTERACTION CONTROLLERS
+  // ─────────────────────────────────────────────────────────────────────────
+  function initJogPlatters() {
+    ['A', 'B'].forEach((id) => {
+      const wrap = document.getElementById(`jog-wrap-${id.toLowerCase()}`);
+      if (!wrap) return;
+
+      const js = jogState[id];
+
+      wrap.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        try { wrap.setPointerCapture(e.pointerId); } catch (_) {}
+        const rect = wrap.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const dx = e.clientX - cx;
+        const dy = e.clientY - cy;
+        const dist = Math.hypot(dx, dy);
+        const radius = rect.width / 2;
+
+        const isVinyl = mixer.isVinylMode(id);
+        const isRim = dist >= radius * 0.70;
+
+        js.isScratching = isVinyl && !isRim;
+        js.isRimNudge = isRim || !isVinyl;
+        js.lastAngle = Math.atan2(dy, dx);
+        js.lastTime = performance.now();
+        js.velocity = 0;
+
+        if (js.isScratching) {
+          mixer.startScratch(id);
+          wrap.classList.add('scratching');
+          const waveWrap = document.getElementById(`waveform-wrap-${id.toLowerCase()}`);
+          if (waveWrap) waveWrap.classList.add('scratching');
+          const hud = document.getElementById(`scratch-hud-${id.toLowerCase()}`);
+          if (hud) {
+            hud.classList.remove('hidden');
+            hud.textContent = 'SCRATCH 0.0x';
+          }
+        }
+      });
+
+      wrap.addEventListener('pointermove', (e) => {
+        if (!wrap.hasPointerCapture(e.pointerId)) return;
+        const rect = wrap.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const dx = e.clientX - cx;
+        const dy = e.clientY - cy;
+        const currentAngle = Math.atan2(dy, dx);
+        const now = performance.now();
+        const dt = Math.max(0.001, (now - js.lastTime) / 1000);
+
+        let deltaAngle = currentAngle - js.lastAngle;
+        while (deltaAngle > Math.PI) deltaAngle -= Math.PI * 2;
+        while (deltaAngle < -Math.PI) deltaAngle += Math.PI * 2;
+
+        js.lastAngle = currentAngle;
+        js.lastTime = now;
+        js.rotation += deltaAngle;
+
+        // Standard 33 1/3 RPM: 1 full turn (2*PI rad) = 1.8 seconds of audio
+        const deltaSec = (deltaAngle / (Math.PI * 2)) * 1.8;
+        const rawVel = deltaSec / dt;
+        js.velocity = js.velocity * 0.6 + rawVel * 0.4;
+
+        if (js.isScratching) {
+          mixer.scratch(id, deltaSec, js.velocity);
+          const hud = document.getElementById(`scratch-hud-${id.toLowerCase()}`);
+          if (hud) {
+            const vSign = js.velocity >= 0 ? '+' : '';
+            hud.textContent = `SCRATCH ${vSign}${js.velocity.toFixed(1)}x`;
+          }
+        } else if (js.isRimNudge) {
+          // Jog Rim touch: manual beatmatching tempo bend
+          mixer.scratch(id, deltaSec * 0.35, js.velocity * 0.35);
+        }
+      });
+
+      const endHandler = (e) => {
+        if (wrap.hasPointerCapture(e.pointerId)) {
+          try { wrap.releasePointerCapture(e.pointerId); } catch (_) {}
+        }
+        if (js.isScratching) {
+          mixer.endScratch(id);
+          wrap.classList.remove('scratching');
+          const waveWrap = document.getElementById(`waveform-wrap-${id.toLowerCase()}`);
+          if (waveWrap) waveWrap.classList.remove('scratching');
+          const hud = document.getElementById(`scratch-hud-${id.toLowerCase()}`);
+          if (hud) hud.classList.add('hidden');
+        }
+        js.isScratching = false;
+        js.isRimNudge = false;
+        js.velocity = 0;
+      };
+
+      wrap.addEventListener('pointerup', endHandler);
+      wrap.addEventListener('pointercancel', endHandler);
+    });
+  }
+
+  function initWaveformScratch() {
+    ['A', 'B'].forEach((id) => {
+      const waveWrap = document.getElementById(`waveform-wrap-${id.toLowerCase()}`);
+      if (!waveWrap) return;
+
+      let isDragging = false;
+      let startX = 0;
+      let lastX = 0;
+      let lastTime = 0;
+      let totalDist = 0;
+      let velocity = 0;
+
+      waveWrap.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        try { waveWrap.setPointerCapture(e.pointerId); } catch (_) {}
+        isDragging = true;
+        startX = e.clientX;
+        lastX = e.clientX;
+        lastTime = performance.now();
+        totalDist = 0;
+        velocity = 0;
+
+        if (mixer.isVinylMode(id)) {
+          mixer.startScratch(id);
+          waveWrap.classList.add('scratching');
+          const jogWrap = document.getElementById(`jog-wrap-${id.toLowerCase()}`);
+          if (jogWrap) jogWrap.classList.add('scratching');
+          const hud = document.getElementById(`scratch-hud-${id.toLowerCase()}`);
+          if (hud) {
+            hud.classList.remove('hidden');
+            hud.textContent = 'SCRATCH 0.0x';
+          }
+        }
+      });
+
+      waveWrap.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        const now = performance.now();
+        const dt = Math.max(0.001, (now - lastTime) / 1000);
+        const dx = e.clientX - lastX;
+        totalDist += Math.abs(dx);
+        lastX = e.clientX;
+        lastTime = now;
+
+        const rect = waveWrap.getBoundingClientRect();
+        // Moving waveform right pulls earlier audio backward; moving left pulls future audio forward
+        const visibleSec = 6.0;
+        const deltaSec = -(dx / (rect.width || 300)) * visibleSec;
+        const rawVel = deltaSec / dt;
+        velocity = velocity * 0.5 + rawVel * 0.5;
+
+        // Platter rotation synchronizes with waveform scrubbing
+        jogState[id].rotation += (deltaSec / 1.8) * Math.PI * 2;
+
+        if (mixer.isVinylMode(id)) {
+          mixer.scratch(id, deltaSec, velocity);
+          const hud = document.getElementById(`scratch-hud-${id.toLowerCase()}`);
+          if (hud) {
+            const vSign = velocity >= 0 ? '+' : '';
+            hud.textContent = `SCRATCH ${vSign}${velocity.toFixed(1)}x`;
+          }
+        }
+      });
+
+      const endHandler = (e) => {
+        if (!isDragging) return;
+        if (waveWrap.hasPointerCapture(e.pointerId)) {
+          try { waveWrap.releasePointerCapture(e.pointerId); } catch (_) {}
+        }
+        isDragging = false;
+
+        // If pointer traveled less than 5px, handle as normal click-to-seek
+        if (totalDist < 5) {
+          const rect = waveWrap.getBoundingClientRect();
+          const pos = (e.clientX - rect.left) / rect.width;
+          const dur = mixer.getDuration(id);
+          if (dur > 0) mixer.seek(id, pos * dur);
+        }
+
+        if (mixer.isVinylMode(id)) {
+          mixer.endScratch(id);
+          waveWrap.classList.remove('scratching');
+          const jogWrap = document.getElementById(`jog-wrap-${id.toLowerCase()}`);
+          if (jogWrap) jogWrap.classList.remove('scratching');
+          const hud = document.getElementById(`scratch-hud-${id.toLowerCase()}`);
+          if (hud) hud.classList.add('hidden');
+        }
+      };
+
+      waveWrap.addEventListener('pointerup', endHandler);
+      waveWrap.addEventListener('pointercancel', endHandler);
+    });
+  }
+
+  function initVinylModeControls() {
+    ['A', 'B'].forEach((id) => {
+      const btn = document.getElementById(`btn-vinyl-${id.toLowerCase()}`);
+      const modeTag = document.getElementById(`jog-mode-tag-${id.toLowerCase()}`);
+
+      const updateUI = (isActive) => {
+        if (btn) btn.classList.toggle('active', !!isActive);
+        if (modeTag) modeTag.textContent = isActive ? 'VINYL' : 'BEND';
+      };
+
+      updateUI(mixer.isVinylMode(id));
+
+      if (btn) {
+        btn.addEventListener('click', () => {
+          const next = !mixer.isVinylMode(id);
+          mixer.setVinylMode(id, next);
+          updateUI(next);
+        });
+      }
+
+      mixer.on('vinylMode', (data) => {
+        if (data.deck === id) updateUI(data.active);
+      });
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // REALISTIC HARDWARE ROTARY KNOBS INTERACTION
   // ─────────────────────────────────────────────────────────────────────────
   function initRotaryKnobs() {
@@ -790,7 +1162,11 @@
       const deck = name.split('-')[1];
       mixer.setFilter(deck, val / 100); // normalize -100..100 to -1..1
     } else if (name === 'master-vol') {
-      if (mixer.master) mixer.master.threshold.value = -30 + (val / 100) * 20;
+      mixer.setMasterVolume(val / 100);
+    } else if (name === 'cue-mix') {
+      mixer.setCueMix(val / 100);
+    } else if (name === 'cue-vol') {
+      mixer.setCueVolume(val / 100);
     } else if (name === 'fx1-drywet') {
       mixer.setFXDryWet('1', val);
     } else if (name === 'fx2-drywet') {
@@ -812,7 +1188,7 @@
     const xfader = document.getElementById('crossfader');
     if (xfader) xfader.addEventListener('input', (e) => mixer.setCrossfader(parseFloat(e.target.value)));
 
-    // Pitch Faders
+    // Pitch Faders & Momentary Nudge Buttons
     ['A', 'B'].forEach((id) => {
       const slider = document.getElementById(`pitch-slider-${id.toLowerCase()}`);
       const pctEl = document.getElementById(`pitch-pct-${id.toLowerCase()}`);
@@ -822,7 +1198,7 @@
       const applyRate = (rate) => {
         state.deckPitch[id] = rate;
         mixer.setPlaybackRate(id, rate);
-        if (pctEl) {
+        if (pctEl && !mixer.decks[id]?.isNudging) {
           const pct = ((rate - 1.0) * 100).toFixed(2);
           pctEl.textContent = `${pct >= 0 ? '+' : ''}${pct}%`;
         }
@@ -832,19 +1208,76 @@
       if (slider) {
         slider.addEventListener('input', (e) => applyRate(parseFloat(e.target.value)));
       }
+
+      // Momentary Tempo Nudge (-5% while held, restores on release)
       if (btnDown) {
-        btnDown.addEventListener('click', () => applyRate(Math.max(0.8, state.deckPitch[id] - 0.005)));
+        const startDown = (e) => {
+          e.preventDefault();
+          mixer.nudge(id, -1);
+        };
+        const endDown = () => {
+          mixer.releaseNudge(id);
+        };
+        btnDown.addEventListener('pointerdown', startDown);
+        btnDown.addEventListener('pointerup', endDown);
+        btnDown.addEventListener('pointercancel', endDown);
+        btnDown.addEventListener('pointerleave', endDown);
       }
+
+      // Momentary Tempo Nudge (+5% while held, restores on release)
       if (btnUp) {
-        btnUp.addEventListener('click', () => applyRate(Math.min(1.2, state.deckPitch[id] + 0.005)));
+        const startUp = (e) => {
+          e.preventDefault();
+          mixer.nudge(id, +1);
+        };
+        const endUp = () => {
+          mixer.releaseNudge(id);
+        };
+        btnUp.addEventListener('pointerdown', startUp);
+        btnUp.addEventListener('pointerup', endUp);
+        btnUp.addEventListener('pointercancel', endUp);
+        btnUp.addEventListener('pointerleave', endUp);
       }
     });
 
     // PFL Cue Buttons
     ['A', 'B'].forEach((id) => {
       const btn = document.getElementById(`pfl-${id.toLowerCase()}`);
-      if (btn) btn.addEventListener('click', () => btn.classList.toggle('active'));
+      if (btn) {
+        btn.addEventListener('click', () => {
+          mixer.setPFL(id, !mixer.pflEnabled[id]);
+        });
+      }
     });
+
+    // Cue Monitoring Mode Selector
+    const btnCueMode = document.getElementById('btn-cue-mode');
+    if (btnCueMode) {
+      btnCueMode.addEventListener('click', () => {
+        const nextMode = mixer.cycleCueMode();
+        updateCueModeUI(nextMode);
+      });
+    }
+  }
+
+  function updateCueModeUI(mode) {
+    const btnCueMode = document.getElementById('btn-cue-mode');
+    const cueModeLabel = document.getElementById('cue-mode-label');
+    if (!btnCueMode || !cueModeLabel) return;
+
+    btnCueMode.classList.remove('split', 'multichannel');
+    if (mode === 'split') {
+      cueModeLabel.textContent = 'SPLIT';
+      btnCueMode.classList.add('split');
+      btnCueMode.title = 'Split Cable Active: Left Ear = Headphone Cue (PFL), Right Ear = Master Speakers';
+    } else if (mode === 'multichannel') {
+      cueModeLabel.textContent = '4-CH';
+      btnCueMode.classList.add('multichannel');
+      btnCueMode.title = 'Multi-channel Audio Active: Ch 1-2 = Master, Ch 3-4 = Headphones';
+    } else {
+      cueModeLabel.textContent = 'STEREO';
+      btnCueMode.title = 'Stereo Mode: Click to switch to Split Cable mode';
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1043,33 +1476,37 @@
         pad.addEventListener('pointercancel', () => clearTimeout(holdTimer));
       }
 
+      // Deck Sync & Master Buttons
+      const btnSyncDeck = document.getElementById(`btn-sync-${id.toLowerCase()}`);
+      const btnMasterDeck = document.getElementById(`btn-master-${id.toLowerCase()}`);
+
+      if (btnSyncDeck) {
+        btnSyncDeck.addEventListener('click', () => {
+          mixer.setDeckSync(id, !mixer.deckSync[id]);
+        });
+      }
+      if (btnMasterDeck) {
+        btnMasterDeck.addEventListener('click', () => {
+          mixer.setMasterDeck(id);
+        });
+      }
+
       // Loop Controls
       const loopActive = document.getElementById(`loop-${id.toLowerCase()}-active`);
+      const loopHalf = document.getElementById(`loop-${id.toLowerCase()}-half`);
+      const loopDouble = document.getElementById(`loop-${id.toLowerCase()}-double`);
+
       if (loopActive) {
-        loopActive.addEventListener('click', () => {
-          const d = mixer.decks[id];
-          d.loop.active = !d.loop.active;
-          loopActive.classList.toggle('active', d.loop.active);
-          if (d.loop.active) {
-            d.loop.start = mixer.getCurrentTime(id);
-            // 4 beats at 128 BPM ≈ 1.875s
-            d.loop.end = d.loop.start + 1.875;
-          }
-        });
+        loopActive.addEventListener('click', () => mixer.toggleLoop(id));
+      }
+      if (loopHalf) {
+        loopHalf.addEventListener('click', () => mixer.halfLoop(id));
+      }
+      if (loopDouble) {
+        loopDouble.addEventListener('click', () => mixer.doubleLoop(id));
       }
 
-      // Waveform click to scrub/seek
-      const waveWrap = document.getElementById(`waveform-wrap-${id.toLowerCase()}`);
-      if (waveWrap) {
-        waveWrap.addEventListener('click', (e) => {
-          const rect = waveWrap.getBoundingClientRect();
-          const pos = (e.clientX - rect.left) / rect.width;
-          const dur = mixer.getDuration(id);
-          if (dur > 0) mixer.seek(id, pos * dur);
-        });
-      }
-
-      // Overview stripe click to jump
+      // Overview stripe click to jump across full track
       const overviewWrap = document.getElementById(`overview-wrap-${id.toLowerCase()}`);
       if (overviewWrap) {
         overviewWrap.addEventListener('click', (e) => {
@@ -1079,6 +1516,18 @@
           if (dur > 0) mixer.seek(id, pos * dur);
         });
       }
+
+      // Re-analyze BPM/Key on badge click
+      const bpmBadge = document.getElementById(`deck-${id.toLowerCase()}-bpm`);
+      const keyBadge = document.getElementById(`deck-${id.toLowerCase()}-key`);
+      const triggerReanalysis = () => {
+        const meta = mixer.decks[id]?.meta;
+        if (meta) {
+          mixer.analyzeTrack(meta, id, true);
+        }
+      };
+      if (bpmBadge) bpmBadge.addEventListener('click', triggerReanalysis);
+      if (keyBadge) keyBadge.addEventListener('click', triggerReanalysis);
     });
 
     // Master BPM TAP Tempo
@@ -1105,18 +1554,32 @@
       });
     }
 
+    // Master SNAP and QUANT buttons
+    const btnSnap = document.getElementById('btn-snap');
+    const btnQuant = document.getElementById('btn-quant');
+
+    if (btnSnap) {
+      btnSnap.classList.toggle('active', !!mixer.snapEnabled);
+      btnSnap.addEventListener('click', () => {
+        mixer.setSnapEnabled(!mixer.snapEnabled);
+      });
+    }
+
+    if (btnQuant) {
+      btnQuant.classList.toggle('active', !!mixer.quantEnabled);
+      btnQuant.addEventListener('click', () => {
+        mixer.setQuantEnabled(!mixer.quantEnabled);
+      });
+    }
+
     // Master SYNC button
     const btnSync = document.getElementById('btn-master-sync');
     if (btnSync) {
       btnSync.addEventListener('click', () => {
-        btnSync.classList.toggle('active');
-        // Match both decks to Master BPM
-        ['A', 'B'].forEach((id) => {
-          const track = id === 'A' ? state.loadedDeckA : state.loadedDeckB;
-          const baseBpm = track?.bpm || 128;
-          const targetRate = state.masterBpm / baseBpm;
-          mixer.setPlaybackRate(id, targetRate);
-        });
+        const willSync = !btnSync.classList.contains('active');
+        btnSync.classList.toggle('active', willSync);
+        mixer.setDeckSync('A', willSync);
+        mixer.setDeckSync('B', willSync);
       });
     }
 
@@ -1173,6 +1636,160 @@
       updateMeterLeds('vu-meter-b', B);
       updateMeterLeds('master-meter-l', master * 0.95);
       updateMeterLeds('master-meter-r', master * 1.05);
+    });
+
+    mixer.on('loop', ({ deck, active, beats }) => {
+      const loopActive = document.getElementById(`loop-${deck.toLowerCase()}-active`);
+      if (loopActive) {
+        loopActive.classList.toggle('active', !!active);
+        let label = `LOOP ${beats}`;
+        if (beats === 0.5) label = 'LOOP ½';
+        else if (beats === 0.25) label = 'LOOP ¼';
+        else if (beats === 0.125) label = 'LOOP ⅛';
+        loopActive.textContent = label;
+      }
+    });
+
+    mixer.on('masterDeck', ({ masterDeckId }) => {
+      const btnMasterA = document.getElementById('btn-master-a');
+      const btnMasterB = document.getElementById('btn-master-b');
+      if (btnMasterA) btnMasterA.classList.toggle('active', masterDeckId === 'A');
+      if (btnMasterB) btnMasterB.classList.toggle('active', masterDeckId === 'B');
+    });
+
+    mixer.on('sync', ({ deck, sync }) => {
+      const btn = document.getElementById(`btn-sync-${deck.toLowerCase()}`);
+      if (btn) btn.classList.toggle('active', !!sync);
+    });
+
+    mixer.on('snap', ({ snap }) => {
+      const btn = document.getElementById('btn-snap');
+      if (btn) btn.classList.toggle('active', !!snap);
+    });
+
+    mixer.on('quant', ({ quant }) => {
+      const btn = document.getElementById('btn-quant');
+      if (btn) btn.classList.toggle('active', !!quant);
+    });
+
+    mixer.on('rate', ({ deck, rate, bpm }) => {
+      state.deckPitch[deck] = rate;
+      const slider = document.getElementById(`pitch-slider-${deck.toLowerCase()}`);
+      const pctEl = document.getElementById(`pitch-pct-${deck.toLowerCase()}`);
+      const bpmEl = document.getElementById(`deck-${deck.toLowerCase()}-bpm`);
+
+      if (slider && Math.abs(parseFloat(slider.value) - rate) > 0.001) {
+        slider.value = rate;
+      }
+      if (pctEl && !mixer.decks[deck]?.isNudging) {
+        const pct = ((rate - 1.0) * 100).toFixed(2);
+        pctEl.textContent = `${pct >= 0 ? '+' : ''}${pct}%`;
+      }
+      if (bpmEl && bpm) {
+        bpmEl.textContent = bpm.toFixed(2);
+      }
+    });
+
+    mixer.on('nudge', ({ deck, nudging, direction, rate }) => {
+      const btnDown = document.getElementById(`pitch-${deck.toLowerCase()}-down`);
+      const btnUp = document.getElementById(`pitch-${deck.toLowerCase()}-up`);
+      const pctEl = document.getElementById(`pitch-pct-${deck.toLowerCase()}`);
+
+      if (nudging) {
+        if (direction < 0 && btnDown) btnDown.classList.add('nudging');
+        if (direction > 0 && btnUp) btnUp.classList.add('nudging');
+        if (pctEl) {
+          pctEl.classList.add('nudging');
+          pctEl.textContent = direction > 0 ? '+5.0% NUDGE' : '-5.0% NUDGE';
+        }
+      } else {
+        if (btnDown) btnDown.classList.remove('nudging');
+        if (btnUp) btnUp.classList.remove('nudging');
+        if (pctEl) {
+          pctEl.classList.remove('nudging');
+          const pct = ((rate - 1.0) * 100).toFixed(2);
+          pctEl.textContent = `${pct >= 0 ? '+' : ''}${pct}%`;
+        }
+      }
+    });
+
+    mixer.on('scratch', ({ deck, scratching, velocity }) => {
+      const jogWrap = document.getElementById(`jog-wrap-${deck.toLowerCase()}`);
+      const waveWrap = document.getElementById(`waveform-wrap-${deck.toLowerCase()}`);
+      const hud = document.getElementById(`scratch-hud-${deck.toLowerCase()}`);
+
+      if (jogWrap) jogWrap.classList.toggle('scratching', !!scratching);
+      if (waveWrap) waveWrap.classList.toggle('scratching', !!scratching);
+      if (hud) {
+        hud.classList.toggle('hidden', !scratching);
+        if (scratching && typeof velocity === 'number') {
+          const vSign = velocity >= 0 ? '+' : '';
+          hud.textContent = `SCRATCH ${vSign}${velocity.toFixed(1)}x`;
+        }
+      }
+    });
+
+    mixer.on('pfl', ({ deck, active }) => {
+      const btn = document.getElementById(`pfl-${deck.toLowerCase()}`);
+      if (btn) btn.classList.toggle('active', !!active);
+    });
+
+    mixer.on('cueRouting', ({ mode }) => {
+      updateCueModeUI(mode);
+    });
+
+    mixer.on('analyzing', ({ deckId }) => {
+      if (!deckId) return;
+      const bpmEl = document.getElementById(`deck-${deckId.toLowerCase()}-bpm`);
+      const keyEl = document.getElementById(`deck-${deckId.toLowerCase()}-key`);
+      if (bpmEl) {
+        bpmEl.classList.add('analyzing');
+        bpmEl.textContent = '...';
+        bpmEl.title = 'Detecting track BPM & beatgrid...';
+      }
+      if (keyEl) {
+        keyEl.classList.add('analyzing');
+        keyEl.textContent = '...';
+        keyEl.title = 'Detecting musical key...';
+      }
+    });
+
+    mixer.on('analyzed', ({ deckId, trackKey, bpm, key, camelot, openKey, confidence }) => {
+      if (deckId) {
+        const bpmEl = document.getElementById(`deck-${deckId.toLowerCase()}-bpm`);
+        const keyEl = document.getElementById(`deck-${deckId.toLowerCase()}-key`);
+        const rate = mixer.decks[deckId]?.playbackRate || 1.0;
+
+        if (bpmEl) {
+          bpmEl.classList.remove('analyzing');
+          bpmEl.textContent = (bpm * rate).toFixed(2);
+          bpmEl.title = `Auto-Detected: ${bpm.toFixed(1)} BPM (${confidence}% confidence) - Click to re-analyze`;
+        }
+        if (keyEl) {
+          keyEl.classList.remove('analyzing');
+          keyEl.textContent = `${camelot} / ${key}`;
+          keyEl.title = `Auto-Detected Key: ${key} (${camelot} / ${openKey || 'OpenKey'}) - ${confidence}% confidence - Click to re-analyze`;
+        }
+      }
+
+      // Update matching track entries in collection
+      let needsRerender = false;
+      state.allTracks.forEach(t => {
+        const match = (t.audioUrl && t.audioUrl === trackKey) ||
+                      (t.guid && t.guid === trackKey) ||
+                      (t.videoId && t.videoId === trackKey) ||
+                      (t.title && t.title === trackKey);
+        if (match) {
+          t.bpm = bpm;
+          t.key = camelot;
+          t.camelot = camelot;
+          t.musicalKey = key;
+          needsRerender = true;
+        }
+      });
+      if (needsRerender) {
+        filterAndRenderTable();
+      }
     });
   }
 
@@ -1307,16 +1924,153 @@
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // KEYBOARD SHORTCUTS
+  // ─────────────────────────────────────────────────────────────────────────
+  function initKeyboardShortcuts() {
+    window.addEventListener('keydown', (e) => {
+      const tag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+      if (tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable) {
+        return;
+      }
+
+      const key = e.key.toUpperCase();
+
+      // Global: Space = toggle playback
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (mixer.isPlaying('B') && !mixer.isPlaying('A')) {
+          mixer.toggle('B');
+        } else {
+          mixer.toggle('A');
+        }
+        return;
+      }
+
+      // Global: ArrowLeft / ArrowRight = Crossfader nudging
+      if (e.code === 'ArrowLeft') {
+        e.preventDefault();
+        const xf = document.getElementById('crossfader');
+        if (xf) {
+          const val = Math.max(0, parseFloat(xf.value) - 0.05);
+          xf.value = val;
+          mixer.setCrossfader(val);
+        }
+        return;
+      }
+      if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        const xf = document.getElementById('crossfader');
+        if (xf) {
+          const val = Math.min(1, parseFloat(xf.value) + 0.05);
+          xf.value = val;
+          mixer.setCrossfader(val);
+        }
+        return;
+      }
+
+      // Deck A Shortcuts
+      if (key === 'Q') {
+        mixer.pause('A');
+        mixer.triggerHotCue('A', 0);
+      } else if (key === 'W') {
+        mixer.toggle('A');
+      } else if (key === 'E') {
+        mixer.triggerHotCue('A', 0);
+        mixer.play('A');
+      } else if (['1', '2', '3', '4'].includes(e.key)) {
+        const idx = parseInt(e.key, 10) - 1;
+        if (e.shiftKey) mixer.clearHotCue('A', idx);
+        else if (mixer.decks.A.cues[idx] !== null) mixer.triggerHotCue('A', idx);
+        else mixer.setHotCue('A', idx);
+      } else if (key === 'A') {
+        mixer.halfLoop('A');
+      } else if (key === 'S') {
+        mixer.toggleLoop('A');
+      } else if (key === 'D') {
+        mixer.doubleLoop('A');
+      } else if (e.key === '[' && !e.repeat) {
+        e.preventDefault();
+        mixer.nudge('A', -1);
+      } else if (e.key === ']' && !e.repeat) {
+        e.preventDefault();
+        mixer.nudge('A', +1);
+      }
+
+      // Deck B Shortcuts
+      else if (key === 'U') {
+        mixer.pause('B');
+        mixer.triggerHotCue('B', 0);
+      } else if (key === 'I') {
+        mixer.toggle('B');
+      } else if (key === 'O') {
+        mixer.triggerHotCue('B', 0);
+        mixer.play('B');
+      } else if (['7', '8', '9', '0'].includes(e.key)) {
+        const map = { '7': 0, '8': 1, '9': 2, '0': 3 };
+        const idx = map[e.key];
+        if (e.shiftKey) mixer.clearHotCue('B', idx);
+        else if (mixer.decks.B.cues[idx] !== null) mixer.triggerHotCue('B', idx);
+        else mixer.setHotCue('B', idx);
+      } else if (key === 'J') {
+        mixer.halfLoop('B');
+      } else if (key === 'K') {
+        mixer.toggleLoop('B');
+      } else if (key === 'L') {
+        mixer.doubleLoop('B');
+      } else if ((e.key === ',' || e.key === '-') && !e.repeat) {
+        e.preventDefault();
+        mixer.nudge('B', -1);
+      } else if ((e.key === '.' || e.key === '=') && !e.repeat) {
+        e.preventDefault();
+        mixer.nudge('B', +1);
+      }
+
+      // Master Sync & Cue Monitoring shortcuts
+      else if (key === 'M') {
+        const btn = document.getElementById('btn-master-sync');
+        if (btn) btn.click();
+      } else if (key === 'P') {
+        mixer.setPFL('A', !mixer.pflEnabled.A);
+      } else if (e.key === ';') {
+        mixer.setPFL('B', !mixer.pflEnabled.B);
+      } else if (key === 'C') {
+        const next = mixer.cycleCueMode();
+        updateCueModeUI(next);
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      const tag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+      if (tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable) {
+        return;
+      }
+
+      if (e.key === '[' || e.key === ']') {
+        mixer.releaseNudge('A');
+      } else if (e.key === ',' || e.key === '-' || e.key === '.' || e.key === '=') {
+        mixer.releaseNudge('B');
+      }
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // BOOTSTRAP
   // ─────────────────────────────────────────────────────────────────────────
   window.addEventListener('DOMContentLoaded', () => {
     initRotaryKnobs();
     initMixerControls();
     initFXControls();
+    initJogPlatters();
+    initWaveformScratch();
+    initVinylModeControls();
     initTransportAndCues();
     initMixerEngineEvents();
     initSearchAndSidebar();
+    initKeyboardShortcuts();
     hydrateCollection();
+
+    // Start 60fps platter turntable animation loop
+    requestAnimationFrame(platterRenderLoop);
 
     // Initial dummy waveform draw
     renderWaveformFrame('A', 0, false);

@@ -269,6 +269,24 @@ function isValidYouTubeVideoId(id) {
   return typeof id === 'string' && /^[a-zA-Z0-9_-]{11}$/.test(id) && !id.startsWith('PL');
 }
 
+// Recommendation shelves, carousels, and sidebars that must NOT be traversed for playlist items
+const IGNORED_CONTAINER_KEYS = new Set([
+  'shelfRenderer',
+  'richShelfRenderer',
+  'horizontalCardListRenderer',
+  'relatedChipCloudRenderer',
+  'secondaryContents',
+  'richSectionRenderer',
+  'reelShelfRenderer',
+  'commentsEntryPointRenderer',
+  'playlistSidebarRenderer',
+  'compactPlaylistRenderer',
+  'gridPlaylistRenderer',
+  'playlistRenderer',
+  'radioRenderer',
+  'channelRenderer'
+]);
+
 /**
  * Parses videos and continuation tokens from any InnerTube/ytInitialData structure.
  */
@@ -277,6 +295,7 @@ function parseVideosFromInnerTube(data) {
   const seenIds = new Set();
   let nextToken = null;
   const now = Date.now();
+  let lastKnownTimestamp = null;
 
   function extractVideos(obj) {
     if (!obj || typeof obj !== 'object') return;
@@ -284,9 +303,48 @@ function parseVideosFromInnerTube(data) {
     // 1. Support modern YouTube lockupViewModel (2024-2026 UI)
     if (obj.lockupViewModel) {
       const l = obj.lockupViewModel;
+
+      // Reject non-video content types (playlists, albums, mixes, channels)
+      const cType = l.contentType || '';
+      if (cType && cType !== 'LOCKUP_CONTENT_TYPE_VIDEO' && cType !== 'CONTENT_TYPE_VIDEO') {
+        return;
+      }
+
+      // If contentId indicates a playlist, mix, or channel, reject
+      const rawContentId = l.contentId || '';
+      if (rawContentId.startsWith('PL') || rawContentId.startsWith('VL') || rawContentId.startsWith('RD') || rawContentId.startsWith('UC')) {
+        return;
+      }
+
       const endpointVId = l.rendererContext?.commandContext?.onTap?.innertubeCommand?.watchEndpoint?.videoId;
-      const rawId = endpointVId || l.contentId;
-      const vId = isValidYouTubeVideoId(rawId) ? rawId : null;
+      const endpointPId = l.rendererContext?.commandContext?.onTap?.innertubeCommand?.watchEndpoint?.playlistId;
+
+      // If watchEndpoint points to a playlist while contentId is not this video, it's a playlist card
+      if (endpointPId && rawContentId && rawContentId !== endpointVId && !isValidYouTubeVideoId(rawContentId)) {
+        return;
+      }
+
+      // Check if metadata parts indicate a playlist (e.g. "Playlist • 15 videos")
+      let isPlaylistIndicator = false;
+      const rows = l.metadata?.lockupMetadataViewModel?.metadata?.contentMetadataViewModel?.metadataRows;
+      if (Array.isArray(rows)) {
+        for (const row of rows) {
+          const parts = row.metadataParts || row.parts;
+          if (Array.isArray(parts)) {
+            for (const p of parts) {
+              const text = p.text?.content || p.text?.simpleText || '';
+              if (/playlist|titel|videos|tracks/i.test(text)) {
+                isPlaylistIndicator = true;
+                break;
+              }
+            }
+          }
+          if (isPlaylistIndicator) break;
+        }
+      }
+      if (isPlaylistIndicator) return;
+
+      const vId = isValidYouTubeVideoId(rawContentId) ? rawContentId : (isValidYouTubeVideoId(endpointVId) ? endpointVId : null);
 
       if (vId && !seenIds.has(vId)) {
         seenIds.add(vId);
@@ -296,8 +354,24 @@ function parseVideosFromInnerTube(data) {
         const authorText = l.metadata?.lockupMetadataViewModel?.metadata?.contentMetadataViewModel?.metadataRows?.[0]?.parts?.[0]?.text?.content || '';
         const thumb = l.contentImage?.thumbnailViewModel?.image?.sources?.slice(-1)[0]?.url 
           || (vId ? `https://i.ytimg.com/vi/${vId}/hqdefault.jpg` : '');
-        const durText = l.contentImage?.thumbnailViewModel?.overlays?.[0]?.thumbnailBottomOverlayViewModel?.badges?.[0]?.thumbnailBadgeViewModel?.text || '';
+
+        let durText = '';
         let durSec = 0;
+        const overlays = l.contentImage?.thumbnailViewModel?.overlays;
+        if (Array.isArray(overlays)) {
+          for (const ov of overlays) {
+            const badges = ov.thumbnailBottomOverlayViewModel?.badges || (ov.thumbnailOverlayTimeStatusRenderer ? [ov.thumbnailOverlayTimeStatusRenderer] : []);
+            for (const b of badges) {
+              const text = b.thumbnailBadgeViewModel?.text || b.text?.simpleText || (b.text?.runs ? b.text.runs.map(r => r.text).join('') : '');
+              if (text && /^\d{1,2}(?::\d{2}){1,2}$/.test(text.trim())) {
+                durText = text.trim();
+                break;
+              }
+            }
+            if (durText) break;
+          }
+        }
+
         if (durText) {
           const parts = durText.split(':').map(p => parseInt(p, 10));
           if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) durSec = parts[0] * 60 + parts[1];
@@ -305,12 +379,12 @@ function parseVideosFromInnerTube(data) {
         }
 
         let dateText = '';
-        const rows = l.metadata?.lockupMetadataViewModel?.metadata?.contentMetadataViewModel?.metadataRows;
         if (Array.isArray(rows)) {
           for (const row of rows) {
-            if (Array.isArray(row.metadataParts)) {
-              for (const part of row.metadataParts) {
-                const candidate = part.accessibilityLabel || part.text?.content || '';
+            const parts = row.metadataParts || row.parts;
+            if (Array.isArray(parts)) {
+              for (const part of parts) {
+                const candidate = part.accessibilityLabel || part.text?.content || part.text?.simpleText || '';
                 if (/ago|vor|year|month|week|day|hour|min/i.test(candidate)) {
                   dateText = candidate;
                   break;
@@ -322,9 +396,16 @@ function parseVideosFromInnerTube(data) {
         }
 
         const parsedTimestamp = parseRelativeDate(dateText);
-        const approxTimestamp = parsedTimestamp 
-          ? (parsedTimestamp - episodes.length * 1000) 
-          : (now - episodes.length * 60000);
+        let approxTimestamp;
+        if (parsedTimestamp) {
+          approxTimestamp = parsedTimestamp - episodes.length * 1000;
+          lastKnownTimestamp = approxTimestamp;
+        } else if (lastKnownTimestamp) {
+          approxTimestamp = lastKnownTimestamp - 60000;
+          lastKnownTimestamp = approxTimestamp;
+        } else {
+          approxTimestamp = now - (30 * 86400 * 1000) - episodes.length * 60000;
+        }
 
         episodes.push({
           guid: `yt:${vId}`,
@@ -374,9 +455,16 @@ function parseVideosFromInnerTube(data) {
         || v.publishedTimeText?.simpleText 
         || '';
       const parsedTimestamp = parseRelativeDate(dateText);
-      const approxTimestamp = parsedTimestamp 
-        ? (parsedTimestamp - episodes.length * 1000) 
-        : (now - episodes.length * 60000);
+      let approxTimestamp;
+      if (parsedTimestamp) {
+        approxTimestamp = parsedTimestamp - episodes.length * 1000;
+        lastKnownTimestamp = approxTimestamp;
+      } else if (lastKnownTimestamp) {
+        approxTimestamp = lastKnownTimestamp - 60000;
+        lastKnownTimestamp = approxTimestamp;
+      } else {
+        approxTimestamp = now - (30 * 86400 * 1000) - episodes.length * 60000;
+      }
 
       episodes.push({
         guid: `yt:${v.videoId}`,
@@ -405,6 +493,7 @@ function parseVideosFromInnerTube(data) {
     }
 
     for (const key of Object.keys(obj)) {
+      if (IGNORED_CONTAINER_KEYS.has(key)) continue;
       extractVideos(obj[key]);
     }
   }

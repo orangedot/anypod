@@ -1945,7 +1945,8 @@ function renderFeedDetail(feedUrl) {
             const epMap = new Map();
             incoming.forEach(ep => { if (ep && ep.guid) epMap.set(ep.guid, ep); });
             state.allEpisodes.forEach(ep => {
-              if (ep && ep.guid && !epMap.has(ep.guid) && state.feeds.includes(ep.feedUrl)) {
+              // Retain episodes from other feeds, but allow refreshed feed to purge removed/stale items
+              if (ep && ep.guid && ep.feedUrl !== feedUrl && !epMap.has(ep.guid) && state.feeds.includes(ep.feedUrl)) {
                 epMap.set(ep.guid, ep);
               }
             });
