@@ -150,6 +150,118 @@ function setupAudioEngines() {
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Silent Decoder Stall Watchdog (Self-Healing Audio Agent)
+  // Catches Android Chrome / mobile pipeline freezes where audio.paused === false,
+  // playbackStatus === 'playing', and plenty of audio is buffered ahead in memory,
+  // but currentTime completely freezes without any DOM error or waiting event.
+  // ─────────────────────────────────────────────────────────────────────────
+  let _lastStallCheckPos = -1;
+  let _stallTicks = 0;
+  let _stallRecoveryAttempts = 0;
+  let _isStallRecovering = false;
+
+  function getAudioBufferedAhead(curPos) {
+    if (!elements.audio || !elements.audio.buffered) return 0;
+    const ranges = elements.audio.buffered;
+    for (let i = 0; i < ranges.length; i++) {
+      if (curPos >= (ranges.start(i) - 0.5) && curPos <= ranges.end(i)) {
+        return Math.max(0, ranges.end(i) - curPos);
+      }
+    }
+    return 0;
+  }
+
+  async function checkSilentStallWatchdog() {
+    if (_isStallRecovering) return;
+    if (state.activeEngine !== 'audio' || !elements.audio || !state.currentEpisode) {
+      _stallTicks = 0;
+      _lastStallCheckPos = -1;
+      return;
+    }
+    if (state.playbackStatus !== 'playing' || elements.audio.paused || elements.audio.seeking) {
+      _stallTicks = 0;
+      _lastStallCheckPos = -1;
+      return;
+    }
+    // Give newly loaded tracks 5s to stabilize before checking for stalls
+    if (state._trackStartTime && (Date.now() - state._trackStartTime < 5000)) {
+      _lastStallCheckPos = elements.audio.currentTime || 0;
+      return;
+    }
+
+    const cur = elements.audio.currentTime || 0;
+    const dur = elements.audio.duration || 0;
+
+    // Do not flag stall if we are at the very end of track (near-end watchdog will trigger end)
+    if (dur > 5 && cur >= dur - 1.5) {
+      _stallTicks = 0;
+      _lastStallCheckPos = cur;
+      return;
+    }
+
+    if (_lastStallCheckPos >= 0) {
+      const delta = Math.abs(cur - _lastStallCheckPos);
+      const bufferedAhead = getAudioBufferedAhead(cur);
+
+      // Condition: playback position hasn't moved (< 0.05s) despite having ample buffer (> 4s ahead)
+      if (delta < 0.05 && bufferedAhead >= 4.0) {
+        _stallTicks++;
+        if (_stallTicks >= 2) { // 2 consecutive checks (2 x 1.5s = 3s stalled with full buffer)
+          _isStallRecovering = true;
+          _stallRecoveryAttempts++;
+          logPlayerDiagnostic(
+            'audio.silent_stall_detected',
+            `Playback stalled at pos=${cur.toFixed(2)}s with ${bufferedAhead.toFixed(1)}s buffer ahead (attempt ${_stallRecoveryAttempts}/3, bg=${Boolean(document.hidden)})`
+          );
+          console.warn(`[Anypod Stall Watchdog] Silent decoder stall detected at ${cur.toFixed(2)}s (${bufferedAhead.toFixed(1)}s buffered). Executing recovery attempt ${_stallRecoveryAttempts}...`);
+
+          try {
+            // Step 1: Resume any suspended Web Audio context & nudge playback head
+            if (typeof liveAudioCtx !== 'undefined' && liveAudioCtx && liveAudioCtx.state === 'suspended') {
+              liveAudioCtx.resume().catch(() => {});
+            }
+
+            if (_stallRecoveryAttempts === 1) {
+              // Micro-nudge: flush pipeline by tiny forward seek + play
+              elements.audio.currentTime = cur + 0.05;
+              await elements.audio.play();
+              logPlayerDiagnostic('audio.stall_nudge_recovered', `Micro-nudge to pos=${elements.audio.currentTime.toFixed(2)}s`);
+            } else if (_stallRecoveryAttempts === 2) {
+              // Step 2: Stream re-bind to flush locked hardware decoder
+              const currentSrc = elements.audio.currentSrc || elements.audio.src;
+              elements.audio.src = currentSrc;
+              elements.audio.load();
+              elements.audio.currentTime = cur + 0.1;
+              elements.audio.playbackRate = state.playbackSpeed || 1.0;
+              await elements.audio.play();
+              logPlayerDiagnostic('audio.stall_rebind_recovered', `Stream re-bound to pos=${elements.audio.currentTime.toFixed(2)}s`);
+            } else {
+              // Step 3: Decoder locked permanently on direct CDN (e.g. malformed ad stitch); fallback to proxy
+              _stallRecoveryAttempts = 0;
+              _stallTicks = 0;
+              if (typeof triggerAudioProxyFallback === 'function' && !elements.audio.src.includes('/api/audio-proxy')) {
+                logPlayerDiagnostic('audio.stall_proxy_fallback', `Falling back to audio proxy after repeated decoder stalls`);
+                triggerAudioProxyFallback(`Repeated silent hardware stalls at ${cur.toFixed(1)}s`);
+              }
+            }
+          } catch (err) {
+            logPlayerDiagnostic('audio.stall_recovery_failed', err?.message || String(err));
+          } finally {
+            _stallTicks = 0;
+            _lastStallCheckPos = elements.audio ? elements.audio.currentTime : -1;
+            _isStallRecovering = false;
+          }
+        }
+      } else {
+        _stallTicks = 0;
+        _stallRecoveryAttempts = 0;
+      }
+    }
+
+    _lastStallCheckPos = cur;
+  }
+
   function checkYouTubeEndWatchdog() {
     if (state.activeEngine !== 'youtube' || !state.ytPlayer || !state.currentEpisode) return;
     if (state._episodeEndedTriggered) return;
@@ -275,6 +387,9 @@ function setupAudioEngines() {
   });
 
   audio.addEventListener('play', () => {
+    _stallTicks = 0;
+    _stallRecoveryAttempts = 0;
+    _lastStallCheckPos = -1;
     if (state.activeEngine === 'audio') {
       logPlayerDiagnostic('audio.play', `Play triggered (paused=${audio.paused}, status=${state.playbackStatus})`, true);
       if (state.playbackStatus !== 'playing') {
@@ -289,6 +404,8 @@ function setupAudioEngines() {
   });
 
   audio.addEventListener('pause', () => {
+    _stallTicks = 0;
+    _lastStallCheckPos = -1;
     if (state.activeEngine === 'audio') {
       // 4. CRITICAL: Ignore browser pause events triggered by track completion (audio.ended)
       // or by elements.audio.src reassignments during track transitions (loading)
@@ -609,6 +726,7 @@ function setupAudioEngines() {
   setInterval(() => {
     if (state.activeEngine === 'audio' && isEnginePlaying()) {
       checkEpisodeEndWatchdog();
+      checkSilentStallWatchdog();
     } else if (state.activeEngine === 'youtube' && isEnginePlaying() && state.ytPlayer && state.ytPlayer.getCurrentTime) {
       updateProgress();
       updateDuration();
