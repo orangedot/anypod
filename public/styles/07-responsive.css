@@ -163,124 +163,122 @@
   }
 
   .episode-card {
-    padding: 0.6rem 0.65rem;
-    gap: 0.45rem;
-  }
-
-  /* On mobile: hide progress scrub bar in all lists unless this is the currently active/playing episode */
-  .episode-card .ep-progress-track {
-    display: none;
-  }
-
-  .episode-card.playing .ep-progress-track {
-    display: block;
+    padding: 0.85rem 0.9rem;
+    gap: 0.55rem;
+    border-radius: 16px;
   }
 
   .episode-card-top {
-    gap: 0.45rem;
+    gap: 0.65rem;
   }
 
-  .episode-artwork {
-    width: 38px;
-    height: 38px;
-    border-radius: var(--radius-sm);
+  .episode-artwork,
+  .discover-show-recommendation-card .episode-artwork.feed-art {
+    width: 54px;
+    height: 54px;
+    border-radius: 12px;
   }
 
   .episode-podcast-name {
-    font-size: 0.65rem;
-    margin-bottom: 0.1rem;
+    font-size: 0.82rem;
+    font-weight: 100;
+    color: #52525c;
+    margin-bottom: 0.15rem;
   }
 
   .episode-title {
-    font-size: 0.8rem;
-    line-height: 1.25;
-  }
-
-  .episode-desc {
-    font-size: 0.7rem;
-    line-height: 1.25;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
+    font-size: 0.82rem;
+    line-height: 1.3;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
   }
 
   .episode-footer {
     display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.3rem;
-    padding-top: 0.3rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding-top: 0.1rem;
+  }
+
+  .episode-footer-left {
+    gap: 0.45rem;
   }
 
   .episode-meta {
     display: flex;
     flex-direction: row;
     align-items: center;
-    justify-content: space-between;
+    flex-wrap: wrap;
     width: 100%;
-    font-size: 0.65rem;
-    gap: 0.2rem;
+    font-size: 0.72rem;
+    gap: 0.25rem;
   }
 
-  .episode-meta .date-line {
-    font-size: 0.65rem;
-    font-weight: 100;
-    white-space: nowrap;
-  }
-
+  .episode-meta .date-line,
+  .episode-meta .episode-duration,
+  .episode-meta .ep-resume-time,
   .episode-meta .time-line {
-    font-size: 0.65rem;
+    font-size: 0.72rem;
     white-space: nowrap;
   }
 
   .episode-card-actions {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
-    gap: 0.2rem;
-    width: 100%;
+    justify-content: flex-start;
+    gap: 0.85rem;
+    width: auto;
     flex-wrap: nowrap;
-    overflow: hidden;
+    overflow: visible;
   }
 
-  .btn-play-ep,
-  .btn-mark-played,
+  .btn-more-ep,
   .btn-queue-ep,
-  .btn-download-ep,
-  .btn-fav-ep,
-  .btn-share-ep {
-    width: 25px;
-    height: 25px;
+  .btn-mark-played {
+    width: 26px;
+    height: 26px;
     flex-shrink: 0;
   }
 
-  .btn-play-ep svg,
-  .btn-mark-played svg,
+  .btn-more-ep svg,
   .btn-queue-ep svg,
-  .btn-download-ep svg,
-  .btn-fav-ep svg,
-  .btn-share-ep svg {
-    width: 11px;
-    height: 11px;
+  .btn-mark-played svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .btn-play-ep {
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+  }
+
+  .btn-play-ep svg {
+    width: 15px;
+    height: 15px;
   }
 
   .feed-card {
-    padding: 0.65rem;
-    gap: 0.45rem;
+    padding: 0.85rem 0.9rem;
+    gap: 0.55rem;
+    border-radius: 16px;
   }
 
   .feed-art {
-    width: 36px;
-    height: 36px;
+    width: 60px;
+    height: 60px;
+    border-radius: 14px;
   }
 
   .feed-info h4 {
-    font-size: 0.8rem;
+    font-size: 0.84rem;
     line-height: 1.25;
   }
 
   .feed-info p {
-    font-size: 0.68rem;
+    font-size: 0.72rem;
   }
 
   .bottom-action-dock {

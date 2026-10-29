@@ -1090,7 +1090,7 @@ function setupProgressTrackInteractivity(progressTrack, card, ep, context = null
     if (totalDur > 0) {
       const targetTime = Math.round(ratio * totalDur);
       const resumeBadge = card.querySelector('.ep-resume-time');
-      if (resumeBadge) resumeBadge.textContent = `• Resumes at ${formatTime(targetTime)}`;
+      if (resumeBadge) resumeBadge.textContent = `• resumes at ${formatTime(targetTime)}`;
 
       if (commit) {
         state.playbackPositions[ep.guid] = {
@@ -1168,6 +1168,31 @@ function setupProgressTrackInteractivity(progressTrack, card, ep, context = null
   });
 }
 
+function closeAllCardMoreMenus(exceptDropdown = null) {
+  document.querySelectorAll('.ep-more-dropdown:not(.hidden)').forEach(menu => {
+    if (menu === exceptDropdown) return;
+    menu.classList.add('hidden');
+    const card = menu.closest('.episode-card, .feed-card, .catalog-show-card');
+    if (card) card.classList.remove('menu-open');
+    const btn = menu.parentElement?.querySelector('.btn-more-ep');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  });
+}
+
+if (typeof document !== 'undefined' && !window._cardMoreMenusWired) {
+  window._cardMoreMenusWired = true;
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.ep-more-menu-wrap')) {
+      closeAllCardMoreMenus();
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeAllCardMoreMenus();
+    }
+  });
+}
+
 function createEpisodeCard(ep, context = null, cardIndex = 0) {
   const isCurrentlyActive = state.currentEpisode && state.currentEpisode.guid === ep.guid;
   const isPlaying = isCurrentlyActive && state.playbackStatus === 'playing';
@@ -1178,7 +1203,7 @@ function createEpisodeCard(ep, context = null, cardIndex = 0) {
   const isCompleted = savedPos && (savedPos.completed === 1 || savedPos.completed === true);
   const hasProgress = (isCurrentlyActive || (savedPos && savedPos.position > 2)) && !isCompleted;
   const curPos = isCurrentlyActive ? ((state.activeEngine === 'audio' ? elements.audio.currentTime : (state.ytPlayer && state.ytPlayer.getCurrentTime ? state.ytPlayer.getCurrentTime() : 0)) || (savedPos ? savedPos.position : 0)) : (savedPos ? savedPos.position : 0);
-  const resumeTimeStr = hasProgress ? `Resumes at ${formatTime(curPos)}` : '';
+  const resumeTimeStr = hasProgress ? `resumes at ${formatTime(curPos)}` : '';
 
   let progressTrackHtml = '';
   if (hasProgress) {
@@ -1230,68 +1255,112 @@ function createEpisodeCard(ep, context = null, cardIndex = 0) {
     dlTitle = 'Downloading...';
   } else if (isDownloaded) {
     dlIcon = CARD_ICONS.DOWNLOADED;
-    dlTitle = 'Downloaded (Click to remove)';
+    dlTitle = 'Remove download';
   }
 
   const isFav = isEpisodeFavorited(ep.guid);
+  const favLabel = isFav ? 'Remove from favorites' : 'Add to favorites';
   const favBtnHtml = `
-    <button class="btn-fav-ep ${isFav ? 'is-favorited' : ''}" title="${isFav ? 'Remove from favorites' : 'Add to favorites'}">
-      ${isFav ? CARD_ICONS.HEART_FILLED : CARD_ICONS.HEART}
+    <button type="button" class="ep-more-item btn-fav-ep ${isFav ? 'is-favorited' : ''}" role="menuitem" title="${favLabel}">
+      <span class="ep-more-item-icon">${isFav ? CARD_ICONS.HEART_FILLED : CARD_ICONS.HEART}</span>
+      <span class="ep-more-item-label">${favLabel}</span>
     </button>
   `;
 
   const downloadBtnHtml = ep.isYouTube ? '' : `
-    <button class="btn-download-ep ${isDownloaded ? 'is-downloaded' : ''} ${isDownloading ? 'is-downloading' : ''}" title="${dlTitle}">
-      ${dlIcon}
+    <button type="button" class="ep-more-item btn-download-ep ${isDownloaded ? 'is-downloaded' : ''} ${isDownloading ? 'is-downloading' : ''}" role="menuitem" title="${dlTitle}">
+      <span class="ep-more-item-icon">${dlIcon}</span>
+      <span class="ep-more-item-label">${dlTitle}</span>
     </button>
   `;
 
   const isAboveTheFold = typeof cardIndex === 'number' && cardIndex < 4;
   card.innerHTML = `
     <div class="episode-card-top">
-      <img class="episode-artwork" src="${escapeHtml(ep.artwork || FALLBACK_ARTWORK)}" alt="" ${isAboveTheFold ? 'loading="eager" fetchpriority="high"' : 'loading="lazy" decoding="async"'} width="52" height="52">
+      <img class="episode-artwork" src="${escapeHtml(ep.artwork || FALLBACK_ARTWORK)}" alt="" ${isAboveTheFold ? 'loading="eager" fetchpriority="high"' : 'loading="lazy" decoding="async"'} width="76" height="76" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
       <div class="episode-header-info">
         <div class="episode-podcast-name">${ep.isYouTube ? 'YouTube' : highlightText(ep.podcastTitle, state.searchQuery)}</div>
         <div class="episode-title">${highlightText(ep.title, state.searchQuery)}</div>
       </div>
     </div>
-    ${(ep.description || ep.content) ? `<div class="episode-desc">${formatHighlightedDesc(ep.content || ep.description, state.searchQuery)} <span class="episode-desc-link">Notes & links →</span></div>` : ''}
     ${progressTrackHtml}
     <div class="episode-footer">
-      <div class="episode-meta">
-        <span title="${escapeHtml(fullDate)}" class="date-line" style="display:block;">${escapeHtml(humanDate)}</span>
-        <span class="time-line" style="display:block;">
-          ${formattedDuration ? `<span>${escapeHtml(formattedDuration)}</span>` : ''}
+      <div class="episode-footer-left">
+        <div class="episode-meta">
+          <span title="${escapeHtml(fullDate)}" class="date-line">${escapeHtml(humanDate)}</span>
+          ${formattedDuration ? `<span class="meta-sep">•</span><span class="episode-duration">${escapeHtml(formattedDuration)}</span>` : ''}
           ${resumeTimeStr ? `<span class="ep-resume-time" title="Click to resume playback">• ${resumeTimeStr}</span>` : ''}
-        </span>
+        </div>
+        <div class="episode-card-actions">
+          <div class="ep-more-menu-wrap">
+            <button type="button" class="btn-more-ep" title="More options" aria-label="More options" aria-haspopup="true" aria-expanded="false">
+              ${CARD_ICONS.MORE}
+            </button>
+            <div class="ep-more-dropdown hidden" role="menu">
+              <button type="button" class="ep-more-item btn-notes-ep" role="menuitem">
+                <span class="ep-more-item-icon">${CARD_ICONS.NOTES}</span>
+                <span class="ep-more-item-label">Notes &amp; links</span>
+              </button>
+              ${favBtnHtml}
+              ${downloadBtnHtml}
+              <button type="button" class="ep-more-item btn-transcript-ep" role="menuitem" style="${state.experimentalSettings.enableTranscript === false ? 'display:none;' : ''}">
+                <span class="ep-more-item-icon">${CARD_ICONS.TRANSCRIPT}</span>
+                <span class="ep-more-item-label">Transcript</span>
+              </button>
+              <button type="button" class="ep-more-item btn-share-ep" role="menuitem">
+                <span class="ep-more-item-icon">${CARD_ICONS.SHARE}</span>
+                <span class="ep-more-item-label">Share episode</span>
+              </button>
+              ${ep.feedUrl ? `
+                <button type="button" class="ep-more-item btn-goto-podcast-ep" role="menuitem">
+                  <span class="ep-more-item-icon">${CARD_ICONS.PODCAST}</span>
+                  <span class="ep-more-item-label">Go to podcast</span>
+                </button>
+              ` : ''}
+            </div>
+          </div>
+          <button type="button" class="btn-queue-ep ${isQueued ? 'is-queued' : ''}" title="${isQueued ? 'Remove from Up Next' : 'Add to Up Next'}">
+            ${isQueued ? CARD_ICONS.QUEUE_ADDED : CARD_ICONS.QUEUE}
+          </button>
+          <button type="button" class="btn-mark-played ${isCompleted ? 'is-completed' : ''}" title="${isCompleted ? 'Mark as Unplayed' : 'Mark as Played'}">
+            ${isCompleted ? CARD_ICONS.CHECK_FILLED : CARD_ICONS.CHECK}
+          </button>
+        </div>
       </div>
-      <div class="episode-card-actions" style="display:flex; gap:4px; flex-wrap:nowrap;">
-        ${favBtnHtml}
-        ${downloadBtnHtml}
-        <button class="btn-transcript-ep" title="View Transcript" style="${state.experimentalSettings.enableTranscript === false ? 'display:none;' : ''}">
-          ${CARD_ICONS.TRANSCRIPT}
-        </button>
-        <button class="btn-queue-ep ${isQueued ? 'is-queued' : ''}" title="${isQueued ? 'Remove from Up Next' : 'Add to Up Next'}">
-          ${isQueued ? CARD_ICONS.QUEUE_ADDED : CARD_ICONS.QUEUE}
-        </button>
-        <button class="btn-share-ep" title="Share Episode">
-          ${CARD_ICONS.SHARE}
-        </button>
-        <button class="btn-mark-played ${isCompleted ? 'is-completed' : ''}" title="${isCompleted ? 'Mark as Unplayed' : 'Mark as Played'}">
-          ${isCompleted ? CARD_ICONS.CHECK_FILLED : CARD_ICONS.CHECK}
-        </button>
-        <button class="btn-play-ep" title="${btnTitle}">
-          ${btnHtml}
-        </button>
-      </div>
+      <button type="button" class="btn-play-ep" title="${btnTitle}">
+        ${btnHtml}
+      </button>
     </div>
   `;
 
-  const descEl = card.querySelector('.episode-desc');
-  if (descEl) {
-    descEl.addEventListener('click', (e) => {
+  const moreBtn = card.querySelector('.btn-more-ep');
+  const moreDropdown = card.querySelector('.ep-more-dropdown');
+  if (moreBtn && moreDropdown) {
+    moreBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      const isOpening = moreDropdown.classList.contains('hidden');
+      closeAllCardMoreMenus(moreDropdown);
+      moreDropdown.classList.toggle('hidden', !isOpening);
+      card.classList.toggle('menu-open', isOpening);
+      moreBtn.setAttribute('aria-expanded', String(isOpening));
+    });
+  }
+
+  const notesBtn = card.querySelector('.btn-notes-ep');
+  if (notesBtn) {
+    notesBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeAllCardMoreMenus();
       openShowNotes(ep);
+    });
+  }
+
+  const gotoPodBtn = card.querySelector('.btn-goto-podcast-ep');
+  if (gotoPodBtn && ep.feedUrl) {
+    gotoPodBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeAllCardMoreMenus();
+      openFeedDetail(ep.feedUrl);
     });
   }
 
@@ -1315,6 +1384,7 @@ function createEpisodeCard(ep, context = null, cardIndex = 0) {
   if (favBtn) {
     favBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      closeAllCardMoreMenus();
       toggleFavoriteEpisode(ep);
     });
   }
@@ -1323,6 +1393,7 @@ function createEpisodeCard(ep, context = null, cardIndex = 0) {
   if (dlBtn) {
     dlBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      closeAllCardMoreMenus();
       if (state.downloadedEpisodes[ep.guid]) {
         removeDownloadedEpisode(ep.guid);
       } else {
@@ -1335,6 +1406,7 @@ function createEpisodeCard(ep, context = null, cardIndex = 0) {
   if (transcriptBtn) {
     transcriptBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      closeAllCardMoreMenus();
       openShowNotes(ep, 'transcript');
     });
   }
@@ -1353,6 +1425,7 @@ function createEpisodeCard(ep, context = null, cardIndex = 0) {
   if (shareBtn) {
     shareBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      closeAllCardMoreMenus();
       shareEpisode(ep);
     });
   }
@@ -1678,9 +1751,6 @@ function renderFeedsGrid() {
     const card = document.createElement('div');
     card.className = 'feed-card';
 
-    const rawDesc = meta.description || '';
-    const plainDesc = rawDesc.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
-
     const allForFeed = state.allEpisodes
       .filter(e => e.feedUrl === url)
       .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
@@ -1712,7 +1782,6 @@ function renderFeedsGrid() {
     if (feedEpisodes.length > 0) {
       recentWidgetHtml = `
         <div class="feed-recent-widget">
-          <div class="feed-recent-header">${widgetHeader}</div>
           <div class="feed-recent-list">
             ${feedEpisodes.map(ep => {
               const isCurrent = state.currentEpisode && state.currentEpisode.guid === ep.guid;
@@ -1743,43 +1812,65 @@ function renderFeedsGrid() {
 
     card.innerHTML = `
       <div class="feed-header">
-        <img class="feed-art" loading="lazy" decoding="async" width="48" height="48" src="${escapeHtml(meta.artwork || FALLBACK_ARTWORK)}" alt="">
+        <img class="feed-art" loading="lazy" decoding="async" width="64" height="64" src="${escapeHtml(meta.artwork || FALLBACK_ARTWORK)}" alt="">
         <div class="feed-info">
           <h4>${highlightText(meta.title || url, state.searchQuery)}</h4>
           <p>${meta.error ? `<span style="color: #ef4444;">${escapeHtml(meta.error)}</span>` : `${meta.episodesCount || feedEpisodes.length} episodes`}${isFeedMuted(url) ? ' • <span style="color: var(--danger); font-weight: 500;">Muted</span>' : ''}</p>
         </div>
         <div class="feed-header-actions">
-          <button class="btn-feed-share" title="Share podcast" aria-label="Share podcast">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
-              <polyline points="16 6 12 2 8 6"></polyline>
-              <line x1="12" y1="2" x2="12" y2="15"></line>
-            </svg>
-          </button>
-          <button class="btn-feed-unsubscribe" title="Remove podcast" aria-label="Remove podcast">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            </svg>
-          </button>
+          <div class="ep-more-menu-wrap">
+            <button type="button" class="btn-more-ep" title="More options" aria-label="More options" aria-expanded="false">
+              ${CARD_ICONS.MORE}
+            </button>
+            <div class="ep-more-dropdown hidden" role="menu">
+              <button type="button" class="ep-more-item btn-feed-share" role="menuitem">
+                <span class="ep-more-item-icon">${CARD_ICONS.SHARE}</span>
+                <span class="ep-more-item-label">Share podcast</span>
+              </button>
+              <button type="button" class="ep-more-item btn-feed-unsubscribe" role="menuitem">
+                <span class="ep-more-item-icon">${CARD_ICONS.TRASH}</span>
+                <span class="ep-more-item-label">Remove podcast</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-      ${plainDesc ? `<p class="feed-card-desc">${escapeHtml(plainDesc)}</p>` : ''}
       ${recentWidgetHtml}
     `;
 
     card.addEventListener('click', (e) => {
-      if (e.target.closest('.feed-header-actions') || e.target.closest('.recent-ep-row')) return;
+      if (e.target.closest('.feed-header-actions') || e.target.closest('.recent-ep-row') || e.target.closest('.ep-more-menu-wrap')) return;
       openFeedDetail(url);
     });
 
+    const moreBtn = card.querySelector('.btn-more-ep');
+    const moreDropdown = card.querySelector('.ep-more-dropdown');
+    if (moreBtn && moreDropdown) {
+      moreBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = !moreDropdown.classList.contains('hidden');
+        closeAllCardMoreMenus(card);
+        if (isOpen) {
+          moreDropdown.classList.add('hidden');
+          moreBtn.setAttribute('aria-expanded', 'false');
+          card.classList.remove('menu-open');
+        } else {
+          moreDropdown.classList.remove('hidden');
+          moreBtn.setAttribute('aria-expanded', 'true');
+          card.classList.add('menu-open');
+        }
+      });
+    }
+
     card.querySelector('.btn-feed-share')?.addEventListener('click', (e) => {
       e.stopPropagation();
+      closeAllCardMoreMenus();
       shareFeed(url, meta.title);
     });
 
     card.querySelector('.btn-feed-unsubscribe')?.addEventListener('click', (e) => {
       e.stopPropagation();
+      closeAllCardMoreMenus();
       promptRemoveFeed(url);
     });
 
@@ -1902,7 +1993,6 @@ function renderFeedDetail(feedUrl) {
     header.innerHTML = `
       <div class="feed-detail-top-nav">
         <div class="feed-detail-nav-row">
-          <button class="feed-link-badge btn-back-nav" id="btn-feed-back">${escapeHtml(backLabel)}</button>
           <div class="feed-detail-sub-actions">
             ${isSubbed ? `
               <button class="feed-link-badge btn-feed-mute ${isMuted ? 'is-muted' : ''}" id="btn-feed-mute" title="${isMuted ? 'Unmute: show episodes in timeline' : 'Mute: hide episodes from timeline'}">
@@ -1951,9 +2041,12 @@ function renderFeedDetail(feedUrl) {
       </div>
     `;
 
-    header.querySelector('#btn-feed-back').addEventListener('click', () => {
-      navigateBack();
-    });
+    const feedBackBtn = header.querySelector('#btn-feed-back');
+    if (feedBackBtn) {
+      feedBackBtn.addEventListener('click', () => {
+        navigateBack();
+      });
+    }
 
     const refreshFeedBtn = header.querySelector('#btn-refresh-feed-detail');
     if (refreshFeedBtn) {
@@ -2158,17 +2251,34 @@ function renderFeedDetail(feedUrl) {
           <p>Fetching episodes so you can listen before adding.</p>
         </div>
       `;
-      fetchSingleFeed(feedUrl, state.allEpisodes, state.feedMetadata).then(res => {
+      const renderPreviewError = () => {
+        list.innerHTML = `
+          <div class="empty-state">
+            <h3>Unable to load preview</h3>
+            <p>Could not fetch RSS feed for this podcast.</p>
+            <button type="button" class="btn btn-secondary" id="btn-retry-preview" style="margin-top: 1rem;">↻ Retry preview</button>
+          </div>
+        `;
+        const retryBtn = list.querySelector('#btn-retry-preview');
+        if (retryBtn) {
+          retryBtn.addEventListener('click', () => {
+            previewLoadingSet.delete(feedUrl);
+            renderFeedDetail(feedUrl);
+          });
+        }
+      };
+
+      fetchSingleFeed(feedUrl, state.allEpisodes, state.feedMetadata, { force: true }).then(res => {
         previewLoadingSet.delete(feedUrl);
-        if (res) {
+        if (res && res.episodes && res.episodes.length > 0) {
           header.dataset.feedUrl = '';
           renderFeedDetail(feedUrl);
         } else {
-          list.innerHTML = `<div class="empty-state"><h3>Unable to load preview</h3><p>Could not fetch RSS feed for this podcast.</p></div>`;
+          renderPreviewError();
         }
       }).catch(() => {
         previewLoadingSet.delete(feedUrl);
-        list.innerHTML = `<div class="empty-state"><h3>Unable to load preview</h3><p>Could not fetch RSS feed for this podcast.</p></div>`;
+        renderPreviewError();
       });
       return;
     }

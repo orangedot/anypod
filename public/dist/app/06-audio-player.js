@@ -1403,7 +1403,7 @@ function updateProgress() {
           }
         }
         if (resumeBadge) {
-          resumeBadge.textContent = `• Resumes at ${formatTime(current)}`;
+          resumeBadge.textContent = `• resumes at ${formatTime(current)}`;
         }
       });
     }

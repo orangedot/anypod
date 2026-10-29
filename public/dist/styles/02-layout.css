@@ -151,6 +151,8 @@ select option {
 .search-result-author *,
 .episode-podcast,
 .episode-podcast *,
+.episode-podcast-name,
+.episode-podcast-name *,
 .track-podcast,
 .track-podcast * {
   text-transform: none !important;
@@ -657,11 +659,11 @@ body.has-active-episode .continue-shelf.is-expanded .continue-toggle-wrap {
 
 .ep-progress-track {
   width: 100%;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.12);
+  height: 8px;
+  background: rgba(255, 255, 255, 0.14);
   border-radius: 9999px;
   overflow: hidden;
-  margin: 0.35rem 0;
+  margin: 0.25rem 0 0.1rem;
   cursor: pointer;
   position: relative;
   transition: height 0.15s ease, background 0.15s ease;
@@ -676,25 +678,30 @@ body.has-active-episode .continue-shelf.is-expanded .continue-toggle-wrap {
 
 [data-theme="light"] .ep-progress-track,
 :root:not([data-theme="dark"]) .ep-progress-track {
-  background: rgba(0, 0, 0, 0.08);
+  background: #d5d7dc;
 }
 
 [data-theme="light"] .ep-progress-track:hover,
 :root:not([data-theme="dark"]) .ep-progress-track:hover {
-  background: rgba(0, 0, 0, 0.16);
+  background: #c8cbd2;
 }
 
 .ep-progress-fill {
   height: 100%;
-  background: var(--accent-orange);
+  background: #d4d4d8;
   border-radius: 9999px;
   transition: width 0.1s ease;
   pointer-events: none;
 }
 
+[data-theme="light"] .ep-progress-fill,
+:root:not([data-theme="dark"]) .ep-progress-fill {
+  background: #525459;
+}
+
 .ep-resume-time {
-  color: var(--accent-orange);
-  font-weight: 600;
+  color: var(--text-primary);
+  font-weight: 500;
   cursor: pointer;
   transition: opacity 0.2s ease, text-decoration 0.2s ease;
 }

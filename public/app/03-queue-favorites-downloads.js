@@ -571,8 +571,14 @@ function updateEpisodeCardFavoriteState(guid) {
   const isFav = isEpisodeFavorited(guid);
   document.querySelectorAll(`.episode-card[data-guid="${CSS.escape(guid)}"] .btn-fav-ep`).forEach(btn => {
     btn.classList.toggle('is-favorited', isFav);
-    btn.innerHTML = isFav ? CARD_ICONS.HEART_FILLED : CARD_ICONS.HEART;
-    btn.title = isFav ? 'Remove from favorites' : 'Add to favorites';
+    const iconHtml = isFav ? CARD_ICONS.HEART_FILLED : CARD_ICONS.HEART;
+    const labelText = isFav ? 'Remove from favorites' : 'Add to favorites';
+    if (btn.classList.contains('ep-more-item')) {
+      btn.innerHTML = `<span class="ep-more-item-icon">${iconHtml}</span><span class="ep-more-item-label">${labelText}</span>`;
+    } else {
+      btn.innerHTML = iconHtml;
+    }
+    btn.title = labelText;
   });
 }
 
@@ -971,7 +977,11 @@ async function clearAllDownloads() {
   saveDownloadsToStorage();
   document.querySelectorAll('.btn-download-ep').forEach(btn => {
     btn.classList.remove('is-downloaded', 'is-downloading');
-    btn.innerHTML = CARD_ICONS.DOWNLOAD;
+    if (btn.classList.contains('ep-more-item')) {
+      btn.innerHTML = `<span class="ep-more-item-icon">${CARD_ICONS.DOWNLOAD}</span><span class="ep-more-item-label">Download for offline</span>`;
+    } else {
+      btn.innerHTML = CARD_ICONS.DOWNLOAD;
+    }
     btn.title = 'Download for offline';
   });
   if (state.filterMode === 'downloaded') {
@@ -983,23 +993,28 @@ async function clearAllDownloads() {
 function updateEpisodeCardDownloadState(guid) {
   const isDownloaded = !!state.downloadedEpisodes[guid];
   const isDownloading = state.downloadingGuids.has(guid);
-  const cards = document.querySelectorAll(`.episode-card[data-guid="${guid}"]`);
+  const cards = document.querySelectorAll(`.episode-card[data-guid="${CSS.escape(guid)}"]`);
 
   cards.forEach(card => {
     const btn = card.querySelector('.btn-download-ep');
     if (!btn) return;
     btn.classList.toggle('is-downloaded', isDownloaded);
     btn.classList.toggle('is-downloading', isDownloading);
+    let iconHtml = CARD_ICONS.DOWNLOAD;
+    let labelText = 'Download for offline';
     if (isDownloading) {
-      btn.innerHTML = CARD_ICONS.DOWNLOAD_SPINNER;
-      btn.title = 'Downloading...';
+      iconHtml = CARD_ICONS.DOWNLOAD_SPINNER;
+      labelText = 'Downloading...';
     } else if (isDownloaded) {
-      btn.innerHTML = CARD_ICONS.DOWNLOADED;
-      btn.title = 'Downloaded (Click to remove)';
-    } else {
-      btn.innerHTML = CARD_ICONS.DOWNLOAD;
-      btn.title = 'Download for offline';
+      iconHtml = CARD_ICONS.DOWNLOADED;
+      labelText = 'Remove download';
     }
+    if (btn.classList.contains('ep-more-item')) {
+      btn.innerHTML = `<span class="ep-more-item-icon">${iconHtml}</span><span class="ep-more-item-label">${labelText}</span>`;
+    } else {
+      btn.innerHTML = iconHtml;
+    }
+    btn.title = labelText;
   });
 }
 

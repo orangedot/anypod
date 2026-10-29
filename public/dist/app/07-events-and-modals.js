@@ -291,6 +291,28 @@ function setupEventListeners() {
     renderOfflineStorageSettings();
   });
 
+  elements.searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const q = (elements.searchInput.value || '').trim();
+      if (!q) return;
+      e.preventDefault();
+      dismissHeaderSearch();
+      navigateTo('discover');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      const discInput = document.getElementById('empty-quick-input');
+      const clearBtn = document.getElementById('btn-discover-clear-search');
+      if (discInput) {
+        discInput.value = q;
+        if (clearBtn) clearBtn.classList.remove('hidden');
+        const quickResults = document.getElementById('empty-quick-results');
+        if (quickResults && typeof executeUnifiedSearch === 'function') {
+          executeUnifiedSearch(q, state.searchSource || 'all', quickResults);
+        }
+      }
+    }
+  });
+
   // ───────────────────────────────────────────────────────────────────────
   // Search Discover Live Preview (5 items + trailing 'see all' card)
   // ───────────────────────────────────────────────────────────────────────
@@ -421,10 +443,18 @@ function setupEventListeners() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
             const discInput = document.getElementById('empty-quick-input');
+            const clearBtn = document.getElementById('btn-discover-clear-search');
             if (discInput && term) {
               discInput.value = term;
+              if (clearBtn) clearBtn.classList.remove('hidden');
               const quickResults = document.getElementById('empty-quick-results');
-              if (quickResults) searchPodcastDirectory(term, quickResults);
+              if (quickResults) {
+                if (typeof executeUnifiedSearch === 'function') {
+                  executeUnifiedSearch(term, state.searchSource || 'all', quickResults);
+                } else {
+                  searchPodcastDirectory(term, quickResults);
+                }
+              }
             }
           });
         }

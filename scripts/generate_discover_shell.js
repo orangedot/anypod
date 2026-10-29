@@ -71,14 +71,13 @@ export function generateDiscoverShellHtml() {
             <span class="why-text">${escapeHtml(note)}</span>
           </div>
           <div class="episode-card-top">
-            <img class="episode-artwork feed-art" src="${FALLBACK_ARTWORK}" alt="" ${loadingAttr} width="52" height="52" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+            <img class="episode-artwork feed-art" src="${FALLBACK_ARTWORK}" alt="" ${loadingAttr} width="76" height="76" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
             <div class="episode-header-info">
               <div class="episode-podcast-name">${escapeHtml(show.badge || 'Recommended Show')}</div>
               <div class="episode-title">${escapeHtml(show.title)}</div>
             </div>
           </div>
           <div class="feed-recent-widget feed-recent-preview-empty" data-feed="${escapeHtml(show.feed)}">
-            <div class="feed-recent-header">latest episode</div>
             <div class="feed-recent-list">
               <div class="recent-ep-row recent-ep-placeholder" style="color: var(--text-muted); font-size: 0.78rem; padding: 0.35rem 0.5rem;">
                 <span>Click card to explore episodes</span>
@@ -86,9 +85,12 @@ export function generateDiscoverShellHtml() {
             </div>
           </div>
           <div class="episode-footer" style="margin-top:auto;">
-            <div class="episode-meta">
-              <span class="date-line">${escapeHtml(show.topic ? show.topic.toUpperCase() : 'PODCAST')}</span>
-              <span class="time-line"><span class="btn-preview-link">Explore episodes →</span></span>
+            <div class="episode-footer-left">
+              <div class="episode-meta">
+                <span class="date-line">${escapeHtml(show.topic ? show.topic.toUpperCase() : 'PODCAST')}</span>
+                <span class="meta-sep">•</span>
+                <span class="time-line"><span class="btn-preview-link">Explore episodes →</span></span>
+              </div>
             </div>
             <div class="episode-card-actions" style="display:flex; gap:6px;">
               <button type="button" class="btn btn-primary btn-sm btn-discover-follow">+ Follow Show</button>
@@ -163,30 +165,34 @@ export function generateDiscoverShellHtml() {
         </div>
       </div>
 
-      <!-- Clean Search & Direct RSS Add -->
+      <!-- Unified Multi-Source Search & Exploration -->
       <div class="discover-search-box">
-        <form id="empty-quick-form" class="quick-add-form" action="javascript:void(0);">
-          <div class="quick-add-input-wrap">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="quick-add-icon">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input type="text" id="empty-quick-input" placeholder="search podcast name or paste rss feed url..." autocomplete="off">
-            <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-empty-quick-submit">search / add</button>
+        <div class="discover-search-controls">
+          <div class="search-source-tabs" role="tablist" aria-label="Search source">
+            <button type="button" class="source-tab active" data-source="all">All</button>
+            <button type="button" class="source-tab" data-source="podcasts">Podcasts</button>
+            <button type="button" class="source-tab" data-source="youtube">YouTube</button>
+            <button type="button" class="source-tab" data-source="music">YT Music</button>
           </div>
-        </form>
+          <form id="empty-quick-form" class="quick-add-form" action="javascript:void(0);">
+            <div class="quick-add-input-wrap">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="quick-add-icon">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="empty-quick-input" placeholder="search podcasts, youtube, yt music, or paste url..." autocomplete="off">
+              <button type="button" class="btn-discover-clear-search hidden" id="btn-discover-clear-search" title="clear">×</button>
+              <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-empty-quick-submit">search / add</button>
+            </div>
+          </form>
+        </div>
         <div class="empty-category-chips" id="empty-category-chips">
           <button type="button" class="category-chip" data-category="Science">science</button>
+          <button type="button" class="category-chip" data-category="Music">music</button>
           <button type="button" class="category-chip" data-category="Climate">climate &amp; planet</button>
-          <button type="button" class="category-chip" data-category="Earth Nature">earth &amp; nature</button>
-          <button type="button" class="category-chip" data-category="Space Astronomy">space &amp; astronomy</button>
-          <button type="button" class="category-chip" data-category="Oceans Marine">oceans &amp; marine</button>
-          <button type="button" class="category-chip" data-category="Physics Quantum">physics &amp; quantum</button>
-          <button type="button" class="category-chip" data-category="Neuroscience Mind">neuroscience &amp; mind</button>
-          <button type="button" class="category-chip" data-category="Biology Genetics">biology &amp; genetics</button>
-          <button type="button" class="category-chip" data-category="Clean Energy">clean tech &amp; energy</button>
-          <button type="button" class="category-chip" data-category="AI Tech">artificial intelligence</button>
-          <button type="button" class="category-chip" data-category="History Science">history of science</button>
+          <button type="button" class="category-chip" data-category="Tech">tech &amp; ai</button>
+          <button type="button" class="category-chip" data-category="History">history</button>
+          <button type="button" class="category-chip" data-category="News">news</button>
           <button type="button" class="category-chip" data-category="Wissen DE">wissen (de)</button>
         </div>
         <div id="empty-quick-results" class="quick-results-container"></div>

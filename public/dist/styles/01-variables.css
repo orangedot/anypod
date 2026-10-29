@@ -131,7 +131,7 @@
    ─────────────────────────────────────────────────────────── */
 
 /* Strip all borders and shadows globally, except for inputs, buttons with explicit borders, toast, and badges */
-*:not(input):not(textarea):not(select):not(.search-bar):not(.quick-add-input-wrap):not(.btn-header-back):not(.app-toast):not(.status-badge) {
+*:not(input):not(textarea):not(select):not(.search-bar):not(.quick-add-input-wrap):not(.btn-header-back):not(.app-toast):not(.status-badge):not(.ep-more-dropdown) {
   border: none !important;
   box-shadow: none !important;
 }
@@ -446,7 +446,7 @@ input::placeholder,
   align-items: center;
   gap: 0.35rem;
   background: var(--bg-card);
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--border-light) !important;
   border-radius: var(--radius-full);
   padding: 0.35rem 0.75rem 0.35rem 0.55rem;
   color: var(--text-primary);
@@ -458,9 +458,22 @@ input::placeholder,
   user-select: none;
 }
 
+[data-theme="light"] .btn-header-back,
+:root:not([data-theme="dark"]) .btn-header-back {
+  background: #e5e7eb;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  color: #18181b;
+}
+
 .btn-header-back:hover {
   background: var(--bg-card-hover);
   color: var(--accent-orange);
+}
+
+[data-theme="light"] .btn-header-back:hover,
+:root:not([data-theme="dark"]) .btn-header-back:hover {
+  background: #d1d5db;
+  color: #18181b;
 }
 
 .btn-header-back.hidden {

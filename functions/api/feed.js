@@ -118,14 +118,32 @@ export async function onRequest(context) {
   // 4. Raw XML Stream Pass-Through Mode (?raw=1) — 0ms Cloudflare XML parsing CPU!
   if (urlParams.get('raw') === '1') {
     try {
-      const upstreamRes = await fetch(targetUrl, {
+      let upstreamRes = await fetch(targetUrl, {
         headers: {
-          'User-Agent': 'Anypod/1.0 (+CloudflarePages)',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
           'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
         },
         cf: { cacheTtl: 900, cacheEverything: true },
         signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(8500) : undefined
       });
+
+      // Upstream fallback: if blocked by CDN/bot protection with 403/401, retry with AppleCoreMedia podcast UA
+      if (!upstreamRes.ok && (upstreamRes.status === 403 || upstreamRes.status === 401)) {
+        try {
+          const retryRes = await fetch(targetUrl, {
+            headers: {
+              'User-Agent': 'AppleCoreMedia/1.0.0.21E236 (Macintosh; U; Intel Mac OS X 14_4_1; en_us) Podcast/1.0',
+              'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
+            },
+            cf: { cacheTtl: 900, cacheEverything: true },
+            signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(8500) : undefined
+          });
+          if (retryRes.ok) {
+            upstreamRes = retryRes;
+          }
+        } catch (_) {}
+      }
+
       if (!upstreamRes.ok) {
         return new Response(`Upstream HTTP ${upstreamRes.status}`, { status: upstreamRes.status, headers: corsHeaders });
       }
@@ -690,7 +708,7 @@ async function fetchAndParseFeed(inputUrl) {
 
   const fetchOptions = {
     headers: {
-      'User-Agent': 'Anypod/1.0 (+CloudflarePages)',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
     }
   };
@@ -706,7 +724,25 @@ async function fetchAndParseFeed(inputUrl) {
     fetchOptions.signal = AbortSignal.timeout(8500);
   }
 
-  const response = await fetch(inputUrl, fetchOptions);
+  let response = await fetch(inputUrl, fetchOptions);
+
+  if (!response.ok && (response.status === 403 || response.status === 401)) {
+    try {
+      const retryOptions = {
+        headers: {
+          'User-Agent': 'AppleCoreMedia/1.0.0.21E236 (Macintosh; U; Intel Mac OS X 14_4_1; en_us) Podcast/1.0',
+          'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
+        }
+      };
+      if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) {
+        retryOptions.signal = AbortSignal.timeout(8500);
+      }
+      const retryRes = await fetch(inputUrl, retryOptions);
+      if (retryRes.ok) {
+        response = retryRes;
+      }
+    } catch (_) {}
+  }
 
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: Unable to fetch feed`);

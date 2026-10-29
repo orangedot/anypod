@@ -1339,6 +1339,352 @@ async function searchPodcastDirectory(query, targetContainer = null) {
   }
 }
 
+function buildUnifiedSearchResultCard(item) {
+  const card = document.createElement('div');
+  card.className = 'episode-card search-result-card';
+
+  const isYt = Boolean(item.isYouTube || item.type === 'youtube' || item.type === 'youtube_music');
+  const isMusic = item.type === 'youtube_music';
+  const isPodcastShow = Boolean(item.feedUrl && !isYt);
+  const guid = isYt ? (item.guid || `yt:${item.id}`) : (item.feedUrl || '');
+  card.dataset.guid = guid;
+  if (item.feedUrl) card.dataset.feed = item.feedUrl;
+
+  const titleText = item.title || item.collectionName || item.trackName || 'Untitled';
+  const authorText = item.author || item.artistName || (isMusic ? 'YouTube Music' : 'YouTube');
+  const artworkUrl = item.artwork || item.artworkUrl600 || item.artworkUrl100 || FALLBACK_ARTWORK;
+  const durationText = item.duration || (item.trackCount ? `${item.trackCount} eps` : '');
+  const sourceLabel = isMusic ? 'YT Music' : (isYt ? 'YouTube' : 'Podcast');
+  const pubDateText = item.pubDate || (isPodcastShow ? 'Show' : (isMusic ? 'Track' : 'Video'));
+
+  const isSubbed = isPodcastShow ? (state.feeds && state.feeds.includes(item.feedUrl)) : false;
+  const isCurrent = state.currentEpisode && (state.currentEpisode.guid === guid || (isYt && state.currentEpisode.videoId === item.id));
+  const isPlaying = isCurrent && (state.playbackStatus === 'playing' || state.playbackStatus === 'loading');
+
+  const epItem = isYt ? {
+    guid,
+    title: titleText,
+    author: authorText,
+    podcastTitle: authorText || sourceLabel,
+    audioUrl: `https://www.youtube.com/watch?v=${item.id}`,
+    artwork: artworkUrl,
+    duration: durationText,
+    isYouTube: true,
+    videoId: item.id
+  } : null;
+
+  const isFav = isEpisodeFavorited(guid);
+  const isQueued = isEpisodeQueued(guid);
+
+  let playIconHtml = isPlaying ? CARD_ICONS.PAUSE : CARD_ICONS.PLAY;
+  let playTitle = isPlaying ? 'Pause' : 'Play';
+
+  const favBtnHtml = `
+    <button type="button" class="ep-more-item btn-fav-ep ${isFav ? 'is-favorited' : ''}" role="menuitem" title="${isFav ? 'Remove from favorites' : 'Add to favorites'}">
+      <span class="ep-more-item-icon">${isFav ? CARD_ICONS.HEART_FILLED : CARD_ICONS.HEART}</span>
+      <span class="ep-more-item-label">${isFav ? 'Favorited' : 'Favorite'}</span>
+    </button>
+  `;
+
+  const shareBtnHtml = `
+    <button type="button" class="ep-more-item btn-share-ep" role="menuitem">
+      <span class="ep-more-item-icon">${CARD_ICONS.SHARE}</span>
+      <span class="ep-more-item-label">Share</span>
+    </button>
+  `;
+
+  const followBtnHtml = isPodcastShow ? `
+    <button type="button" class="ep-more-item btn-sub-dir ${isSubbed ? 'subscribed' : ''}" role="menuitem">
+      <span class="ep-more-item-icon">${CARD_ICONS.PODCAST}</span>
+      <span class="ep-more-item-label">${isSubbed ? 'Unfollow show' : 'Follow show'}</span>
+    </button>
+  ` : '';
+
+  card.innerHTML = `
+    <div class="episode-card-top">
+      <img class="episode-artwork" src="${escapeHtml(artworkUrl)}" alt="" loading="lazy" decoding="async" width="76" height="76" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+      <div class="episode-header-info">
+        <div class="episode-podcast-name">${escapeHtml(sourceLabel)}${authorText ? ` • ${escapeHtml(authorText)}` : ''}</div>
+        <div class="episode-title">${escapeHtml(titleText)}</div>
+      </div>
+    </div>
+    <div class="episode-progress-track">
+      <div class="episode-progress-bar" style="width: 0%;"></div>
+    </div>
+    <div class="episode-footer">
+      <div class="episode-footer-left">
+        <div class="episode-meta">
+          <span class="date-line">${escapeHtml(pubDateText)}</span>
+          ${durationText ? `<span class="meta-sep">•</span><span class="episode-duration">${escapeHtml(durationText)}</span>` : ''}
+        </div>
+        <div class="episode-card-actions">
+          <div class="ep-more-menu-wrap">
+            <button type="button" class="btn-more-ep" title="More options" aria-label="More options" aria-haspopup="true" aria-expanded="false">
+              ${CARD_ICONS.MORE}
+            </button>
+            <div class="ep-more-dropdown hidden" role="menu">
+              ${favBtnHtml}
+              ${shareBtnHtml}
+              ${followBtnHtml}
+            </div>
+          </div>
+          <button type="button" class="btn-queue-ep ${isQueued ? 'is-queued' : ''}" title="${isQueued ? 'Remove from queue' : 'Add to Up Next'}">
+            ${isQueued ? CARD_ICONS.QUEUE_ADDED : CARD_ICONS.QUEUE}
+          </button>
+          <button type="button" class="btn-mark-played ${isSubbed ? 'is-completed' : ''}" title="${isPodcastShow ? (isSubbed ? 'Followed' : 'Follow show') : 'Save to library'}">
+            ${isSubbed ? CARD_ICONS.CHECK_FILLED : CARD_ICONS.CHECK}
+          </button>
+        </div>
+      </div>
+      <button type="button" class="btn-play-ep" title="${playTitle}">
+        ${playIconHtml}
+      </button>
+    </div>
+  `;
+
+  // 1. More menu toggle
+  const moreBtn = card.querySelector('.btn-more-ep');
+  const moreDropdown = card.querySelector('.ep-more-dropdown');
+  if (moreBtn && moreDropdown) {
+    moreBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = !moreDropdown.classList.contains('hidden');
+      if (typeof closeAllCardMoreMenus === 'function') closeAllCardMoreMenus(card);
+      if (isOpen) {
+        moreDropdown.classList.add('hidden');
+        moreBtn.setAttribute('aria-expanded', 'false');
+      } else {
+        moreDropdown.classList.remove('hidden');
+        moreBtn.setAttribute('aria-expanded', 'true');
+      }
+    });
+  }
+
+  // 2. Play button action
+  const playBtn = card.querySelector('.btn-play-ep');
+  if (playBtn) {
+    playBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (isYt && epItem) {
+        toggleEpisodePlayback(epItem);
+        const nowPlaying = state.currentEpisode?.guid === guid && (state.playbackStatus === 'playing' || state.playbackStatus === 'loading');
+        playBtn.innerHTML = nowPlaying ? CARD_ICONS.PAUSE : CARD_ICONS.PLAY;
+      } else if (isPodcastShow) {
+        if (!state.feedMetadata[item.feedUrl]) {
+          state.feedMetadata[item.feedUrl] = {
+            title: titleText,
+            author: authorText,
+            artwork: artworkUrl
+          };
+        }
+        openFeedDetail(item.feedUrl);
+      }
+    });
+  }
+
+  // 3. Queue button action
+  const queueBtn = card.querySelector('.btn-queue-ep');
+  if (queueBtn) {
+    queueBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (isYt && epItem) {
+        if (isEpisodeQueued(guid)) {
+          removeFromQueue(guid);
+          queueBtn.innerHTML = CARD_ICONS.QUEUE;
+          queueBtn.classList.remove('is-queued');
+          showToast('Removed from Up Next');
+        } else {
+          addToQueue(epItem);
+          queueBtn.innerHTML = CARD_ICONS.QUEUE_ADDED;
+          queueBtn.classList.add('is-queued');
+          showToast('Added to Up Next queue');
+        }
+      } else if (isPodcastShow) {
+        showToast(`Explore "${titleText}" to queue episodes`);
+      }
+    });
+  }
+
+  // 4. Mark played / Follow button
+  const markBtn = card.querySelector('.btn-mark-played');
+  if (markBtn) {
+    markBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (isPodcastShow) {
+        if (state.feeds.includes(item.feedUrl)) {
+          promptRemoveFeed(item.feedUrl);
+          markBtn.innerHTML = CARD_ICONS.CHECK;
+          markBtn.classList.remove('is-completed');
+        } else {
+          await addFeed(item.feedUrl, titleText, artworkUrl);
+          markBtn.innerHTML = CARD_ICONS.CHECK_FILLED;
+          markBtn.classList.add('is-completed');
+          showToast(`Subscribed to ${titleText}!`);
+        }
+      } else if (isYt && epItem) {
+        toggleFavorite(epItem);
+        const favNow = isEpisodeFavorited(guid);
+        markBtn.innerHTML = favNow ? CARD_ICONS.CHECK_FILLED : CARD_ICONS.CHECK;
+        markBtn.classList.toggle('is-completed', favNow);
+      }
+    });
+  }
+
+  // 5. Card click
+  card.addEventListener('click', (e) => {
+    if (e.target.closest('.episode-card-actions') || e.target.closest('.btn-play-ep')) return;
+    if (isPodcastShow) {
+      if (!state.feedMetadata[item.feedUrl]) {
+        state.feedMetadata[item.feedUrl] = {
+          title: titleText,
+          author: authorText,
+          artwork: artworkUrl
+        };
+      }
+      openFeedDetail(item.feedUrl);
+    } else if (isYt && epItem) {
+      toggleEpisodePlayback(epItem);
+    }
+  });
+
+  return card;
+}
+
+async function executeUnifiedSearch(query, source = 'all', targetContainer = null) {
+  const q = (query || '').trim();
+  const container = targetContainer || document.getElementById('empty-quick-results');
+  if (!container) return;
+
+  if (!q) {
+    container.innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = `
+    <div style="padding: 0.75rem 0.25rem; width: 100%;">
+      <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.85rem;">
+        <svg class="spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"></path></svg>
+        <span>searching ${escapeHtml(source === 'all' ? 'podcasts, youtube & music' : source)} for "${escapeHtml(q)}"...</span>
+      </div>
+      <div class="discover-narrative-grid">
+        <div class="skeleton-card"><div class="skeleton-art"></div><div class="skeleton-lines"><div class="skeleton-line" style="width: 40%;"></div><div class="skeleton-line" style="width: 75%;"></div></div></div>
+        <div class="skeleton-card"><div class="skeleton-art"></div><div class="skeleton-lines"><div class="skeleton-line" style="width: 35%;"></div><div class="skeleton-line" style="width: 60%;"></div></div></div>
+      </div>
+    </div>
+  `;
+
+  try {
+    const fetchPromises = [];
+
+    // 1. Podcast Directory search (for 'all' or 'podcasts')
+    if (source === 'all' || source === 'podcasts') {
+      const countryParam = (state.directoryCountry && state.directoryCountry !== 'all') ? `&country=${encodeURIComponent(state.directoryCountry)}` : '';
+      const podcastLimit = source === 'all' ? 12 : 30;
+
+      const fetchPodcasts = async () => {
+        let pData = null;
+        try {
+          const directRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=podcast${countryParam}&limit=${podcastLimit}`);
+          if (directRes.ok) pData = await directRes.json();
+        } catch (_) {}
+
+        if (!pData || !pData.results) {
+          try {
+            const proxyRes = await fetch(`/api/search-directory?term=${encodeURIComponent(q)}${countryParam}&limit=${podcastLimit}`);
+            if (proxyRes.ok) pData = await proxyRes.json();
+          } catch (_) {}
+        }
+        return (pData?.results || []).filter(item => Boolean(item.feedUrl)).map(item => ({
+          ...item,
+          type: 'podcast',
+          isPodcast: true
+        }));
+      };
+      fetchPromises.push(fetchPodcasts());
+    } else {
+      fetchPromises.push(Promise.resolve([]));
+    }
+
+    // 2. YouTube / YouTube Music search (for 'all', 'youtube', or 'music')
+    if (source === 'all' || source === 'youtube' || source === 'music') {
+      const ytType = source === 'music' ? 'music' : (source === 'youtube' ? 'video' : 'all');
+      const ytLimit = source === 'all' ? 14 : 30;
+
+      const fetchYt = async () => {
+        try {
+          const res = await fetch(`/api/search-youtube?q=${encodeURIComponent(q)}&type=${ytType}&limit=${ytLimit}`);
+          if (res.ok) {
+            const data = await res.json();
+            return data.results || [];
+          }
+        } catch (_) {}
+        return [];
+      };
+      fetchPromises.push(fetchYt());
+    } else {
+      fetchPromises.push(Promise.resolve([]));
+    }
+
+    const [podcastResults, ytResults] = await Promise.all(fetchPromises);
+
+    container.innerHTML = '';
+
+    const totalResults = (podcastResults?.length || 0) + (ytResults?.length || 0);
+    if (totalResults === 0) {
+      container.innerHTML = `
+        <div style="padding: 1.5rem 1rem; text-align: center; color: var(--text-muted); background: rgba(0, 0, 0, 0.03); border: 1px solid var(--border-light); border-radius: var(--radius-sm); width: 100%;">
+          <p style="font-weight: 500; color: var(--text-primary); margin-bottom: 0.25rem;">no results found</p>
+          <p style="font-size: 0.82rem;">no matches found for "${escapeHtml(q)}" in ${escapeHtml(source)}. try a broader keyword or paste a direct RSS or YouTube URL.</p>
+        </div>
+      `;
+      return;
+    }
+
+    const headerEl = document.createElement('div');
+    headerEl.className = 'discover-section-header';
+    headerEl.style.width = '100%';
+    headerEl.style.marginTop = '0.5rem';
+    headerEl.style.marginBottom = '0.75rem';
+    headerEl.innerHTML = `
+      <div class="discover-section-title-wrap">
+        <h3 class="discover-section-title" style="font-size: 1.05rem;">Search Results (${totalResults})</h3>
+        <span class="discover-section-pill">${escapeHtml(source.toUpperCase())}</span>
+      </div>
+    `;
+    container.appendChild(headerEl);
+
+    const gridEl = document.createElement('div');
+    gridEl.className = 'discover-narrative-grid unified-search-results-grid';
+    container.appendChild(gridEl);
+
+    const combined = [];
+    if (source === 'all') {
+      const maxLen = Math.max(podcastResults.length, ytResults.length);
+      for (let i = 0; i < maxLen; i++) {
+        if (i < podcastResults.length) combined.push(podcastResults[i]);
+        if (i < ytResults.length) combined.push(ytResults[i]);
+      }
+    } else if (source === 'podcasts') {
+      combined.push(...podcastResults);
+    } else {
+      combined.push(...ytResults);
+    }
+
+    combined.forEach(item => {
+      const card = buildUnifiedSearchResultCard(item);
+      gridEl.appendChild(card);
+    });
+
+  } catch (err) {
+    container.innerHTML = `<p style="color: #fca5a5; padding: 0.5rem;">Error searching: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.buildUnifiedSearchResultCard = buildUnifiedSearchResultCard;
+  window.executeUnifiedSearch = executeUnifiedSearch;
+}
+
 function renderNextDirectoryBatch(container) {
   const s = container._dirSearch;
   if (!s || s.renderedCount >= s.results.length) return;
@@ -1365,31 +1711,34 @@ function renderNextDirectoryBatch(container) {
 
     card.innerHTML = `
       <div class="feed-header">
-        <img class="feed-art" src="${escapeHtml(artwork)}" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+        <img class="feed-art" src="${escapeHtml(artwork)}" alt="" width="64" height="64" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
         <div class="feed-info">
           <h4>${escapeHtml(title)}</h4>
           <p>${escapeHtml(epCount)}${escapeHtml(genre)}</p>
         </div>
         <div class="feed-header-actions">
-          <button type="button" class="btn-feed-share" title="Share podcast" aria-label="Share podcast">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
-              <polyline points="16 6 12 2 8 6"></polyline>
-              <line x1="12" y1="2" x2="12" y2="15"></line>
-            </svg>
-          </button>
+          <div class="ep-more-menu-wrap">
+            <button type="button" class="btn-more-ep" title="More options" aria-label="More options" aria-expanded="false">
+              ${CARD_ICONS.MORE}
+            </button>
+            <div class="ep-more-dropdown hidden" role="menu">
+              <button type="button" class="ep-more-item btn-feed-share" role="menuitem">
+                <span class="ep-more-item-icon">${CARD_ICONS.SHARE}</span>
+                <span class="ep-more-item-label">Share podcast</span>
+              </button>
+            </div>
+          </div>
           <button type="button" class="btn ${isSubbed ? 'btn-secondary' : 'btn-primary'} btn-sm btn-sub-dir ${isSubbed ? 'subscribed' : ''}" data-feed="${escapeHtml(item.feedUrl)}" data-title="${escapeHtml(title)}" ${isSubbed ? 'disabled' : ''}>
             ${isSubbed ? '✓ followed' : '+ follow'}
           </button>
         </div>
       </div>
-      ${author ? `<p class="feed-card-desc">${escapeHtml(author)}</p>` : ''}
       ${recentWidgetHtml}
     `;
 
     // Clicking anywhere opens feed detail (unless clicking actions/episodes)
     card.addEventListener('click', (e) => {
-      if (e.target.closest('.btn-sub-dir') || e.target.closest('.btn-feed-share') || e.target.closest('.recent-ep-row')) return;
+      if (e.target.closest('.btn-sub-dir') || e.target.closest('.btn-feed-share') || e.target.closest('.ep-more-menu-wrap') || e.target.closest('.recent-ep-row')) return;
       if (!state.feedMetadata[item.feedUrl]) {
         state.feedMetadata[item.feedUrl] = {
           title,
@@ -1400,12 +1749,32 @@ function renderNextDirectoryBatch(container) {
       openFeedDetail(item.feedUrl);
     });
 
+    const moreBtn = card.querySelector('.btn-more-ep');
+    const moreDropdown = card.querySelector('.ep-more-dropdown');
+    if (moreBtn && moreDropdown) {
+      moreBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = !moreDropdown.classList.contains('hidden');
+        if (typeof closeAllCardMoreMenus === 'function') closeAllCardMoreMenus(card);
+        if (isOpen) {
+          moreDropdown.classList.add('hidden');
+          moreBtn.setAttribute('aria-expanded', 'false');
+          card.classList.remove('menu-open');
+        } else {
+          moreDropdown.classList.remove('hidden');
+          moreBtn.setAttribute('aria-expanded', 'true');
+          card.classList.add('menu-open');
+        }
+      });
+    }
+
     // Share button handler
     const shareBtn = card.querySelector('.btn-feed-share');
     if (shareBtn) {
       shareBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
+        if (typeof closeAllCardMoreMenus === 'function') closeAllCardMoreMenus();
         if (typeof shareFeed === 'function') {
           shareFeed(item.feedUrl, title);
         }
@@ -1558,13 +1927,13 @@ function updateCardPlaybackProgress(episodeGuid, positionSeconds, durationSecond
   cards.forEach(card => {
     let fill = card.querySelector('.ep-progress-fill');
     if (!fill) {
-      const metaRow = card.querySelector('.ep-meta-row');
-      if (metaRow) {
+      const footer = card.querySelector('.episode-footer');
+      if (footer) {
         const track = document.createElement('div');
         track.className = 'ep-progress-track';
         track.title = 'Click or scrub to resume at any point';
         track.innerHTML = `<div class="ep-progress-fill" style="width: ${pct}%"></div>`;
-        card.insertBefore(track, metaRow.nextSibling);
+        card.insertBefore(track, footer);
         if (typeof setupProgressTrackInteractivity === 'function') {
           setupProgressTrackInteractivity(track, card, state.currentEpisode);
         }
@@ -1968,14 +2337,13 @@ function buildDiscoverShowCard(show, whyNote, idx = 0) {
       <span class="why-text">${escapeHtml(text)}</span>
     </div>
     <div class="episode-card-top">
-      <img class="episode-artwork feed-art" src="${escapeHtml(art)}" alt="" ${loadingAttr} width="52" height="52" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+      <img class="episode-artwork feed-art" src="${escapeHtml(art)}" alt="" ${loadingAttr} width="76" height="76" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
       <div class="episode-header-info">
         <div class="episode-podcast-name">${escapeHtml(show.badge || 'Recommended Show')}</div>
         <div class="episode-title">${escapeHtml(show.title)}</div>
       </div>
     </div>
     <div class="feed-recent-widget feed-recent-preview-empty" data-feed="${escapeHtml(show.feed)}">
-      <div class="feed-recent-header">latest episode</div>
       <div class="feed-recent-list">
         <div class="recent-ep-row recent-ep-placeholder" style="color: var(--text-muted); font-size: 0.78rem; padding: 0.35rem 0.5rem;">
           <span>Click card to explore episodes</span>
@@ -1983,9 +2351,12 @@ function buildDiscoverShowCard(show, whyNote, idx = 0) {
       </div>
     </div>
     <div class="episode-footer" style="margin-top:auto;">
-      <div class="episode-meta">
-        <span class="date-line">${escapeHtml(show.topic ? show.topic.toUpperCase() : 'PODCAST')}</span>
-        <span class="time-line"><span class="btn-preview-link">Explore episodes →</span></span>
+      <div class="episode-footer-left">
+        <div class="episode-meta">
+          <span class="date-line">${escapeHtml(show.topic ? show.topic.toUpperCase() : 'PODCAST')}</span>
+          <span class="meta-sep">•</span>
+          <span class="time-line"><span class="btn-preview-link">Explore episodes →</span></span>
+        </div>
       </div>
       <div class="episode-card-actions" style="display:flex; gap:6px;">
         <button type="button" class="btn ${isSubbed ? 'btn-secondary' : 'btn-primary'} btn-sm btn-discover-follow" ${isSubbed ? 'disabled' : ''}>
@@ -2163,7 +2534,6 @@ function buildDiscoverRecentFeedCard(url) {
   if (feedEpisodes.length > 0) {
     recentWidgetHtml = `
       <div class="feed-recent-widget">
-        <div class="feed-recent-header">${widgetHeader}</div>
         <div class="feed-recent-list">
           ${feedEpisodes.map(ep => {
             const isCurrent = state.currentEpisode && state.currentEpisode.guid === ep.guid;
@@ -2193,7 +2563,6 @@ function buildDiscoverRecentFeedCard(url) {
   } else {
     recentWidgetHtml = `
       <div class="feed-recent-widget feed-recent-preview-empty" data-feed="${escapeHtml(url)}">
-        <div class="feed-recent-header">latest episodes</div>
         <div class="feed-recent-list">
           <div class="recent-ep-row recent-ep-placeholder" style="color: var(--text-muted); font-size: 0.78rem; padding: 0.35rem 0.5rem;">
             <span>Click card to explore episodes</span>
@@ -2209,41 +2578,64 @@ function buildDiscoverRecentFeedCard(url) {
 
   card.innerHTML = `
     <div class="feed-header">
-      <img class="feed-art" loading="lazy" decoding="async" width="48" height="48" src="${escapeHtml(art)}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+      <img class="feed-art" loading="lazy" decoding="async" width="64" height="64" src="${escapeHtml(art)}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
       <div class="feed-info">
         <h4>${escapeHtml(title)}</h4>
         <p><span class="hot-feed-chip">🔥 Hot</span> • ${escapeHtml(epCountLabel)}</p>
       </div>
       <div class="feed-header-actions">
-        <button type="button" class="btn-feed-share btn-feed-share-prominent" title="Share podcast" aria-label="Share podcast">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
-            <polyline points="16 6 12 2 8 6"></polyline>
-            <line x1="12" y1="2" x2="12" y2="15"></line>
-          </svg>
-        </button>
+        <div class="ep-more-menu-wrap">
+          <button type="button" class="btn-more-ep" title="More options" aria-label="More options" aria-expanded="false">
+            ${CARD_ICONS.MORE}
+          </button>
+          <div class="ep-more-dropdown hidden" role="menu">
+            <button type="button" class="ep-more-item btn-feed-share" role="menuitem">
+              <span class="ep-more-item-icon">${CARD_ICONS.SHARE}</span>
+              <span class="ep-more-item-label">Share podcast</span>
+            </button>
+          </div>
+        </div>
         ${!isSubbed ? `
           <button type="button" class="btn btn-primary btn-sm starter-chip-add" data-feed="${escapeHtml(url)}" data-title="${escapeHtml(title)}">+ follow</button>
         ` : ''}
       </div>
     </div>
-    ${plainDesc ? `<p class="feed-card-desc">${escapeHtml(plainDesc)}</p>` : ''}
     ${recentWidgetHtml}
   `;
 
   // Wire events
   card.addEventListener('click', (e) => {
-    if (e.target.closest('.feed-header-actions') || e.target.closest('.recent-ep-row')) return;
+    if (e.target.closest('.feed-header-actions') || e.target.closest('.ep-more-menu-wrap') || e.target.closest('.recent-ep-row')) return;
     if (typeof openFeedDetail === 'function') {
       openFeedDetail(url);
     }
   });
+
+  const moreBtn = card.querySelector('.btn-more-ep');
+  const moreDropdown = card.querySelector('.ep-more-dropdown');
+  if (moreBtn && moreDropdown) {
+    moreBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = !moreDropdown.classList.contains('hidden');
+      if (typeof closeAllCardMoreMenus === 'function') closeAllCardMoreMenus(card);
+      if (isOpen) {
+        moreDropdown.classList.add('hidden');
+        moreBtn.setAttribute('aria-expanded', 'false');
+        card.classList.remove('menu-open');
+      } else {
+        moreDropdown.classList.remove('hidden');
+        moreBtn.setAttribute('aria-expanded', 'true');
+        card.classList.add('menu-open');
+      }
+    });
+  }
 
   const shareBtn = card.querySelector('.btn-feed-share');
   if (shareBtn) {
     shareBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (typeof closeAllCardMoreMenus === 'function') closeAllCardMoreMenus();
       if (typeof shareFeed === 'function') {
         shareFeed(url, title);
       }
@@ -2432,13 +2824,12 @@ function renderCatalogShowCard(show) {
 
   card.innerHTML = `
     <div class="catalog-card-header">
-      <img class="catalog-card-art feed-art" src="${escapeHtml(art)}" alt="" loading="lazy" decoding="async" width="48" height="48" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+      <img class="catalog-card-art feed-art" src="${escapeHtml(art)}" alt="" loading="lazy" decoding="async" width="64" height="64" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
       <div class="catalog-card-info">
         <h4 class="catalog-card-title">${escapeHtml(show.title)}</h4>
         <span class="catalog-card-badge">${escapeHtml(show.badge || show.lang?.toUpperCase() || 'PODCAST')}</span>
       </div>
     </div>
-    ${show.description ? `<p class="catalog-card-desc">${escapeHtml(show.description)}</p>` : ''}
     <div class="catalog-card-actions">
       <button type="button" class="btn ${isSubbed ? 'btn-secondary' : 'btn-primary'} btn-sm btn-catalog-follow" ${isSubbed ? 'disabled' : ''}>
         ${isSubbed ? '✓ Followed' : '+ Follow'}
@@ -2807,30 +3198,34 @@ function renderDiscover(forceRebuild = false) {
         </div>
       </div>
 
-      <!-- Clean Search & Direct RSS Add -->
+      <!-- Unified Multi-Source Search & Exploration -->
       <div class="discover-search-box">
-        <form id="empty-quick-form" class="quick-add-form" action="javascript:void(0);">
-          <div class="quick-add-input-wrap">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="quick-add-icon">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input type="text" id="empty-quick-input" placeholder="search podcast name or paste rss feed url..." autocomplete="off">
-            <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-empty-quick-submit">search / add</button>
+        <div class="discover-search-controls">
+          <div class="search-source-tabs" role="tablist" aria-label="Search source">
+            <button type="button" class="source-tab ${state.searchSource === 'all' || !state.searchSource ? 'active' : ''}" data-source="all">All</button>
+            <button type="button" class="source-tab ${state.searchSource === 'podcasts' ? 'active' : ''}" data-source="podcasts">Podcasts</button>
+            <button type="button" class="source-tab ${state.searchSource === 'youtube' ? 'active' : ''}" data-source="youtube">YouTube</button>
+            <button type="button" class="source-tab ${state.searchSource === 'music' ? 'active' : ''}" data-source="music">YT Music</button>
           </div>
-        </form>
+          <form id="empty-quick-form" class="quick-add-form" action="javascript:void(0);">
+            <div class="quick-add-input-wrap">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="quick-add-icon">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="empty-quick-input" placeholder="search podcasts, youtube, yt music, or paste url..." autocomplete="off">
+              <button type="button" class="btn-discover-clear-search hidden" id="btn-discover-clear-search" title="clear">×</button>
+              <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-empty-quick-submit">search / add</button>
+            </div>
+          </form>
+        </div>
         <div class="empty-category-chips" id="empty-category-chips">
           <button type="button" class="category-chip" data-category="Science">science</button>
+          <button type="button" class="category-chip" data-category="Music">music</button>
           <button type="button" class="category-chip" data-category="Climate">climate &amp; planet</button>
-          <button type="button" class="category-chip" data-category="Earth Nature">earth &amp; nature</button>
-          <button type="button" class="category-chip" data-category="Space Astronomy">space &amp; astronomy</button>
-          <button type="button" class="category-chip" data-category="Oceans Marine">oceans &amp; marine</button>
-          <button type="button" class="category-chip" data-category="Physics Quantum">physics &amp; quantum</button>
-          <button type="button" class="category-chip" data-category="Neuroscience Mind">neuroscience &amp; mind</button>
-          <button type="button" class="category-chip" data-category="Biology Genetics">biology &amp; genetics</button>
-          <button type="button" class="category-chip" data-category="Clean Energy">clean tech &amp; energy</button>
-          <button type="button" class="category-chip" data-category="AI Tech">artificial intelligence</button>
-          <button type="button" class="category-chip" data-category="History Science">history of science</button>
+          <button type="button" class="category-chip" data-category="Tech">tech &amp; ai</button>
+          <button type="button" class="category-chip" data-category="History">history</button>
+          <button type="button" class="category-chip" data-category="News">news</button>
           <button type="button" class="category-chip" data-category="Wissen DE">wissen (de)</button>
         </div>
         <div id="empty-quick-results" class="quick-results-container"></div>
@@ -2924,6 +3319,33 @@ function wireEmptyStateEvents(targetRoot = document) {
   const quickInput = targetRoot.querySelector('#empty-quick-input');
   const quickSubmit = targetRoot.querySelector('#btn-empty-quick-submit');
   const quickResults = targetRoot.querySelector('#empty-quick-results');
+  const clearSearchBtn = targetRoot.querySelector('#btn-discover-clear-search');
+  const sourceTabs = targetRoot.querySelectorAll('.search-source-tabs .source-tab');
+
+  // Wire Source Filter Tabs (All, Podcasts, YouTube, YT Music)
+  if (sourceTabs.length > 0) {
+    sourceTabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        sourceTabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        state.searchSource = tab.dataset.source || 'all';
+        const raw = quickInput ? quickInput.value.trim() : '';
+        if (raw && !isDirectUrl(raw) && quickResults) {
+          executeUnifiedSearch(raw, state.searchSource, quickResults);
+        }
+      });
+    });
+  }
+
+  // Wire Clear Search Button
+  if (clearSearchBtn && quickInput) {
+    clearSearchBtn.addEventListener('click', () => {
+      quickInput.value = '';
+      clearSearchBtn.classList.add('hidden');
+      if (quickResults) quickResults.innerHTML = '';
+      quickInput.focus();
+    });
+  }
 
   if (quickInput && quickForm) {
     const normalizeUrl = (str) => {
@@ -2941,17 +3363,20 @@ function wireEmptyStateEvents(targetRoot = document) {
 
     quickInput.addEventListener('input', () => {
       const raw = quickInput.value.trim();
+      if (clearSearchBtn) {
+        clearSearchBtn.classList.toggle('hidden', !raw);
+      }
       if (quickSubmit) {
         quickSubmit.textContent = isDirectUrl(raw) ? 'Add Feed' : 'Search';
       }
       if (emptySearchDebounceTimer) clearTimeout(emptySearchDebounceTimer);
-      if (!raw || raw.length < 3 || isDirectUrl(raw)) {
+      if (!raw || raw.length < 2 || isDirectUrl(raw)) {
         if (quickResults) quickResults.innerHTML = '';
         return;
       }
       emptySearchDebounceTimer = setTimeout(() => {
-        if (quickResults) searchPodcastDirectory(raw, quickResults);
-      }, 650);
+        if (quickResults) executeUnifiedSearch(raw, state.searchSource || 'all', quickResults);
+      }, 500);
     });
 
     quickForm.addEventListener('submit', async (e) => {
@@ -3011,7 +3436,7 @@ function wireEmptyStateEvents(targetRoot = document) {
         }
       } else {
         if (emptySearchDebounceTimer) clearTimeout(emptySearchDebounceTimer);
-        if (quickResults) searchPodcastDirectory(raw, quickResults);
+        if (quickResults) executeUnifiedSearch(raw, state.searchSource || 'all', quickResults);
       }
     });
   }
@@ -3025,8 +3450,9 @@ function wireEmptyStateEvents(targetRoot = document) {
       chip.addEventListener('click', () => {
         const cat = chip.dataset.category;
         quickInput.value = cat;
+        if (clearSearchBtn) clearSearchBtn.classList.remove('hidden');
         if (quickSubmit) quickSubmit.textContent = 'search';
-        searchPodcastDirectory(cat, quickResults);
+        executeUnifiedSearch(cat, state.searchSource || 'all', quickResults);
       });
     });
   }
