@@ -168,6 +168,17 @@
     border-radius: 16px;
   }
 
+  /* On mobile: hide progress scrub track in all episode cards unless this is the currently active/playing episode */
+  .episode-card .ep-progress-track,
+  .episode-card .episode-progress-track {
+    display: none;
+  }
+
+  .episode-card.playing .ep-progress-track,
+  .episode-card.playing .episode-progress-track {
+    display: block;
+  }
+
   .episode-card-top {
     gap: 0.65rem;
   }

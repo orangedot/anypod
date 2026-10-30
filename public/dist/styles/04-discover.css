@@ -311,22 +311,22 @@
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) .btn-preview-link {
     color: #3f3f46;
-    font-weight: 600;
+    font-weight: 400;
   }
   :root:not([data-theme="dark"]) .episode-meta .date-line {
     color: #525866;
-    font-weight: 400;
+    font-weight: 200;
   }
 }
 
 [data-theme="light"] .btn-preview-link {
   color: #3f3f46;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 [data-theme="light"] .episode-meta .date-line {
   color: #525866;
-  font-weight: 400;
+  font-weight: 200;
 }
 
 .discover-section-narrative {

@@ -1341,7 +1341,7 @@ async function searchPodcastDirectory(query, targetContainer = null) {
 
 function buildUnifiedSearchResultCard(item) {
   const card = document.createElement('div');
-  card.className = 'episode-card search-result-card';
+  card.className = `episode-card search-result-card ${isPlaying ? 'playing' : ''}`;
 
   const isYt = Boolean(item.isYouTube || item.type === 'youtube' || item.type === 'youtube_music');
   const isMusic = item.type === 'youtube_music';
@@ -1379,6 +1379,16 @@ function buildUnifiedSearchResultCard(item) {
   let playIconHtml = isPlaying ? CARD_ICONS.PAUSE : CARD_ICONS.PLAY;
   let playTitle = isPlaying ? 'Pause' : 'Play';
 
+  const savedPos = state.playbackPositions && state.playbackPositions[guid];
+  const curPos = isCurrent
+    ? ((state.activeEngine === 'audio' ? elements.audio?.currentTime : (state.ytPlayer && state.ytPlayer.getCurrentTime ? state.ytPlayer.getCurrentTime() : 0)) || (savedPos ? savedPos.position : 0))
+    : (savedPos ? savedPos.position : 0);
+  const durSec = parseDurationSeconds(durationText) || 0;
+  const progressPct = durSec > 0 ? Math.min(100, Math.max(1, Math.round((curPos / durSec) * 100))) : 0;
+  const progressTrackHtml = (isCurrent || (savedPos && savedPos.position > 2))
+    ? `<div class="ep-progress-track" title="Click or scrub to resume at any point"><div class="ep-progress-fill" style="width: ${progressPct}%"></div></div>`
+    : '';
+
   const favBtnHtml = `
     <button type="button" class="ep-more-item btn-fav-ep ${isFav ? 'is-favorited' : ''}" role="menuitem" title="${isFav ? 'Remove from favorites' : 'Add to favorites'}">
       <span class="ep-more-item-icon">${isFav ? CARD_ICONS.HEART_FILLED : CARD_ICONS.HEART}</span>
@@ -1408,9 +1418,7 @@ function buildUnifiedSearchResultCard(item) {
         <div class="episode-title">${escapeHtml(titleText)}</div>
       </div>
     </div>
-    <div class="episode-progress-track">
-      <div class="episode-progress-bar" style="width: 0%;"></div>
-    </div>
+    ${progressTrackHtml}
     <div class="episode-footer">
       <div class="episode-footer-left">
         <div class="episode-meta">
