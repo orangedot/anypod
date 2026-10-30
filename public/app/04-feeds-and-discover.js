@@ -1340,15 +1340,10 @@ async function searchPodcastDirectory(query, targetContainer = null) {
 }
 
 function buildUnifiedSearchResultCard(item) {
-  const card = document.createElement('div');
-  card.className = `episode-card search-result-card ${isPlaying ? 'playing' : ''}`;
-
   const isYt = Boolean(item.isYouTube || item.type === 'youtube' || item.type === 'youtube_music');
   const isMusic = item.type === 'youtube_music';
   const isPodcastShow = Boolean(item.feedUrl && !isYt);
   const guid = isYt ? (item.guid || `yt:${item.id}`) : (item.feedUrl || '');
-  card.dataset.guid = guid;
-  if (item.feedUrl) card.dataset.feed = item.feedUrl;
 
   const titleText = item.title || item.collectionName || item.trackName || 'Untitled';
   const authorText = item.author || item.artistName || (isMusic ? 'YouTube Music' : 'YouTube');
@@ -1360,6 +1355,11 @@ function buildUnifiedSearchResultCard(item) {
   const isSubbed = isPodcastShow ? (state.feeds && state.feeds.includes(item.feedUrl)) : false;
   const isCurrent = state.currentEpisode && (state.currentEpisode.guid === guid || (isYt && state.currentEpisode.videoId === item.id));
   const isPlaying = isCurrent && (state.playbackStatus === 'playing' || state.playbackStatus === 'loading');
+
+  const card = document.createElement('div');
+  card.className = `episode-card search-result-card ${isPlaying ? 'playing' : ''}`;
+  card.dataset.guid = guid;
+  if (item.feedUrl) card.dataset.feed = item.feedUrl;
 
   const epItem = isYt ? {
     guid,
@@ -1896,10 +1896,10 @@ function renderContinueShelf() {
     } else {
       elements.btnToggleContinue.style.display = 'inline-flex';
       if (state.continueCollapsed) {
-        elements.continueToggleLabel.textContent = `show all (${inProgressEps.length})`;
+        elements.continueToggleLabel.textContent = `Show all (${inProgressEps.length})`;
         elements.continueShelf.classList.remove('is-expanded');
       } else {
-        elements.continueToggleLabel.textContent = 'show less';
+        elements.continueToggleLabel.textContent = 'Show less';
         elements.continueShelf.classList.add('is-expanded');
       }
     }

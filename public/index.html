@@ -74,22 +74,22 @@
     <!-- Header Navigation -->
     <header class="app-header">
       <div class="logo-area">
-        <button class="btn-header-back hidden" id="btn-header-back" title="go back" aria-label="go back">
+        <button class="btn-header-back hidden" id="btn-header-back" title="Go back" aria-label="Go back">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-          <span class="btn-header-back-label" id="btn-header-back-label">back</span>
+          <span class="btn-header-back-label" id="btn-header-back-label">Back</span>
         </button>
-        <h1 class="sr-only">anypod</h1>
-        <div id="offline-badge" class="offline-badge hidden">offline</div>
+        <h1 class="logo-text">anypod</h1>
+        <div id="offline-badge" class="offline-badge hidden">Offline</div>
       </div>
 
       <nav class="nav-tabs" aria-label="main navigation">
-        <button class="nav-tab" data-tab="timeline" id="tab-timeline">timeline</button>
-        <button class="nav-tab" data-tab="feeds" id="tab-feeds">feeds</button>
-        <button class="nav-tab" data-tab="favorites" id="tab-favorites">favorites</button>
-        <button class="nav-tab" data-tab="downloads" id="tab-downloads">downloads</button>
-        <button class="nav-tab active" data-tab="discover" id="tab-discover">discover</button>
+        <button class="nav-tab" data-tab="timeline" id="tab-timeline">Timeline</button>
+        <button class="nav-tab" data-tab="feeds" id="tab-feeds">Feeds</button>
+        <button class="nav-tab" data-tab="favorites" id="tab-favorites">Favorites</button>
+        <button class="nav-tab" data-tab="downloads" id="tab-downloads">Downloads</button>
+        <button class="nav-tab active" data-tab="discover" id="tab-discover">Discover</button>
         <!-- Settings tab hidden from nav, triggered by gear icon in header -->
-        <button class="nav-tab" data-tab="settings" id="tab-settings" style="display:none;" aria-hidden="true">settings</button>
+        <button class="nav-tab" data-tab="settings" id="tab-settings" style="display:none;" aria-hidden="true">Settings</button>
       </nav>
 
       <div class="header-actions">
@@ -102,8 +102,8 @@
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
-            <input type="text" id="search-input" placeholder="search podcasts, youtube, yt music..." aria-label="search podcasts, youtube, yt music" autocomplete="off">
-            <button type="button" class="btn-clear-search hidden" id="btn-clear-search" title="clear search" aria-label="clear search">
+            <input type="text" id="search-input" placeholder="Search podcasts, YouTube, YT Music..." aria-label="Search podcasts, YouTube, YT Music" autocomplete="off">
+            <button type="button" class="btn-clear-search hidden" id="btn-clear-search" title="Clear search" aria-label="Clear search">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -118,7 +118,7 @@
         </div>
 
         <!-- Settings gear icon -->
-        <button class="btn-icon btn-header-settings" id="btn-open-settings" title="settings" aria-label="open settings">
+        <button class="btn-icon btn-header-settings" id="btn-open-settings" title="Settings" aria-label="Open settings">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="3"></circle>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
@@ -212,8 +212,8 @@
         <div class="favorites-header-card" id="favorites-header-card">
           <div class="favorites-header-main">
             <div>
-              <h3>favorite episodes</h3>
-              <p id="favorites-header-desc">your saved and starred episodes across all podcasts, synced to your account.</p>
+              <h3>Favorite Episodes</h3>
+              <p id="favorites-header-desc">Your saved and starred episodes across all podcasts, synced to your account.</p>
             </div>
             <div class="favorites-header-actions">
               <span class="favorites-count" id="favorites-header-count">0 favorites</span>
@@ -228,12 +228,12 @@
         <div class="downloads-header-card" id="offline-storage-card">
           <div class="downloads-header-main">
             <div>
-              <h3>offline downloads</h3>
-              <p id="offline-storage-desc">episodes downloaded to this device for offline playback without internet.</p>
+              <h3>Offline Downloads</h3>
+              <p id="offline-storage-desc">Episodes downloaded to this device for offline playback without internet.</p>
             </div>
             <div class="offline-storage-actions">
-              <span class="offline-storage-count" id="offline-storage-count">0 episodes (0 mb)</span>
-              <button class="btn btn-secondary btn-sm" id="btn-clear-downloads">clear audio cache</button>
+              <span class="offline-storage-count" id="offline-storage-count">0 episodes (0 MB)</span>
+              <button class="btn btn-secondary btn-sm" id="btn-clear-downloads">Clear Audio Cache</button>
             </div>
           </div>
         </div>
@@ -653,19 +653,19 @@
 
     <aside class="bottom-action-dock" id="bottom-action-dock" aria-label="quick actions">
       <div class="dock-filters">
-        <button class="chip-filter active" data-filter="unplayed">unplayed</button>
-        <button class="chip-filter" data-filter="played">played</button>
-        <button class="chip-filter" data-filter="all">all episodes</button>
+        <button class="chip-filter active" data-filter="unplayed">Unplayed</button>
+        <button class="chip-filter" data-filter="played">Played</button>
+        <button class="chip-filter" data-filter="all">All Episodes</button>
       </div>
       <div class="dock-divider"></div>
-      <select id="sort-order" aria-label="sort order">
-        <option value="newest">latest to oldest</option>
-        <option value="oldest">oldest to latest</option>
-        <option value="title-asc">title (a to z)</option>
-        <option value="title-desc">title (z to a)</option>
-        <option value="podcast-asc">podcast name</option>
-        <option value="duration-asc">shortest first</option>
-        <option value="duration-desc">longest first</option>
+      <select id="sort-order" aria-label="Sort order">
+        <option value="newest">Latest to oldest</option>
+        <option value="oldest">Oldest to latest</option>
+        <option value="title-asc">Title (A to Z)</option>
+        <option value="title-desc">Title (Z to A)</option>
+        <option value="podcast-asc">Podcast name</option>
+        <option value="duration-asc">Shortest first</option>
+        <option value="duration-desc">Longest first</option>
       </select>
       <!-- <button class="btn btn-secondary btn-sm btn-dock-refresh" id="btn-refresh-all" title="refresh all feeds">refresh</button> -->
     </aside>
@@ -844,10 +844,10 @@
     <!-- Compact Mini Audio Player Footer -->
     <footer class="player-mini" id="player-mini" aria-label="mini player">
       <div class="mini-progress-bar"><div class="mini-progress-fill" id="mini-progress-fill"></div></div>
-      <div class="mini-track-info" id="mini-expand-zone" role="button" tabindex="0" title="tap to expand player" aria-label="tap to expand player">
+      <div class="mini-track-info" id="mini-expand-zone" role="button" tabindex="0" title="Tap to expand player" aria-label="Tap to expand player">
         <img id="mini-artwork" src="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%2318181b%22/%3E%3C/svg%3E" alt="episode artwork" class="mini-artwork">
         <div class="mini-text">
-          <div class="mini-title" id="mini-title">select an episode to play</div>
+          <div class="mini-title" id="mini-title">Select an episode to play</div>
           <div class="mini-podcast" id="mini-podcast">anypod</div>
         </div>
       </div>

@@ -1203,7 +1203,7 @@ function createEpisodeCard(ep, context = null, cardIndex = 0) {
   const isCompleted = savedPos && (savedPos.completed === 1 || savedPos.completed === true);
   const hasProgress = (isCurrentlyActive || (savedPos && savedPos.position > 2)) && !isCompleted;
   const curPos = isCurrentlyActive ? ((state.activeEngine === 'audio' ? elements.audio.currentTime : (state.ytPlayer && state.ytPlayer.getCurrentTime ? state.ytPlayer.getCurrentTime() : 0)) || (savedPos ? savedPos.position : 0)) : (savedPos ? savedPos.position : 0);
-  const resumeTimeStr = hasProgress ? `resumes at ${formatTime(curPos)}` : '';
+  const resumeTimeStr = hasProgress ? `Resumes at ${formatTime(curPos)}` : '';
 
   let progressTrackHtml = '';
   if (hasProgress) {
@@ -1279,7 +1279,7 @@ function createEpisodeCard(ep, context = null, cardIndex = 0) {
     <div class="episode-card-top">
       <img class="episode-artwork" src="${escapeHtml(ep.artwork || FALLBACK_ARTWORK)}" alt="" ${isAboveTheFold ? 'loading="eager" fetchpriority="high"' : 'loading="lazy" decoding="async"'} width="76" height="76" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
       <div class="episode-header-info">
-        <div class="episode-podcast-name">${ep.isYouTube ? 'YouTube' : highlightText(ep.podcastTitle, state.searchQuery)}</div>
+        ${(context && context.type === 'feed') ? '' : `<div class="episode-podcast-name">${ep.isYouTube ? 'YouTube' : highlightText(ep.podcastTitle, state.searchQuery)}</div>`}
         <div class="episode-title">${highlightText(ep.title, state.searchQuery)}</div>
       </div>
     </div>
@@ -1991,55 +1991,90 @@ function renderFeedDetail(feedUrl) {
         : '← Back';
 
     header.innerHTML = `
-      <div class="feed-detail-top-nav">
-        <div class="feed-detail-nav-row">
-          <div class="feed-detail-sub-actions">
-            ${isSubbed ? `
-              <button class="feed-link-badge btn-feed-mute ${isMuted ? 'is-muted' : ''}" id="btn-feed-mute" title="${isMuted ? 'Unmute: show episodes in timeline' : 'Mute: hide episodes from timeline'}">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${isMuted ? '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line>' : '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>'}</svg>
-                <span>${isMuted ? 'Muted' : 'Mute'}</span>
-              </button>
-            ` : ''}
-            <button class="feed-link-badge btn-feed-action ${isSubbed ? 'is-subbed' : 'is-unsubbed'}" id="btn-feed-action">
-              ${isSubbed ? `
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                <span>Unsubscribe</span>
-              ` : `
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                <span>Follow Podcast</span>
-              `}
-            </button>
-          </div>
-        </div>
-        <div class="feed-detail-top-actions">
-          <button class="feed-link-badge btn-feed-play" id="btn-feed-play-all" title="Play episodes from this feed">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-            <span>Play</span>
-          </button>
-          <button class="feed-link-badge btn-feed-shuffle ${state.isShuffle ? 'is-active' : ''}" id="btn-feed-shuffle" title="Toggle shuffle mode" aria-pressed="${state.isShuffle ? 'true' : 'false'}">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
-            <span>Shuffle</span>
-          </button>
-        </div>
-      </div>
       <div class="feed-detail-main">
-        <img class="feed-detail-art" loading="lazy" decoding="async" width="48" height="48" src="${escapeHtml(meta.artwork || FALLBACK_ARTWORK)}" alt="">
+        <img class="feed-detail-art" loading="lazy" decoding="async" width="110" height="110" src="${escapeHtml(meta.artwork || FALLBACK_ARTWORK)}" alt="">
         <div class="feed-detail-info">
           <div class="feed-detail-title">${escapeHtml(meta.title || 'Untitled Podcast')}</div>
           <div class="feed-detail-author">${escapeHtml(meta.author || '')}</div>
           ${meta.description ? `<div class="feed-detail-desc">${escapeHtml(meta.description)}</div>` : ''}
-          <div class="feed-detail-links">
-            ${meta.link ? `<a href="${escapeHtml(meta.link)}" target="_blank" rel="noopener noreferrer" class="feed-link-badge">Website</a>` : ''}
-            <button class="feed-link-badge" id="btn-copy-link" title="Copy Podcast Link to Clipboard">Copy Link</button>
-            <button class="feed-link-badge" id="btn-share-feed-link" title="Share Podcast">Share Feed</button>
-            <button class="feed-link-badge" id="btn-copy-rss" title="Copy RSS Feed URL">Copy RSS</button>
-            <button class="feed-link-badge" id="btn-refresh-feed-detail" title="Fetch latest metadata & tracks from source">↻ Refresh</button>
-            <span class="feed-link-badge ${isPartial && !isPaging ? 'feed-sync-resumable' : ''}" id="feed-episodes-badge" style="cursor: ${isPartial && !isPaging ? 'pointer' : 'default'};" title="${isPartial && !isPaging ? 'Click to resume syncing remaining episodes' : isPaging ? 'Sync in progress' : ''}">${badgeText}</span>
-            ${isSubbed && isMuted ? `<span class="feed-link-badge feed-muted-badge" style="cursor: default;">Timeline Muted</span>` : ''}
+
+          <div class="feed-detail-action-bar">
+            <!-- Tier 1: Primary Actions -->
+            <button class="feed-btn-primary btn-feed-play" id="btn-feed-play-all" title="Play episodes from this feed">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <span>Play All</span>
+            </button>
+            <button class="feed-btn-action btn-feed-shuffle ${state.isShuffle ? 'is-active' : ''}" id="btn-feed-shuffle" title="Toggle shuffle mode" aria-pressed="${state.isShuffle ? 'true' : 'false'}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>
+              <span>Shuffle</span>
+            </button>
+            <button class="feed-btn-action btn-feed-action ${isSubbed ? 'is-subbed' : 'is-unsubbed'}" id="btn-feed-action">
+              ${isSubbed ? `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>Subscribed</span>
+              ` : `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                <span>Follow</span>
+              `}
+            </button>
+
+            <!-- Tier 2: Secondary Utilities -->
+            <button class="feed-btn-ghost" id="btn-share-feed-link" title="Share Podcast">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+              <span>Share</span>
+            </button>
+            ${meta.link ? `<a href="${escapeHtml(meta.link)}" target="_blank" rel="noopener noreferrer" class="feed-btn-ghost">Website</a>` : ''}
+
+            <!-- Tier 3: Overflow Menu -->
+            <div class="feed-more-menu-wrap">
+              <button type="button" class="feed-btn-ghost btn-feed-more" id="btn-feed-more" title="More options" aria-label="More options" aria-haspopup="true" aria-expanded="false">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle><circle cx="5" cy="12" r="2"></circle></svg>
+              </button>
+              <div class="feed-more-dropdown hidden" id="feed-more-dropdown" role="menu">
+                <button type="button" class="feed-dropdown-item" id="btn-copy-rss" role="menuitem">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg>
+                  <span>Copy RSS Feed</span>
+                </button>
+                <button type="button" class="feed-dropdown-item" id="btn-copy-link" role="menuitem">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                  <span>Copy Link</span>
+                </button>
+                <button type="button" class="feed-dropdown-item" id="btn-refresh-feed-detail" role="menuitem">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                  <span>↻ Refresh Feed</span>
+                </button>
+                ${isSubbed ? `
+                  <button type="button" class="feed-dropdown-item ${isMuted ? 'is-muted' : ''}" id="btn-feed-mute" role="menuitem">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${isMuted ? '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line>' : '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>'}</svg>
+                    <span>${isMuted ? 'Unmute in Timeline' : 'Mute in Timeline'}</span>
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+
+            <span class="feed-episodes-count-badge ${isPartial && !isPaging ? 'feed-sync-resumable' : ''}" id="feed-episodes-badge" style="cursor: ${isPartial && !isPaging ? 'pointer' : 'default'};" title="${isPartial && !isPaging ? 'Click to resume syncing remaining episodes' : isPaging ? 'Sync in progress' : ''}">${badgeText}</span>
+            ${isSubbed && isMuted ? `<span class="feed-muted-pill">Timeline Muted</span>` : ''}
           </div>
         </div>
       </div>
     `;
+
+    const moreBtn = header.querySelector('#btn-feed-more');
+    const moreDropdown = header.querySelector('#feed-more-dropdown');
+    if (moreBtn && moreDropdown) {
+      moreBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpening = moreDropdown.classList.contains('hidden');
+        moreDropdown.classList.toggle('hidden', !isOpening);
+        moreBtn.setAttribute('aria-expanded', String(isOpening));
+      });
+      document.addEventListener('click', () => {
+        if (!moreDropdown.classList.contains('hidden')) {
+          moreDropdown.classList.add('hidden');
+          moreBtn.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
 
     const feedBackBtn = header.querySelector('#btn-feed-back');
     if (feedBackBtn) {

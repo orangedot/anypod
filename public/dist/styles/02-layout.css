@@ -1,161 +1,11 @@
 /* ─────────────────────────────────────────────────────────────────────────
-   MODERN MINIMALIST LOWERCASE UI TYPOGRAPHY
-   Applied across all UI chrome (navigation, buttons, badges, chips, labels,
-   shelf titles, modal chrome, search inputs, and status indicators)
-   while preserving natural casing for user podcast/episode titles & notes.
+   CLEAN STANDARD UI TYPOGRAPHY
+   Standard sentence casing across UI chrome (navigation, buttons, badges,
+   chips, labels, shelf titles, modal chrome, search inputs, and status
+   indicators) while preserving natural casing for all podcast and episode titles.
    ───────────────────────────────────────────────────────────────────────── */
-.app-header,
-.app-header button,
-.app-header button *,
-.app-header h1,
-.app-header span,
-.logo-area,
-.logo-area *,
-.nav-tabs,
-.nav-tabs *,
-.nav-tab,
-.nav-tab *,
-.tab-badge,
-.tab-badge *,
-.header-actions,
-.header-actions *,
-.btn,
-.btn *,
-button,
-button *,
-.chip-filter,
-.chip-filter *,
-.bottom-action-dock,
-.bottom-action-dock *,
-.shelf-header,
-.shelf-header *,
-.btn-shelf-toggle,
-.btn-shelf-toggle *,
-.continue-sticky-bar,
-.continue-sticky-bar *,
-.btn-continue-sticky-collapse,
-.btn-continue-sticky-collapse *,
-.btn-back-nav,
-.btn-back-nav *,
-.btn-pill-action,
-.btn-pill-action *,
-.feed-link-badge,
-.feed-link-badge *,
-.category-chip,
-.category-chip *,
-.subgenre-chip,
-.subgenre-chip *,
-.badge,
-.badge *,
-.shelf-title,
-.shelf-header-group,
-.dir-section-title,
-.search-dir-status,
-.modal-header,
-.modal-header *,
-.modal-footer,
-.modal-footer *,
-.modal-card h2,
-.modal-body p,
-.add-modal-section label,
-.filter-chip,
-.status-pill,
-.status-pill *,
-.user-status-pill,
-.user-status-pill *,
-.user-pill-details,
-.user-pill-details *,
-.dock-sort-label,
-.dock-sort-select,
-.dock-sort-select *,
-#sort-order,
-#sort-order *,
-#sort-order option,
-.legend-btn,
-.legend-btn *,
-.legend-label,
-.timeline-legend,
-.timeline-legend *,
-.waveform-time-label,
-.time-label,
-.btn-playback-rate,
-.playback-speed-btn,
-.empty-state h3,
-.empty-state p,
-.empty-state-btn,
-.empty-state button,
-.quick-add-input-wrap input,
-.quick-add-input-wrap input::placeholder,
-.search-bar input,
-.search-bar input::placeholder,
-.header-search input,
-.header-search input::placeholder,
-.app-brand h1,
-.app-brand span,
-.status-banner,
-.toast,
-.timer-btn,
-.view-title,
-.settings-group-title,
-.settings-item-label,
-.settings-item-desc,
-.episode-card-actions,
-.episode-card-actions *,
-.episode-meta .date-line,
-.episode-meta .date-line *,
-.episode-meta .time-line,
-.episode-meta .time-line *,
-.notes-toggle-btn,
-.btn-theme,
-.theme-option,
-.confirm-title,
-.confirm-msg,
-.sleep-status-text,
-.tooltip,
-.waveform-tooltip,
-[data-tooltip]::before,
-[data-tooltip]::after,
-input,
-input::placeholder,
-textarea,
-textarea::placeholder,
-select,
-select option {
-  text-transform: lowercase !important;
-}
-
-/* Explicit exception to ALWAYS preserve natural casing for podcast titles, episode titles, author names, and descriptions/notes */
-.episode-title,
-.episode-title *,
-.track-title,
-.track-title *,
-.feed-detail-title,
-.feed-detail-title *,
-.feed-detail-author,
-.feed-detail-author *,
-.feed-detail-desc,
-.feed-detail-desc *,
-.feed-card-title,
-.feed-card-title *,
-.feed-card-author,
-.feed-card-author *,
-.modal-notes-title,
-.modal-notes-title *,
-.modal-notes-body,
-.modal-notes-body *,
-.show-notes-content,
-.show-notes-content *,
-.search-result-title,
-.search-result-title *,
-.search-result-author,
-.search-result-author *,
-.episode-podcast,
-.episode-podcast *,
-.episode-podcast-name,
-.episode-podcast-name *,
-.track-podcast,
-.track-podcast * {
-  text-transform: none !important;
+.app-header h1.brand-logo {
+  text-transform: lowercase;
 }
 
 
@@ -183,12 +33,12 @@ body {
   width: 100%;
   max-width: 100%;
   overflow-x: clip;
-  padding-bottom: 2rem;
+  padding-bottom: calc(var(--dock-height, 46px) + env(safe-area-inset-bottom, 16px) + 24px);
   transition: padding-bottom 0.3s ease;
 }
 
 body.has-active-episode .app-container {
-  padding-bottom: 130px;
+  padding-bottom: calc(var(--mini-player-height, 52px) + var(--dock-height, 46px) + env(safe-area-inset-bottom, 16px) + 28px);
 }
 
 .app-header {
@@ -196,10 +46,10 @@ body.has-active-episode .app-container {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1rem 1.5rem;
+  padding: 0.85rem 1.5rem;
   background: var(--bg-glass);
-/*  backdrop-filter: var(--backdrop-blur);
-  -webkit-backdrop-filter: var(--backdrop-blur);*/
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border-light);
   position: sticky;
   top: 0;
@@ -210,6 +60,8 @@ body.has-active-episode .app-container {
   display: flex;
   align-items: center;
   gap: 0.65rem;
+  min-width: 130px;
+  flex-shrink: 0;
 }
 
 .logo-area h1 {

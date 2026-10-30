@@ -535,7 +535,7 @@ async function toggleFavoriteEpisode(ep) {
   if (isFav) {
     state.favorites = (state.favorites || []).filter(f => f.guid !== ep.guid);
     state.favoriteGuids.delete(ep.guid);
-    showStatus('Removed from favorites');
+    showStatus('Removed from Favorites');
   } else {
     const favObj = {
       guid: ep.guid,
@@ -551,7 +551,7 @@ async function toggleFavoriteEpisode(ep) {
     };
     state.favorites = [favObj, ...(state.favorites || []).filter(f => f.guid !== ep.guid)];
     state.favoriteGuids.add(ep.guid);
-    showStatus('Added to favorites');
+    showStatus('Added to Favorites');
   }
 
   saveFavoritesToStorage();

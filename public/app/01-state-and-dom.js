@@ -1985,7 +1985,7 @@ function _applyView({ tab, feedUrl }) {
       const prev = state.navHistory[state.navHistory.length - 1];
       const prevName = prev?.tab ? (prev.tab.charAt(0).toUpperCase() + prev.tab.slice(1)) : 'Back';
       const labelEl = elements.btnHeaderBack.querySelector('#btn-header-back-label');
-      if (labelEl) labelEl.textContent = prevName.toLowerCase();
+      if (labelEl) labelEl.textContent = prevName;
     }
     window.scrollTo(0, 0);
     const meta = state.feedMetadata[feedUrl] || {};

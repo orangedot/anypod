@@ -139,11 +139,11 @@
   }
 
   .app-container {
-    padding-bottom: 70px;
+    padding-bottom: calc(var(--dock-height, 46px) + env(safe-area-inset-bottom, 16px) + 20px);
   }
 
   body.has-active-episode .app-container {
-    padding-bottom: 170px;
+    padding-bottom: calc(var(--mini-player-height, 52px) + var(--dock-height, 46px) + env(safe-area-inset-bottom, 16px) + 24px);
   }
 
   .main-content {
@@ -248,9 +248,24 @@
   .btn-more-ep,
   .btn-queue-ep,
   .btn-mark-played {
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
     flex-shrink: 0;
+    position: relative;
+  }
+
+  .btn-more-ep::before,
+  .btn-queue-ep::before,
+  .btn-mark-played::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 44px;
+    min-height: 44px;
+    width: 100%;
+    height: 100%;
   }
 
   .btn-more-ep svg,
@@ -261,14 +276,27 @@
   }
 
   .btn-play-ep {
-    width: 38px;
-    height: 38px;
+    width: 40px;
+    height: 40px;
     flex-shrink: 0;
+    position: relative;
+  }
+
+  .btn-play-ep::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 44px;
+    min-height: 44px;
+    width: 100%;
+    height: 100%;
   }
 
   .btn-play-ep svg {
-    width: 15px;
-    height: 15px;
+    width: 16px;
+    height: 16px;
   }
 
   .feed-card {
@@ -293,22 +321,24 @@
   }
 
   .bottom-action-dock {
-    bottom: calc(1px + env(safe-area-inset-bottom, 0px));
-    right: 0;
-    left: 0;
+    bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
     z-index: 110;
-    width: 100vw;
-    border-radius: 0;
+    max-width: calc(100vw - 16px);
+    width: max-content;
+    border-radius: var(--radius-full);
     justify-content: flex-start;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    padding: 0.35rem 0.5rem;
+    padding: 0.35rem 0.55rem;
     gap: 0.35rem;
     box-sizing: border-box;
   }
   body.has-active-episode .bottom-action-dock {
-    bottom: 135px;
+    bottom: calc(var(--mini-player-height, 52px) + 6px + env(safe-area-inset-bottom, 0px));
   }
 
   .bottom-action-dock::-webkit-scrollbar {
@@ -328,7 +358,7 @@
   }
 
   body.has-active-episode.has-mini-player .bottom-action-dock {
-    bottom: calc(55px + env(safe-area-inset-bottom, 0px)) !important;
+    bottom: calc(var(--mini-player-height, 52px) + 6px + env(safe-area-inset-bottom, 0px)) !important;
     z-index: 120;
   }
 
