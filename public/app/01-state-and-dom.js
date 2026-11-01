@@ -1519,6 +1519,7 @@ document.addEventListener('visibilitychange', () => {
   state.isTabActive = !document.hidden;
 
   if (document.hidden) {
+    state._tabHiddenAt = Date.now();
     if (activeProbeAbortController) {
       activeProbeAbortController.abort();
       activeProbeAbortController = null;
@@ -1540,6 +1541,19 @@ document.addEventListener('visibilitychange', () => {
     }
   } else {
     // Tab/app became visible again — resync UI
+    const hiddenDuration = Date.now() - (state._tabHiddenAt || Date.now());
+    const timeSinceSync = Date.now() - (state._lastPositionSyncTime || 0);
+
+    // Strict Cloudflare Quota Protection:
+    // Only query remote D1 delta if tab was backgrounded for >= 5 mins AND last sync was >= 10 mins ago
+    const hasSession = Boolean(state.sessionToken || (typeof document !== 'undefined' && (document.cookie || '').includes('podcast_session=')));
+    if (hiddenDuration >= 5 * 60 * 1000 && timeSinceSync >= 10 * 60 * 1000 && hasSession) {
+      state._lastPositionSyncTime = Date.now();
+      if (typeof loadPlaybackPositionsFromD1 === 'function') {
+        loadPlaybackPositionsFromD1({ delta: true });
+      }
+    }
+
     if (state.experimentalSettings && state.experimentalSettings.enableSilenceSkip && isEnginePlaying()) {
       if (typeof startLiveSilenceDetection === 'function') {
         startLiveSilenceDetection();
@@ -2250,6 +2264,34 @@ function init() {
     if (typeof updateAutoplayButtonUI === 'function') updateAutoplayButtonUI();
     if (typeof updateShuffleButtonUI === 'function') updateShuffleButtonUI();
     initServiceWorker();
+    if (window.AnypodShared && typeof window.AnypodShared.initStorageBridge === 'function') {
+      window.AnypodShared.initStorageBridge({
+        onUpdate: (key) => {
+          if (!key || key === STORAGE_KEYS.POSITIONS) {
+            loadPositionsFromStorage();
+            renderContinueShelf();
+            updateFilterBadges();
+            if (state.filterMode === 'unplayed' || state.filterMode === 'played' || state.filterMode === 'continue') {
+              if (typeof processAndSortEpisodes === 'function') processAndSortEpisodes();
+              if (typeof renderTimeline === 'function') renderTimeline(true);
+            }
+          }
+          if (!key || key === STORAGE_KEYS.FEEDS) {
+            loadFeedsFromStorage();
+            if (typeof updateFeedCountUI === 'function') updateFeedCountUI();
+            if (typeof renderFeedsGrid === 'function') renderFeedsGrid();
+          }
+          if (!key || key === STORAGE_KEYS.FAVORITES) {
+            if (typeof loadFavoritesFromStorage === 'function') loadFavoritesFromStorage();
+            if (typeof updateFavoritesCountUI === 'function') updateFavoritesCountUI();
+          }
+          if (!key || key === STORAGE_KEYS.QUEUE) {
+            if (typeof loadQueueFromStorage === 'function') loadQueueFromStorage();
+            if (typeof updateQueueUI === 'function') updateQueueUI();
+          }
+        }
+      });
+    }
     checkAuth();
     if (typeof loadExperimentalSettings === 'function') loadExperimentalSettings();
     if (typeof setupExperimentalSettings === 'function') setupExperimentalSettings();

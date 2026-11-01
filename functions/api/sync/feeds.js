@@ -83,7 +83,8 @@ export async function onRequest(context) {
             positions,
             favorites,
             userEmail: user.email,
-            sessionToken
+            sessionToken,
+            serverTime: Math.floor(Date.now() / 1000)
           }),
           { headers: corsHeaders, status: 200 }
         );

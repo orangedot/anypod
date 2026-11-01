@@ -23,9 +23,22 @@ export async function onRequest(context) {
 
   try {
     if (request.method === 'GET') {
-      const rows = await db.prepare(
-        'SELECT episode_guid, position_seconds, completed, last_listened_at FROM playback_state WHERE user_id = ?'
-      ).bind(userId).all();
+      const url = new URL(request.url);
+      const sinceParam = url.searchParams.get('since');
+      const since = sinceParam ? parseInt(sinceParam, 10) : 0;
+
+      let stmt;
+      if (since > 0) {
+        stmt = db.prepare(
+          'SELECT episode_guid, position_seconds, completed, last_listened_at FROM playback_state WHERE user_id = ? AND last_listened_at > ?'
+        ).bind(userId, since);
+      } else {
+        stmt = db.prepare(
+          'SELECT episode_guid, position_seconds, completed, last_listened_at FROM playback_state WHERE user_id = ?'
+        ).bind(userId);
+      }
+
+      const rows = await stmt.all();
 
       const positions = {};
       (rows.results || []).forEach(r => {
@@ -36,7 +49,8 @@ export async function onRequest(context) {
         };
       });
 
-      return new Response(JSON.stringify({ positions }), { headers: corsHeaders, status: 200 });
+      const serverTime = Math.floor(Date.now() / 1000);
+      return new Response(JSON.stringify({ positions, serverTime }), { headers: corsHeaders, status: 200 });
     }
 
     if (request.method === 'POST') {

@@ -34,10 +34,7 @@ const CLOUDFLARE_FEED_TTL_MS = 30 * 60 * 1000; // 30-min local TTL before re-hit
  * Parses up to 550 episodes on-device and preserves show notes locally.
  */
 function parsePodcastXmlClient(xmlText, originalUrl) {
-  if (!xmlText || typeof DOMParser === 'undefined') return null;
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(xmlText, 'text/xml');
-  if (!doc || doc.querySelector('parsererror')) return null;
+  if (!xmlText) return null;
 
   const stripHtmlToSummary = (raw, maxLen = 240) => {
     if (!raw) return '';
@@ -67,101 +64,225 @@ function parsePodcastXmlClient(xmlText, originalUrl) {
     return '';
   };
 
-  const isAtom = doc.documentElement && doc.documentElement.nodeName.toLowerCase() === 'feed';
-  const channel = isAtom ? doc.documentElement : (doc.querySelector('channel') || doc.documentElement);
-  if (!channel) return null;
+  let doc = null;
+  if (typeof DOMParser !== 'undefined') {
+    try {
+      const parser = new DOMParser();
+      doc = parser.parseFromString(xmlText, 'text/xml');
+    } catch (_) {}
+  }
 
-  const title = getChildText(channel, ['title']) || 'Untitled Podcast';
-  const rawChDesc = getChildText(channel, ['description', 'itunes:summary', 'subtitle']);
-  const description = stripHtmlToSummary(rawChDesc, 500);
-  const author = getChildText(channel, ['itunes:author', 'author', 'name']) || '';
-  let artwork = getChildAttr(channel, ['itunes:image', 'image'], 'href');
+  const isAtom = doc && doc.documentElement && doc.documentElement.nodeName.toLowerCase() === 'feed';
+  const channel = doc ? (isAtom ? doc.documentElement : (doc.querySelector('channel') || doc.documentElement)) : null;
+
+  let entries = [];
+  if (doc) {
+    entries = isAtom
+      ? Array.from(doc.getElementsByTagName('entry'))
+      : Array.from(doc.getElementsByTagName('item'));
+  }
+
+  // If DOMParser parsed entries successfully, extract them from the DOM
+  if (channel && entries.length > 0) {
+    const title = getChildText(channel, ['title']) || 'Untitled Podcast';
+    const rawChDesc = getChildText(channel, ['description', 'itunes:summary', 'subtitle']);
+    const description = stripHtmlToSummary(rawChDesc, 500);
+    const author = getChildText(channel, ['itunes:author', 'author', 'name']) || '';
+    let artwork = getChildAttr(channel, ['itunes:image', 'image'], 'href');
+    if (!artwork) {
+      const imgEl = channel.querySelector('image > url');
+      if (imgEl && imgEl.textContent) artwork = imgEl.textContent.trim();
+    }
+    if (artwork && artwork.startsWith('http://')) {
+      artwork = 'https://' + artwork.slice(7);
+    }
+
+    const episodes = [];
+    const MAX_CLIENT_EPISODES = 550;
+
+    for (let i = 0; i < entries.length && episodes.length < MAX_CLIENT_EPISODES; i++) {
+      const item = entries[i];
+      let audioUrl = getChildAttr(item, ['enclosure', 'media:content'], 'url');
+      const epVideoId = isAtom ? getChildText(item, ['yt:videoId', 'videoId']) : '';
+      if (!audioUrl && epVideoId) {
+        audioUrl = `https://www.youtube.com/watch?v=${epVideoId}`;
+      }
+      if (!audioUrl) continue;
+
+      const epTitle = getChildText(item, ['title']) || 'Untitled Episode';
+      const epGuid = getChildText(item, ['guid', 'id', 'link']) || epVideoId || epTitle;
+      const epPubDate = getChildText(item, ['pubDate', 'published', 'updated']) || '';
+      const rawContent = getChildText(item, ['content:encoded', 'encoded', 'description', 'itunes:summary', 'summary', 'content']);
+      const epDesc = stripHtmlToSummary(rawContent, 240);
+      let epDuration = getChildText(item, ['itunes:duration', 'duration']);
+      if (epDuration === '0:00' || epDuration === '0' || epDuration === '00:00' || epDuration === '00:00:00') {
+        epDuration = '';
+      }
+
+      let epArtwork = getChildAttr(item, ['itunes:image', 'image'], 'href')
+        || getChildAttr(item, ['media:thumbnail', 'thumbnail'], 'url')
+        || artwork;
+      if (epArtwork && epArtwork.startsWith('http://')) {
+        epArtwork = 'https://' + epArtwork.slice(7);
+      }
+
+      const transcriptUrl = getChildAttr(item, ['podcast:transcript', 'transcript'], 'url');
+      const transcriptType = transcriptUrl ? (getChildAttr(item, ['podcast:transcript', 'transcript'], 'type') || 'text/vtt') : '';
+      const chaptersUrl = getChildAttr(item, ['podcast:chapters', 'chapters'], 'url');
+      const chaptersType = chaptersUrl ? (getChildAttr(item, ['podcast:chapters', 'chapters'], 'type') || 'application/json+chapters') : '';
+
+      let timestamp = 0;
+      if (epPubDate) {
+        const parsed = Date.parse(epPubDate);
+        if (!isNaN(parsed)) timestamp = parsed;
+      }
+
+      episodes.push({
+        guid: epGuid,
+        title: epTitle,
+        description: epDesc,
+        content: rawContent.length <= 24000 ? rawContent : rawContent.slice(0, 24000),
+        pubDate: epPubDate,
+        timestamp,
+        audioUrl,
+        duration: epDuration || '',
+        artwork: epArtwork,
+        podcastTitle: title,
+        feedUrl: originalUrl,
+        isYouTube: Boolean(epVideoId),
+        videoId: epVideoId || undefined,
+        transcriptUrl: transcriptUrl || '',
+        transcriptType: transcriptType || '',
+        chaptersUrl: chaptersUrl || '',
+        chaptersType: chaptersType || ''
+      });
+    }
+
+    if (episodes.length > 0) {
+      episodes.sort((a, b) => b.timestamp - a.timestamp);
+      return {
+        title,
+        description,
+        author,
+        artwork: artwork || (episodes[0]?.artwork || ''),
+        link: originalUrl,
+        feedUrl: originalUrl,
+        episodesCount: episodes.length,
+        updatedAt: new Date().toISOString(),
+        episodes
+      };
+    }
+  }
+
+  // Regex fallback: extracts episodes from raw XML when DOMParser fails or produces 0 items
+  return parsePodcastXmlRegexClient(xmlText, originalUrl);
+}
+
+function parsePodcastXmlRegexClient(xml, originalUrl) {
+  if (!xml || typeof xml !== 'string') return null;
+
+  const getAttr = (str, tag, attr) => {
+    const re = new RegExp(`<${tag}[^>]*\\s+${attr}=["']([^"']+)["']`, 'i');
+    const m = str.match(re);
+    return m ? m[1].trim() : '';
+  };
+
+  const getTag = (str, tag) => {
+    const re = new RegExp(`<(?:[a-zA-Z0-9]+:)?${tag}[^>]*>(?:<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>|([\\s\\S]*?))<\\/(?:[a-zA-Z0-9]+:)?${tag}>`, 'i');
+    const m = str.match(re);
+    if (!m) return '';
+    const raw = m[1] !== undefined ? m[1] : (m[2] || '');
+    return raw.trim();
+  };
+
+  const stripHtml = (raw, maxLen = 240) => {
+    if (!raw) return '';
+    const slice = raw.length > maxLen * 5 ? raw.slice(0, maxLen * 5) : raw;
+    const clean = slice.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    return clean.length > maxLen ? clean.slice(0, maxLen) + '...' : clean;
+  };
+
+  const firstItemIdx = xml.search(/<item[\s>]/i);
+  const header = firstItemIdx !== -1 ? xml.slice(0, firstItemIdx) : xml.slice(0, 16000);
+
+  const title = getTag(header, 'title') || 'Untitled Podcast';
+  const description = stripHtml(getTag(header, 'description') || getTag(header, 'summary'), 500);
+  const author = getTag(header, 'author') || getTag(header, 'name') || '';
+  let artwork = getAttr(header, 'itunes:image', 'href') || getAttr(header, 'image', 'href');
   if (!artwork) {
-    const imgEl = channel.querySelector('image > url');
-    if (imgEl && imgEl.textContent) artwork = imgEl.textContent.trim();
+    const imgMatch = header.match(/<image[\s\S]*?<url>([^<]+)<\/url>/i);
+    if (imgMatch) artwork = imgMatch[1].trim();
   }
   if (artwork && artwork.startsWith('http://')) {
     artwork = 'https://' + artwork.slice(7);
   }
 
-  const entries = isAtom
-    ? Array.from(doc.getElementsByTagName('entry'))
-    : Array.from(doc.getElementsByTagName('item'));
+  const items = [];
+  const MAX_PARSED = 550;
+  let pos = 0;
 
-  const episodes = [];
-  const MAX_CLIENT_EPISODES = 550;
+  while (items.length < MAX_PARSED) {
+    const start = xml.indexOf('<item', pos);
+    if (start === -1) break;
+    const openEnd = xml.indexOf('>', start + 5);
+    if (openEnd === -1) break;
+    const end = xml.indexOf('</item>', openEnd + 1);
+    if (end === -1) break;
+    pos = end + 7;
 
-  for (let i = 0; i < entries.length && episodes.length < MAX_CLIENT_EPISODES; i++) {
-    const item = entries[i];
-    let audioUrl = getChildAttr(item, ['enclosure', 'media:content'], 'url');
-    const epVideoId = isAtom ? getChildText(item, ['yt:videoId', 'videoId']) : '';
-    if (!audioUrl && epVideoId) {
-      audioUrl = `https://www.youtube.com/watch?v=${epVideoId}`;
-    }
+    const itemXml = xml.slice(openEnd + 1, end);
+    const audioUrl = getAttr(itemXml, 'enclosure', 'url') || getAttr(itemXml, 'media:content', 'url');
     if (!audioUrl) continue;
 
-    const epTitle = getChildText(item, ['title']) || 'Untitled Episode';
-    const epGuid = getChildText(item, ['guid', 'id', 'link']) || epVideoId || epTitle;
-    const epPubDate = getChildText(item, ['pubDate', 'published', 'updated']) || '';
-    const rawContent = getChildText(item, ['content:encoded', 'encoded', 'description', 'itunes:summary', 'summary', 'content']);
-    const epDesc = stripHtmlToSummary(rawContent, 240);
-    let epDuration = getChildText(item, ['itunes:duration', 'duration']);
-    if (epDuration === '0:00' || epDuration === '0' || epDuration === '00:00' || epDuration === '00:00:00') {
-      epDuration = '';
-    }
+    const epTitle = getTag(itemXml, 'title') || 'Untitled Episode';
+    const epGuid = getTag(itemXml, 'guid') || getTag(itemXml, 'link') || epTitle;
+    const epPubDate = getTag(itemXml, 'pubDate') || getTag(itemXml, 'published');
+    const rawContent = getTag(itemXml, 'encoded') || getTag(itemXml, 'description') || getTag(itemXml, 'summary');
+    const epDesc = stripHtml(rawContent, 240);
+    let epDur = getTag(itemXml, 'duration');
+    if (epDur === '0:00' || epDur === '0' || epDur === '00:00' || epDur === '00:00:00') epDur = '';
 
-    let epArtwork = getChildAttr(item, ['itunes:image', 'image'], 'href')
-      || getChildAttr(item, ['media:thumbnail', 'thumbnail'], 'url')
-      || artwork;
-    if (epArtwork && epArtwork.startsWith('http://')) {
-      epArtwork = 'https://' + epArtwork.slice(7);
-    }
+    let epArt = getAttr(itemXml, 'itunes:image', 'href') || getAttr(itemXml, 'media:thumbnail', 'url') || artwork;
+    if (epArt && epArt.startsWith('http://')) epArt = 'https://' + epArt.slice(7);
 
-    const transcriptUrl = getChildAttr(item, ['podcast:transcript', 'transcript'], 'url');
-    const transcriptType = transcriptUrl ? (getChildAttr(item, ['podcast:transcript', 'transcript'], 'type') || 'text/vtt') : '';
-    const chaptersUrl = getChildAttr(item, ['podcast:chapters', 'chapters'], 'url');
-    const chaptersType = chaptersUrl ? (getChildAttr(item, ['podcast:chapters', 'chapters'], 'type') || 'application/json+chapters') : '';
-
-    let timestamp = 0;
+    let ts = 0;
     if (epPubDate) {
       const parsed = Date.parse(epPubDate);
-      if (!isNaN(parsed)) timestamp = parsed;
+      if (!isNaN(parsed)) ts = parsed;
     }
 
-    episodes.push({
+    items.push({
       guid: epGuid,
       title: epTitle,
       description: epDesc,
       content: rawContent.length <= 24000 ? rawContent : rawContent.slice(0, 24000),
       pubDate: epPubDate,
-      timestamp,
+      timestamp: ts,
       audioUrl,
-      duration: epDuration || '',
-      artwork: epArtwork,
+      duration: epDur || '',
+      artwork: epArt,
       podcastTitle: title,
       feedUrl: originalUrl,
-      isYouTube: Boolean(epVideoId),
-      videoId: epVideoId || undefined,
-      transcriptUrl: transcriptUrl || '',
-      transcriptType: transcriptType || '',
-      chaptersUrl: chaptersUrl || '',
-      chaptersType: chaptersType || ''
+      transcriptUrl: getAttr(itemXml, 'podcast:transcript', 'url') || '',
+      transcriptType: getAttr(itemXml, 'podcast:transcript', 'type') || '',
+      chaptersUrl: getAttr(itemXml, 'podcast:chapters', 'url') || '',
+      chaptersType: getAttr(itemXml, 'podcast:chapters', 'type') || ''
     });
   }
 
-  episodes.sort((a, b) => b.timestamp - a.timestamp);
-  if (episodes.length === 0 && entries.length > 0) return null;
+  if (items.length === 0) return null;
+  items.sort((a, b) => b.timestamp - a.timestamp);
 
   return {
     title,
     description,
     author,
-    artwork: artwork || (episodes[0]?.artwork || ''),
+    artwork: artwork || (items[0]?.artwork || ''),
     link: originalUrl,
     feedUrl: originalUrl,
-    episodesCount: episodes.length,
+    episodesCount: items.length,
     updatedAt: new Date().toISOString(),
-    episodes
+    episodes: items
   };
 }
 
@@ -333,6 +454,10 @@ async function refreshAllFeeds(options = {}) {
   renderFeedsGrid();
   updateFeedCountUI();
 
+  if (typeof loadPlaybackPositionsFromD1 === 'function' && (state.sessionToken || (typeof document !== 'undefined' && document.cookie.includes('podcast_session=')))) {
+    loadPlaybackPositionsFromD1({ delta: false });
+  }
+
   let finalSummary = `Updated ${totalFeeds} feed${totalFeeds === 1 ? '' : 's'}`;
   if (newEpisodesCount > 0) {
     finalSummary += ` · ${newEpisodesCount} new episode${newEpisodesCount === 1 ? '' : 's'}`;
@@ -389,6 +514,8 @@ const KNOWN_NO_CORS_HOSTS = new Set([
   'sr.se',
   'rss.art19.com',
   'art19.com',
+  'feeds.simplecast.com',
+  'simplecast.com',
   'api.quantamagazine.org',
   'www.planetary.org',
   'planetary.org',

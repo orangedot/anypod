@@ -25,10 +25,10 @@
     /**
      * Broadcasts to other tabs on the same origin that Anypod storage has updated.
      */
-    function notifyStorageUpdated() {
+    function notifyStorageUpdated(key) {
         if (storageChannel) {
             try {
-                storageChannel.postMessage({ type: 'UPDATE_STORAGE', ts: Date.now() });
+                storageChannel.postMessage({ type: 'UPDATE_STORAGE', key: key || null, ts: Date.now() });
             } catch (_) {}
         }
     }
@@ -53,14 +53,15 @@
                 'anypod_feeds',
                 'anypod_favorites',
                 'anypod_playback_queue',
+                'anypod_playback_positions',
                 'anypod_last_active_episode'
             ],
             enableIframeBridge = true
         } = options;
 
-        const triggerUpdate = () => {
+        const triggerUpdate = (key) => {
             if (typeof onUpdate === 'function') {
-                onUpdate();
+                onUpdate(key);
             }
         };
 
@@ -68,7 +69,7 @@
         if (storageChannel) {
             storageChannel.addEventListener('message', (e) => {
                 if (e.data && (e.data.type === 'UPDATE_STORAGE' || e.data.type === 'ANYPOD_STORAGE_UPDATED')) {
-                    triggerUpdate();
+                    triggerUpdate(e.data.key);
                 }
             });
         }
@@ -76,7 +77,7 @@
         // 2. Same-origin window 'storage' event
         window.addEventListener('storage', (e) => {
             if (!e.key || watchedKeys.includes(e.key)) {
-                triggerUpdate();
+                triggerUpdate(e.key);
             }
         });
 

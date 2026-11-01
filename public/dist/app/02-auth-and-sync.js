@@ -24,6 +24,10 @@ function checkUrlSessionParam() {
 
 function applyBundledD1State(data) {
   if (!data) return;
+  if (data.serverTime) {
+    state._lastPositionSyncServerTime = data.serverTime;
+  }
+  state._lastPositionSyncTime = Date.now();
   if (data.positions && typeof data.positions === 'object') {
     const merged = { ...state.playbackPositions };
     for (const [guid, rPos] of Object.entries(data.positions)) {
@@ -396,6 +400,9 @@ function savePositionsToStorage() {
     if (state.currentEpisode) {
       storage.setItem(STORAGE_KEYS.LAST_EPISODE, JSON.stringify(state.currentEpisode));
     }
+    if (typeof window.AnypodShared?.notifyStorageUpdated === 'function') {
+      window.AnypodShared.notifyStorageUpdated(STORAGE_KEYS.POSITIONS);
+    }
   } catch (e) {}
 }
 
@@ -480,25 +487,78 @@ function restoreLastActiveEpisode() {
   } catch (_) {}
 }
 
-async function loadPlaybackPositionsFromD1() {
+async function loadPlaybackPositionsFromD1(options = {}) {
   try {
+    const isDelta = Boolean(options && options.delta);
     const headers = {};
     if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
-    const res = await fetch('/api/sync/position', { headers, credentials: 'include' });
+
+    let url = '/api/sync/position';
+    if (isDelta && state._lastPositionSyncServerTime) {
+      url += `?since=${encodeURIComponent(state._lastPositionSyncServerTime)}`;
+    }
+
+    const res = await fetch(url, { headers, credentials: 'include' });
     if (res.ok) {
       const data = await res.json();
-      const remotePositions = data.positions || {};
+      if (data.serverTime) {
+        state._lastPositionSyncServerTime = data.serverTime;
+      }
+      state._lastPositionSyncTime = Date.now();
 
-      // Merge smartly: only let D1 overwrite if remote timestamp is newer
+      const remotePositions = data.positions || {};
+      const changedGuids = [];
       const merged = { ...state.playbackPositions };
+
       for (const [guid, rPos] of Object.entries(remotePositions)) {
         const lPos = merged[guid];
+        const isCompletedDiff = !lPos || Boolean(lPos.completed) !== Boolean(rPos.completed);
+        const isPosDiff = !lPos || Math.abs((lPos.position || 0) - (rPos.position || 0)) >= 3;
         if (!lPos || (rPos.lastListenedAt || 0) >= (lPos.lastListenedAt || 0)) {
           merged[guid] = rPos;
+          if (isCompletedDiff || isPosDiff) {
+            changedGuids.push(guid);
+          }
         }
       }
+
       state.playbackPositions = merged;
       savePositionsToStorage();
+
+      if (changedGuids.length > 0) {
+        changedGuids.forEach(guid => {
+          const pos = state.playbackPositions[guid];
+          const isCompleted = pos && (pos.completed === 1 || pos.completed === true);
+          try {
+            const escapedGuid = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(guid) : guid.replace(/["\\]/g, '\\$&');
+            const cards = document.querySelectorAll(`.episode-card[data-guid="${escapedGuid}"]`);
+            cards.forEach(card => {
+              card.classList.toggle('is-played', isCompleted);
+              const checkBtn = card.querySelector('.btn-mark-played');
+              if (checkBtn) {
+                checkBtn.classList.toggle('is-completed', isCompleted);
+                checkBtn.innerHTML = isCompleted ? CARD_ICONS.CHECK_FILLED : CARD_ICONS.CHECK;
+                checkBtn.title = isCompleted ? 'Mark as Unplayed' : 'Mark as Played';
+              }
+              if (typeof updateCardPlaybackProgress === 'function') {
+                updateCardPlaybackProgress(guid, pos?.position || 0);
+              }
+            });
+          } catch (_) {}
+        });
+
+        renderContinueShelf();
+        updateFilterBadges();
+
+        const hasCompletionChange = changedGuids.some(g => {
+          const p = state.playbackPositions[g];
+          return p && (p.completed === 1 || p.completed === true);
+        });
+        if (hasCompletionChange && (state.filterMode === 'unplayed' || state.filterMode === 'played' || state.filterMode === 'continue')) {
+          if (typeof processAndSortEpisodes === 'function') processAndSortEpisodes();
+          if (typeof renderTimeline === 'function') renderTimeline(true);
+        }
+      }
     }
   } catch (e) {}
   renderContinueShelf();

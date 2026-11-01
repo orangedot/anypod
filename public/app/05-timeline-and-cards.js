@@ -1900,10 +1900,11 @@ function openFeedDetail(feedUrl) {
 const previewLoadingSet = new Set();
 
 function renderFeedDetail(feedUrl) {
-  const isSubbed = state.feeds.includes(feedUrl);
-  const isMuted = isFeedMuted(feedUrl);
-  const meta = state.feedMetadata[feedUrl] || {};
-  let episodes = state.allEpisodes.filter(e => e.feedUrl === feedUrl);
+  const cleanUrl = (typeof sanitizeFeedUrl === 'function' ? sanitizeFeedUrl(feedUrl) : feedUrl) || feedUrl;
+  const isSubbed = state.feeds.includes(cleanUrl) || state.feeds.includes(feedUrl);
+  const isMuted = isFeedMuted(cleanUrl) || isFeedMuted(feedUrl);
+  const meta = state.feedMetadata[cleanUrl] || state.feedMetadata[feedUrl] || {};
+  let episodes = state.allEpisodes.filter(e => e.feedUrl === cleanUrl || e.feedUrl === feedUrl);
   const header = elements.feedDetailHeader;
   if (!header) return;
 
@@ -2205,16 +2206,22 @@ function renderFeedDetail(feedUrl) {
     const epBadge = header.querySelector('#feed-episodes-badge');
     if (epBadge) {
       epBadge.addEventListener('click', () => {
-        const currentMeta = state.feedMetadata[feedUrl] || {};
-        const currentEps = state.allEpisodes.filter(e => e.feedUrl === feedUrl);
+        const currentMeta = state.feedMetadata[cleanUrl] || state.feedMetadata[feedUrl] || {};
+        const currentEps = state.allEpisodes.filter(e => e.feedUrl === cleanUrl || e.feedUrl === feedUrl);
         const currentExpected = currentMeta.episodesCount || 0;
         const pId = currentMeta.playlistId || (feedUrl.includes('list=') ? feedUrl.split('list=')[1].split('&')[0] : null);
         const currentlyPaging = pId && _activeYtPaginations.has(pId);
 
-        if (currentExpected && currentEps.length < currentExpected && !currentlyPaging && pId) {
-          showToast('Resuming episode sync...');
-          startYouTubeBackgroundPaging(pId, feedUrl, currentMeta.nextToken || null);
-          renderFeedDetail(feedUrl);
+        if (currentExpected && currentEps.length < currentExpected && !currentlyPaging) {
+          if (pId) {
+            showToast('Resuming episode sync...');
+            startYouTubeBackgroundPaging(pId, feedUrl, currentMeta.nextToken || null);
+            renderFeedDetail(feedUrl);
+          } else {
+            showToast('Syncing latest episodes...');
+            const refreshBtn = header.querySelector('#btn-refresh-feed-detail');
+            if (refreshBtn) refreshBtn.click();
+          }
         }
       });
     }
@@ -2291,7 +2298,10 @@ function renderFeedDetail(feedUrl) {
           <div class="empty-state">
             <h3>Unable to load preview</h3>
             <p>Could not fetch RSS feed for this podcast.</p>
-            <button type="button" class="btn btn-secondary" id="btn-retry-preview" style="margin-top: 1rem;">↻ Retry preview</button>
+            <button type="button" class="btn btn-primary" id="btn-retry-preview" style="margin-top: 1rem; display: inline-flex; align-items: center; gap: 6px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+              <span>Retry preview</span>
+            </button>
           </div>
         `;
         const retryBtn = list.querySelector('#btn-retry-preview');

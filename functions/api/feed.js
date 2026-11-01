@@ -124,7 +124,7 @@ export async function onRequest(context) {
           'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
         },
         cf: { cacheTtl: 900, cacheEverything: true },
-        signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(8500) : undefined
+        signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(15000) : undefined
       });
 
       // Upstream fallback: if blocked by CDN/bot protection with 403/401, retry with AppleCoreMedia podcast UA
@@ -136,7 +136,7 @@ export async function onRequest(context) {
               'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
             },
             cf: { cacheTtl: 900, cacheEverything: true },
-            signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(8500) : undefined
+            signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(15000) : undefined
           });
           if (retryRes.ok) {
             upstreamRes = retryRes;
@@ -721,7 +721,7 @@ async function fetchAndParseFeed(inputUrl) {
   } catch (_) {}
 
   if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) {
-    fetchOptions.signal = AbortSignal.timeout(8500);
+    fetchOptions.signal = AbortSignal.timeout(15000);
   }
 
   let response = await fetch(inputUrl, fetchOptions);
@@ -735,7 +735,7 @@ async function fetchAndParseFeed(inputUrl) {
         }
       };
       if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) {
-        retryOptions.signal = AbortSignal.timeout(8500);
+        retryOptions.signal = AbortSignal.timeout(15000);
       }
       const retryRes = await fetch(inputUrl, retryOptions);
       if (retryRes.ok) {
