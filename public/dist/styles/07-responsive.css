@@ -147,7 +147,7 @@
   }
 
   .main-content {
-    padding: 0 0.5rem 1rem 0.5rem;
+    padding: 0 0.3rem 0.3rem 0.3rem;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
@@ -206,11 +206,26 @@
 
   .episode-footer {
     display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding-top: 0.1rem;
+    width: 100%;
+  }
+
+  .episode-footer-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 0.5rem;
+  }
+
+  .discover-show-recommendation-card .episode-footer,
+  .feed-card .episode-footer {
     flex-direction: row;
     align-items: flex-end;
     justify-content: space-between;
-    gap: 0.5rem;
-    padding-top: 0.1rem;
   }
 
   .episode-footer-left {
@@ -221,18 +236,28 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     width: 100%;
     font-size: 0.72rem;
     gap: 0.25rem;
+    overflow: hidden;
   }
 
   .episode-meta .date-line,
   .episode-meta .episode-duration,
-  .episode-meta .ep-resume-time,
   .episode-meta .time-line {
     font-size: 0.72rem;
     white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .episode-meta .ep-resume-time {
+    font-size: 0.72rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    cursor: pointer;
   }
 
   .episode-card-actions {

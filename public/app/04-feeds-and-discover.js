@@ -1515,6 +1515,7 @@ function buildUnifiedSearchResultCard(item) {
   const progressTrackHtml = (isCurrent || (savedPos && savedPos.position > 2))
     ? `<div class="ep-progress-track" title="Click or scrub to resume at any point"><div class="ep-progress-fill" style="width: ${progressPct}%"></div></div>`
     : '';
+  const resumeTimeStr = (curPos > 2 && !(savedPos && (savedPos.completed === 1 || savedPos.completed === true))) ? `resumes at ${formatTime(curPos)}` : '';
 
   const favBtnHtml = `
     <button type="button" class="ep-more-item btn-fav-ep ${isFav ? 'is-favorited' : ''}" role="menuitem" title="${isFav ? 'Remove from favorites' : 'Add to favorites'}">
@@ -1547,11 +1548,12 @@ function buildUnifiedSearchResultCard(item) {
     </div>
     ${progressTrackHtml}
     <div class="episode-footer">
-      <div class="episode-footer-left">
-        <div class="episode-meta">
-          <span class="date-line">${escapeHtml(pubDateText)}</span>
-          ${durationText ? `<span class="meta-sep">•</span><span class="episode-duration">${escapeHtml(durationText)}</span>` : ''}
-        </div>
+      <div class="episode-meta">
+        <span class="date-line">${escapeHtml(pubDateText)}</span>
+        ${durationText ? `<span class="meta-sep">•</span><span class="episode-duration">${escapeHtml(durationText)}</span>` : ''}
+        ${resumeTimeStr ? `<span class="ep-resume-time" title="Click to resume playback">• ${resumeTimeStr}</span>` : ''}
+      </div>
+      <div class="episode-footer-row">
         <div class="episode-card-actions">
           <div class="ep-more-menu-wrap">
             <button type="button" class="btn-more-ep" title="More options" aria-label="More options" aria-haspopup="true" aria-expanded="false">
@@ -1570,10 +1572,10 @@ function buildUnifiedSearchResultCard(item) {
             ${isSubbed ? CARD_ICONS.CHECK_FILLED : CARD_ICONS.CHECK}
           </button>
         </div>
+        <button type="button" class="btn-play-ep" title="${playTitle}">
+          ${playIconHtml}
+        </button>
       </div>
-      <button type="button" class="btn-play-ep" title="${playTitle}">
-        ${playIconHtml}
-      </button>
     </div>
   `;
 
@@ -1681,6 +1683,14 @@ function buildUnifiedSearchResultCard(item) {
       toggleEpisodePlayback(epItem);
     }
   });
+
+  const resumeBadge = card.querySelector('.ep-resume-time');
+  if (resumeBadge && isYt && epItem) {
+    resumeBadge.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleEpisodePlayback(epItem);
+    });
+  }
 
   return card;
 }

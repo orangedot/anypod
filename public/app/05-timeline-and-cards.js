@@ -1203,7 +1203,7 @@ function createEpisodeCard(ep, context = null, cardIndex = 0) {
   const isCompleted = savedPos && (savedPos.completed === 1 || savedPos.completed === true);
   const hasProgress = (isCurrentlyActive || (savedPos && savedPos.position > 2)) && !isCompleted;
   const curPos = isCurrentlyActive ? ((state.activeEngine === 'audio' ? elements.audio.currentTime : (state.ytPlayer && state.ytPlayer.getCurrentTime ? state.ytPlayer.getCurrentTime() : 0)) || (savedPos ? savedPos.position : 0)) : (savedPos ? savedPos.position : 0);
-  const resumeTimeStr = hasProgress ? `Resumes at ${formatTime(curPos)}` : '';
+  const resumeTimeStr = hasProgress ? `resumes at ${formatTime(curPos)}` : '';
 
   let progressTrackHtml = '';
   if (hasProgress) {
@@ -1285,12 +1285,12 @@ function createEpisodeCard(ep, context = null, cardIndex = 0) {
     </div>
     ${progressTrackHtml}
     <div class="episode-footer">
-      <div class="episode-footer-left">
-        <div class="episode-meta">
-          <span title="${escapeHtml(fullDate)}" class="date-line">${escapeHtml(humanDate)}</span>
-          ${formattedDuration ? `<span class="meta-sep">•</span><span class="episode-duration">${escapeHtml(formattedDuration)}</span>` : ''}
-          ${resumeTimeStr ? `<span class="ep-resume-time" title="Click to resume playback">• ${resumeTimeStr}</span>` : ''}
-        </div>
+      <div class="episode-meta">
+        <span title="${escapeHtml(fullDate)}" class="date-line">${escapeHtml(humanDate)}</span>
+        ${formattedDuration ? `<span class="meta-sep">•</span><span class="episode-duration">${escapeHtml(formattedDuration)}</span>` : ''}
+        ${resumeTimeStr ? `<span class="ep-resume-time" title="Click to resume playback">• ${resumeTimeStr}</span>` : ''}
+      </div>
+      <div class="episode-footer-row">
         <div class="episode-card-actions">
           <div class="ep-more-menu-wrap">
             <button type="button" class="btn-more-ep" title="More options" aria-label="More options" aria-haspopup="true" aria-expanded="false">
@@ -1326,10 +1326,10 @@ function createEpisodeCard(ep, context = null, cardIndex = 0) {
             ${isCompleted ? CARD_ICONS.CHECK_FILLED : CARD_ICONS.CHECK}
           </button>
         </div>
+        <button type="button" class="btn-play-ep" title="${btnTitle}">
+          ${btnHtml}
+        </button>
       </div>
-      <button type="button" class="btn-play-ep" title="${btnTitle}">
-        ${btnHtml}
-      </button>
     </div>
   `;
 
@@ -1450,6 +1450,7 @@ function createEpisodeCard(ep, context = null, cardIndex = 0) {
 
   return card;
 }
+window.createEpisodeCard = createEpisodeCard;
 
 let feedsSearchDebounceTimer = null;
 

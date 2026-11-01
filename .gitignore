@@ -4,6 +4,7 @@ node_modules
 *.log
 .env
 data/
+graphify-out/
 config.json
 config.yaml
 config.yml
