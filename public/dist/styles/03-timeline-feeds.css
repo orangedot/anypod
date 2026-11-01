@@ -28,18 +28,6 @@
   overflow: visible;
 }
 
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) .episode-card {
-    background: #e8eaee;
-  }
-  :root:not([data-theme="dark"]) .episode-card:hover {
-    background: #dfe2e8;
-  }
-  :root:not([data-theme="dark"]) .episode-card.playing {
-    background: #dfe2e8;
-  }
-}
-
 [data-theme="light"] .episode-card {
   background: #e8eaee;
 }
@@ -72,7 +60,7 @@
 
 .episode-card-top {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 1rem;
   min-width: 0;
   overflow: hidden;
@@ -113,7 +101,7 @@
 
 .episode-title {
   font-size: 0.94rem;
-  font-weight: 400;
+  font-weight: 200;
   color: var(--text-primary);
   line-height: 1.35;
   display: -webkit-box;
@@ -225,9 +213,9 @@ mark.search-highlight {
 }
 
 .episode-meta .episode-duration {
-  color: var(--text-primary);
+  color: var(--text-muted);
   font-size: 0.84rem;
-  font-weight: 500;
+  font-weight: 100;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -1066,8 +1054,7 @@ mark.search-highlight {
   overflow: visible;
 }
 
-[data-theme="light"] .feed-card,
-:root:not([data-theme="dark"]) .feed-card {
+[data-theme="light"] .feed-card {
   background: #e8eaee;
 }
 
@@ -1076,8 +1063,7 @@ mark.search-highlight {
   transform: translateY(-2px);
 }
 
-[data-theme="light"] .feed-card:hover,
-:root:not([data-theme="dark"]) .feed-card:hover {
+[data-theme="light"] .feed-card:hover {
   background: #dfe2e8;
 }
 
