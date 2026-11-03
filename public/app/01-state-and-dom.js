@@ -1520,9 +1520,12 @@ document.addEventListener('visibilitychange', () => {
 
   if (document.hidden) {
     state._tabHiddenAt = Date.now();
-    if (activeProbeAbortController) {
+    if (typeof activeProbeAbortController !== 'undefined' && activeProbeAbortController) {
       activeProbeAbortController.abort();
       activeProbeAbortController = null;
+    } else if (window.activeProbeAbortController) {
+      window.activeProbeAbortController.abort();
+      window.activeProbeAbortController = null;
     }
     state.episodeTimeline.isProbing = false;
     if (elements.probeStatusPill) {

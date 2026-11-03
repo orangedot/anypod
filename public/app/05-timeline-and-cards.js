@@ -819,26 +819,52 @@ async function loadEpisodeChapters(episode) {
   // 1. TIER 1: Podcasting 2.0 <podcast:chapters> JSON
   if (episode.chaptersUrl) {
     try {
-      const proxyUrl = `/api/chapters-proxy?url=${encodeURIComponent(episode.chaptersUrl)}`;
-      const res = await fetch(proxyUrl);
-      if (res.ok) {
-        const json = await res.json();
-        if (Array.isArray(json.chapters) && json.chapters.length > 0) {
-          chapters = json.chapters.map((c, i) => {
-            const start = typeof c.startTime === 'number' ? c.startTime : parseDurationSeconds(String(c.startTime || 0));
-            const end = typeof c.endTime === 'number' ? c.endTime : (c.endTime ? parseDurationSeconds(String(c.endTime)) : 0);
-            return {
-              id: i,
-              startTime: start,
-              endTime: end,
-              title: (c.title || `Chapter ${i + 1}`).trim(),
-              img: c.img || '',
-              url: c.url || '',
-              source: 'podcast:chapters'
-            };
+      let json = null;
+      let chapHost = '';
+      try { chapHost = new URL(episode.chaptersUrl).hostname; } catch (_) {}
+      const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+      const isHttpOnHttps = isHttps && episode.chaptersUrl.startsWith('http://');
+      const isNoCors = (typeof KNOWN_NO_CORS_HOSTS !== 'undefined' && KNOWN_NO_CORS_HOSTS.has(chapHost)) ||
+                       (typeof getCachedNoCorsHosts === 'function' && getCachedNoCorsHosts().has(chapHost));
+
+      // 1a. Try direct client fetch first (0 Cloudflare Worker requests) if host is not known to block CORS
+      if (!isHttpOnHttps && !isNoCors) {
+        try {
+          const directRes = await fetch(episode.chaptersUrl, {
+            signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(6000) : undefined
           });
-          source = 'Podcasting 2.0';
+          if (directRes.ok) {
+            json = await directRes.json();
+          }
+        } catch (_) {
+          if (chapHost && typeof rememberNoCorsHost === 'function') rememberNoCorsHost(chapHost);
         }
+      }
+
+      // 1b. Fallback to Cloudflare proxy only if direct fetch was blocked
+      if (!json) {
+        const proxyUrl = `/api/chapters-proxy?url=${encodeURIComponent(episode.chaptersUrl)}`;
+        const res = await fetch(proxyUrl);
+        if (res.ok) {
+          json = await res.json();
+        }
+      }
+
+      if (json && Array.isArray(json.chapters) && json.chapters.length > 0) {
+        chapters = json.chapters.map((c, i) => {
+          const start = typeof c.startTime === 'number' ? c.startTime : parseDurationSeconds(String(c.startTime || 0));
+          const end = typeof c.endTime === 'number' ? c.endTime : (c.endTime ? parseDurationSeconds(String(c.endTime)) : 0);
+          return {
+            id: i,
+            startTime: start,
+            endTime: end,
+            title: (c.title || `Chapter ${i + 1}`).trim(),
+            img: c.img || '',
+            url: c.url || '',
+            source: 'podcast:chapters'
+          };
+        });
+        source = 'Podcasting 2.0';
       }
     } catch (err) {
       console.warn('[Chapters] Failed to fetch Podcasting 2.0 chapters:', err);

@@ -70,22 +70,36 @@ export async function onRequest(context) {
         const validUrls = body.urls.filter(u => typeof u === 'string' && isValidExternalUrl(u)).slice(0, 25);
         const results = await Promise.allSettled(
           validUrls.map(async (u) => {
-            if (cache) {
-              try {
-                const subKey = new Request(`${reqUrl.origin}/api/feed?url=${encodeURIComponent(u)}`, { method: 'GET' });
-                const hit = await cache.match(subKey);
-                if (hit) return await hit.json();
-              } catch (_) {}
+            try {
+              if (cache) {
+                try {
+                  const subKey = new Request(`${reqUrl.origin}/api/feed?url=${encodeURIComponent(u)}`, { method: 'GET' });
+                  const hit = await cache.match(subKey);
+                  if (hit) {
+                    const cachedData = await hit.json();
+                    return { ...cachedData, feedUrl: u };
+                  }
+                } catch (_) {}
+              }
+              const parsed = await fetchAndParseFeed(u);
+              const withUrl = { ...parsed, feedUrl: u };
+              if (cache && parsed && !parsed.error) {
+                try {
+                  const subKey = new Request(`${reqUrl.origin}/api/feed?url=${encodeURIComponent(u)}`, { method: 'GET' });
+                  const subRes = new Response(JSON.stringify(withUrl), { headers: corsHeaders, status: 200 });
+                  context.waitUntil(cache.put(subKey, subRes));
+                } catch (_) {}
+              }
+              return withUrl;
+            } catch (err) {
+              return {
+                feedUrl: u,
+                error: err.message || 'Failed to process feed',
+                title: 'Unavailable Feed',
+                episodesCount: 0,
+                episodes: []
+              };
             }
-            const parsed = await fetchAndParseFeed(u);
-            if (cache && parsed && !parsed.error) {
-              try {
-                const subKey = new Request(`${reqUrl.origin}/api/feed?url=${encodeURIComponent(u)}`, { method: 'GET' });
-                const subRes = new Response(JSON.stringify(parsed), { headers: corsHeaders, status: 200 });
-                context.waitUntil(cache.put(subKey, subRes));
-              } catch (_) {}
-            }
-            return parsed;
           })
         );
         const feeds = results

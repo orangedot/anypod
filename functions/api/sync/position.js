@@ -55,6 +55,32 @@ export async function onRequest(context) {
 
     if (request.method === 'POST') {
       const body = await request.json();
+
+      // Support batched position updates: { updates: [{ episodeGuid, positionSeconds, completed }, ...] }
+      if (Array.isArray(body.updates) && body.updates.length > 0) {
+        const stmts = [];
+        for (const item of body.updates.slice(0, 100)) {
+          if (!item || !item.episodeGuid) continue;
+          const id = 'pos_' + crypto.randomUUID();
+          const isCompleted = item.completed ? 1 : 0;
+          const posSec = typeof item.positionSeconds === 'number' ? item.positionSeconds : 0;
+          stmts.push(
+            db.prepare(
+              `INSERT INTO playback_state (id, user_id, episode_guid, position_seconds, completed, last_listened_at)
+               VALUES (?, ?, ?, ?, ?, unixepoch())
+               ON CONFLICT(user_id, episode_guid) DO UPDATE SET
+                 position_seconds = excluded.position_seconds,
+                 completed = excluded.completed,
+                 last_listened_at = unixepoch()`
+            ).bind(id, userId, item.episodeGuid, posSec, isCompleted)
+          );
+        }
+        if (stmts.length > 0) {
+          await db.batch(stmts);
+        }
+        return new Response(JSON.stringify({ success: true, batched: stmts.length }), { headers: corsHeaders, status: 200 });
+      }
+
       const { episodeGuid, positionSeconds, completed } = body;
 
       if (!episodeGuid) {

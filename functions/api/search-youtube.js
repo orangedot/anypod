@@ -23,9 +23,13 @@ export async function onRequestGet(context) {
     });
   }
 
-  // 1. Edge cache lookup
+  // 1. Edge cache lookup (normalized key without client cookies/headers)
   const cache = typeof caches !== 'undefined' && caches.default ? caches.default : null;
-  const cacheKey = new Request(url.toString(), request);
+  const normUrl = new URL(url.origin + url.pathname);
+  normUrl.searchParams.set('q', q.trim().toLowerCase());
+  normUrl.searchParams.set('type', type.toLowerCase());
+  normUrl.searchParams.set('limit', String(limit));
+  const cacheKey = new Request(normUrl.toString(), { method: 'GET' });
   if (cache) {
     try {
       const cached = await cache.match(cacheKey);

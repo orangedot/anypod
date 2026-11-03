@@ -21,13 +21,19 @@ export async function onRequestGet(context) {
     });
   }
 
-  // 1. Edge cache lookup
-  const cache = caches.default;
-  const cacheKey = new Request(url.toString(), request);
-  try {
-    const cached = await cache.match(cacheKey);
-    if (cached) return cached;
-  } catch (_) {}
+  // 1. Edge cache lookup (normalized key without client cookies/headers)
+  const cache = typeof caches !== 'undefined' && caches.default ? caches.default : null;
+  const normUrl = new URL(url.origin + url.pathname);
+  normUrl.searchParams.set('term', term.trim().toLowerCase());
+  if (country && country !== 'all') normUrl.searchParams.set('country', country.toLowerCase());
+  normUrl.searchParams.set('limit', String(limit));
+  const cacheKey = new Request(normUrl.toString(), { method: 'GET' });
+  if (cache) {
+    try {
+      const cached = await cache.match(cacheKey);
+      if (cached) return cached;
+    } catch (_) {}
+  }
 
   const countryParam = (country && country !== 'all') ? `&country=${encodeURIComponent(country)}` : '';
   const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(term.trim())}&entity=podcast${countryParam}&limit=${encodeURIComponent(limit)}`;
@@ -62,7 +68,7 @@ export async function onRequestGet(context) {
       }
     });
 
-    if (hasResults) {
+    if (cache && hasResults) {
       try {
         context.waitUntil(cache.put(cacheKey, response.clone()));
       } catch (_) {}

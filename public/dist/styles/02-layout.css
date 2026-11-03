@@ -524,7 +524,6 @@ body.has-active-episode .continue-shelf.is-expanded .continue-toggle-wrap {
 }
 
 .ep-progress-track:hover {
-  height: 10px;
   background: rgba(255, 255, 255, 0.22);
 }
 

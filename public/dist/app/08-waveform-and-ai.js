@@ -301,10 +301,38 @@ async function fetchTimelineFromPipeline(episode, duration) {
     }
 
     try {
-      const proxyUrl = `/api/transcript-proxy?url=${encodeURIComponent(episode.transcriptUrl)}`;
-      const res = await fetch(proxyUrl);
-      if (res.ok) {
-        const vttText = await res.text();
+      let vttText = null;
+      let transHost = '';
+      try { transHost = new URL(episode.transcriptUrl).hostname; } catch (_) {}
+      const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+      const isHttpOnHttps = isHttps && episode.transcriptUrl.startsWith('http://');
+      const isNoCors = (typeof KNOWN_NO_CORS_HOSTS !== 'undefined' && KNOWN_NO_CORS_HOSTS.has(transHost)) ||
+                       (typeof getCachedNoCorsHosts === 'function' && getCachedNoCorsHosts().has(transHost));
+
+      // 1a. Try direct client fetch first (0 Cloudflare Worker requests) if host is not known to block CORS
+      if (!isHttpOnHttps && !isNoCors) {
+        try {
+          const directRes = await fetch(episode.transcriptUrl, {
+            signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(6000) : undefined
+          });
+          if (directRes.ok) {
+            vttText = await directRes.text();
+          }
+        } catch (_) {
+          if (transHost && typeof rememberNoCorsHost === 'function') rememberNoCorsHost(transHost);
+        }
+      }
+
+      // 1b. Fallback to Cloudflare proxy only if direct fetch was blocked
+      if (!vttText) {
+        const proxyUrl = `/api/transcript-proxy?url=${encodeURIComponent(episode.transcriptUrl)}`;
+        const res = await fetch(proxyUrl);
+        if (res.ok) {
+          vttText = await res.text();
+        }
+      }
+
+      if (vttText) {
         const cues = parseVttOrSrtTimestamps(vttText);
         if (cues.length > 5) {
           const bars = deriveBarsFromCues(cues, duration, TIMELINE_BAR_COUNT);
@@ -338,8 +366,8 @@ async function fetchTimelineFromPipeline(episode, duration) {
     }
   }
 
-  // TIER 2: Check Cloudflare D1 Community Cache (only accept transcript-backed entries, re-probe old probe entries)
-  if (isTranscriptEnabled) {
+  // TIER 2: Check Cloudflare D1 Community Cache (transcripts or prior community probe analyses)
+  if (isTranscriptEnabled || isClassifierEnabled) {
     try {
       if (elements.probeStatusPill) {
         elements.probeStatusPill.textContent = 'Checking community...';
@@ -349,7 +377,7 @@ async function fetchTimelineFromPipeline(episode, duration) {
       const res = await fetch(`/api/community-transcripts?guid=${encodeURIComponent(episode.guid)}`);
       if (res.ok) {
         const data = await res.json();
-        if (data.found && data.bars && data.bars.length > 0 && data.source === 'transcript') {
+        if (data.found && data.bars && data.bars.length > 0 && (data.source === 'transcript' || data.source === 'probe')) {
           state.episodeTimeline.bars = data.bars;
           state.episodeTimeline.segments = data.segments || [];
 
@@ -363,7 +391,7 @@ async function fetchTimelineFromPipeline(episode, duration) {
           renderWaveformChart();
 
           if (elements.probeStatusPill) {
-            elements.probeStatusPill.textContent = '✓ Community Cached';
+            elements.probeStatusPill.textContent = data.source === 'transcript' ? '✓ Community Cached' : '✓ Community Probed';
             setTimeout(() => {
               if (elements.probeStatusPill) elements.probeStatusPill.classList.add('hidden');
             }, 2500);
@@ -1158,6 +1186,7 @@ const liveTranscription = (() => {
 // and speech/music distribution.
 
 let activeProbeAbortController = null;
+window.activeProbeAbortController = null;
 
 async function probeEpisodeAudio(episode, duration) {
   if (!episode || !episode.audioUrl || episode.isYouTube) {
@@ -1174,6 +1203,7 @@ async function probeEpisodeAudio(episode, duration) {
     activeProbeAbortController.abort();
   }
   activeProbeAbortController = new AbortController();
+  window.activeProbeAbortController = activeProbeAbortController;
   const { signal } = activeProbeAbortController;
 
   state.episodeTimeline.isProbing = true;
@@ -1205,48 +1235,33 @@ async function probeEpisodeAudio(episode, duration) {
     // Detect if target audio URL supports direct CORS requests (so we can bypass /api/audio-proxy completely)
     let probeBaseUrl = episode.audioUrl;
     let useDirectProbe = false;
-    try {
-      const directTest = await fetch(episode.audioUrl, {
-        method: 'HEAD',
-        signal
-      });
-      if (directTest.ok) {
-        useDirectProbe = true;
-        const cl = directTest.headers.get('content-length');
-        if (cl && parseInt(cl, 10) > 100000) {
-          totalBytes = parseInt(cl, 10);
-        }
-      }
-    } catch (_) {
-      useDirectProbe = false;
-    }
+    let audioHost = '';
+    try { audioHost = new URL(episode.audioUrl).hostname; } catch (_) {}
+    const isAudioNoCors = (typeof KNOWN_NO_CORS_HOSTS !== 'undefined' && KNOWN_NO_CORS_HOSTS.has(audioHost)) ||
+                          audioHost.includes('simplecastaudio.com') || audioHost.includes('simplecast.com');
 
-    if (!useDirectProbe) {
-      probeBaseUrl = `/api/audio-proxy?url=${encodeURIComponent(episode.audioUrl)}`;
+    if (!isAudioNoCors) {
       try {
-        const headRes = await fetch(probeBaseUrl, {
+        const directTest = await fetch(episode.audioUrl, {
           method: 'HEAD',
           signal
         });
-        const cl = headRes.headers.get('content-length');
-        if (cl && parseInt(cl, 10) > 100000) {
-          totalBytes = parseInt(cl, 10);
+        if (directTest.ok) {
+          useDirectProbe = true;
+          const cl = directTest.headers.get('content-length');
+          if (cl && parseInt(cl, 10) > 100000) {
+            totalBytes = parseInt(cl, 10);
+          }
         }
-      } catch (_) {}
+      } catch (_) {
+        useDirectProbe = false;
+      }
     }
 
     const totalBars = state.episodeTimeline.bars.length;
     const sliceResults = new Array(TOTAL_SLICES).fill(null);
 
-    for (let p = 0; p < NUM_PROBES; p++) {
-      // Halt immediately if aborted, hidden, or tab goes inactive
-      if (signal.aborted || document.hidden || !state.isTabActive) break;
-
-      const probePos = p / NUM_PROBES;
-      const startByte = Math.max(0, Math.floor(probePos * (totalBytes - CHUNK_SIZE - 2048)));
-      const endByte = startByte + CHUNK_SIZE - 1;
-
-      // Update scan progress bar (inside waveform area — visible in large player)
+    const updateProgressUI = (p) => {
       const pct = Math.round((p / NUM_PROBES) * 100);
       const scanBar  = document.getElementById('scan-progress-bar');
       const scanFill = document.getElementById('scan-progress-fill');
@@ -1258,74 +1273,168 @@ async function probeEpisodeAudio(episode, duration) {
       if (elements.probeStatusPill) {
         elements.probeStatusPill.textContent = `Analyzing spectrum ${pct}%`;
       }
+    };
 
-      try {
-        const chunkRes = await fetch(probeBaseUrl, {
-          headers: {
-            Range: `bytes=${startByte}-${endByte}`
-          },
-          signal
-        });
+    const processDecodedAudioBuffer = (audioBuffer, p) => {
+      if (!audioBuffer || audioBuffer.length === 0) return;
+      const channel = audioBuffer.getChannelData(0);
+      const sr = audioBuffer.sampleRate;
+      const halfLen = Math.floor(channel.length / SUB_SLICES);
 
-        if (chunkRes.ok || chunkRes.status === 206) {
-          const buf = await chunkRes.arrayBuffer();
-          let audioBuffer = null;
+      for (let s = 0; s < SUB_SLICES; s++) {
+        const sliceIdx = p * SUB_SLICES + s;
+        const subSamples = halfLen >= 8192
+          ? channel.subarray(s * halfLen, (s + 1) * halfLen)
+          : channel;
 
-          try {
-            audioBuffer = await offlineCtx.decodeAudioData(buf.slice(0));
-          } catch (_) {}
+        const analysis = analyzePcmSnippet(subSamples, sr);
+        sliceResults[sliceIdx] = analysis;
 
-          if (audioBuffer && audioBuffer.length > 0) {
-            const channel = audioBuffer.getChannelData(0);
-            const sr = audioBuffer.sampleRate;
-            const halfLen = Math.floor(channel.length / SUB_SLICES);
+        const startBarIdx = Math.floor((sliceIdx / TOTAL_SLICES) * totalBars);
+        const endBarIdx = Math.min(totalBars, Math.floor(((sliceIdx + 1) / TOTAL_SLICES) * totalBars));
 
-            for (let s = 0; s < SUB_SLICES; s++) {
-              const sliceIdx = p * SUB_SLICES + s;
-              const subSamples = halfLen >= 8192
-                ? channel.subarray(s * halfLen, (s + 1) * halfLen)
-                : channel;
-
-              const analysis = analyzePcmSnippet(subSamples, sr);
-              sliceResults[sliceIdx] = analysis;
-
-              const startBarIdx = Math.floor((sliceIdx / TOTAL_SLICES) * totalBars);
-              const endBarIdx = Math.min(totalBars, Math.floor(((sliceIdx + 1) / TOTAL_SLICES) * totalBars));
-
-              for (let b = startBarIdx; b < endBarIdx; b++) {
-                if (state.episodeTimeline.bars[b]) {
-                  state.episodeTimeline.bars[b].type = analysis.type;
-                  state.episodeTimeline.bars[b].height = Math.max(0.2, analysis.energy);
-                }
-              }
-
-              if (s === 0) {
-                const startSec = Math.round((sliceIdx / TOTAL_SLICES) * duration);
-                const meta = analysis._meta || {};
-                console.log(`[AudioClassifier] Probe ${p + 1}/${NUM_PROBES} (~${Math.floor(startSec / 60)}:${String(startSec % 60).padStart(2, '0')}) -> ${analysis.type.toUpperCase()}`, {
-                  type: analysis.type,
-                  override: meta.override || 'none',
-                  musicScore: meta.musicScore,
-                  speechScore: meta.speechScore,
-                  tonalCrest: meta.tonalCrest ? Number(meta.tonalCrest.toFixed(2)) : 0,
-                  harmonicPeaks: meta.harmonicPeakCount || 0,
-                  consonantBurst: meta.consonantBurstiness ? Number(meta.consonantBurstiness.toFixed(2)) : 0,
-                  pitchStability: meta.pitchStability ? Number(meta.pitchStability.toFixed(2)) : 0,
-                  subBassRatio: meta.subBassRatio ? Number(meta.subBassRatio.toFixed(3)) : 0,
-                  syllabicMod: meta.syllabicMod ? Number(meta.syllabicMod.toFixed(3)) : 0,
-                  beatRegularity: meta.beatRegularity ? Number(meta.beatRegularity.toFixed(3)) : 0,
-                  pauseRatio: meta.pauseRatio ? Number(meta.pauseRatio.toFixed(3)) : 0
-                });
-              }
-            }
-            renderWaveformChart();
+        for (let b = startBarIdx; b < endBarIdx; b++) {
+          if (state.episodeTimeline.bars[b]) {
+            state.episodeTimeline.bars[b].type = analysis.type;
+            state.episodeTimeline.bars[b].height = Math.max(0.2, analysis.energy);
           }
         }
-      } catch (err) {
-        if (signal.aborted) return;
-      }
 
-      await new Promise(r => setTimeout(r, 35));
+        if (s === 0) {
+          const startSec = Math.round((sliceIdx / TOTAL_SLICES) * duration);
+          const meta = analysis._meta || {};
+          console.log(`[AudioClassifier] Probe ${p + 1}/${NUM_PROBES} (~${Math.floor(startSec / 60)}:${String(startSec % 60).padStart(2, '0')}) -> ${analysis.type.toUpperCase()}`, {
+            type: analysis.type,
+            override: meta.override || 'none',
+            musicScore: meta.musicScore,
+            speechScore: meta.speechScore,
+            tonalCrest: meta.tonalCrest ? Number(meta.tonalCrest.toFixed(2)) : 0,
+            harmonicPeaks: meta.harmonicPeakCount || 0,
+            consonantBurst: meta.consonantBurstiness ? Number(meta.consonantBurstiness.toFixed(2)) : 0,
+            pitchStability: meta.pitchStability ? Number(meta.pitchStability.toFixed(2)) : 0,
+            subBassRatio: meta.subBassRatio ? Number(meta.subBassRatio.toFixed(3)) : 0,
+            syllabicMod: meta.syllabicMod ? Number(meta.syllabicMod.toFixed(3)) : 0,
+            beatRegularity: meta.beatRegularity ? Number(meta.beatRegularity.toFixed(3)) : 0,
+            pauseRatio: meta.pauseRatio ? Number(meta.pauseRatio.toFixed(3)) : 0
+          });
+        }
+      }
+      renderWaveformChart();
+    };
+
+    if (useDirectProbe) {
+      // Direct CORS mode: probes are fetched directly in browser (0 Cloudflare Worker requests)
+      for (let p = 0; p < NUM_PROBES; p++) {
+        if (signal.aborted || document.hidden || !state.isTabActive) break;
+
+        const probePos = p / NUM_PROBES;
+        const startByte = Math.max(0, Math.floor(probePos * (totalBytes - CHUNK_SIZE - 2048)));
+        const endByte = startByte + CHUNK_SIZE - 1;
+
+        updateProgressUI(p);
+
+        try {
+          const chunkRes = await fetch(episode.audioUrl, {
+            headers: { Range: `bytes=${startByte}-${endByte}` },
+            signal
+          });
+          if (chunkRes.ok || chunkRes.status === 206) {
+            const buf = await chunkRes.arrayBuffer();
+            let audioBuffer = null;
+            try { audioBuffer = await offlineCtx.decodeAudioData(buf.slice(0)); } catch (_) {}
+            if (audioBuffer) processDecodedAudioBuffer(audioBuffer, p);
+          }
+        } catch (err) {
+          if (signal.aborted) return;
+        }
+
+        updateProgressUI(p + 1);
+        await new Promise(r => setTimeout(r, 35));
+      }
+    } else {
+      // Cloudflare Batched Multi-Range Probe Mode:
+      // Collapses 48 individual Range probes into 3 batched requests (16 probes/batch)
+      const BATCH_SIZE = 16;
+      for (let pStart = 0; pStart < NUM_PROBES; pStart += BATCH_SIZE) {
+        if (signal.aborted || document.hidden || !state.isTabActive) break;
+
+        const currentBatchCount = Math.min(BATCH_SIZE, NUM_PROBES - pStart);
+        const ranges = [];
+        for (let i = 0; i < currentBatchCount; i++) {
+          const p = pStart + i;
+          const probePos = p / NUM_PROBES;
+          const startByte = Math.max(0, Math.floor(probePos * (totalBytes - CHUNK_SIZE - 2048)));
+          const endByte = startByte + CHUNK_SIZE - 1;
+          ranges.push(`${startByte}-${endByte}`);
+        }
+
+        updateProgressUI(pStart);
+
+        let batchHandled = false;
+        try {
+          const batchRes = await fetch(`/api/audio-proxy?url=${encodeURIComponent(episode.audioUrl)}&ranges=${ranges.join(',')}`, { signal });
+          if (batchRes.ok) {
+            const tb = batchRes.headers.get('x-total-bytes');
+            if (tb && parseInt(tb, 10) > 100000) {
+              totalBytes = parseInt(tb, 10);
+            }
+            const lengthsHeader = batchRes.headers.get('x-batch-lengths') || '';
+            const lengths = lengthsHeader.split(',').map(n => parseInt(n, 10)).filter(n => !isNaN(n));
+            const packedBuf = await batchRes.arrayBuffer();
+
+            let offset = 0;
+            for (let i = 0; i < lengths.length; i++) {
+              if (signal.aborted || document.hidden || !state.isTabActive) break;
+              const len = lengths[i];
+              const p = pStart + i;
+              if (len > 0) {
+                const sliceBuf = packedBuf.slice(offset, offset + len);
+                offset += len;
+                let audioBuffer = null;
+                try {
+                  audioBuffer = await offlineCtx.decodeAudioData(sliceBuf);
+                } catch (_) {}
+                if (audioBuffer) {
+                  processDecodedAudioBuffer(audioBuffer, p);
+                }
+              }
+              updateProgressUI(p + 1);
+            }
+            batchHandled = true;
+          }
+        } catch (err) {
+          if (signal.aborted) return;
+        }
+
+        // Fallback to single requests if batch endpoint fails
+        if (!batchHandled) {
+          for (let i = 0; i < currentBatchCount; i++) {
+            if (signal.aborted || document.hidden || !state.isTabActive) break;
+            const p = pStart + i;
+            const probePos = p / NUM_PROBES;
+            const startByte = Math.max(0, Math.floor(probePos * (totalBytes - CHUNK_SIZE - 2048)));
+            const endByte = startByte + CHUNK_SIZE - 1;
+            updateProgressUI(p);
+
+            try {
+              const chunkRes = await fetch(`/api/audio-proxy?url=${encodeURIComponent(episode.audioUrl)}`, {
+                headers: { Range: `bytes=${startByte}-${endByte}` },
+                signal
+              });
+              if (chunkRes.ok || chunkRes.status === 206) {
+                const buf = await chunkRes.arrayBuffer();
+                let audioBuffer = null;
+                try { audioBuffer = await offlineCtx.decodeAudioData(buf.slice(0)); } catch (_) {}
+                if (audioBuffer) processDecodedAudioBuffer(audioBuffer, p);
+              }
+            } catch (_) {
+              if (signal.aborted) return;
+            }
+            updateProgressUI(p + 1);
+            await new Promise(r => setTimeout(r, 35));
+          }
+        }
+      }
     }
 
     // ── Post-Probe Temporal Smoothing & Chapter Boundary Stabilization ──

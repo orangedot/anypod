@@ -568,6 +568,36 @@ async function loadPlaybackPositionsFromD1(options = {}) {
 let _lastCloudSyncTime = 0;
 let _lastSyncedGuid = null;
 let _lastSyncedPos = -1;
+let _lastSyncedCompleted = null;
+const _pendingPositionUpdates = new Map();
+let _positionBatchTimer = null;
+
+async function flushPendingPositionUpdates() {
+  if (_positionBatchTimer) {
+    clearTimeout(_positionBatchTimer);
+    _positionBatchTimer = null;
+  }
+  if (_pendingPositionUpdates.size === 0 || !state.sessionToken) return;
+
+  const updates = Array.from(_pendingPositionUpdates.values());
+  _pendingPositionUpdates.clear();
+  _lastCloudSyncTime = Date.now();
+
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
+    const payload = updates.length === 1
+      ? updates[0]
+      : { updates };
+    await fetch('/api/sync/position', {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      keepalive: true,
+      body: JSON.stringify(payload)
+    });
+  } catch (_) {}
+}
 
 async function savePlaybackPositionToD1(episodeGuid, positionSeconds, completed = false, immediate = false) {
   if (!episodeGuid) return;
@@ -592,17 +622,17 @@ async function savePlaybackPositionToD1(episodeGuid, positionSeconds, completed 
 
   if (!state.sessionToken) return;
 
-  // 3. Throttle remote HTTP sync:
-  // - If completed: always sync immediately
-  // - If immediate (pause, pagehide, tab hidden): sync if progress advanced >= 3s or different episode
-  // - Periodic: only sync once every 60s
+  // 3. Throttle & coalesce remote HTTP sync:
+  // - Skip redundant network writes if same episode, completion unchanged, and position changed < 5s
+  // - Coalesce rapid updates (e.g. marking multiple episodes played or scrubbing) into a single batched POST
   const now = Date.now();
   const posDiff = Math.abs(positionSeconds - _lastSyncedPos);
   const isDifferentEpisode = _lastSyncedGuid !== episodeGuid;
+  const isCompletionChanged = _lastSyncedCompleted !== Boolean(completed);
 
-  if (!completed) {
+  if (!completed && !isCompletionChanged) {
     if (immediate) {
-      if (!isDifferentEpisode && posDiff < 3) {
+      if (!isDifferentEpisode && posDiff < 5) {
         return; // No meaningful progress since last sync
       }
     } else if (now - _lastCloudSyncTime < 60000) {
@@ -610,21 +640,21 @@ async function savePlaybackPositionToD1(episodeGuid, positionSeconds, completed 
     }
   }
 
-  _lastCloudSyncTime = now;
   _lastSyncedGuid = episodeGuid;
   _lastSyncedPos = completed ? -1 : positionSeconds;
+  _lastSyncedCompleted = Boolean(completed);
 
-  try {
-    const headers = { 'Content-Type': 'application/json' };
-    if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
-    await fetch('/api/sync/position', {
-      method: 'POST',
-      headers,
-      credentials: 'include',
-      keepalive: true,
-      body: JSON.stringify({ episodeGuid, positionSeconds, completed })
-    });
-  } catch (_) {}
+  _pendingPositionUpdates.set(episodeGuid, { episodeGuid, positionSeconds, completed: Boolean(completed) });
+
+  // Flush immediately if tab is hidden / unloading; otherwise coalesce within a 1.5s window
+  if (typeof document !== 'undefined' && document.hidden) {
+    await flushPendingPositionUpdates();
+  } else {
+    if (_positionBatchTimer) clearTimeout(_positionBatchTimer);
+    _positionBatchTimer = setTimeout(() => {
+      flushPendingPositionUpdates();
+    }, 1500);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────

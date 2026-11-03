@@ -378,47 +378,241 @@ async function refreshAllFeeds(options = {}) {
     });
   }
 
-  const queue = [...state.feeds].sort((a, b) => {
+  const sortedFeeds = [...state.feeds].sort((a, b) => {
     const scoreA = feedPriority.get(a) || 0;
     const scoreB = feedPriority.get(b) || 0;
     return scoreB - scoreA;
   });
-  const workers = Array(Math.min(CONCURRENCY, queue.length)).fill(0).map(async () => {
-    while (queue.length > 0) {
-      const url = queue.shift();
-      if (url) {
-        const feedMeta = state.feedMetadata[url];
-        activeFeedTitle = feedMeta?.title || '';
-        updateStatusText();
 
-        const result = await fetchSingleFeed(url, incomingEpisodes, updatedMetadata, { force: forceRefresh });
-        completedFeeds++;
-
-        if (result && Array.isArray(result.episodes) && result.episodes.length > 0) {
-          let foundNewForThisFeed = 0;
-          const newBatch = [];
-          result.episodes.forEach(ep => {
-            if (ep && ep.guid && !allKnownGuids.has(ep.guid)) {
-              allKnownGuids.add(ep.guid);
-              foundNewForThisFeed++;
-              newBatch.push(ep);
-            }
-          });
-
-          if (foundNewForThisFeed > 0) {
-            newEpisodesCount += foundNewForThisFeed;
-            state.allEpisodes = [...newBatch, ...state.allEpisodes];
-            state.feedMetadata = { ...state.feedMetadata, ...updatedMetadata };
-            scheduleProgressiveRender();
-          }
+  const applyFetchedFeedResult = (result) => {
+    if (result && Array.isArray(result.episodes) && result.episodes.length > 0) {
+      let foundNewForThisFeed = 0;
+      const newBatch = [];
+      result.episodes.forEach(ep => {
+        if (ep && ep.guid && !allKnownGuids.has(ep.guid)) {
+          allKnownGuids.add(ep.guid);
+          foundNewForThisFeed++;
+          newBatch.push(ep);
         }
+      });
 
-        updateStatusText();
+      if (foundNewForThisFeed > 0) {
+        newEpisodesCount += foundNewForThisFeed;
+        state.allEpisodes = [...newBatch, ...state.allEpisodes];
+        state.feedMetadata = { ...state.feedMetadata, ...updatedMetadata };
+        scheduleProgressiveRender();
       }
     }
-  });
+  };
 
-  await Promise.all(workers);
+  // Partition feeds into direct-CORS candidates (0 Worker requests) vs. Cloudflare proxy candidates
+  const isHttpsPage = typeof window !== 'undefined' && window.location.protocol === 'https:';
+  const cachedNoCors = getCachedNoCorsHosts();
+  const directQueue = [];
+  const proxyCandidates = [];
+
+  for (const rawUrl of sortedFeeds) {
+    const url = sanitizeFeedUrl(rawUrl);
+    if (!url) {
+      completedFeeds++;
+      continue;
+    }
+    const existingMeta = state.feedMetadata[url] || state.feedMetadata[rawUrl] || {};
+    const isYouTubeUrl = url.includes('youtube.com') || url.includes('youtu.be');
+    const isHttpFeedOnHttps = isHttpsPage && url.startsWith('http://');
+    let feedHostname = '';
+    try { feedHostname = new URL(url).hostname; } catch (_) {}
+    const isKnownNoCors = KNOWN_NO_CORS_HOSTS.has(feedHostname) || cachedNoCors.has(feedHostname);
+
+    if (!isYouTubeUrl && !isHttpFeedOnHttps && existingMeta.corsBlocked !== true && !isKnownNoCors) {
+      directQueue.push(rawUrl);
+    } else {
+      proxyCandidates.push(rawUrl);
+    }
+  }
+
+  // Phase 1: Run direct-CORS candidates first (0 Cloudflare Worker requests)
+  if (directQueue.length > 0) {
+    const directWorkers = Array(Math.min(CONCURRENCY, directQueue.length)).fill(0).map(async () => {
+      while (directQueue.length > 0) {
+        const rawUrl = directQueue.shift();
+        if (!rawUrl) continue;
+        const url = sanitizeFeedUrl(rawUrl);
+        const existingMeta = state.feedMetadata[url] || state.feedMetadata[rawUrl] || {};
+        activeFeedTitle = existingMeta.title || '';
+        updateStatusText();
+
+        let feedHostname = '';
+        try { feedHostname = new URL(url).hostname; } catch (_) {}
+
+        let directSuccess = false;
+        try {
+          const directRes = await fetch(url, {
+            method: 'GET',
+            headers: { 'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*' },
+            signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(7000) : undefined
+          });
+          if (directRes.ok) {
+            const xmlText = await directRes.text();
+            const parsedClient = parsePodcastXmlClient(xmlText, url);
+            if (parsedClient && Array.isArray(parsedClient.episodes) && parsedClient.episodes.length > 0) {
+              directSuccess = true;
+              updatedMetadata[url] = {
+                title: parsedClient.title,
+                artwork: parsedClient.artwork,
+                episodesCount: parsedClient.episodesCount,
+                description: parsedClient.description,
+                isYouTubePlaylist: false,
+                playlistId: null,
+                nextToken: null,
+                corsBlocked: false,
+                lastFetchedAt: Date.now()
+              };
+              if (rawUrl !== url) updatedMetadata[rawUrl] = updatedMetadata[url];
+              incomingEpisodes.push(...parsedClient.episodes);
+              completedFeeds++;
+              applyFetchedFeedResult(parsedClient);
+              updateStatusText();
+            }
+          }
+        } catch (_) {
+          existingMeta.corsBlocked = true;
+          if (feedHostname) rememberNoCorsHost(feedHostname);
+        }
+
+        if (!directSuccess) {
+          proxyCandidates.push(rawUrl);
+        }
+      }
+    });
+    await Promise.all(directWorkers);
+  }
+
+  // Phase 2: Filter proxy candidates by 30-min local TTL, then coalesce remaining into batched POST /api/feed
+  const batchProxyUrls = [];
+  const rawUrlBySanitized = new Map();
+
+  for (const rawUrl of proxyCandidates) {
+    const url = sanitizeFeedUrl(rawUrl);
+    if (!url) {
+      completedFeeds++;
+      continue;
+    }
+    rawUrlBySanitized.set(url, rawUrl);
+    const existingMeta = state.feedMetadata[url] || state.feedMetadata[rawUrl] || {};
+    const currentFeedEps = state.allEpisodes ? state.allEpisodes.filter(e => e.feedUrl === url) : [];
+    const lastFetched = existingMeta.lastFetchedAt || 0;
+
+    if (!forceRefresh && currentFeedEps.length > 0 && lastFetched > 0 && (Date.now() - lastFetched < CLOUDFLARE_FEED_TTL_MS)) {
+      updatedMetadata[url] = { ...existingMeta };
+      if (rawUrl !== url) updatedMetadata[rawUrl] = updatedMetadata[url];
+      incomingEpisodes.push(...currentFeedEps);
+      completedFeeds++;
+      updateStatusText();
+    } else {
+      batchProxyUrls.push(url);
+    }
+  }
+
+  if (batchProxyUrls.length === 1) {
+    const singleUrl = batchProxyUrls[0];
+    const rawUrl = rawUrlBySanitized.get(singleUrl) || singleUrl;
+    activeFeedTitle = (state.feedMetadata[singleUrl] || {}).title || '';
+    updateStatusText();
+    try {
+      const res = await fetchSingleFeed(rawUrl, incomingEpisodes, updatedMetadata, { force: forceRefresh });
+      applyFetchedFeedResult(res);
+    } catch (fetchErr) {
+      console.warn(`[Feeds] Failed to fetch feed ${singleUrl}:`, fetchErr.message);
+    }
+    completedFeeds++;
+    updateStatusText();
+  } else if (batchProxyUrls.length > 1) {
+    const BATCH_CHUNK_SIZE = 10;
+    const headers = { 'Content-Type': 'application/json' };
+    if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
+
+    for (let i = 0; i < batchProxyUrls.length; i += BATCH_CHUNK_SIZE) {
+      const chunk = batchProxyUrls.slice(i, i + BATCH_CHUNK_SIZE);
+      activeFeedTitle = `Batch (${chunk.length} feeds)`;
+      updateStatusText();
+
+      let batchHandled = false;
+      try {
+        const res = await fetch('/api/feed', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ urls: chunk })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.feeds)) {
+            batchHandled = true;
+            for (const feedData of data.feeds) {
+              const u = feedData.feedUrl;
+              const rawUrl = rawUrlBySanitized.get(u) || u;
+              const existingMeta = state.feedMetadata[u] || state.feedMetadata[rawUrl] || {};
+              completedFeeds++;
+
+              if (!u || feedData.error) {
+                if (u) {
+                  updatedMetadata[u] = {
+                    title: existingMeta.title || feedData.title || 'Unavailable Feed',
+                    artwork: existingMeta.artwork || '',
+                    episodesCount: existingMeta.episodesCount || 0,
+                    error: feedData.error || 'Error'
+                  };
+                  if (rawUrl !== u) updatedMetadata[rawUrl] = updatedMetadata[u];
+                }
+                continue;
+              }
+
+              const currentFeedEps = state.allEpisodes ? state.allEpisodes.filter(e => e.feedUrl === u) : [];
+              const expectedTotal = feedData.episodesCount || 0;
+              const isAlreadyFullySynced = expectedTotal > 0 && currentFeedEps.length >= expectedTotal;
+
+              if (feedData.isYouTubePlaylist && feedData.playlistId && !isAlreadyFullySynced) {
+                startYouTubeBackgroundPaging(feedData.playlistId, u, feedData.nextToken || null);
+              }
+
+              updatedMetadata[u] = {
+                title: feedData.title,
+                artwork: feedData.artwork,
+                episodesCount: feedData.episodesCount,
+                description: feedData.description,
+                isYouTubePlaylist: feedData.isYouTubePlaylist || false,
+                playlistId: feedData.playlistId || null,
+                nextToken: feedData.nextToken || null,
+                corsBlocked: true,
+                lastFetchedAt: Date.now()
+              };
+              if (rawUrl !== u) updatedMetadata[rawUrl] = updatedMetadata[u];
+
+              if (Array.isArray(feedData.episodes)) {
+                incomingEpisodes.push(...feedData.episodes);
+              }
+              applyFetchedFeedResult(feedData);
+            }
+            updateStatusText();
+          }
+        }
+      } catch (batchErr) {
+        console.warn('[Feeds] Batch feed POST failed, falling back to individual:', batchErr.message);
+      }
+
+      if (!batchHandled) {
+        for (const u of chunk) {
+          const rawUrl = rawUrlBySanitized.get(u) || u;
+          try {
+            const res = await fetchSingleFeed(rawUrl, incomingEpisodes, updatedMetadata, { force: forceRefresh });
+            applyFetchedFeedResult(res);
+          } catch (_) {}
+          completedFeeds++;
+          updateStatusText();
+        }
+      }
+    }
+  }
 
   // Cancel any pending throttled render
   if (renderTimer) {
@@ -516,6 +710,10 @@ const KNOWN_NO_CORS_HOSTS = new Set([
   'art19.com',
   'feeds.simplecast.com',
   'simplecast.com',
+  'simplecastaudio.com',
+  'zeitonline.simplecastaudio.com',
+  'booksreader.space',
+  'www.booksreader.space',
   'api.quantamagazine.org',
   'www.planetary.org',
   'planetary.org',
@@ -604,6 +802,19 @@ async function fetchSingleFeed(rawUrl, incomingEpisodes, updatedMetadata, option
       if (!isYouTubeUrl) {
         try {
           const rawRes = await fetch(`/api/feed?raw=1&url=${encodeURIComponent(url)}`, { headers });
+          if (rawRes.status === 404 || rawRes.status === 410) {
+            const errStatus = `HTTP ${rawRes.status}`;
+            updatedMetadata[url] = {
+              title: existingMeta.title || 'Unavailable Feed',
+              artwork: existingMeta.artwork || '',
+              episodesCount: existingMeta.episodesCount || 0,
+              error: errStatus
+            };
+            if (rawUrl && rawUrl !== url) {
+              updatedMetadata[rawUrl] = updatedMetadata[url];
+            }
+            return null;
+          }
           if (rawRes.ok) {
             const xmlText = await rawRes.text();
             const parsedClient = parsePodcastXmlClient(xmlText, url);
@@ -628,7 +839,19 @@ async function fetchSingleFeed(rawUrl, incomingEpisodes, updatedMetadata, option
         if (response.status === 401) {
           throw new Error('Unauthorized');
         }
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (!response.ok) {
+          const errStatus = `HTTP ${response.status}`;
+          updatedMetadata[url] = {
+            title: existingMeta.title || 'Unavailable Feed',
+            artwork: existingMeta.artwork || '',
+            episodesCount: existingMeta.episodesCount || 0,
+            error: errStatus
+          };
+          if (rawUrl && rawUrl !== url) {
+            updatedMetadata[rawUrl] = updatedMetadata[url];
+          }
+          return null;
+        }
         feedData = await response.json();
       }
     }
@@ -1695,6 +1918,9 @@ function buildUnifiedSearchResultCard(item) {
   return card;
 }
 
+const _unifiedSearchCache = new Map();
+const UNIFIED_SEARCH_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
 async function executeUnifiedSearch(query, source = 'all', targetContainer = null) {
   const q = (query || '').trim();
   const container = targetContainer || document.getElementById('empty-quick-results');
@@ -1705,72 +1931,96 @@ async function executeUnifiedSearch(query, source = 'all', targetContainer = nul
     return;
   }
 
-  container.innerHTML = `
-    <div style="padding: 0.75rem 0.25rem; width: 100%;">
-      <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.85rem;">
-        <svg class="spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"></path></svg>
-        <span>searching ${escapeHtml(source === 'all' ? 'podcasts, youtube & music' : source)} for "${escapeHtml(q)}"...</span>
+  const countryKey = (state.directoryCountry && state.directoryCountry !== 'all') ? state.directoryCountry : 'all';
+  const cacheKey = `${q.toLowerCase()}::${source}::${countryKey}`;
+  const cachedEntry = _unifiedSearchCache.get(cacheKey);
+
+  if (!cachedEntry || (Date.now() - cachedEntry.ts >= UNIFIED_SEARCH_CACHE_TTL_MS)) {
+    container.innerHTML = `
+      <div style="padding: 0.75rem 0.25rem; width: 100%;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.85rem;">
+          <svg class="spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"></path></svg>
+          <span>searching ${escapeHtml(source === 'all' ? 'podcasts, youtube & music' : source)} for "${escapeHtml(q)}"...</span>
+        </div>
+        <div class="discover-narrative-grid">
+          <div class="skeleton-card"><div class="skeleton-art"></div><div class="skeleton-lines"><div class="skeleton-line" style="width: 40%;"></div><div class="skeleton-line" style="width: 75%;"></div></div></div>
+          <div class="skeleton-card"><div class="skeleton-art"></div><div class="skeleton-lines"><div class="skeleton-line" style="width: 35%;"></div><div class="skeleton-line" style="width: 60%;"></div></div></div>
+        </div>
       </div>
-      <div class="discover-narrative-grid">
-        <div class="skeleton-card"><div class="skeleton-art"></div><div class="skeleton-lines"><div class="skeleton-line" style="width: 40%;"></div><div class="skeleton-line" style="width: 75%;"></div></div></div>
-        <div class="skeleton-card"><div class="skeleton-art"></div><div class="skeleton-lines"><div class="skeleton-line" style="width: 35%;"></div><div class="skeleton-line" style="width: 60%;"></div></div></div>
-      </div>
-    </div>
-  `;
+    `;
+  }
 
   try {
-    const fetchPromises = [];
+    let podcastResults = [];
+    let ytResults = [];
 
-    // 1. Podcast Directory search (for 'all' or 'podcasts')
-    if (source === 'all' || source === 'podcasts') {
-      const countryParam = (state.directoryCountry && state.directoryCountry !== 'all') ? `&country=${encodeURIComponent(state.directoryCountry)}` : '';
-      const podcastLimit = source === 'all' ? 12 : 30;
+    if (cachedEntry && (Date.now() - cachedEntry.ts < UNIFIED_SEARCH_CACHE_TTL_MS)) {
+      podcastResults = cachedEntry.podcastResults;
+      ytResults = cachedEntry.ytResults;
+    } else {
+      const fetchPromises = [];
 
-      const fetchPodcasts = async () => {
-        let pData = null;
-        try {
-          const directRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=podcast${countryParam}&limit=${podcastLimit}`);
-          if (directRes.ok) pData = await directRes.json();
-        } catch (_) {}
+      // 1. Podcast Directory search (for 'all' or 'podcasts')
+      if (source === 'all' || source === 'podcasts') {
+        const countryParam = (state.directoryCountry && state.directoryCountry !== 'all') ? `&country=${encodeURIComponent(state.directoryCountry)}` : '';
+        const podcastLimit = source === 'all' ? 12 : 30;
 
-        if (!pData || !pData.results) {
+        const fetchPodcasts = async () => {
+          let pData = null;
           try {
-            const proxyRes = await fetch(`/api/search-directory?term=${encodeURIComponent(q)}${countryParam}&limit=${podcastLimit}`);
-            if (proxyRes.ok) pData = await proxyRes.json();
+            const directRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=podcast${countryParam}&limit=${podcastLimit}`);
+            if (directRes.ok) pData = await directRes.json();
           } catch (_) {}
-        }
-        return (pData?.results || []).filter(item => Boolean(item.feedUrl)).map(item => ({
-          ...item,
-          type: 'podcast',
-          isPodcast: true
-        }));
-      };
-      fetchPromises.push(fetchPodcasts());
-    } else {
-      fetchPromises.push(Promise.resolve([]));
-    }
 
-    // 2. YouTube / YouTube Music search (for 'all', 'youtube', or 'music')
-    if (source === 'all' || source === 'youtube' || source === 'music') {
-      const ytType = source === 'music' ? 'music' : (source === 'youtube' ? 'video' : 'all');
-      const ytLimit = source === 'all' ? 14 : 30;
-
-      const fetchYt = async () => {
-        try {
-          const res = await fetch(`/api/search-youtube?q=${encodeURIComponent(q)}&type=${ytType}&limit=${ytLimit}`);
-          if (res.ok) {
-            const data = await res.json();
-            return data.results || [];
+          if (!pData || !pData.results) {
+            try {
+              const proxyRes = await fetch(`/api/search-directory?term=${encodeURIComponent(q)}${countryParam}&limit=${podcastLimit}`);
+              if (proxyRes.ok) pData = await proxyRes.json();
+            } catch (_) {}
           }
-        } catch (_) {}
-        return [];
-      };
-      fetchPromises.push(fetchYt());
-    } else {
-      fetchPromises.push(Promise.resolve([]));
-    }
+          return (pData?.results || []).filter(item => Boolean(item.feedUrl)).map(item => ({
+            ...item,
+            type: 'podcast',
+            isPodcast: true
+          }));
+        };
+        fetchPromises.push(fetchPodcasts());
+      } else {
+        fetchPromises.push(Promise.resolve([]));
+      }
 
-    const [podcastResults, ytResults] = await Promise.all(fetchPromises);
+      // 2. YouTube / YouTube Music search (for 'all', 'youtube', or 'music')
+      if (source === 'all' || source === 'youtube' || source === 'music') {
+        const ytType = source === 'music' ? 'music' : (source === 'youtube' ? 'video' : 'all');
+        const ytLimit = source === 'all' ? 14 : 30;
+
+        const fetchYt = async () => {
+          try {
+            const res = await fetch(`/api/search-youtube?q=${encodeURIComponent(q)}&type=${ytType}&limit=${ytLimit}`);
+            if (res.ok) {
+              const data = await res.json();
+              return data.results || [];
+            }
+          } catch (_) {}
+          return [];
+        };
+        fetchPromises.push(fetchYt());
+      } else {
+        fetchPromises.push(Promise.resolve([]));
+      }
+
+      [podcastResults, ytResults] = await Promise.all(fetchPromises);
+
+      if (_unifiedSearchCache.size > 40) {
+        const oldestKey = _unifiedSearchCache.keys().next().value;
+        if (oldestKey) _unifiedSearchCache.delete(oldestKey);
+      }
+      _unifiedSearchCache.set(cacheKey, {
+        ts: Date.now(),
+        podcastResults,
+        ytResults
+      });
+    }
 
     container.innerHTML = '';
 
