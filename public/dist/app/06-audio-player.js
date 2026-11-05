@@ -31,6 +31,8 @@ function triggerAudioProxyFallback(reason) {
 
   _isProxyFallbackInProgress = true;
   state.playbackStatus = 'loading';
+  state._trackStartTime = Date.now();
+  state._audioSpuriousPauseRetries = 0;
   syncPlaybackButtons();
 
   const proxySrc = `/api/audio-proxy?url=${encodeURIComponent(state.currentEpisode.audioUrl)}`;
@@ -436,12 +438,16 @@ function setupAudioEngines() {
       }
 
       // Spurious background pause guard:
-      // On mobile Android/iOS, switching tracks in the background can cause transient pauses
-      // during initial buffer allocation and AudioTrack binding when the user did NOT intentionally pause!
-      const isStartupPhase = cur <= 3.0 || (state._trackStartTime && (Date.now() - state._trackStartTime < 12000));
-      if (document.hidden && !state._userIntentionalPause && isStartupPhase && (state._audioSpuriousPauseRetries || 0) < 8) {
+      // On mobile Android/iOS, switching tracks, recovering via proxy, or transient socket
+      // underflows in the background can cause transient pauses during buffer allocation
+      // and AudioTrack binding when the user did NOT intentionally pause!
+      const isStartupOrSwitch = cur <= 3.0 || (state._trackStartTime && (Date.now() - state._trackStartTime < 15000));
+      const hasBufferedAhead = (typeof getAudioBufferedAhead === 'function' ? getAudioBufferedAhead(cur) : 0) > 1.5;
+      const isSpuriousBgPause = document.hidden && !state._userIntentionalPause && (isStartupOrSwitch || hasBufferedAhead);
+
+      if (isSpuriousBgPause && (state._audioSpuriousPauseRetries || 0) < 8) {
         state._audioSpuriousPauseRetries = (state._audioSpuriousPauseRetries || 0) + 1;
-        logPlayerDiagnostic('audio.spurious_pause', `Ignored background/startup pause at cur=${cur.toFixed(2)}s (retry ${state._audioSpuriousPauseRetries}/8)`);
+        logPlayerDiagnostic('audio.spurious_pause', `Ignored background pause at cur=${cur.toFixed(2)}s (retry ${state._audioSpuriousPauseRetries}/8, buf=${hasBufferedAhead})`);
 
         // If we have retried 5 times on direct CDN and keep getting background pauses, fall back to audio proxy
         if (state._audioSpuriousPauseRetries >= 5 && typeof triggerAudioProxyFallback === 'function' && !elements.audio.src.includes('/api/audio-proxy') && state.currentEpisode?.audioUrl) {
