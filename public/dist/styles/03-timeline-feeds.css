@@ -390,16 +390,23 @@ mark.search-highlight {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35) !important;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
-[data-theme="light"] .ep-more-dropdown,
-:root:not([data-theme="dark"]) .ep-more-dropdown {
+[data-theme="light"] .ep-more-dropdown {
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.08) !important;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12) !important;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .ep-more-dropdown {
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12) !important;
+  }
 }
 
 .feed-header-actions .ep-more-dropdown {
@@ -431,9 +438,14 @@ mark.search-highlight {
   background: rgba(255, 255, 255, 0.08);
 }
 
-[data-theme="light"] .ep-more-item:hover,
-:root:not([data-theme="dark"]) .ep-more-item:hover {
+[data-theme="light"] .ep-more-item:hover {
   background: rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .ep-more-item:hover {
+    background: rgba(0, 0, 0, 0.05);
+  }
 }
 
 .ep-more-item-icon {
