@@ -65,6 +65,14 @@ function startServer() {
             return;
           }
 
+          if (pathname === '/api/feed' && req.method === 'GET' && parsedUrl.searchParams.get('raw') === '1') {
+            const u = parsedUrl.searchParams.get('url') || '';
+            res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+            res.writeHead(200);
+            res.end(`<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>Mock Feed ${u}</title><item><guid>ep_${Buffer.from(u).toString('base64').slice(0, 10)}</guid><title>Ep for ${u}</title><enclosure url="https://zeitonline.simplecastaudio.com/mock.mp3" type="audio/mpeg" length="12000"/></item></channel></rss>`);
+            return;
+          }
+
           if (pathname === '/api/feed' && req.method === 'POST') {
             try {
               const parsed = JSON.parse(reqBody || '{}');
@@ -190,12 +198,13 @@ async function run() {
   });
 
   await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+  await new Promise(r => setTimeout(r, 400));
+  interceptedApiRequests.length = 0; // Reset after initial boot
   console.log('✅ Page loaded successfully');
 
-  // Test 1: Verify Feed Sync Coalescing via evaluate
-  console.log('🧪 Testing Feed Sync Coalescing...');
+  // Test 1: Verify Zero-CPU On-Device XML Parsing via ?raw=1
+  console.log('🧪 Testing Zero-CPU On-Device XML Parsing...');
   const feedResult = await page.evaluate(async () => {
-    // Add 3 feeds that require proxy (known no-cors or YouTube)
     const testFeeds = [
       'https://feeds.npr.org/510289/podcast.xml',
       'https://www.deutschlandfunk.de/podcast-feature.xml',
@@ -205,8 +214,8 @@ async function run() {
     window.state.feedMetadata = {};
     window.state.allEpisodes = [];
 
-    // Trigger refreshAllFeeds
-    await window.refreshAllFeeds(true);
+    // Trigger refreshAllFeeds({ force: true })
+    await window.refreshAllFeeds({ force: true });
     return {
       allEpisodesCount: window.state.allEpisodes.length,
       feedsCount: window.state.feeds.length
@@ -214,16 +223,11 @@ async function run() {
   });
   console.log('   Feeds refreshed:', feedResult);
 
-  const batchFeedPosts = interceptedApiRequests.filter(r => r.url.endsWith('/api/feed') && r.method === 'POST');
-  console.log(`   Batched POST /api/feed count: ${batchFeedPosts.length}`);
-  if (batchFeedPosts.length >= 1) {
-    const parsedBody = JSON.parse(batchFeedPosts[0].postData || '{}');
-    console.log(`   Batch payload URLs count: ${parsedBody.urls ? parsedBody.urls.length : 0}`);
-    if (parsedBody.urls && parsedBody.urls.length >= 2) {
-      console.log('✅ Test 1 PASSED: Multiple proxy feeds coalesced into single batched POST /api/feed');
-    } else {
-      console.log('⚠️ Test 1 Note: URLs coalesced count:', parsedBody.urls?.length);
-    }
+  const rawFeedGets = interceptedApiRequests.filter(r => r.url.includes('/api/feed?raw=1') && r.method === 'GET');
+  const serverParsedPosts = interceptedApiRequests.filter(r => r.url.endsWith('/api/feed') && r.method === 'POST');
+  console.log(`   Zero-CPU GET /api/feed?raw=1 count: ${rawFeedGets.length}, Server POST /api/feed count: ${serverParsedPosts.length}`);
+  if (rawFeedGets.length === 3 && serverParsedPosts.length === 0) {
+    console.log('✅ Test 1 PASSED: 100% of RSS feeds fetched via 0ms-CPU ?raw=1 byte stream and parsed on-device');
   } else {
     console.log('ℹ️ Feed sync requests recorded:', interceptedApiRequests.map(r => `${r.method} ${r.url}`));
   }

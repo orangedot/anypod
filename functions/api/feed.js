@@ -11,7 +11,7 @@ export async function onRequest(context) {
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Session-Token',
     'Content-Type': 'application/json; charset=utf-8',
-    'Cache-Control': 'public, max-age=900, s-maxage=900, stale-while-revalidate=1800'
+    'Cache-Control': 'public, max-age=3600, s-maxage=7200, stale-while-revalidate=14400'
   };
 
   if (request.method === 'OPTIONS') {
@@ -1029,7 +1029,8 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
   }
 
   const items = [];
-  const MAX_PARSED_EPISODES = 550;
+  // Strictly cap server-side fallback parsing to 60 episodes so Cloudflare Free Tier never hits the 10ms CPU limit (exceededResources)
+  const MAX_PARSED_EPISODES = 60;
 
   if (isAtom) {
     const entryRegex = /<entry[^>]*>([\s\S]*?)<\/entry>/gi;

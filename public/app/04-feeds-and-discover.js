@@ -27,7 +27,7 @@ function renderSkeletonTimeline() {
   container.innerHTML = html;
 }
 
-const CLOUDFLARE_FEED_TTL_MS = 30 * 60 * 1000; // 30-min local TTL before re-hitting Cloudflare on auto-startup
+const CLOUDFLARE_FEED_TTL_MS = 2 * 60 * 60 * 1000; // 2-hour local TTL before re-hitting Cloudflare on auto-startup
 
 /**
  * Native browser DOMParser RSS/Atom XML parser (0ms Cloudflare Worker CPU).
@@ -98,7 +98,7 @@ function parsePodcastXmlClient(xmlText, originalUrl) {
     }
 
     const episodes = [];
-    const MAX_CLIENT_EPISODES = 550;
+    const MAX_CLIENT_EPISODES = 120;
 
     for (let i = 0; i < entries.length && episodes.length < MAX_CLIENT_EPISODES; i++) {
       const item = entries[i];
@@ -218,7 +218,7 @@ function parsePodcastXmlRegexClient(xml, originalUrl) {
   }
 
   const items = [];
-  const MAX_PARSED = 550;
+  const MAX_PARSED = 120;
   let pos = 0;
 
   while (items.length < MAX_PARSED) {
@@ -488,17 +488,15 @@ async function refreshAllFeeds(options = {}) {
     await Promise.all(directWorkers);
   }
 
-  // Phase 2: Filter proxy candidates by 30-min local TTL, then coalesce remaining into batched POST /api/feed
-  const batchProxyUrls = [];
-  const rawUrlBySanitized = new Map();
-
+  // Phase 2: Filter proxy candidates by 2-hour local TTL, then fetch via 0ms-CPU raw byte pass-through (?raw=1)
+  // so 100% of RSS XML parsing happens on-device (preventing Cloudflare Worker exceededResources CPU kills!)
+  const proxyQueue = [];
   for (const rawUrl of proxyCandidates) {
     const url = sanitizeFeedUrl(rawUrl);
     if (!url) {
       completedFeeds++;
       continue;
     }
-    rawUrlBySanitized.set(url, rawUrl);
     const existingMeta = state.feedMetadata[url] || state.feedMetadata[rawUrl] || {};
     const currentFeedEps = state.allEpisodes ? state.allEpisodes.filter(e => e.feedUrl === url) : [];
     const lastFetched = existingMeta.lastFetchedAt || 0;
@@ -510,108 +508,31 @@ async function refreshAllFeeds(options = {}) {
       completedFeeds++;
       updateStatusText();
     } else {
-      batchProxyUrls.push(url);
+      proxyQueue.push(rawUrl);
     }
   }
 
-  if (batchProxyUrls.length === 1) {
-    const singleUrl = batchProxyUrls[0];
-    const rawUrl = rawUrlBySanitized.get(singleUrl) || singleUrl;
-    activeFeedTitle = (state.feedMetadata[singleUrl] || {}).title || '';
-    updateStatusText();
-    try {
-      const res = await fetchSingleFeed(rawUrl, incomingEpisodes, updatedMetadata, { force: forceRefresh });
-      applyFetchedFeedResult(res);
-    } catch (fetchErr) {
-      console.warn(`[Feeds] Failed to fetch feed ${singleUrl}:`, fetchErr.message);
-    }
-    completedFeeds++;
-    updateStatusText();
-  } else if (batchProxyUrls.length > 1) {
-    const BATCH_CHUNK_SIZE = 10;
-    const headers = { 'Content-Type': 'application/json' };
-    if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
-
-    for (let i = 0; i < batchProxyUrls.length; i += BATCH_CHUNK_SIZE) {
-      const chunk = batchProxyUrls.slice(i, i + BATCH_CHUNK_SIZE);
-      activeFeedTitle = `Batch (${chunk.length} feeds)`;
-      updateStatusText();
-
-      let batchHandled = false;
-      try {
-        const res = await fetch('/api/feed', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ urls: chunk })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data && Array.isArray(data.feeds)) {
-            batchHandled = true;
-            for (const feedData of data.feeds) {
-              const u = feedData.feedUrl;
-              const rawUrl = rawUrlBySanitized.get(u) || u;
-              const existingMeta = state.feedMetadata[u] || state.feedMetadata[rawUrl] || {};
-              completedFeeds++;
-
-              if (!u || feedData.error) {
-                if (u) {
-                  updatedMetadata[u] = {
-                    title: existingMeta.title || feedData.title || 'Unavailable Feed',
-                    artwork: existingMeta.artwork || '',
-                    episodesCount: existingMeta.episodesCount || 0,
-                    error: feedData.error || 'Error'
-                  };
-                  if (rawUrl !== u) updatedMetadata[rawUrl] = updatedMetadata[u];
-                }
-                continue;
-              }
-
-              const currentFeedEps = state.allEpisodes ? state.allEpisodes.filter(e => e.feedUrl === u) : [];
-              const expectedTotal = feedData.episodesCount || 0;
-              const isAlreadyFullySynced = expectedTotal > 0 && currentFeedEps.length >= expectedTotal;
-
-              if (feedData.isYouTubePlaylist && feedData.playlistId && !isAlreadyFullySynced) {
-                startYouTubeBackgroundPaging(feedData.playlistId, u, feedData.nextToken || null);
-              }
-
-              updatedMetadata[u] = {
-                title: feedData.title,
-                artwork: feedData.artwork,
-                episodesCount: feedData.episodesCount,
-                description: feedData.description,
-                isYouTubePlaylist: feedData.isYouTubePlaylist || false,
-                playlistId: feedData.playlistId || null,
-                nextToken: feedData.nextToken || null,
-                corsBlocked: true,
-                lastFetchedAt: Date.now()
-              };
-              if (rawUrl !== u) updatedMetadata[rawUrl] = updatedMetadata[u];
-
-              if (Array.isArray(feedData.episodes)) {
-                incomingEpisodes.push(...feedData.episodes);
-              }
-              applyFetchedFeedResult(feedData);
-            }
-            updateStatusText();
-          }
+  if (proxyQueue.length > 0) {
+    const proxyWorkers = Array(Math.min(CONCURRENCY, proxyQueue.length)).fill(0).map(async () => {
+      while (proxyQueue.length > 0) {
+        const rawUrl = proxyQueue.shift();
+        if (!rawUrl) continue;
+        const url = sanitizeFeedUrl(rawUrl);
+        activeFeedTitle = (state.feedMetadata[url] || state.feedMetadata[rawUrl] || {}).title || '';
+        updateStatusText();
+        try {
+          const res = await fetchSingleFeed(rawUrl, incomingEpisodes, updatedMetadata, { force: forceRefresh });
+          applyFetchedFeedResult(res);
+          // Yield briefly to keep mobile UI 60fps smooth between on-device XML parses
+          await new Promise(r => setTimeout(r, 0));
+        } catch (fetchErr) {
+          console.warn(`[Feeds] Failed to fetch feed ${url}:`, fetchErr.message);
         }
-      } catch (batchErr) {
-        console.warn('[Feeds] Batch feed POST failed, falling back to individual:', batchErr.message);
+        completedFeeds++;
+        updateStatusText();
       }
-
-      if (!batchHandled) {
-        for (const u of chunk) {
-          const rawUrl = rawUrlBySanitized.get(u) || u;
-          try {
-            const res = await fetchSingleFeed(rawUrl, incomingEpisodes, updatedMetadata, { force: forceRefresh });
-            applyFetchedFeedResult(res);
-          } catch (_) {}
-          completedFeeds++;
-          updateStatusText();
-        }
-      }
-    }
+    });
+    await Promise.all(proxyWorkers);
   }
 
   // Cancel any pending throttled render
@@ -648,8 +569,12 @@ async function refreshAllFeeds(options = {}) {
   renderFeedsGrid();
   updateFeedCountUI();
 
-  if (typeof loadPlaybackPositionsFromD1 === 'function' && (state.sessionToken || (typeof document !== 'undefined' && document.cookie.includes('podcast_session=')))) {
-    loadPlaybackPositionsFromD1({ delta: false });
+  if (
+    typeof loadPlaybackPositionsFromD1 === 'function' &&
+    (state.sessionToken || (typeof document !== 'undefined' && document.cookie.includes('podcast_session='))) &&
+    (Date.now() - (state._lastPositionSyncTime || 0) > 10 * 60 * 1000)
+  ) {
+    loadPlaybackPositionsFromD1({ delta: true });
   }
 
   let finalSummary = `Updated ${totalFeeds} feed${totalFeeds === 1 ? '' : 's'}`;

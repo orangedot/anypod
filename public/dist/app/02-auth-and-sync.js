@@ -635,8 +635,8 @@ async function savePlaybackPositionToD1(episodeGuid, positionSeconds, completed 
       if (!isDifferentEpisode && posDiff < 5) {
         return; // No meaningful progress since last sync
       }
-    } else if (now - _lastCloudSyncTime < 60000) {
-      return; // Periodic interval hasn't reached 60s
+    } else if (now - _lastCloudSyncTime < 600000) {
+      return; // Periodic interval hasn't reached 10 minutes (600s) — local storage already saved above!
     }
   }
 
