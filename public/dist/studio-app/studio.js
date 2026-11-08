@@ -16,10 +16,13 @@
     { id: 'settings', label: 'Plan & Settings', icon: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z' }
   ];
 
+  const initialToken = localStorage.getItem('anypod_session_token') || localStorage.getItem('podcast_pulse_session_token') || '';
+  const initialEmail = localStorage.getItem('anypod_user_email') || '';
+
   const state = {
-    mode: 'demo',
-    token: localStorage.getItem('anypod_session_token') || '',
-    user: null,
+    mode: (initialToken || initialEmail) ? 'live' : 'demo',
+    token: initialToken,
+    user: initialEmail ? { email: initialEmail } : null,
     plan: {
       id: 'free',
       label: 'Free',
@@ -122,9 +125,10 @@
 
   function authHeaders() {
     const headers = { 'Content-Type': 'application/json' };
-    if (state.token) {
-      headers['X-Session-Token'] = state.token;
-      headers['Authorization'] = 'Bearer ' + state.token;
+    const token = state.token || localStorage.getItem('anypod_session_token') || localStorage.getItem('podcast_pulse_session_token') || '';
+    if (token) {
+      headers['X-Session-Token'] = token;
+      headers['Authorization'] = 'Bearer ' + token;
     }
     return headers;
   }
@@ -307,12 +311,11 @@
 
     return pageHeader('Recording Studio & Cutter', 'Non-destructive EDL · Zero-crossing cuts · ITU-R BS.1770 LUFS mastering · MP3 / WAV export', '<span class="st-chip st-chip-accent">' + esc(state.plan.label) + ' plan · max ' + maxMin + ' min take</span>') +
       '<div class="st-content">' +
-      gateCard +
       recoveryBanner +
       '<div class="st-card">' +
       '<div class="st-card-head"><div><h3 class="st-card-title">1. Capture Studio Audio</h3><p class="st-card-sub">Echo cancellation, noise suppression and auto-gain are disabled for clean broadcast voice. Use headphones to prevent feedback.</p></div>' +
       '<div class="st-actions"><select class="st-select" id="st-mic-select" style="width:220px"><option value="default">Default Microphone</option></select>' +
-      '<button type="button" class="st-btn st-btn-primary" id="st-btn-rec-start"' + (isGuest ? ' data-guest-locked="1"' : '') + '>● Record</button>' +
+      '<button type="button" class="st-btn st-btn-primary" id="st-btn-rec-start">● Record</button>' +
       '<button type="button" class="st-btn" id="st-btn-rec-stop" disabled>■ Stop</button>' +
       '<label class="st-btn" style="cursor:pointer">Import file<input type="file" id="st-cutter-file" accept="audio/*,.wav,.mp3,.m4a" hidden></label></div></div>' +
       '<div class="st-grid st-grid-3">' +
@@ -698,10 +701,6 @@
     const stopBtn = document.getElementById('st-btn-rec-stop');
     if (recBtn) {
       recBtn.addEventListener('click', async function () {
-        if (state.mode === 'demo') {
-          openClaim();
-          return;
-        }
         try {
           const micSel = document.getElementById('st-mic-select');
           const deviceId = micSel ? micSel.value : 'default';
@@ -1140,11 +1139,17 @@
     fetch('/api/studio/plan', { credentials: 'include', headers: authHeaders() }).then(function (res) {
       return res.ok ? res.json() : null;
     }).then(function (planData) {
-      if (planData && planData.plan) {
-        state.user = planData.user || null;
-        state.plan = planData.plan;
+      if (planData && planData.user) {
+        state.user = planData.user;
+        state.mode = 'live';
+        if (planData.user.email) {
+          localStorage.setItem('anypod_user_email', planData.user.email);
+        }
+        if (planData.plan) state.plan = planData.plan;
         state.usage = planData.usage || state.usage;
         state.checkoutUrl = planData.checkoutUrl || state.checkoutUrl;
+        renderNav();
+        render();
       }
       return fetch('/api/studio/shows', { credentials: 'include', headers: authHeaders() });
     }).then(function (res) {

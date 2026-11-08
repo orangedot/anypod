@@ -74,13 +74,7 @@
   }
 
   function renderWorkstationHtml(state, h) {
-    const isGuest = state.mode === 'demo';
     const maxMin = Math.round((state.plan.maxRecordingSeconds || 1800) / 60);
-
-    const gateCard = isGuest
-      ? '<div class="st-card"><div class="st-card-head"><div><h3 class="st-card-title">Demo Studio Mode</h3><p class="st-card-sub">The multi-track timeline, sound library, auto-ducking and loudness mastering are fully interactive. Sign in to record live takes and host on Cloudflare R2.</p></div>' +
-        '<div class="st-actions"><button type="button" class="st-btn st-btn-primary" data-open-claim="1">Sign in free</button></div></div></div>'
-      : '';
 
     const recoveryBanner = state.cutter.recoverableSession
       ? '<div class="st-card" id="st-recovery-card"><div class="st-card-head"><div><h3 class="st-card-title">Unsaved recording found</h3><p class="st-card-sub">Recovered ' + state.cutter.recoverableSession.chunkCount + ' chunks (' + h.fmtMb(state.cutter.recoverableSession.totalBytes) + ') from crash-safe storage.</p></div>' +
@@ -100,13 +94,12 @@
       '<span class="st-chip st-chip-accent">' + h.esc(state.plan.label) + ' plan · max ' + maxMin + ' min take</span>'
     ) +
     '<div class="st-content">' +
-    gateCard +
     recoveryBanner +
     '<div class="st-card">' +
     '<div class="st-card-head"><div><h3 class="st-card-title">1. Studio Microphone Capture</h3><p class="st-card-sub">Punch-in records directly onto the Host Voice track at the current timeline playhead.</p></div>' +
     '<div class="st-actions">' +
     '<select class="st-select" id="st-mic-select" style="width:200px"><option value="default">Default Microphone</option></select>' +
-    '<button type="button" class="st-btn st-btn-primary" id="st-btn-punch-rec"' + (isGuest ? ' data-guest-locked="1"' : '') + '>● Record Voice</button>' +
+    '<button type="button" class="st-btn st-btn-primary" id="st-btn-punch-rec">● Record Voice</button>' +
     '<button type="button" class="st-btn" id="st-btn-punch-stop" disabled>■ Stop</button>' +
     '<label class="st-btn" style="cursor:pointer">Import audio to track<input type="file" id="st-tl-file-input" accept="audio/*,.wav,.mp3,.m4a" hidden></label>' +
     '<button type="button" class="st-btn" id="st-btn-open-library">+ Podcast Sound Library</button>' +
@@ -583,10 +576,6 @@
 
     if (recBtn) {
       recBtn.addEventListener('click', async function () {
-        if (state.mode === 'demo') {
-          h.openClaim();
-          return;
-        }
         try {
           const micSel = document.getElementById('st-mic-select');
           const deviceId = micSel ? micSel.value : 'default';
