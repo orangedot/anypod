@@ -22,7 +22,8 @@ const sharedModules = [
   'shared/formatters.js',
   'shared/storage.js',
   'shared/sync-bridge.js',
-  'shared/audio-utils.js'
+  'shared/audio-utils.js',
+  'shared/studio-uploader.js'
 ];
 
 const coreAppModules = [

@@ -8,6 +8,8 @@
     "/sets/*",
     "/audio",
     "/audio/*",
+    "/feeds/*",
+    "/embed/*",
     "/api/*"
   ],
   "exclude": []
