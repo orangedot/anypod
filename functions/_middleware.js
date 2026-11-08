@@ -75,6 +75,12 @@ export async function onRequest(context) {
     return Response.redirect(dest.toString(), 301);
   }
 
+  if (hostname === 'studio.anypod.org') {
+    const dest = new URL(url.pathname === '/' || url.pathname === '' ? '/studio' : url.pathname, 'https://anypod.org');
+    dest.search = url.search;
+    return Response.redirect(dest.toString(), 301);
+  }
+
   // 4. /dj, /dj/, and /dj.html rewrite directly to /dj.html
   if (url.pathname === '/dj' || url.pathname === '/dj/' || url.pathname === '/dj.html') {
     const assetUrl = new URL('/dj.html', url.origin);
@@ -90,6 +96,11 @@ export async function onRequest(context) {
   // 6. /audio and /audio/ rewrite directly to /audio.html
   if (url.pathname === '/audio' || url.pathname === '/audio/') {
     const assetUrl = new URL('/audio.html', url.origin);
+    return context.env.ASSETS.fetch(assetUrl);
+  }
+
+  if (url.pathname === '/studio' || url.pathname === '/studio/' || url.pathname === '/studio.html') {
+    const assetUrl = new URL('/studio.html', url.origin);
     return context.env.ASSETS.fetch(assetUrl);
   }
 

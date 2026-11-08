@@ -8,6 +8,8 @@
     "/sets/*",
     "/audio",
     "/audio/*",
+    "/studio",
+    "/studio/*",
     "/feeds/*",
     "/embed/*",
     "/api/*"
