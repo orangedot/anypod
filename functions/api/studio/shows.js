@@ -67,11 +67,6 @@ export async function onRequest(context) {
       return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers });
     }
 
-    const quota = await checkCreatorBillingQuota(user, env, 0);
-    if (!quota.allowed) {
-      return new Response(JSON.stringify({ error: quota.reason || 'Billing quota exceeded' }), { status: 402, headers });
-    }
-
     let body = {};
     try {
       body = await request.json();
@@ -88,6 +83,11 @@ export async function onRequest(context) {
     const existing = await env.DB.prepare('SELECT id, owner_id FROM shows WHERE slug = ?').bind(slug).first();
     if (existing && existing.owner_id !== user.id) {
       return new Response(JSON.stringify({ error: 'Slug is already taken by another creator' }), { status: 409, headers });
+    }
+
+    const quota = await checkCreatorBillingQuota(user, env, 0, { newShow: !existing });
+    if (!quota.allowed) {
+      return new Response(JSON.stringify({ error: quota.reason || 'Billing quota exceeded', code: quota.code, plan: quota.plan }), { status: 402, headers });
     }
 
     const id = existing ? existing.id : (body.id || crypto.randomUUID());

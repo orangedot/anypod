@@ -4,7 +4,9 @@ CREATE TABLE IF NOT EXISTS users (
   created_at INTEGER DEFAULT (unixepoch()),
   last_active_at INTEGER,
   warned_30d_at INTEGER,
-  warned_50d_at INTEGER
+  warned_50d_at INTEGER,
+  studio_plan TEXT DEFAULT 'free',
+  studio_plan_until INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS auth_tokens (

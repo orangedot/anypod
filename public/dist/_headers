@@ -70,5 +70,17 @@
 /sets/index.html
   Cache-Control: no-cache, no-store, must-revalidate
 
+/studio
+  Permissions-Policy: microphone=(self), camera=(), geolocation=()
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/studio.html
+  Permissions-Policy: microphone=(self), camera=(), geolocation=()
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/dist/studio.html
+  Permissions-Policy: microphone=(self), camera=(), geolocation=()
+  Cache-Control: no-cache, no-store, must-revalidate
+
 
 
