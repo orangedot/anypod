@@ -85,9 +85,40 @@
     </form>
   </dialog>
 
+  <dialog class="st-dialog" id="st-library-dialog" style="max-width:680px">
+    <div class="st-dialog-body">
+      <div class="st-card-head">
+        <div>
+          <h2 class="st-card-title">Podcast Sound Library</h2>
+          <p class="st-card-sub">Royalty-free intro themes, ambient music beds, and broadcast transitions ready to drop onto your timeline.</p>
+        </div>
+        <button type="button" class="st-btn st-btn-sm" data-close-dialog="1">Close</button>
+      </div>
+      <div class="st-grid st-grid-2" id="st-library-list" style="margin-top:14px;max-height:480px;overflow-y:auto;padding-right:4px"></div>
+    </div>
+  </dialog>
+
+  <dialog class="st-dialog" id="st-chapter-dialog">
+    <form class="st-dialog-body" id="st-chapter-form">
+      <h2 class="st-card-title" id="st-chapter-modal-title">Edit Chapter Marker</h2>
+      <p class="st-card-sub">Chapters are saved directly into your Podcasting 2.0 feed and embeddable player.</p>
+      <input class="st-input" id="st-chapter-title-input" placeholder="Chapter title" required>
+      <input class="st-input" id="st-chapter-time-input" type="number" step="0.1" placeholder="Time in seconds" required>
+      <input type="hidden" id="st-chapter-id-input">
+      <div class="st-actions">
+        <button type="button" class="st-btn" id="st-chapter-delete-btn" style="margin-right:auto">Delete</button>
+        <button type="button" class="st-btn" data-close-dialog="1">Cancel</button>
+        <button type="submit" class="st-btn st-btn-primary">Save Chapter</button>
+      </div>
+    </form>
+  </dialog>
+
   <div class="st-toast" id="st-toast" role="status"></div>
 
   <script src="/shared/studio-uploader.js"></script>
+  <script src="/studio-app/studio-library.js"></script>
+  <script src="/studio-app/studio-timeline.js"></script>
+  <script src="/studio-app/studio-workstation.js"></script>
   <script src="/studio-app/studio-edl.js"></script>
   <script src="/studio-app/studio-loudness.js"></script>
   <script src="/studio-app/studio-encoder.js"></script>

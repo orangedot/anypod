@@ -38,6 +38,7 @@
     file: null,
     analysis: null,
     previewUrl: '',
+    timeline: null,
     cutter: {
       recording: false,
       recorder: null,
@@ -241,7 +242,52 @@
       '<button type="button" class="st-btn st-btn-sm" data-copy="' + esc(embedUrl()) + '" data-toast="Link copied">Copy link</button></div></div>';
   }
 
+  function ensureTimeline() {
+    if (!state.timeline && window.StudioTimeline) {
+      state.timeline = window.StudioTimeline.createTimeline({
+        sampleRate: 48000,
+        onUpdate: function () {
+          if (state.view === 'record') {
+            bindRecordView();
+          }
+        },
+        onPlayhead: function (sec) {
+          const ph = document.getElementById('st-tl-playhead');
+          if (ph && state.timeline) {
+            ph.style.left = Math.round(sec * state.timeline.getZoom()) + 'px';
+          }
+          const tc = document.getElementById('st-timecode-display');
+          if (tc && state.timeline) {
+            const m = Math.floor(sec / 60);
+            const s = Math.floor(sec % 60);
+            const tenths = Math.floor((sec - Math.floor(sec)) * 10);
+            const dm = Math.floor(state.timeline.getDuration() / 60);
+            const ds = Math.floor(state.timeline.getDuration() % 60);
+            const dtenths = Math.floor((state.timeline.getDuration() - Math.floor(state.timeline.getDuration())) * 10);
+            tc.textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s + '.' + tenths + ' / ' +
+              (dm < 10 ? '0' : '') + dm + ':' + (ds < 10 ? '0' : '') + ds + '.' + dtenths;
+          }
+        }
+      });
+      if (window.StudioWorkstation) {
+        window.StudioWorkstation._timeline = state.timeline;
+        window.StudioWorkstation.ensureDemoProject(state.timeline);
+      }
+    }
+    return state.timeline;
+  }
+
   function viewRecord() {
+    ensureTimeline();
+    if (window.StudioWorkstation) {
+      return window.StudioWorkstation.renderWorkstationHtml(state, {
+        pageHeader: pageHeader,
+        esc: esc,
+        fmtDuration: fmtDuration,
+        fmtMb: fmtMb
+      });
+    }
+
     const isGuest = state.mode === 'demo';
     const maxMin = Math.round((state.plan.maxRecordingSeconds || 1800) / 60);
     const gateCard = isGuest
@@ -577,6 +623,20 @@
   }
 
   function bindRecordView() {
+    ensureTimeline();
+    if (window.StudioWorkstation) {
+      window.StudioWorkstation.bindWorkstation(state, {
+        pageHeader: pageHeader,
+        esc: esc,
+        fmtDuration: fmtDuration,
+        fmtMb: fmtMb,
+        toast: toast,
+        openClaim: openClaim,
+        navigate: navigate
+      });
+      return;
+    }
+
     const canvas = document.getElementById('st-cutter-canvas');
     const audioEl = document.getElementById('st-cutter-audio');
 
@@ -1191,6 +1251,44 @@
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
     if (state.view === 'record') {
+      if (state.timeline) {
+        if (e.code === 'Space') {
+          e.preventDefault();
+          state.timeline.togglePlay();
+          const playBtn = document.getElementById('st-btn-tl-play');
+          if (playBtn) {
+            playBtn.innerHTML = state.timeline.getIsPlaying()
+              ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>'
+              : '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>';
+          }
+          return;
+        }
+        if (e.key === 's' || e.key === 'S') {
+          const splitBtn = document.getElementById('st-btn-tl-split');
+          if (splitBtn) splitBtn.click();
+          return;
+        }
+        if (e.key === 'Backspace' || e.key === 'Delete') {
+          const delBtn = document.getElementById('st-btn-tl-del');
+          if (delBtn && state.timeline.getSelectedClipId()) {
+            e.preventDefault();
+            delBtn.click();
+          }
+          return;
+        }
+        if (e.key === 'c' || e.key === 'C') {
+          const chBtn = document.getElementById('st-btn-tl-chapter');
+          if (chBtn) chBtn.click();
+          return;
+        }
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd') {
+          e.preventDefault();
+          const dupBtn = document.getElementById('st-btn-tl-dup');
+          if (dupBtn) dupBtn.click();
+          return;
+        }
+      }
+
       const cutterAudio = document.getElementById('st-cutter-audio');
       if (e.code === 'Space' && cutterAudio && cutterAudio.src) {
         e.preventDefault();
