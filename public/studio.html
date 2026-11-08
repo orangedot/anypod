@@ -3,826 +3,93 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#161618">
-  <title>Anypod Studio — Zero-Egress Podcast Hosting</title>
+  <meta name="theme-color" content="#0b0e14">
+  <meta name="description" content="Anypod Studio: podcast hosting on Cloudflare R2 with zero egress fees, Podcasting 2.0 feeds and a free embeddable player.">
+  <title>Anypod Studio · Podcast hosting with zero egress</title>
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
-  <style>
-    :root {
-      --font-family: -apple-system, BlinkMacSystemFont, "Outfit", "Segoe UI", Roboto, sans-serif;
-      --bg-dark: #161618;
-      --bg-card: #202024;
-      --bg-card-hover: #26262b;
-      --bg-elevated: #28282e;
-      --bg-pill: #2f2f36;
-      --text-primary: #f2f2f4;
-      --text-secondary: #a8a8b3;
-      --text-muted: #787885;
-      --primary: #d8cdbe;
-      --primary-hover: #c9bea9;
-      --primary-fg: #141414;
-      --accent-talk: #6bc4a6;
-      --accent-music: #e5a967;
-      --border-light: rgba(255, 255, 255, 0.08);
-      --border-focus: #d8cdbe;
-      --radius-sm: 8px;
-      --radius-md: 10px;
-      --radius-lg: 14px;
-      --radius-pill: 9999px;
-    }
-    html[data-theme="light"] {
-      --bg-dark: #f0ede6;
-      --bg-card: #fcfaf5;
-      --bg-card-hover: #f3efe6;
-      --bg-elevated: #e8e3d8;
-      --bg-pill: #ded8cb;
-      --text-primary: #1c1d20;
-      --text-secondary: #5a5d66;
-      --text-muted: #858892;
-      --primary: #2c2d30;
-      --primary-hover: #404247;
-      --primary-fg: #fcfaf5;
-      --accent-talk: #2d8a6b;
-      --accent-music: #c47d38;
-      --border-light: rgba(28, 29, 32, 0.09);
-      --border-focus: #2c2d30;
-    }
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-    body {
-      font-family: var(--font-family);
-      background: var(--bg-dark);
-      color: var(--text-primary);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      -webkit-font-smoothing: antialiased;
-      padding: 24px 20px 48px;
-    }
-    .studio-shell {
-      width: 100%;
-      max-width: 1140px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-    }
-    .studio-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      padding: 8px 0;
-      flex-wrap: wrap;
-    }
-    .brand-wrap {
-      display: flex;
-      align-items: baseline;
-      gap: 10px;
-    }
-    .brand-title {
-      font-size: 22px;
-      font-weight: 600;
-      letter-spacing: -0.02em;
-      color: var(--text-primary);
-      text-decoration: none;
-    }
-    .brand-pill {
-      font-size: 11px;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      padding: 3px 8px;
-      border-radius: var(--radius-pill);
-      background: var(--bg-pill);
-      color: var(--primary);
-      font-weight: 600;
-    }
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .btn {
-      font-family: inherit;
-      font-size: 13px;
-      font-weight: 500;
-      border-radius: var(--radius-pill);
-      padding: 8px 16px;
-      border: 1px solid var(--border-light);
-      background: var(--bg-card);
-      color: var(--text-primary);
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      text-decoration: none;
-      transition: background 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
-    }
-    .btn:hover {
-      background: var(--bg-card-hover);
-      border-color: var(--border-focus);
-    }
-    .btn:active {
-      transform: scale(0.98);
-    }
-    .btn-primary {
-      background: var(--primary);
-      color: var(--primary-fg);
-      border-color: var(--primary);
-    }
-    .btn-primary:hover {
-      background: var(--primary-hover);
-      border-color: var(--primary-hover);
-    }
-    .card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius-lg);
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    .card-title-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    .card-title {
-      font-size: 17px;
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-    .card-desc {
-      font-size: 13.5px;
-      color: var(--text-secondary);
-      line-height: 1.5;
-    }
-    .shows-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 18px;
-    }
-    .show-card {
-      background: var(--bg-elevated);
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius-md);
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      transition: border-color 0.15s ease;
-    }
-    .show-card:hover {
-      border-color: var(--border-focus);
-    }
-    .show-top {
-      display: flex;
-      gap: 14px;
-      align-items: center;
-    }
-    .show-art {
-      width: 64px;
-      height: 64px;
-      border-radius: var(--radius-sm);
-      object-fit: cover;
-      background: var(--bg-pill);
-      flex-shrink: 0;
-      border: 1px solid var(--border-light);
-    }
-    .show-info {
-      flex: 1;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .show-name {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--text-primary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .show-author {
-      font-size: 12px;
-      color: var(--text-secondary);
-    }
-    .show-badge {
-      align-self: flex-start;
-      font-size: 11px;
-      padding: 2px 7px;
-      border-radius: var(--radius-pill);
-      background: var(--bg-pill);
-      color: var(--primary);
-    }
-    .show-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .btn-sm {
-      font-size: 11.5px;
-      padding: 5px 11px;
-    }
-    .form-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 16px;
-    }
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .form-group.full-width {
-      grid-column: 1 / -1;
-    }
-    label {
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-    input, select, textarea {
-      font-family: inherit;
-      font-size: 13.5px;
-      background: var(--bg-elevated);
-      color: var(--text-primary);
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius-sm);
-      padding: 9px 12px;
-      outline: none;
-      transition: border-color 0.15s ease;
-    }
-    input:focus, select:focus, textarea:focus {
-      border-color: var(--border-focus);
-    }
-    textarea {
-      resize: vertical;
-      min-height: 72px;
-    }
-    .dropzone {
-      border: 2px dashed var(--border-light);
-      border-radius: var(--radius-md);
-      padding: 28px 20px;
-      text-align: center;
-      cursor: pointer;
-      background: var(--bg-elevated);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      transition: border-color 0.15s ease, background 0.15s ease;
-    }
-    .dropzone:hover, .dropzone.dragover {
-      border-color: var(--primary);
-      background: var(--bg-pill);
-    }
-    .dropzone-title {
-      font-size: 14px;
-      font-weight: 500;
-    }
-    .dropzone-hint {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-    .waveform-preview {
-      height: 64px;
-      background: var(--bg-elevated);
-      border-radius: var(--radius-sm);
-      display: flex;
-      align-items: flex-end;
-      gap: 2px;
-      padding: 8px 10px;
-      cursor: pointer;
-      overflow: hidden;
-    }
-    .wf-bar {
-      flex: 1;
-      min-width: 2px;
-      background: var(--text-muted);
-      opacity: 0.4;
-      border-radius: 2px;
-    }
-    .wf-bar.played {
-      background: var(--primary);
-      opacity: 0.95;
-    }
-    .wf-bar.talk-bar.played {
-      background: var(--accent-talk);
-    }
-    .wf-bar.music-bar.played {
-      background: var(--accent-music);
-    }
-    .progress-bar-wrap {
-      width: 100%;
-      height: 8px;
-      background: var(--bg-elevated);
-      border-radius: var(--radius-pill);
-      overflow: hidden;
-    }
-    .progress-bar-fill {
-      width: 0%;
-      height: 100%;
-      background: var(--primary);
-      transition: width 0.15s ease;
-    }
-    .toast {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      background: var(--bg-card);
-      color: var(--text-primary);
-      border: 1px solid var(--border-light);
-      padding: 12px 18px;
-      border-radius: var(--radius-md);
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-      font-size: 13px;
-      z-index: 1000;
-      opacity: 0;
-      transform: translateY(10px);
-      pointer-events: none;
-      transition: opacity 0.2s ease, transform 0.2s ease;
-    }
-    .toast.show {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    .hidden {
-      display: none !important;
-    }
-  </style>
+  <link rel="stylesheet" href="/studio-app/studio.css">
 </head>
 <body>
-  <div class="studio-shell">
-    <header class="studio-header">
-      <div class="brand-wrap">
-        <a href="/studio" class="brand-title">anypod studio</a>
-        <span class="brand-pill">hosting</span>
-      </div>
-      <div class="header-actions">
-        <span id="user-status-text" class="card-desc"></span>
-        <button type="button" class="btn" id="btn-toggle-theme">Theme</button>
-        <a href="/" class="btn">Player</a>
-      </div>
-    </header>
-
-    <div class="card" id="card-auth" style="display: none;">
-      <div class="card-title-row">
-        <h2 class="card-title">Creator Authentication</h2>
-      </div>
-      <p class="card-desc">Sign in with your email to manage your hosted podcast shows and R2 audio uploads.</p>
-      <form id="form-auth" style="display: flex; gap: 10px; max-width: 440px;">
-        <input type="email" id="auth-email" placeholder="your@email.com" required style="flex: 1;">
-        <button type="submit" class="btn btn-primary" id="btn-send-magic">Send Link</button>
-      </form>
-      <div id="auth-msg" class="card-desc"></div>
-    </div>
-
-    <section class="card" id="section-shows">
-      <div class="card-title-row">
+  <div class="st-app">
+    <aside class="st-rail">
+      <div class="st-brand">
+        <span class="st-brand-mark">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path></svg>
+        </span>
         <div>
-          <h2 class="card-title">My Hosted Shows</h2>
-          <p class="card-desc">Podcasts stored on Cloudflare R2 with zero egress fees and automated Podcasting 2.0 RSS feeds.</p>
+          <div class="st-brand-name">anypod studio</div>
+          <div class="st-brand-tag">podcast hosting</div>
         </div>
-        <button type="button" class="btn btn-primary" id="btn-toggle-new-show">+ New Show</button>
       </div>
 
-      <div class="shows-grid" id="shows-grid"></div>
-    </section>
-
-    <div class="card hidden" id="card-new-show">
-      <div class="card-title-row">
-        <h2 class="card-title">Create New Podcast Show</h2>
-        <button type="button" class="btn btn-sm" id="btn-close-new-show">Cancel</button>
+      <div class="st-show-switch">
+        <label for="st-show-select">Show</label>
+        <select class="st-select" id="st-show-select"></select>
+        <button type="button" class="st-btn st-btn-sm" data-open-show="1">New show</button>
       </div>
-      <form id="form-create-show" class="form-grid">
-        <div class="form-group">
-          <label for="show-title">Show Title *</label>
-          <input type="text" id="show-title" required placeholder="e.g. Science Weekly">
-        </div>
-        <div class="form-group">
-          <label for="show-slug">Show Slug (URL path) *</label>
-          <input type="text" id="show-slug" required placeholder="science-weekly">
-        </div>
-        <div class="form-group">
-          <label for="show-author">Author / Host</label>
-          <input type="text" id="show-author" placeholder="Host Name">
-        </div>
-        <div class="form-group">
-          <label for="show-category">Category</label>
-          <select id="show-category">
-            <option value="Technology">Technology</option>
-            <option value="Science">Science</option>
-            <option value="Education">Education</option>
-            <option value="Arts">Arts</option>
-            <option value="Business">Business</option>
-            <option value="Music">Music</option>
-            <option value="News">News</option>
-          </select>
-        </div>
-        <div class="form-group full-width">
-          <label for="show-art">Cover Image URL</label>
-          <input type="url" id="show-art" placeholder="https://example.com/cover.jpg">
-        </div>
-        <div class="form-group full-width">
-          <label for="show-desc">Description</label>
-          <textarea id="show-desc" placeholder="What is this podcast about?"></textarea>
-        </div>
-        <div class="form-group full-width" style="display: flex; justify-content: flex-end;">
-          <button type="submit" class="btn btn-primary" id="btn-save-show">Create Podcast Show</button>
-        </div>
-      </form>
+
+      <nav class="st-nav" id="st-nav" aria-label="Studio sections"></nav>
+
+      <div class="st-rail-foot">
+        <span class="st-card-sub" id="st-rail-user"></span>
+        <button type="button" class="st-btn st-btn-sm" data-toggle-theme="1">Theme</button>
+        <a class="st-btn st-btn-sm" href="/">Back to player</a>
+      </div>
+    </aside>
+
+    <div class="st-main">
+      <div class="st-demo-banner hidden" id="st-demo-banner">
+        <span><strong>Demo studio.</strong> Explore freely, try the audio analyser, then sign in to host your own show on Cloudflare R2.</span>
+        <button type="button" class="st-btn st-btn-sm st-btn-primary" data-open-claim="1">Sign in or create show</button>
+      </div>
+      <div id="st-view-root"></div>
     </div>
-
-    <section class="card" id="section-publish">
-      <div class="card-title-row">
-        <div>
-          <h2 class="card-title">Publish Episode (Client FFT Pre-Processing)</h2>
-          <p class="card-desc">Waveforms and talk/music chapters are extracted right in your browser with zero server CPU before streaming to R2.</p>
-        </div>
-      </div>
-
-      <form id="form-publish-episode" class="form-grid">
-        <div class="form-group">
-          <label for="ep-show-select">Select Show *</label>
-          <select id="ep-show-select" required></select>
-        </div>
-        <div class="form-group">
-          <label for="ep-title">Episode Title *</label>
-          <input type="text" id="ep-title" required placeholder="Episode 1: The Quantum Leap">
-        </div>
-        <div class="form-group">
-          <label for="ep-number">Episode #</label>
-          <input type="number" id="ep-number" placeholder="1">
-        </div>
-        <div class="form-group">
-          <label for="ep-season">Season #</label>
-          <input type="number" id="ep-season" placeholder="1">
-        </div>
-        <div class="form-group full-width">
-          <label for="ep-desc">Description</label>
-          <textarea id="ep-desc" placeholder="Episode show notes and outline..."></textarea>
-        </div>
-
-        <div class="form-group full-width">
-          <label>Audio File (.mp3, .m4a, .wav) *</label>
-          <div class="dropzone" id="audio-dropzone">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-            <span class="dropzone-title" id="dropzone-label">Drag &amp; drop audio file or click to browse</span>
-            <span class="dropzone-hint" id="dropzone-meta">Audio files are analyzed locally before uploading</span>
-            <input type="file" id="audio-file-input" accept="audio/*,.mp3,.m4a,.wav" style="display: none;">
-          </div>
-        </div>
-
-        <div class="form-group full-width hidden" id="analysis-preview-wrap">
-          <div class="card-title-row">
-            <span id="analysis-status-text" class="card-desc">Analyzing audio with Web Audio FFT...</span>
-            <span id="analysis-time-text" class="card-desc"></span>
-          </div>
-          <div class="waveform-preview" id="wf-preview-track"></div>
-          <audio id="audio-preview-element" controls style="width: 100%; margin-top: 8px;"></audio>
-        </div>
-
-        <div class="form-group full-width hidden" id="upload-progress-wrap">
-          <div class="card-title-row">
-            <span id="upload-status-text" class="card-desc">Uploading to Cloudflare R2...</span>
-          </div>
-          <div class="progress-bar-wrap">
-            <div class="progress-bar-fill" id="upload-progress-bar"></div>
-          </div>
-        </div>
-
-        <div class="form-group full-width" style="display: flex; justify-content: flex-end;">
-          <button type="submit" class="btn btn-primary" id="btn-submit-episode" disabled>Publish Episode to R2</button>
-        </div>
-      </form>
-    </section>
   </div>
 
-  <div class="toast" id="toast-el"></div>
+  <nav class="st-mobile-nav" id="st-mobile-nav" aria-label="Studio sections"></nav>
+
+  <dialog class="st-dialog" id="st-claim-dialog">
+    <form class="st-dialog-body" id="st-claim-form">
+      <h2 class="st-card-title">Sign in to publish</h2>
+      <p class="st-card-sub">Enter your email and we send a magic link. No password. Your analysed audio stays in this tab.</p>
+      <input class="st-input" id="st-claim-email" type="email" placeholder="you@email.com" required>
+      <p class="st-card-sub" id="st-claim-msg"></p>
+      <div class="st-actions">
+        <button type="button" class="st-btn" data-close-dialog="1">Close</button>
+        <button type="submit" class="st-btn st-btn-primary">Send magic link</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="st-dialog" id="st-show-dialog">
+    <form class="st-dialog-body" id="st-show-form">
+      <h2 class="st-card-title">Create a show</h2>
+      <input class="st-input" id="st-new-title" placeholder="Show title" required>
+      <input class="st-input" id="st-new-slug" placeholder="show-slug" required>
+      <input class="st-input" id="st-new-author" placeholder="Host name">
+      <select class="st-select" id="st-new-category">
+        <option>Technology</option>
+        <option>Science</option>
+        <option>Education</option>
+        <option>Arts</option>
+        <option>Business</option>
+        <option>Music</option>
+        <option>News</option>
+      </select>
+      <input class="st-input" id="st-new-cover" type="url" placeholder="Cover image URL (3000x3000 recommended)">
+      <textarea class="st-textarea" id="st-new-desc" placeholder="What is your show about?"></textarea>
+      <div class="st-actions">
+        <button type="button" class="st-btn" data-close-dialog="1">Cancel</button>
+        <button type="submit" class="st-btn st-btn-primary">Create show</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="st-toast" id="st-toast" role="status"></div>
 
   <script src="/shared/studio-uploader.js"></script>
-  <script>
-    (function () {
-      const state = {
-        token: localStorage.getItem('anypod_session_token') || '',
-        shows: [],
-        currentFile: null,
-        analysisResult: null
-      };
-
-      const showsGrid = document.getElementById('shows-grid');
-      const epShowSelect = document.getElementById('ep-show-select');
-      const cardAuth = document.getElementById('card-auth');
-      const userStatusText = document.getElementById('user-status-text');
-      const formAuth = document.getElementById('form-auth');
-      const authMsg = document.getElementById('auth-msg');
-      const toastEl = document.getElementById('toast-el');
-      const btnToggleNewShow = document.getElementById('btn-toggle-new-show');
-      const btnCloseNewShow = document.getElementById('btn-close-new-show');
-      const cardNewShow = document.getElementById('card-new-show');
-      const formCreateShow = document.getElementById('form-create-show');
-      const showTitleInput = document.getElementById('show-title');
-      const showSlugInput = document.getElementById('show-slug');
-      const dropzone = document.getElementById('audio-dropzone');
-      const fileInput = document.getElementById('audio-file-input');
-      const dropzoneLabel = document.getElementById('dropzone-label');
-      const dropzoneMeta = document.getElementById('dropzone-meta');
-      const analysisWrap = document.getElementById('analysis-preview-wrap');
-      const analysisStatus = document.getElementById('analysis-status-text');
-      const analysisTime = document.getElementById('analysis-time-text');
-      const wfPreview = document.getElementById('wf-preview-track');
-      const audioPreview = document.getElementById('audio-preview-element');
-      const formPublish = document.getElementById('form-publish-episode');
-      const btnSubmitEpisode = document.getElementById('btn-submit-episode');
-      const uploadWrap = document.getElementById('upload-progress-wrap');
-      const uploadBar = document.getElementById('upload-progress-bar');
-      const uploadStatus = document.getElementById('upload-status-text');
-      const btnTheme = document.getElementById('btn-toggle-theme');
-
-      function showToast(msg) {
-        toastEl.textContent = msg;
-        toastEl.classList.add('show');
-        setTimeout(() => toastEl.classList.remove('show'), 2400);
-      }
-
-      btnTheme.addEventListener('click', () => {
-        const root = document.documentElement;
-        const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-        root.setAttribute('data-theme', next);
-      });
-
-      showTitleInput.addEventListener('input', () => {
-        if (!showSlugInput.dataset.manual) {
-          showSlugInput.value = showTitleInput.value
-            .toLowerCase()
-            .trim()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-+|-+$/g, '');
-        }
-      });
-      showSlugInput.addEventListener('input', () => {
-        showSlugInput.dataset.manual = 'true';
-      });
-
-      btnToggleNewShow.addEventListener('click', () => cardNewShow.classList.remove('hidden'));
-      btnCloseNewShow.addEventListener('click', () => cardNewShow.classList.add('hidden'));
-
-      function getAuthHeaders() {
-        const h = { 'Content-Type': 'application/json' };
-        if (state.token) {
-          h['X-Session-Token'] = state.token;
-          h['Authorization'] = 'Bearer ' + state.token;
-        }
-        return h;
-      }
-
-      async function fetchShows() {
-        try {
-          const res = await fetch('/api/studio/shows', { credentials: 'include', headers: getAuthHeaders() });
-          if (res.status === 401) {
-            cardAuth.style.display = 'flex';
-            userStatusText.textContent = 'Not signed in';
-            showsGrid.innerHTML = '<p class="card-desc">Please sign in above to view and manage your shows.</p>';
-            return;
-          }
-          if (!res.ok) throw new Error('Failed to load shows');
-          const data = await res.json();
-          state.shows = data.shows || [];
-          cardAuth.style.display = 'none';
-          userStatusText.textContent = 'Signed in';
-          renderShows();
-          populateShowSelect();
-        } catch (err) {
-          cardAuth.style.display = 'flex';
-        }
-      }
-
-      function renderShows() {
-        showsGrid.innerHTML = '';
-        if (!state.shows.length) {
-          showsGrid.innerHTML = '<p class="card-desc">No shows hosted yet. Click "+ New Show" to host your first podcast on R2.</p>';
-          return;
-        }
-        state.shows.forEach((s) => {
-          const card = document.createElement('div');
-          card.className = 'show-card';
-          const origin = window.location.origin;
-          const feedUrl = `${origin}/feeds/${encodeURIComponent(s.slug)}.xml`;
-          const embedUrl = `${origin}/embed/${encodeURIComponent(s.slug)}`;
-          const iframeSnippet = `<iframe src="${embedUrl}" width="100%" height="220" frameborder="0" allow="autoplay"></iframe>`;
-
-          card.innerHTML = `
-            <div class="show-top">
-              <img class="show-art" src="${s.cover_image_url || '/icon.svg'}" alt="${s.title}">
-              <div class="show-info">
-                <span class="show-name" title="${s.title}">${s.title}</span>
-                <span class="show-author">${s.author || 'Host'} &middot; /${s.slug}</span>
-                <span class="show-badge">${s.category || 'Podcast'}</span>
-              </div>
-            </div>
-            <div class="show-actions">
-              <button type="button" class="btn btn-sm btn-copy-feed" data-feed="${feedUrl}">Copy RSS</button>
-              <button type="button" class="btn btn-sm btn-copy-embed" data-embed="${iframeSnippet.replace(/"/g, '&quot;')}">Copy Embed</button>
-              <a href="${feedUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-sm">Open Feed</a>
-              <a href="${embedUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-sm">Preview Player</a>
-            </div>
-          `;
-          showsGrid.appendChild(card);
-        });
-
-        showsGrid.querySelectorAll('.btn-copy-feed').forEach((b) => {
-          b.addEventListener('click', () => {
-            navigator.clipboard.writeText(b.dataset.feed).then(() => showToast('RSS feed URL copied to clipboard!'));
-          });
-        });
-
-        showsGrid.querySelectorAll('.btn-copy-embed').forEach((b) => {
-          b.addEventListener('click', () => {
-            navigator.clipboard.writeText(b.dataset.embed).then(() => showToast('Player iframe embed code copied!'));
-          });
-        });
-      }
-
-      function populateShowSelect() {
-        epShowSelect.innerHTML = '';
-        state.shows.forEach((s) => {
-          const opt = document.createElement('option');
-          opt.value = s.slug;
-          opt.textContent = `${s.title} (${s.slug})`;
-          epShowSelect.appendChild(opt);
-        });
-      }
-
-      formAuth.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const email = document.getElementById('auth-email').value.trim();
-        if (!email) return;
-        authMsg.textContent = 'Sending magic link...';
-        try {
-          const res = await fetch('/api/auth/send-magic-link', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
-          });
-          const d = await res.json();
-          if (res.ok) {
-            authMsg.textContent = 'Magic link sent! Check your email inbox to sign in.';
-          } else {
-            authMsg.textContent = d.error || 'Failed to send login link';
-          }
-        } catch (err) {
-          authMsg.textContent = 'Network error sending magic link';
-        }
-      });
-
-      formCreateShow.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const title = showTitleInput.value.trim();
-        const slug = showSlugInput.value.trim();
-        const author = document.getElementById('show-author').value.trim();
-        const category = document.getElementById('show-category').value;
-        const cover_image_url = document.getElementById('show-art').value.trim();
-        const description = document.getElementById('show-desc').value.trim();
-
-        try {
-          const res = await fetch('/api/studio/shows', {
-            method: 'POST',
-            credentials: 'include',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ title, slug, author, category, cover_image_url, description })
-          });
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || 'Failed to create show');
-          }
-          showToast(`Show "${title}" created successfully!`);
-          cardNewShow.classList.add('hidden');
-          formCreateShow.reset();
-          fetchShows();
-        } catch (err) {
-          alert(err.message);
-        }
-      });
-
-      dropzone.addEventListener('click', () => fileInput.click());
-      dropzone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropzone.classList.add('dragover');
-      });
-      dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
-      dropzone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropzone.classList.remove('dragover');
-        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-          handleAudioFile(e.dataTransfer.files[0]);
-        }
-      });
-      fileInput.addEventListener('change', () => {
-        if (fileInput.files && fileInput.files[0]) {
-          handleAudioFile(fileInput.files[0]);
-        }
-      });
-
-      async function handleAudioFile(file) {
-        state.currentFile = file;
-        dropzoneLabel.textContent = file.name;
-        dropzoneMeta.textContent = `${(file.size / (1024 * 1024)).toFixed(2)} MB • ${file.type || 'audio'}`;
-        analysisWrap.classList.remove('hidden');
-        analysisStatus.textContent = 'Decoding & analyzing audio in browser (Web Audio FFT)...';
-        btnSubmitEpisode.disabled = true;
-
-        const reader = new FileReader();
-        reader.onload = async () => {
-          try {
-            const arrayBuffer = reader.result;
-            const res = await window.AnypodStudio.analyzeCreatorAudioBuffer(arrayBuffer, 120);
-            state.analysisResult = res;
-
-            analysisStatus.textContent = `Analysis complete: ${res.chapters.length} segments identified.`;
-            analysisTime.textContent = `Duration: ${Math.round(res.durationSeconds)}s`;
-            renderWaveformPreview(res.waveformPeaks);
-
-            audioPreview.src = URL.createObjectURL(file);
-            btnSubmitEpisode.disabled = false;
-          } catch (err) {
-            analysisStatus.textContent = 'Audio analysis failed: ' + err.message;
-          }
-        };
-        reader.readAsArrayBuffer(file);
-      }
-
-      function renderWaveformPreview(peaks) {
-        wfPreview.innerHTML = '';
-        peaks.forEach((p) => {
-          const b = document.createElement('div');
-          b.className = 'wf-bar played';
-          b.style.height = Math.max(10, Math.round(p * 100)) + '%';
-          wfPreview.appendChild(b);
-        });
-      }
-
-      formPublish.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (!state.currentFile || !state.analysisResult) return;
-        const showSlug = epShowSelect.value;
-        const title = document.getElementById('ep-title').value.trim();
-        const description = document.getElementById('ep-desc').value.trim();
-
-        uploadWrap.classList.remove('hidden');
-        uploadBar.style.width = '10%';
-        uploadStatus.textContent = 'Requesting R2 signed upload ticket...';
-        btnSubmitEpisode.disabled = true;
-
-        try {
-          const receipt = await window.AnypodStudio.uploadCreatorEpisode({
-            showSlug,
-            audioFile: state.currentFile,
-            title,
-            description,
-            token: state.token,
-            onProgress: (pct) => {
-              uploadBar.style.width = Math.round(pct * 100) + '%';
-              uploadStatus.textContent = `Uploading audio to Cloudflare R2: ${Math.round(pct * 100)}%`;
-            }
-          });
-
-          uploadBar.style.width = '100%';
-          uploadStatus.textContent = 'Episode published to R2 and RSS feed updated!';
-          showToast(`Episode "${title}" published!`);
-
-          setTimeout(() => {
-            uploadWrap.classList.add('hidden');
-            analysisWrap.classList.add('hidden');
-            formPublish.reset();
-            dropzoneLabel.textContent = 'Drag & drop audio file or click to browse';
-            dropzoneMeta.textContent = 'Audio files are analyzed locally before uploading';
-            btnSubmitEpisode.disabled = true;
-          }, 2000);
-        } catch (err) {
-          uploadStatus.textContent = 'Publish failed: ' + err.message;
-          btnSubmitEpisode.disabled = false;
-        }
-      });
-
-      document.addEventListener('keydown', (e) => {
-        if (e.code === 'Space' && e.target === document.body && audioPreview.src) {
-          e.preventDefault();
-          if (audioPreview.paused) audioPreview.play();
-          else audioPreview.pause();
-        }
-      });
-
-      fetchShows();
-    })();
-  </script>
+  <script src="/studio-app/studio-demo.js"></script>
+  <script src="/studio-app/studio-directories.js"></script>
+  <script src="/studio-app/studio.js"></script>
 </body>
 </html>
