@@ -1,29 +1,34 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "anypod",
-  "pages_build_output_dir": "./public/dist",
-  "compatibility_date": "2026-09-01",
-  "compatibility_flags": [
-    "nodejs_compat"
-  ],
-  "ai": {
-    "binding": "AI"
-  },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "podany-db",
-      "database_id": "a75faccd-ee65-42dd-9db8-e70c7c43ab4e"
-    }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "AUDIO_BUCKET",
-      "bucket_name": "anypod-audio"
-    }
-  ],
-  "vars": {
-    "APP_URL": "https://anypod.org",
-    "FROM_EMAIL": "Anypod <login@anypod.org>"
-  }
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "anypod",
+	"pages_build_output_dir": "./public/dist",
+	"compatibility_date": "2026-09-01",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"ai": {
+		"binding": "AI"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "podany-db",
+			"database_id": "a75faccd-ee65-42dd-9db8-e70c7c43ab4e"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "AUDIO_BUCKET",
+			"bucket_name": "anypod-audio"
+		},
+		{
+			"bucket_name": "anypod-audio",
+			"binding": "anypod_audio",
+			"remote": true
+		}
+	],
+	"vars": {
+		"APP_URL": "https://anypod.org",
+		"FROM_EMAIL": "Anypod <login@anypod.org>"
+	}
 }
