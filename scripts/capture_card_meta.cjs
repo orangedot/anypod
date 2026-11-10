@@ -87,7 +87,7 @@ server.listen(0, async () => {
 
   await new Promise(r => setTimeout(r, 600));
 
-  const screenshotDir = '/Users/whatever/.gemini/antigravity/brain/629e52a0-df53-4d13-95f3-7422ad5b1dd6/screenshots';
+  const screenshotDir = path.resolve(__dirname, '../screenshots');
   fs.mkdirSync(screenshotDir, { recursive: true });
 
   const testCard = await page.$('#test-dub-card');
