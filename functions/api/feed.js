@@ -157,30 +157,44 @@ export async function onRequest(context) {
   // 4. Raw XML Stream Pass-Through Mode (?raw=1) — 0ms Cloudflare XML parsing CPU!
   if (urlParams.get('raw') === '1') {
     try {
+      const ifNoneMatch = request.headers.get('If-None-Match');
+      const ifModifiedSince = request.headers.get('If-Modified-Since');
+      const fetchHeaders = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
+      };
+      if (ifNoneMatch) fetchHeaders['If-None-Match'] = ifNoneMatch;
+      if (ifModifiedSince) fetchHeaders['If-Modified-Since'] = ifModifiedSince;
+
       let upstreamRes = await fetch(targetUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
-        },
+        headers: fetchHeaders,
         cf: { cacheTtl: 900, cacheEverything: true },
         signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(15000) : undefined
       });
+
+      if (upstreamRes.status === 304) {
+        return new Response(null, { status: 304, headers: corsHeaders });
+      }
 
       // Upstream fallback: if blocked by CDN/bot protection with 403/401, retry with AppleCoreMedia podcast UA
       if (!upstreamRes.ok && (upstreamRes.status === 403 || upstreamRes.status === 401)) {
         try {
           const retryRes = await fetch(targetUrl, {
             headers: {
-              'User-Agent': 'AppleCoreMedia/1.0.0.21E236 (Macintosh; U; Intel Mac OS X 14_4_1; en_us) Podcast/1.0',
-              'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
+              ...fetchHeaders,
+              'User-Agent': 'AppleCoreMedia/1.0.0.21E236 (Macintosh; U; Intel Mac OS X 14_4_1; en_us) Podcast/1.0'
             },
             cf: { cacheTtl: 900, cacheEverything: true },
             signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(15000) : undefined
           });
-          if (retryRes.ok) {
+          if (retryRes.ok || retryRes.status === 304) {
             upstreamRes = retryRes;
           }
         } catch (_) {}
+      }
+
+      if (upstreamRes.status === 304) {
+        return new Response(null, { status: 304, headers: corsHeaders });
       }
 
       if (!upstreamRes.ok) {
@@ -190,6 +204,11 @@ export async function onRequest(context) {
         ...corsHeaders,
         'Content-Type': upstreamRes.headers.get('content-type') || 'application/xml; charset=utf-8'
       };
+      const etag = upstreamRes.headers.get('etag');
+      if (etag) rawHeaders['ETag'] = etag;
+      const lastMod = upstreamRes.headers.get('last-modified');
+      if (lastMod) rawHeaders['Last-Modified'] = lastMod;
+
       const streamRes = new Response(upstreamRes.body, { status: 200, headers: rawHeaders });
       if (cache) {
         try { context.waitUntil(cache.put(cacheKey, streamRes.clone())); } catch (_) {}

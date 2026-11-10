@@ -27,13 +27,105 @@ function renderSkeletonTimeline() {
   container.innerHTML = html;
 }
 
-const CLOUDFLARE_FEED_TTL_MS = 2 * 60 * 60 * 1000; // 2-hour local TTL before re-hitting Cloudflare on auto-startup
+const CLOUDFLARE_FEED_TTL_MS = 2 * 60 * 60 * 1000; // 2-hour default fallback TTL before re-hitting network on auto-startup
+
+/**
+ * Calculates publishing cadence and dynamic adaptive TTL for a feed based on publication timestamps.
+ * Prevents redundant battery/network syncs for shows while ensuring daily/multi-daily shows stay fresh.
+ * Returns { cadenceHours, adaptiveTtlMs, classification }
+ */
+function computeFeedCadenceAndTtl(episodes, currentSyncStats) {
+  const MIN_TTL_MS = 30 * 60 * 1000; // 30 min floor
+  const MAX_TTL_MS = 36 * 60 * 60 * 1000; // 36 hours ceiling
+  const DEFAULT_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours default fallback
+
+  if (!Array.isArray(episodes) || episodes.length < 2) {
+    return {
+      cadenceHours: 24,
+      adaptiveTtlMs: DEFAULT_TTL_MS,
+      classification: 'default'
+    };
+  }
+
+  // Extract valid timestamps and sort descending
+  const timestamps = episodes
+    .map(e => e.timestamp || (e.pubDate ? Date.parse(e.pubDate) : 0))
+    .filter(t => t > 0 && !isNaN(t))
+    .sort((a, b) => b - a)
+    .slice(0, 15); // Inspect last 15 episodes
+
+  if (timestamps.length < 2) {
+    return {
+      cadenceHours: 24,
+      adaptiveTtlMs: DEFAULT_TTL_MS,
+      classification: 'default'
+    };
+  }
+
+  // Calculate inter-arrival intervals in hours
+  const intervals = [];
+  for (let i = 0; i < timestamps.length - 1; i++) {
+    const diffHours = (timestamps[i] - timestamps[i + 1]) / (1000 * 60 * 60);
+    if (diffHours >= 0.5 && diffHours <= 720) { // filter out batch re-uploads (<30m) or multi-year gaps (>30d)
+      intervals.push(diffHours);
+    }
+  }
+
+  if (intervals.length === 0) {
+    return {
+      cadenceHours: 24,
+      adaptiveTtlMs: DEFAULT_TTL_MS,
+      classification: 'default'
+    };
+  }
+
+  // Median inter-arrival interval
+  intervals.sort((a, b) => a - b);
+  const mid = Math.floor(intervals.length / 2);
+  const medianHours = intervals.length % 2 !== 0
+    ? intervals[mid]
+    : (intervals[mid - 1] + intervals[mid]) / 2;
+
+  let adaptiveTtlMs;
+  let classification;
+
+  if (medianHours <= 16) {
+    // Multi-daily (e.g. Was jetzt?, publishes morning & evening)
+    classification = 'multi-daily';
+    adaptiveTtlMs = 2 * 60 * 60 * 1000; // 2 hours
+  } else if (medianHours <= 36) {
+    // Daily (publishes once a day)
+    classification = 'daily';
+    adaptiveTtlMs = 6 * 60 * 60 * 1000; // 6 hours
+  } else if (medianHours <= 84) {
+    // Semi-weekly (2-3 times a week)
+    classification = 'semi-weekly';
+    adaptiveTtlMs = 12 * 60 * 60 * 1000; // 12 hours
+  } else if (medianHours <= 200) {
+    // Weekly
+    classification = 'weekly';
+    adaptiveTtlMs = 24 * 60 * 60 * 1000; // 24 hours
+  } else {
+    // Bi-weekly or monthly
+    classification = 'monthly';
+    adaptiveTtlMs = 36 * 60 * 60 * 1000; // 36 hours
+  }
+
+  // Bound TTL
+  adaptiveTtlMs = Math.max(MIN_TTL_MS, Math.min(MAX_TTL_MS, adaptiveTtlMs));
+
+  return {
+    cadenceHours: Math.round(medianHours * 10) / 10,
+    adaptiveTtlMs,
+    classification
+  };
+}
 
 /**
  * Native browser DOMParser RSS/Atom XML parser (0ms Cloudflare Worker CPU).
- * Parses up to 550 episodes on-device and preserves show notes locally.
+ * Ingests 100% of available episodes on-device with memory tiering for deep archives.
  */
-function parsePodcastXmlClient(xmlText, originalUrl) {
+function parsePodcastXmlClient(xmlText, originalUrl, responseHeaders = null) {
   if (!xmlText) return null;
 
   const stripHtmlToSummary = (raw, maxLen = 240) => {
@@ -101,9 +193,9 @@ function parsePodcastXmlClient(xmlText, originalUrl) {
     const itunesBlock = /^\s*yes\s*$/i.test(rawBlock);
 
     const episodes = [];
-    const MAX_CLIENT_EPISODES = 120;
 
-    for (let i = 0; i < entries.length && episodes.length < MAX_CLIENT_EPISODES; i++) {
+    // Parse all episodes in feed without arbitrary 120 cap
+    for (let i = 0; i < entries.length; i++) {
       const item = entries[i];
       let audioUrl = getChildAttr(item, ['enclosure', 'media:content'], 'url');
       const epVideoId = isAtom ? getChildText(item, ['yt:videoId', 'videoId']) : '';
@@ -115,7 +207,7 @@ function parsePodcastXmlClient(xmlText, originalUrl) {
       const epTitle = getChildText(item, ['title']) || 'Untitled Episode';
       const epGuid = getChildText(item, ['guid', 'id', 'link']) || epVideoId || epTitle;
       const epPubDate = getChildText(item, ['pubDate', 'published', 'updated']) || '';
-      const rawContent = getChildText(item, ['content:encoded', 'encoded', 'description', 'itunes:summary', 'summary', 'content']);
+      const rawContent = getChildText(item, ['content:encoded', 'encoded', 'description', 'itunes:summary', 'summary', 'content']) || '';
       const epDesc = stripHtmlToSummary(rawContent, 240);
       let epDuration = getChildText(item, ['itunes:duration', 'duration']);
       if (epDuration === '0:00' || epDuration === '0' || epDuration === '00:00' || epDuration === '00:00:00') {
@@ -140,11 +232,18 @@ function parsePodcastXmlClient(xmlText, originalUrl) {
         if (!isNaN(parsed)) timestamp = parsed;
       }
 
+      // Memory optimization for deep archives (e.g. 500-2,000+ items):
+      // Keep full rich HTML content for the first 100 items; keep lightweight 2KB content for deep back-catalog
+      const isRecent = episodes.length < 100;
+      const content = isRecent
+        ? (rawContent.length <= 24000 ? rawContent : rawContent.slice(0, 24000))
+        : (rawContent.length <= 2000 ? rawContent : rawContent.slice(0, 2000));
+
       episodes.push({
         guid: epGuid,
         title: epTitle,
         description: epDesc,
-        content: rawContent.length <= 24000 ? rawContent : rawContent.slice(0, 24000),
+        content,
         pubDate: epPubDate,
         timestamp,
         audioUrl,
@@ -163,6 +262,8 @@ function parsePodcastXmlClient(xmlText, originalUrl) {
 
     if (episodes.length > 0) {
       episodes.sort((a, b) => b.timestamp - a.timestamp);
+      const etag = responseHeaders?.get ? (responseHeaders.get('etag') || responseHeaders.get('ETag')) : null;
+      const lastModified = responseHeaders?.get ? (responseHeaders.get('last-modified') || responseHeaders.get('Last-Modified')) : null;
       return {
         title,
         description,
@@ -174,16 +275,18 @@ function parsePodcastXmlClient(xmlText, originalUrl) {
         isBlocked: Boolean(itunesBlock),
         episodesCount: episodes.length,
         updatedAt: new Date().toISOString(),
-        episodes
+        episodes,
+        etag,
+        lastModified
       };
     }
   }
 
   // Regex fallback: extracts episodes from raw XML when DOMParser fails or produces 0 items
-  return parsePodcastXmlRegexClient(xmlText, originalUrl);
+  return parsePodcastXmlRegexClient(xmlText, originalUrl, responseHeaders);
 }
 
-function parsePodcastXmlRegexClient(xml, originalUrl) {
+function parsePodcastXmlRegexClient(xml, originalUrl, responseHeaders = null) {
   if (!xml || typeof xml !== 'string') return null;
 
   const getAttr = (str, tag, attr) => {
@@ -226,10 +329,9 @@ function parsePodcastXmlRegexClient(xml, originalUrl) {
   const itunesBlock = /^\s*yes\s*$/i.test(rawBlock);
 
   const items = [];
-  const MAX_PARSED = 120;
   let pos = 0;
 
-  while (items.length < MAX_PARSED) {
+  while (pos < xml.length) {
     const start = xml.indexOf('<item', pos);
     if (start === -1) break;
     const openEnd = xml.indexOf('>', start + 5);
@@ -245,7 +347,7 @@ function parsePodcastXmlRegexClient(xml, originalUrl) {
     const epTitle = getTag(itemXml, 'title') || 'Untitled Episode';
     const epGuid = getTag(itemXml, 'guid') || getTag(itemXml, 'link') || epTitle;
     const epPubDate = getTag(itemXml, 'pubDate') || getTag(itemXml, 'published');
-    const rawContent = getTag(itemXml, 'encoded') || getTag(itemXml, 'description') || getTag(itemXml, 'summary');
+    const rawContent = getTag(itemXml, 'encoded') || getTag(itemXml, 'description') || getTag(itemXml, 'summary') || '';
     const epDesc = stripHtml(rawContent, 240);
     let epDur = getTag(itemXml, 'duration');
     if (epDur === '0:00' || epDur === '0' || epDur === '00:00' || epDur === '00:00:00') epDur = '';
@@ -259,11 +361,16 @@ function parsePodcastXmlRegexClient(xml, originalUrl) {
       if (!isNaN(parsed)) ts = parsed;
     }
 
+    const isRecent = items.length < 100;
+    const content = isRecent
+      ? (rawContent.length <= 24000 ? rawContent : rawContent.slice(0, 24000))
+      : (rawContent.length <= 2000 ? rawContent : rawContent.slice(0, 2000));
+
     items.push({
       guid: epGuid,
       title: epTitle,
       description: epDesc,
-      content: rawContent.length <= 24000 ? rawContent : rawContent.slice(0, 24000),
+      content,
       pubDate: epPubDate,
       timestamp: ts,
       audioUrl,
@@ -281,6 +388,9 @@ function parsePodcastXmlRegexClient(xml, originalUrl) {
   if (items.length === 0) return null;
   items.sort((a, b) => b.timestamp - a.timestamp);
 
+  const etag = responseHeaders?.get ? (responseHeaders.get('etag') || responseHeaders.get('ETag')) : null;
+  const lastModified = responseHeaders?.get ? (responseHeaders.get('last-modified') || responseHeaders.get('Last-Modified')) : null;
+
   return {
     title,
     description,
@@ -292,7 +402,9 @@ function parsePodcastXmlRegexClient(xml, originalUrl) {
     isBlocked: Boolean(itunesBlock),
     episodesCount: items.length,
     updatedAt: new Date().toISOString(),
-    episodes: items
+    episodes: items,
+    etag,
+    lastModified
   };
 }
 
@@ -457,16 +569,45 @@ async function refreshAllFeeds(options = {}) {
 
         let directSuccess = false;
         try {
+          const directHeaders = {
+            'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
+          };
+          if (!forceRefresh && existingMeta.syncStats?.etag) {
+            directHeaders['If-None-Match'] = existingMeta.syncStats.etag;
+          }
+          if (!forceRefresh && existingMeta.syncStats?.lastModified) {
+            directHeaders['If-Modified-Since'] = existingMeta.syncStats.lastModified;
+          }
+
           const directRes = await fetch(url, {
             method: 'GET',
-            headers: { 'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*' },
+            headers: directHeaders,
             signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(7000) : undefined
           });
-          if (directRes.ok) {
+
+          if (directRes.status === 304) {
+            // Upstream returned 304 Not Modified: 0 bytes to parse!
+            directSuccess = true;
+            const currentFeedEps = state.allEpisodes ? state.allEpisodes.filter(e => e.feedUrl === url) : [];
+            updatedMetadata[url] = {
+              ...existingMeta,
+              lastFetchedAt: Date.now(),
+              syncStats: {
+                ...(existingMeta.syncStats || {}),
+                lastCheckedAt: Date.now(),
+                unchangedCount: ((existingMeta.syncStats?.unchangedCount) || 0) + 1
+              }
+            };
+            if (rawUrl !== url) updatedMetadata[rawUrl] = updatedMetadata[url];
+            incomingEpisodes.push(...currentFeedEps);
+            completedFeeds++;
+            updateStatusText();
+          } else if (directRes.ok) {
             const xmlText = await directRes.text();
-            const parsedClient = parsePodcastXmlClient(xmlText, url);
+            const parsedClient = parsePodcastXmlClient(xmlText, url, directRes.headers);
             if (parsedClient && Array.isArray(parsedClient.episodes) && parsedClient.episodes.length > 0) {
               directSuccess = true;
+              const cadence = computeFeedCadenceAndTtl(parsedClient.episodes, existingMeta.syncStats);
               updatedMetadata[url] = {
                 title: parsedClient.title,
                 artwork: parsedClient.artwork,
@@ -476,7 +617,17 @@ async function refreshAllFeeds(options = {}) {
                 playlistId: null,
                 nextToken: null,
                 corsBlocked: false,
-                lastFetchedAt: Date.now()
+                lastFetchedAt: Date.now(),
+                syncStats: {
+                  lastCheckedAt: Date.now(),
+                  lastNewEpisodeAt: Date.now(),
+                  detectedCadenceHours: cadence.cadenceHours,
+                  adaptiveTtlMs: cadence.adaptiveTtlMs,
+                  classification: cadence.classification,
+                  etag: parsedClient.etag || existingMeta.syncStats?.etag || null,
+                  lastModified: parsedClient.lastModified || existingMeta.syncStats?.lastModified || null,
+                  unchangedCount: 0
+                }
               };
               if (rawUrl !== url) updatedMetadata[rawUrl] = updatedMetadata[url];
               incomingEpisodes.push(...parsedClient.episodes);
@@ -498,7 +649,7 @@ async function refreshAllFeeds(options = {}) {
     await Promise.all(directWorkers);
   }
 
-  // Phase 2: Filter proxy candidates by 2-hour local TTL, then fetch via 0ms-CPU raw byte pass-through (?raw=1)
+  // Phase 2: Filter proxy candidates by adaptive TTL, then fetch via 0ms-CPU raw byte pass-through (?raw=1)
   // so 100% of RSS XML parsing happens on-device (preventing Cloudflare Worker exceededResources CPU kills!)
   const proxyQueue = [];
   for (const rawUrl of proxyCandidates) {
@@ -510,8 +661,9 @@ async function refreshAllFeeds(options = {}) {
     const existingMeta = state.feedMetadata[url] || state.feedMetadata[rawUrl] || {};
     const currentFeedEps = state.allEpisodes ? state.allEpisodes.filter(e => e.feedUrl === url) : [];
     const lastFetched = existingMeta.lastFetchedAt || 0;
+    const adaptiveTtl = existingMeta.syncStats?.adaptiveTtlMs || CLOUDFLARE_FEED_TTL_MS;
 
-    if (!forceRefresh && currentFeedEps.length > 0 && lastFetched > 0 && (Date.now() - lastFetched < CLOUDFLARE_FEED_TTL_MS)) {
+    if (!forceRefresh && currentFeedEps.length > 0 && lastFetched > 0 && (Date.now() - lastFetched < adaptiveTtl)) {
       updatedMetadata[url] = { ...existingMeta };
       if (rawUrl !== url) updatedMetadata[rawUrl] = updatedMetadata[url];
       incomingEpisodes.push(...currentFeedEps);
@@ -693,14 +845,32 @@ async function fetchSingleFeed(rawUrl, incomingEpisodes, updatedMetadata, option
     //    Runs on startup for direct-capable HTTPS feeds. Skips hosts known to lack CORS to avoid red console errors.
     if (!isYouTubeUrl && !isHttpFeedOnHttps && existingMeta.corsBlocked !== true && !isKnownNoCors) {
       try {
+        const directHeaders = { 'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*' };
+        if (!forceRefresh && existingMeta.syncStats?.etag) {
+          directHeaders['If-None-Match'] = existingMeta.syncStats.etag;
+        }
+        if (!forceRefresh && existingMeta.syncStats?.lastModified) {
+          directHeaders['If-Modified-Since'] = existingMeta.syncStats.lastModified;
+        }
         const directRes = await fetch(url, {
           method: 'GET',
-          headers: { 'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*' },
+          headers: directHeaders,
           signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(7000) : undefined
         });
-        if (directRes.ok) {
+        if (directRes.status === 304) {
+          const currentFeedEps = state.allEpisodes ? state.allEpisodes.filter(e => e.feedUrl === url) : [];
+          feedData = {
+            title: existingMeta.title,
+            artwork: existingMeta.artwork,
+            episodesCount: existingMeta.episodesCount || currentFeedEps.length,
+            description: existingMeta.description,
+            episodes: currentFeedEps,
+            is304: true
+          };
+          usedDirectCors = true;
+        } else if (directRes.ok) {
           const xmlText = await directRes.text();
-          const parsedClient = parsePodcastXmlClient(xmlText, url);
+          const parsedClient = parsePodcastXmlClient(xmlText, url, directRes.headers);
           if (parsedClient && Array.isArray(parsedClient.episodes) && parsedClient.episodes.length > 0) {
             feedData = parsedClient;
             usedDirectCors = true;
@@ -717,9 +887,10 @@ async function fetchSingleFeed(rawUrl, incomingEpisodes, updatedMetadata, option
     if (!feedData) {
       const currentFeedEps = state.allEpisodes ? state.allEpisodes.filter(e => e.feedUrl === url) : [];
       const lastFetched = existingMeta.lastFetchedAt || 0;
+      const adaptiveTtl = existingMeta.syncStats?.adaptiveTtlMs || CLOUDFLARE_FEED_TTL_MS;
 
-      // Respect 30-min local TTL on automatic startup for Cloudflare-proxied feeds if episodes are already cached
-      if (!forceRefresh && currentFeedEps.length > 0 && lastFetched > 0 && (Date.now() - lastFetched < CLOUDFLARE_FEED_TTL_MS)) {
+      // Respect dynamic adaptive TTL on automatic startup for Cloudflare-proxied feeds if episodes are already cached
+      if (!forceRefresh && currentFeedEps.length > 0 && lastFetched > 0 && (Date.now() - lastFetched < adaptiveTtl)) {
         updatedMetadata[url] = { ...existingMeta };
         return {
           title: existingMeta.title,
@@ -736,8 +907,24 @@ async function fetchSingleFeed(rawUrl, incomingEpisodes, updatedMetadata, option
       // 2a. For standard RSS feeds (non-YouTube), try /api/feed?raw=1 first so Cloudflare only streams bytes (0ms Worker XML CPU!)
       if (!isYouTubeUrl) {
         try {
-          const rawRes = await fetch(`/api/feed?raw=1&url=${encodeURIComponent(url)}`, { headers });
-          if (rawRes.status === 404 || rawRes.status === 410) {
+          const rawHeaders = { ...headers };
+          if (!forceRefresh && existingMeta.syncStats?.etag) {
+            rawHeaders['If-None-Match'] = existingMeta.syncStats.etag;
+          }
+          if (!forceRefresh && existingMeta.syncStats?.lastModified) {
+            rawHeaders['If-Modified-Since'] = existingMeta.syncStats.lastModified;
+          }
+          const rawRes = await fetch(`/api/feed?raw=1&url=${encodeURIComponent(url)}`, { headers: rawHeaders });
+          if (rawRes.status === 304) {
+            feedData = {
+              title: existingMeta.title,
+              artwork: existingMeta.artwork,
+              episodesCount: existingMeta.episodesCount || currentFeedEps.length,
+              description: existingMeta.description,
+              episodes: currentFeedEps,
+              is304: true
+            };
+          } else if (rawRes.status === 404 || rawRes.status === 410) {
             const errStatus = `HTTP ${rawRes.status}`;
             updatedMetadata[url] = {
               title: existingMeta.title || 'Unavailable Feed',
@@ -749,10 +936,9 @@ async function fetchSingleFeed(rawUrl, incomingEpisodes, updatedMetadata, option
               updatedMetadata[rawUrl] = updatedMetadata[url];
             }
             return null;
-          }
-          if (rawRes.ok) {
+          } else if (rawRes.ok) {
             const xmlText = await rawRes.text();
-            const parsedClient = parsePodcastXmlClient(xmlText, url);
+            const parsedClient = parsePodcastXmlClient(xmlText, url, rawRes.headers);
             if (parsedClient && Array.isArray(parsedClient.episodes) && parsedClient.episodes.length > 0) {
               feedData = parsedClient;
             }
@@ -816,6 +1002,7 @@ async function fetchSingleFeed(rawUrl, incomingEpisodes, updatedMetadata, option
       startYouTubeBackgroundPaging(feedData.playlistId, url, feedData.nextToken || null);
     }
 
+    const cadence = computeFeedCadenceAndTtl(feedData.episodes, existingMeta.syncStats);
     updatedMetadata[url] = {
       title: feedData.title,
       artwork: feedData.artwork,
@@ -825,7 +1012,19 @@ async function fetchSingleFeed(rawUrl, incomingEpisodes, updatedMetadata, option
       playlistId: feedData.playlistId || null,
       nextToken: feedData.nextToken || null,
       corsBlocked: usedDirectCors ? false : Boolean(existingMeta.corsBlocked || isKnownNoCors),
-      lastFetchedAt: Date.now()
+      lastFetchedAt: Date.now(),
+      syncStats: {
+        lastCheckedAt: Date.now(),
+        lastNewEpisodeAt: (feedData.is304 || existingMeta.syncStats?.lastNewEpisodeAt)
+          ? (existingMeta.syncStats?.lastNewEpisodeAt || Date.now())
+          : Date.now(),
+        detectedCadenceHours: cadence.cadenceHours,
+        adaptiveTtlMs: cadence.adaptiveTtlMs,
+        classification: cadence.classification,
+        etag: feedData.etag || existingMeta.syncStats?.etag || null,
+        lastModified: feedData.lastModified || existingMeta.syncStats?.lastModified || null,
+        unchangedCount: feedData.is304 ? ((existingMeta.syncStats?.unchangedCount || 0) + 1) : 0
+      }
     };
 
     if (rawUrl && rawUrl !== url) {
