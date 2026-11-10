@@ -1866,6 +1866,9 @@ async function executeUnifiedSearch(query, source = 'all', targetContainer = nul
     return;
   }
 
+  // Scoped at function level so it is universally available across cache, fetch, and render paths
+  const userHasPro = Boolean((typeof isUserListenerPro === 'function' && isUserListenerPro()) || (state && state.isListenerPro));
+
   const countryKey = (state.directoryCountry && state.directoryCountry !== 'all') ? state.directoryCountry : 'all';
   const cacheKey = `${q.toLowerCase()}::${source}::${countryKey}`;
   const cachedEntry = _unifiedSearchCache.get(cacheKey);
@@ -1895,7 +1898,7 @@ async function executeUnifiedSearch(query, source = 'all', targetContainer = nul
     } else {
       const fetchPromises = [];
 
-      // 1. Podcast Directory search (for 'all' or 'podcasts')
+      // 1. Podcast Directory search (for 'all' or 'podcasts' - 100% free for guests & subscribers)
       if (source === 'all' || source === 'podcasts') {
         const countryParam = (state.directoryCountry && state.directoryCountry !== 'all') ? `&country=${encodeURIComponent(state.directoryCountry)}` : '';
         const podcastLimit = source === 'all' ? 12 : 30;
@@ -1924,15 +1927,13 @@ async function executeUnifiedSearch(query, source = 'all', targetContainer = nul
         fetchPromises.push(Promise.resolve([]));
       }
 
-      // 2. YouTube / YouTube Music search (gated to Listener Pro)
-      const userHasPro = typeof isUserListenerPro === 'function' ? isUserListenerPro() : Boolean(state.isListenerPro);
-
+      // 2. YouTube / YouTube Music search (gated to Listener Pro; guests/free accounts search podcasts unhindered)
       if (source === 'all' || source === 'youtube' || source === 'music') {
         if (!userHasPro && (source === 'youtube' || source === 'music')) {
-          // Explicit YouTube tab selected by free user -> resolve empty array, render preview card below
+          // Explicit YouTube tab selected by guest/free user -> resolve empty, preview banner rendered below
           fetchPromises.push(Promise.resolve([]));
         } else if (!userHasPro && source === 'all') {
-          // 'all' search on free account -> omit YouTube results to protect quota, search podcasts normally
+          // 'all' search on guest/free account -> omit YouTube results, search podcasts normally
           fetchPromises.push(Promise.resolve([]));
         } else {
           const ytType = source === 'music' ? 'music' : (source === 'youtube' ? 'video' : 'all');
@@ -1941,7 +1942,7 @@ async function executeUnifiedSearch(query, source = 'all', targetContainer = nul
           const fetchYt = async () => {
             try {
               const headers = {};
-              if (state.sessionToken) {
+              if (state && state.sessionToken) {
                 headers['X-Session-Token'] = state.sessionToken;
               }
               const res = await fetch(`/api/search-youtube?q=${encodeURIComponent(q)}&type=${ytType}&limit=${ytLimit}`, { headers });
@@ -3570,8 +3571,8 @@ function renderDiscover(forceRebuild = false) {
           <div class="search-source-tabs" role="tablist" aria-label="Search source" aria-orientation="horizontal">
             <button type="button" role="tab" id="source-tab-all" class="source-tab ${state.searchSource === 'all' || !state.searchSource ? 'active' : ''}" data-source="all" aria-selected="${state.searchSource === 'all' || !state.searchSource ? 'true' : 'false'}" tabindex="${state.searchSource === 'all' || !state.searchSource ? '0' : '-1'}" aria-controls="empty-quick-results">All</button>
             <button type="button" role="tab" id="source-tab-podcasts" class="source-tab ${state.searchSource === 'podcasts' ? 'active' : ''}" data-source="podcasts" aria-selected="${state.searchSource === 'podcasts' ? 'true' : 'false'}" tabindex="${state.searchSource === 'podcasts' ? '0' : '-1'}" aria-controls="empty-quick-results">Podcasts</button>
-            <button type="button" role="tab" id="source-tab-youtube" class="source-tab ${state.searchSource === 'youtube' ? 'active' : ''}" data-source="youtube" aria-selected="${state.searchSource === 'youtube' ? 'true' : 'false'}" tabindex="${state.searchSource === 'youtube' ? '0' : '-1'}" aria-controls="empty-quick-results">YouTube${!isUserListenerPro() ? ' <span style="font-size: 0.6rem; padding: 1px 4px; border-radius: 4px; background: rgba(216, 205, 190, 0.15); color: var(--primary); font-weight: 600; vertical-align: middle; margin-left: 2px;">PRO</span>' : ''}</button>
-            <button type="button" role="tab" id="source-tab-music" class="source-tab ${state.searchSource === 'music' ? 'active' : ''}" data-source="music" aria-selected="${state.searchSource === 'music' ? 'true' : 'false'}" tabindex="${state.searchSource === 'music' ? '0' : '-1'}" aria-controls="empty-quick-results">YT Music${!isUserListenerPro() ? ' <span style="font-size: 0.6rem; padding: 1px 4px; border-radius: 4px; background: rgba(216, 205, 190, 0.15); color: var(--primary); font-weight: 600; vertical-align: middle; margin-left: 2px;">PRO</span>' : ''}</button>
+            <button type="button" role="tab" id="source-tab-youtube" class="source-tab ${state.searchSource === 'youtube' ? 'active' : ''}" data-source="youtube" aria-selected="${state.searchSource === 'youtube' ? 'true' : 'false'}" tabindex="${state.searchSource === 'youtube' ? '0' : '-1'}" aria-controls="empty-quick-results">YouTube${!(typeof isUserListenerPro === 'function' && isUserListenerPro()) ? ' <span style="font-size: 0.6rem; padding: 1px 4px; border-radius: 4px; background: rgba(216, 205, 190, 0.15); color: var(--primary); font-weight: 600; vertical-align: middle; margin-left: 2px;">PRO</span>' : ''}</button>
+            <button type="button" role="tab" id="source-tab-music" class="source-tab ${state.searchSource === 'music' ? 'active' : ''}" data-source="music" aria-selected="${state.searchSource === 'music' ? 'true' : 'false'}" tabindex="${state.searchSource === 'music' ? '0' : '-1'}" aria-controls="empty-quick-results">YT Music${!(typeof isUserListenerPro === 'function' && isUserListenerPro()) ? ' <span style="font-size: 0.6rem; padding: 1px 4px; border-radius: 4px; background: rgba(216, 205, 190, 0.15); color: var(--primary); font-weight: 600; vertical-align: middle; margin-left: 2px;">PRO</span>' : ''}</button>
           </div>
           <form id="empty-quick-form" class="quick-add-form" action="javascript:void(0);">
             <div class="quick-add-input-wrap">

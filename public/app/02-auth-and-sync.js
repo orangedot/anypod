@@ -23,15 +23,18 @@ function checkUrlSessionParam() {
 }
 
 function isUserListenerPro() {
+  if (typeof state === 'undefined' || !state) return false;
   if (state.isListenerPro) return true;
   const email = (state.userEmail || '').toLowerCase().trim();
-  const normalized = email.replace(/\./g, '');
-  if (
-    normalized === 'steffenklaue@gmailcom' ||
-    email.includes('steffen.klaue@gmail.com') ||
-    email.includes('steffenklaue@gmail.com')
-  ) {
-    return true;
+  if (email) {
+    const normalized = email.replace(/\./g, '');
+    if (
+      normalized === 'steffenklaue@gmailcom' ||
+      email.includes('steffen.klaue@gmail.com') ||
+      email.includes('steffenklaue@gmail.com')
+    ) {
+      return true;
+    }
   }
   return state.listenerPlan === 'pro';
 }
