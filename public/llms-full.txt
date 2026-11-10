@@ -1,0 +1,35 @@
+# Anypod — Comprehensive Technical Architecture & Agent Specification
+
+> Full machine-readable technical overview, API specifications, and architecture guide for Anypod.
+
+## Overview
+Anypod (https://anypod.org) is a privacy-first web podcast player and progressive web app (PWA) with zero user tracking, zero advertisements, and client-side encryption. All listening activity, subscriptions, and playback state remain securely stored in the client browser's IndexedDB and localStorage unless the user explicitly opts into ephemeral encrypted sync.
+
+## Core Capabilities & Engineering Details
+
+### 1. Podcast 2.0 & Open RSS Feed Processing
+- Feed Parsing: Supports standard RSS 2.0, Atom, and Podcast 2.0 namespace tags (`<podcast:chapters>`, `<podcast:transcript>`, `<podcast:locked>`, `<podcast:soundbite>`).
+- Privacy Safeguards: Parses channel-level `<itunes:block>yes</itunes:block>` and `<podcast:locked>yes</podcast:locked>` to prevent private and locked feeds from appearing in discovery catalogs or shared indexes.
+- Feed Proxy: A Cloudflare Worker at `/api/feed?url=<encoded_url>` safely unwraps and forwards XML/RSS feeds with CORS headers and caching.
+
+### 2. Audio Engine & Client-Side Digital Signal Processing
+- Multi-Engine Core: HTML5 Audio, Web Audio API, and YouTube IFrame Player API.
+- Voice Boost (Speech Normalization): Toggleable Web Audio `DynamicsCompressorNode` inserted into the playback graph with a calibrated voice compression curve:
+  - Threshold: -24 dB
+  - Knee: 12 dB
+  - Ratio: 4:1
+  - Attack: 0.003s
+  - Release: 0.25s
+- Binary ID3v2 Chapter Extraction: In-browser 64 KB range request stream probe extracts ID3v2 `CHAP` and `CTOC` frames from MP3/M4A audio when external chapter manifests are missing.
+
+### 3. Agentic Resource Discovery & Machine Endpoints
+- ARD Manifest: Hosted at `/.well-known/ard.json` conforming to the Agentic Resource Discovery 1.0 standard.
+- Link: `<link rel="ard" type="application/json" href="/.well-known/ard.json">`
+- LLM Overview: `https://anypod.org/llms.txt`
+
+## Endpoints
+- [Web Application](https://anypod.org/)
+- [ARD Manifest](https://anypod.org/.well-known/ard.json)
+- [Legacy AI Catalog](https://anypod.org/.well-known/ai-catalog.json)
+- [Feed Proxy API](https://anypod.org/api/feed)
+- [GitHub Repository](https://github.com/orangedot/anypod)

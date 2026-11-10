@@ -21,7 +21,8 @@
         enableAudioClassifier: false,
         showJumpButtons: false,
         autoSkipSpeech: false,
-        enableTranscript: false
+        enableTranscript: false,
+        enableVoiceBoost: false
       };
       if (window.localStorage) {
         localStorage.setItem(EXP_KEY, JSON.stringify(defaults));

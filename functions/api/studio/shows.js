@@ -1,4 +1,4 @@
-import { getUserFromRequest, getCorsHeaders } from '../utils.js';
+import { getUserFromRequest, getCorsHeaders, canUserManageShow, normalizeEmail } from '../utils.js';
 import { enforceStudioRateLimit, checkCreatorBillingQuota } from '../../../workers/studio-private/index.js';
 
 function sanitizeSlug(raw) {
@@ -36,7 +36,7 @@ export async function onRequest(context) {
     const slug = sanitizeSlug(url.searchParams.get('slug'));
     if (slug) {
       const show = await env.DB.prepare(
-        'SELECT id, owner_id, slug, title, description, author, email, cover_image_url, language, category, explicit, website_url, created_at FROM shows WHERE slug = ?'
+        'SELECT id, owner_id, slug, title, description, author, email, cover_image_url, language, category, explicit, website_url, is_private, auth_type, custom_domain, custom_domain_status, created_at FROM shows WHERE slug = ?'
       ).bind(slug).first();
       if (!show) {
         return new Response(JSON.stringify({ error: 'Show not found' }), { status: 404, headers });
@@ -49,9 +49,23 @@ export async function onRequest(context) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers });
     }
 
+    const userEmailNorm = normalizeEmail(user.email);
+    const matchingUsers = await env.DB.prepare(
+      'SELECT id FROM users WHERE email = ? OR email = ?'
+    ).bind(user.email, userEmailNorm).all();
+    const userIds = Array.from(new Set([user.id, ...(matchingUsers?.results?.map(r => r.id) || [])])).filter(Boolean);
+
+    const placeholders = userIds.map(() => '?').join(',');
     const rows = await env.DB.prepare(
-      'SELECT id, owner_id, slug, title, description, author, email, cover_image_url, language, category, explicit, website_url, created_at FROM shows WHERE owner_id = ? ORDER BY created_at DESC'
-    ).bind(user.id).all();
+      `SELECT id, owner_id, slug, title, description, author, email, cover_image_url, language, category, explicit, website_url, is_private, auth_type, custom_domain, custom_domain_status, created_at FROM shows WHERE owner_id IN (${placeholders}) ORDER BY created_at DESC`
+    ).bind(...userIds).all();
+
+    for (const s of (rows?.results || [])) {
+      if (s.owner_id !== user.id) {
+        await env.DB.prepare('UPDATE shows SET owner_id = ? WHERE id = ?').bind(user.id, s.id).run().catch(() => {});
+        s.owner_id = user.id;
+      }
+    }
 
     return new Response(JSON.stringify({ shows: rows?.results || [] }), { status: 200, headers });
   }
@@ -81,8 +95,11 @@ export async function onRequest(context) {
     }
 
     const existing = await env.DB.prepare('SELECT id, owner_id FROM shows WHERE slug = ?').bind(slug).first();
-    if (existing && existing.owner_id !== user.id) {
-      return new Response(JSON.stringify({ error: 'Slug is already taken by another creator' }), { status: 409, headers });
+    if (existing) {
+      const isOwner = await canUserManageShow(env, user, existing);
+      if (!isOwner) {
+        return new Response(JSON.stringify({ error: 'Slug is already taken by another creator' }), { status: 409, headers });
+      }
     }
 
     const quota = await checkCreatorBillingQuota(user, env, 0, { newShow: !existing });
@@ -99,16 +116,22 @@ export async function onRequest(context) {
     const category = String(body.category || 'Technology').trim();
     const explicit = body.explicit ? 1 : 0;
     const websiteUrl = String(body.website_url || body.websiteUrl || '').trim();
+    const isPrivate = body.is_private !== undefined ? (body.is_private ? 1 : 0) : (existing ? (existing.is_private || 0) : 0);
+    const authType = String(body.auth_type || (existing ? existing.auth_type : 'token') || 'token').trim();
+    const customDomain = body.custom_domain !== undefined
+      ? (body.custom_domain ? String(body.custom_domain).trim().toLowerCase() : null)
+      : (existing ? existing.custom_domain : null);
+    const customDomainStatus = customDomain ? (existing && existing.custom_domain === customDomain ? (existing.custom_domain_status || 'pending') : 'pending') : 'none';
     const now = Math.floor(Date.now() / 1000);
 
     if (existing) {
       await env.DB.prepare(
-        'UPDATE shows SET title = ?, description = ?, author = ?, email = ?, cover_image_url = ?, language = ?, category = ?, explicit = ?, website_url = ? WHERE id = ? AND owner_id = ?'
-      ).bind(title, description, author, email, coverImageUrl, language, category, explicit, websiteUrl, id, user.id).run();
+        'UPDATE shows SET title = ?, description = ?, author = ?, email = ?, cover_image_url = ?, language = ?, category = ?, explicit = ?, website_url = ?, is_private = ?, auth_type = ?, custom_domain = ?, custom_domain_status = ? WHERE id = ? AND owner_id = ?'
+      ).bind(title, description, author, email, coverImageUrl, language, category, explicit, websiteUrl, isPrivate, authType, customDomain, customDomainStatus, id, user.id).run();
     } else {
       await env.DB.prepare(
-        'INSERT INTO shows (id, owner_id, slug, title, description, author, email, cover_image_url, language, category, explicit, website_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-      ).bind(id, user.id, slug, title, description, author, email, coverImageUrl, language, category, explicit, websiteUrl, now).run();
+        'INSERT INTO shows (id, owner_id, slug, title, description, author, email, cover_image_url, language, category, explicit, website_url, is_private, auth_type, custom_domain, custom_domain_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      ).bind(id, user.id, slug, title, description, author, email, coverImageUrl, language, category, explicit, websiteUrl, isPrivate, authType, customDomain, customDomainStatus, now).run();
     }
 
     const saved = await env.DB.prepare('SELECT * FROM shows WHERE id = ?').bind(id).first();

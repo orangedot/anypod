@@ -9,3 +9,6 @@ config.json
 config.yaml
 config.yml
 public/app.js
+scripts/active_users.py
+scripts/anycloud.py
+

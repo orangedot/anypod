@@ -83,7 +83,7 @@ export async function onRequest(context) {
               }
               const parsed = await fetchAndParseFeed(u);
               const withUrl = { ...parsed, feedUrl: u };
-              if (cache && parsed && !parsed.error) {
+              if (cache && parsed && !parsed.error && !parsed.itunesBlock) {
                 try {
                   const subKey = new Request(`${reqUrl.origin}/api/feed?url=${encodeURIComponent(u)}`, { method: 'GET' });
                   const subRes = new Response(JSON.stringify(withUrl), { headers: corsHeaders, status: 200 });
@@ -195,11 +195,16 @@ export async function onRequest(context) {
 
   try {
     const feedData = await fetchAndParseFeed(targetUrl);
+    const resHeaders = { ...corsHeaders };
+    if (feedData && feedData.itunesBlock) {
+      // Explicit <itunes:block> Guard: private feeds are excluded from shared public edge cache
+      resHeaders['Cache-Control'] = 'private, no-cache, no-store';
+    }
     const res = new Response(JSON.stringify(feedData), {
-      headers: corsHeaders,
+      headers: resHeaders,
       status: 200
     });
-    if (cache && feedData && !feedData.error) {
+    if (cache && feedData && !feedData.error && !feedData.itunesBlock) {
       try { context.waitUntil(cache.put(cacheKey, res.clone())); } catch (_) {}
     }
     return res;
@@ -1001,6 +1006,7 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
   let author = '';
   let artwork = '';
   let link = '';
+  let itunesBlock = false;
 
   if (isAtom) {
     const headerSlice = xml.slice(0, Math.min(xml.length, 8000));
@@ -1017,6 +1023,10 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
     description = getTagContent(channelHeaderXml, 'description', 500) || getTagContent(channelHeaderXml, 'summary', 500);
     author = getTagContent(channelHeaderXml, 'author') || getTagContent(channelHeaderXml, 'owner');
     link = getTagContent(channelHeaderXml, 'link') || getAttribute(channelHeaderXml, 'link', 'href') || '';
+
+    // Explicit <itunes:block> & <podcast:locked> guard:
+    const blockContent = getTagContent(channelHeaderXml, 'itunes:block') || getTagContent(channelHeaderXml, 'block') || getTagContent(channelHeaderXml, 'podcast:locked');
+    itunesBlock = /^\s*yes\s*$/i.test(blockContent || '');
     
     artwork = getAttribute(channelHeaderXml, 'image', 'href') || getAttribute(channelHeaderXml, 'itunes:image', 'href');
     if (!artwork) {
@@ -1173,6 +1183,8 @@ function parsePodcastXml(xml, feedUrl, originalUrl) {
     artwork: artwork || (items.length > 0 ? items[0].artwork : ''),
     link: link || originalUrl,
     feedUrl: originalUrl,
+    itunesBlock: Boolean(itunesBlock),
+    isBlocked: Boolean(itunesBlock),
     episodesCount: items.length,
     updatedAt: new Date().toISOString(),
     episodes: items

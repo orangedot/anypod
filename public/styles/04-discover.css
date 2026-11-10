@@ -52,8 +52,8 @@
   padding: 0.35rem 0.85rem;
   border-radius: var(--radius-full);
   border: 1px solid var(--border-light);
-  background: var(--bg-card);
-  color: var(--text-secondary);
+  background: var(--tab-inactive-bg, var(--bg-card));
+  color: var(--tab-inactive-fg, var(--text-secondary));
   cursor: pointer;
   transition: all 0.18s ease;
   white-space: nowrap;
@@ -61,21 +61,52 @@
 
 .source-tab:hover {
   color: var(--text-primary);
-  border-color: var(--border-color);
+  border-color: var(--border-color, rgba(255, 255, 255, 0.15));
   background: var(--bg-hover, rgba(255, 255, 255, 0.06));
 }
 
+.source-tab:focus-visible {
+  outline: 2px solid var(--border-focus, #d8cdbe);
+  outline-offset: 2px;
+}
+
 .source-tab.active {
-  background: var(--text-primary);
-  color: var(--bg-body, #121214);
-  border-color: var(--text-primary);
+  background: var(--tab-active-bg, #f2f2f4);
+  color: var(--tab-active-fg, #161618);
+  border-color: var(--tab-active-bg, #f2f2f4);
   font-weight: 600;
 }
 
+/* Explicit Light Theme */
 [data-theme="light"] .source-tab.active {
-  background: #18181b;
-  color: #ffffff;
-  border-color: #18181b;
+  background: var(--tab-active-bg, #18181b);
+  color: var(--tab-active-fg, #ffffff);
+  border-color: var(--tab-active-bg, #18181b);
+}
+
+/* System Light Theme (when not explicitly dark) */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .source-tab.active {
+    background: var(--tab-active-bg, #18181b);
+    color: var(--tab-active-fg, #ffffff);
+    border-color: var(--tab-active-bg, #18181b);
+  }
+}
+
+/* Explicit Dark Theme */
+[data-theme="dark"] .source-tab.active {
+  background: var(--tab-active-bg, #f2f2f4);
+  color: var(--tab-active-fg, #161618);
+  border-color: var(--tab-active-bg, #f2f2f4);
+}
+
+@media (forced-colors: active) {
+  .source-tab.active {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+    border-color: Highlight;
+  }
 }
 
 .btn-discover-clear-search {

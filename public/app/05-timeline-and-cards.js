@@ -807,6 +807,107 @@ function extractChaptersFromShowNotes(rawText) {
   return unique;
 }
 
+/**
+ * Lightweight Client-Side ID3v2 CHAP & CTOC binary frame parser.
+ * Extracts embedded chapter markers from audio container headers (first 64 KB).
+ */
+function parseId3v2Chapters(buffer) {
+  if (!buffer || buffer.byteLength < 10) return [];
+  const u8 = new Uint8Array(buffer);
+  if (u8[0] !== 0x49 || u8[1] !== 0x44 || u8[2] !== 0x33) return []; // Must start with "ID3"
+  const version = u8[3];
+  if (version < 3) return []; // Require ID3v2.3+
+
+  const tagSize = ((u8[6] & 0x7F) << 21) | ((u8[7] & 0x7F) << 14) | ((u8[8] & 0x7F) << 7) | (u8[9] & 0x7F);
+  const maxPos = Math.min(u8.byteLength, tagSize + 10);
+  const view = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+
+  const chapters = [];
+  let pos = 10;
+
+  function decodeText(bytes, encoding) {
+    if (!bytes || bytes.length === 0) return '';
+    try {
+      if (encoding === 0) return new TextDecoder('iso-8859-1').decode(bytes);
+      if (encoding === 1) return new TextDecoder('utf-16').decode(bytes);
+      if (encoding === 2) return new TextDecoder('utf-16be').decode(bytes);
+      if (encoding === 3) return new TextDecoder('utf-8').decode(bytes);
+    } catch (_) {}
+    try { return new TextDecoder('utf-8').decode(bytes); } catch (_) { return ''; }
+  }
+
+  while (pos + 10 <= maxPos) {
+    if (u8[pos] === 0) break; // Padding reached
+    const frameId = String.fromCharCode(u8[pos], u8[pos + 1], u8[pos + 2], u8[pos + 3]);
+    let frameSize = 0;
+    if (version === 4) {
+      frameSize = ((u8[pos + 4] & 0x7F) << 21) | ((u8[pos + 5] & 0x7F) << 14) | ((u8[pos + 6] & 0x7F) << 7) | (u8[pos + 7] & 0x7F);
+    } else {
+      frameSize = view.getUint32(pos + 4, false);
+    }
+
+    if (frameSize <= 0 || pos + 10 + frameSize > u8.byteLength) break;
+
+    if (frameId === 'CHAP') {
+      let subPos = pos + 10;
+      const frameEnd = subPos + frameSize;
+
+      // Element ID (null-terminated string)
+      let elemIdEnd = subPos;
+      while (elemIdEnd < frameEnd && u8[elemIdEnd] !== 0) {
+        elemIdEnd++;
+      }
+      const elementId = decodeText(u8.subarray(subPos, elemIdEnd), 0);
+      subPos = elemIdEnd + 1; // skip null byte
+
+      if (subPos + 16 <= frameEnd) {
+        const startMs = view.getUint32(subPos, false);
+        const endMs = view.getUint32(subPos + 4, false);
+        subPos += 16; // skip startMs(4), endMs(4), startOffset(4), endOffset(4)
+
+        let title = '';
+        let url = '';
+
+        // Parse nested sub-frames within CHAP (e.g. TIT2, WXXX)
+        while (subPos + 10 <= frameEnd && u8[subPos] !== 0) {
+          const subId = String.fromCharCode(u8[subPos], u8[subPos + 1], u8[subPos + 2], u8[subPos + 3]);
+          let subSize = 0;
+          if (version === 4) {
+            subSize = ((u8[subPos + 4] & 0x7F) << 21) | ((u8[subPos + 5] & 0x7F) << 14) | ((u8[subPos + 6] & 0x7F) << 7) | (u8[subPos + 7] & 0x7F);
+          } else {
+            subSize = view.getUint32(subPos + 4, false);
+          }
+          if (subSize <= 0 || subPos + 10 + subSize > frameEnd) break;
+
+          const subContent = u8.subarray(subPos + 10, subPos + 10 + subSize);
+          if (subId === 'TIT2' && subContent.length > 1) {
+            const enc = subContent[0];
+            title = decodeText(subContent.subarray(1), enc).replace(/\0+$/, '').trim();
+          } else if ((subId === 'WXXX' || subId === 'WOAR') && subContent.length > 1) {
+            url = decodeText(subContent.subarray(1), 0).replace(/\0+$/, '').trim();
+          }
+
+          subPos += 10 + subSize;
+        }
+
+        chapters.push({
+          id: chapters.length,
+          startTime: startMs / 1000,
+          endTime: endMs > startMs ? endMs / 1000 : 0,
+          title: title || elementId || `Chapter ${chapters.length + 1}`,
+          url: url || '',
+          img: '',
+          source: 'id3v2'
+        });
+      }
+    }
+
+    pos += 10 + frameSize;
+  }
+
+  return chapters;
+}
+
 async function loadEpisodeChapters(episode) {
   if (!episode) return;
   state.episodeChapters = [];
@@ -871,7 +972,46 @@ async function loadEpisodeChapters(episode) {
     }
   }
 
-  // 2. TIER 2: Fallback to Show Notes Regex Timestamps
+  // 2. TIER 2: ID3v2 Embedded Binary Chapters (Stream probe first 64 KB via Range: bytes=0-65535)
+  if (!chapters.length && episode.audioUrl && !episode.isYouTube && !episode.audioUrl.includes('youtube.com') && !episode.audioUrl.includes('youtu.be')) {
+    try {
+      let arrayBuf = null;
+      // 2a. Direct stream range probe
+      try {
+        const directProbe = await fetch(episode.audioUrl, {
+          headers: { 'Range': 'bytes=0-65535' },
+          signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(4000) : undefined
+        });
+        if (directProbe.ok || directProbe.status === 206) {
+          arrayBuf = await directProbe.arrayBuffer();
+        }
+      } catch (_) {}
+
+      // 2b. Proxy fallback if direct fetch fails or is blocked by CORS
+      if (!arrayBuf) {
+        const proxyProbeUrl = `/api/audio-proxy?url=${encodeURIComponent(episode.audioUrl)}`;
+        const proxyProbe = await fetch(proxyProbeUrl, {
+          headers: { 'Range': 'bytes=0-65535' },
+          signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(5000) : undefined
+        });
+        if (proxyProbe.ok || proxyProbe.status === 206) {
+          arrayBuf = await proxyProbe.arrayBuffer();
+        }
+      }
+
+      if (arrayBuf) {
+        const id3Chapters = parseId3v2Chapters(arrayBuf);
+        if (id3Chapters && id3Chapters.length > 0) {
+          chapters = id3Chapters;
+          source = 'ID3v2 (Forecast)';
+        }
+      }
+    } catch (err) {
+      console.warn('[Chapters] ID3v2 stream probe skipped or failed:', err);
+    }
+  }
+
+  // 3. TIER 3: Fallback to Show Notes Regex Timestamps
   if (!chapters.length) {
     const rawNotes = episode.content || episode.description || '';
     const fallbackChapters = extractChaptersFromShowNotes(rawNotes);
@@ -889,7 +1029,7 @@ async function loadEpisodeChapters(episode) {
     }
   }
 
-  // 3. Compute chapter endTimes if not provided
+  // 4. Compute chapter endTimes if not provided
   if (chapters.length > 0) {
     chapters.sort((a, b) => a.startTime - b.startTime);
     const totalDur = episode.duration ? parseDurationSeconds(episode.duration) : 0;

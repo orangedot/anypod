@@ -278,7 +278,8 @@
       }
     }
 
-    tl.seek(tl.getPlayhead());
+    api.renderStage = renderStage;
+    updatePlayheadUI(tl.getPlayhead());
     renderStage();
 
     if (playBtn) {

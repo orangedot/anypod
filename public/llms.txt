@@ -12,12 +12,26 @@ Anypod is a modern web podcast client and progressive web app (PWA) designed wit
 - User data automatically expires and deletes after 50 days of inactivity.
 
 ## Features
+
 - Direct RSS feed subscription and XML/JSON parsing.
 - YouTube channel, playlist, and video audio streaming.
 - Local playback progress tracking with resume.
 - Queue management, favorites, download manager, speed controls (0.5x - 3.0x).
 - Curated directory of science, space, nature, and technology shows.
+- Audio normalization via Web Audio DynamicsCompressor (Voice Boost).
+- Client-side ID3v2 binary chapter parsing and Podcast 2.0 chapters.
+- `<itunes:block>` and `<podcast:locked>` channel privacy guards.
 
-## Core Endpoints
-- Web App: https://anypod.org/
-- Source Code: https://github.com/orangedot/anypod
+## Links
+
+- [Anypod Web App](https://anypod.org/): Private web podcast player and RSS client.
+- [DJ Studio](https://dj.anypod.org/): Dual-deck Web Audio DJ mixing console.
+- [Workout Sets](https://sets.anypod.org/): Interval training audio sequencer.
+- [Source Code](https://github.com/orangedot/anypod): Open-source MIT repository on GitHub.
+- [Self-Hosting Guide](https://github.com/orangedot/anypod/blob/main/app/SELF_HOSTING.md): Deployment instructions for Cloudflare Pages and Docker.
+- [Feed Proxy API](https://anypod.org/api/feed): CORS-compliant RSS podcast feed proxy and parser.
+
+## Optional
+
+- [LLMs Full Documentation](https://anypod.org/llms-full.txt): Extended technical documentation, architecture, and API references.
+- [Agentic Resource Discovery (ARD)](https://anypod.org/.well-known/ard.json): Machine-readable resource discovery manifest.

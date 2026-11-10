@@ -1,4 +1,4 @@
-import { getUserFromRequest, getCorsHeaders } from '../utils.js';
+import { getUserFromRequest, getCorsHeaders, canUserManageShow } from '../utils.js';
 import {
   enforceStudioRateLimit,
   checkCreatorBillingQuota,
@@ -133,8 +133,12 @@ export async function onRequest(context) {
     }
 
     const show = await env.DB.prepare('SELECT id, owner_id, slug FROM shows WHERE slug = ?').bind(showSlug).first();
-    if (!show || show.owner_id !== user.id) {
-      return new Response(JSON.stringify({ error: 'Show not found or unauthorized' }), { status: 403, headers });
+    if (!show) {
+      return new Response(JSON.stringify({ error: `Show "${showSlug}" does not exist. Please create your show first.`, code: 'SHOW_NOT_FOUND' }), { status: 404, headers });
+    }
+    const isOwner = await canUserManageShow(env, user, show);
+    if (!isOwner) {
+      return new Response(JSON.stringify({ error: 'You are not authorized to publish to this show', code: 'FORBIDDEN' }), { status: 403, headers });
     }
 
     const byteSize = Math.max(0, Number(body.byteSize || 0));
@@ -172,8 +176,12 @@ export async function onRequest(context) {
     }
 
     const show = await env.DB.prepare('SELECT id, owner_id, slug FROM shows WHERE slug = ?').bind(showSlug).first();
-    if (!show || show.owner_id !== user.id) {
-      return new Response(JSON.stringify({ error: 'Show not found or unauthorized' }), { status: 403, headers });
+    if (!show) {
+      return new Response(JSON.stringify({ error: `Show "${showSlug}" does not exist. Please create your show first.`, code: 'SHOW_NOT_FOUND' }), { status: 404, headers });
+    }
+    const isOwner = await canUserManageShow(env, user, show);
+    if (!isOwner) {
+      return new Response(JSON.stringify({ error: 'You are not authorized to publish to this show', code: 'FORBIDDEN' }), { status: 403, headers });
     }
 
     const filename = sanitizeFilename(file.name);

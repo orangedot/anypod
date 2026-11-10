@@ -432,6 +432,13 @@ body.has-active-episode.has-mini-player .player-mini {
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-pill.btn-voice-boost.active {
+  background: var(--accent);
+  color: var(--bg-primary, #0f172a);
+  border-color: var(--accent);
 }
 
 .badge {

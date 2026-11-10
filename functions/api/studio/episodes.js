@@ -1,4 +1,4 @@
-import { getUserFromRequest, getCorsHeaders } from '../utils.js';
+import { getUserFromRequest, getCorsHeaders, canUserManageShow } from '../utils.js';
 import { enforceStudioRateLimit, checkCreatorBillingQuota } from '../../../workers/studio-private/index.js';
 
 export async function onRequestOptions(context) {
@@ -83,8 +83,12 @@ export async function onRequest(context) {
       show = await env.DB.prepare('SELECT * FROM shows WHERE slug = ?').bind(String(showSlug).trim().toLowerCase()).first();
     }
 
-    if (!show || show.owner_id !== user.id) {
-      return new Response(JSON.stringify({ error: 'Show not found or unauthorized' }), { status: 403, headers });
+    if (!show) {
+      return new Response(JSON.stringify({ error: 'Show not found. Please create your show first.', code: 'SHOW_NOT_FOUND' }), { status: 404, headers });
+    }
+    const isOwner = await canUserManageShow(env, user, show);
+    if (!isOwner) {
+      return new Response(JSON.stringify({ error: 'You are not authorized to publish to this show', code: 'FORBIDDEN' }), { status: 403, headers });
     }
 
     const title = String(body.title || '').trim();
@@ -138,16 +142,25 @@ export async function onRequest(context) {
     }
 
     const now = Math.floor(Date.now() / 1000);
-    const publishedAt = body.published_at !== undefined
+    const status = String(body.status || 'published').trim().toLowerCase();
+    const scheduledFor = body.scheduled_for
+      ? Number(body.scheduled_for)
+      : (body.scheduledFor ? Number(body.scheduledFor) : null);
+
+    let publishedAt = body.published_at !== undefined
       ? (body.published_at === null ? null : Number(body.published_at))
       : now;
+
+    if (status === 'scheduled' && scheduledFor) {
+      publishedAt = scheduledFor;
+    }
 
     await env.DB.prepare(
       `INSERT INTO episodes (
         id, show_id, title, description, audio_key, audio_content_type, audio_byte_size,
         duration_seconds, episode_number, season_number, episode_type, explicit,
-        transcript_key, chapters_key, waveform_peaks_json, published_at, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        transcript_key, chapters_key, waveform_peaks_json, status, scheduled_for, published_at, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         title = excluded.title,
         description = excluded.description,
@@ -162,6 +175,8 @@ export async function onRequest(context) {
         transcript_key = excluded.transcript_key,
         chapters_key = excluded.chapters_key,
         waveform_peaks_json = excluded.waveform_peaks_json,
+        status = excluded.status,
+        scheduled_for = excluded.scheduled_for,
         published_at = excluded.published_at`
     ).bind(
       id,
@@ -179,6 +194,8 @@ export async function onRequest(context) {
       transcriptKey,
       chaptersKey,
       waveformPeaksJson,
+      status,
+      scheduledFor,
       publishedAt,
       now
     ).run();

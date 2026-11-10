@@ -33,7 +33,7 @@ export async function onRequest(context) {
     }
     const plan = await getCreatorPlan(user, env);
     const usage = await getCreatorUsage(user, env);
-    const checkoutUrl = (env && env.STUDIO_PRO_CHECKOUT_URL) || 'https://polar.sh/anypod';
+    const checkoutUrl = (env && env.STUDIO_PRO_CHECKOUT_URL) || '/api/stripe/checkout?interval=month';
     return new Response(JSON.stringify({
       user: {
         id: user.id,

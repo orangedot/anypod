@@ -97,6 +97,9 @@ function parsePodcastXmlClient(xmlText, originalUrl) {
       artwork = 'https://' + artwork.slice(7);
     }
 
+    const rawBlock = getChildText(channel, ['itunes:block', 'block', 'podcast:locked']) || '';
+    const itunesBlock = /^\s*yes\s*$/i.test(rawBlock);
+
     const episodes = [];
     const MAX_CLIENT_EPISODES = 120;
 
@@ -167,6 +170,8 @@ function parsePodcastXmlClient(xmlText, originalUrl) {
         artwork: artwork || (episodes[0]?.artwork || ''),
         link: originalUrl,
         feedUrl: originalUrl,
+        itunesBlock: Boolean(itunesBlock),
+        isBlocked: Boolean(itunesBlock),
         episodesCount: episodes.length,
         updatedAt: new Date().toISOString(),
         episodes
@@ -216,6 +221,9 @@ function parsePodcastXmlRegexClient(xml, originalUrl) {
   if (artwork && artwork.startsWith('http://')) {
     artwork = 'https://' + artwork.slice(7);
   }
+
+  const rawBlock = getTag(header, 'itunes:block') || getTag(header, 'block') || getTag(header, 'podcast:locked');
+  const itunesBlock = /^\s*yes\s*$/i.test(rawBlock);
 
   const items = [];
   const MAX_PARSED = 120;
@@ -280,6 +288,8 @@ function parsePodcastXmlRegexClient(xml, originalUrl) {
     artwork: artwork || (items[0]?.artwork || ''),
     link: originalUrl,
     feedUrl: originalUrl,
+    itunesBlock: Boolean(itunesBlock),
+    isBlocked: Boolean(itunesBlock),
     episodesCount: items.length,
     updatedAt: new Date().toISOString(),
     episodes: items
@@ -2808,10 +2818,14 @@ function getHotUnsubscribedFeeds(limit = 10, profile = null) {
  * Builds a feed card with a 3-episode preview and share action for the Discover view.
  */
 function buildDiscoverRecentFeedCard(url) {
+  const meta = state.feedMetadata[url] || {};
+  if (meta.itunesBlock) {
+    // Explicit <itunes:block> Guard: prevent private/subscriber-only feed from being surfaced in shared discovery
+    return null;
+  }
   const curatedItem = (typeof CURATED_SCIENCE_FEEDS !== 'undefined')
     ? CURATED_SCIENCE_FEEDS.find(c => c.feed === url)
     : null;
-  const meta = state.feedMetadata[url] || {};
   const isSubbed = state.feeds && state.feeds.includes(url);
   const title = meta.title || curatedItem?.title || url;
   const art = meta.artwork || curatedItem?.artwork || (_curatedArtworkCache && _curatedArtworkCache[url]) || FALLBACK_ARTWORK;
@@ -3521,11 +3535,11 @@ function renderDiscover(forceRebuild = false) {
       <!-- Unified Multi-Source Search & Exploration -->
       <div class="discover-search-box">
         <div class="discover-search-controls">
-          <div class="search-source-tabs" role="tablist" aria-label="Search source">
-            <button type="button" class="source-tab ${state.searchSource === 'all' || !state.searchSource ? 'active' : ''}" data-source="all">All</button>
-            <button type="button" class="source-tab ${state.searchSource === 'podcasts' ? 'active' : ''}" data-source="podcasts">Podcasts</button>
-            <button type="button" class="source-tab ${state.searchSource === 'youtube' ? 'active' : ''}" data-source="youtube">YouTube</button>
-            <button type="button" class="source-tab ${state.searchSource === 'music' ? 'active' : ''}" data-source="music">YT Music</button>
+          <div class="search-source-tabs" role="tablist" aria-label="Search source" aria-orientation="horizontal">
+            <button type="button" role="tab" id="source-tab-all" class="source-tab ${state.searchSource === 'all' || !state.searchSource ? 'active' : ''}" data-source="all" aria-selected="${state.searchSource === 'all' || !state.searchSource ? 'true' : 'false'}" tabindex="${state.searchSource === 'all' || !state.searchSource ? '0' : '-1'}" aria-controls="empty-quick-results">All</button>
+            <button type="button" role="tab" id="source-tab-podcasts" class="source-tab ${state.searchSource === 'podcasts' ? 'active' : ''}" data-source="podcasts" aria-selected="${state.searchSource === 'podcasts' ? 'true' : 'false'}" tabindex="${state.searchSource === 'podcasts' ? '0' : '-1'}" aria-controls="empty-quick-results">Podcasts</button>
+            <button type="button" role="tab" id="source-tab-youtube" class="source-tab ${state.searchSource === 'youtube' ? 'active' : ''}" data-source="youtube" aria-selected="${state.searchSource === 'youtube' ? 'true' : 'false'}" tabindex="${state.searchSource === 'youtube' ? '0' : '-1'}" aria-controls="empty-quick-results">YouTube</button>
+            <button type="button" role="tab" id="source-tab-music" class="source-tab ${state.searchSource === 'music' ? 'active' : ''}" data-source="music" aria-selected="${state.searchSource === 'music' ? 'true' : 'false'}" tabindex="${state.searchSource === 'music' ? '0' : '-1'}" aria-controls="empty-quick-results">YT Music</button>
           </div>
           <form id="empty-quick-form" class="quick-add-form" action="javascript:void(0);">
             <div class="quick-add-input-wrap">
@@ -3644,14 +3658,40 @@ function wireEmptyStateEvents(targetRoot = document) {
 
   // Wire Source Filter Tabs (All, Podcasts, YouTube, YT Music)
   if (sourceTabs.length > 0) {
-    sourceTabs.forEach(tab => {
+    sourceTabs.forEach((tab, index) => {
       tab.addEventListener('click', () => {
-        sourceTabs.forEach(t => t.classList.remove('active'));
+        sourceTabs.forEach(t => {
+          t.classList.remove('active');
+          t.setAttribute('aria-selected', 'false');
+          t.setAttribute('tabindex', '-1');
+        });
         tab.classList.add('active');
+        tab.setAttribute('aria-selected', 'true');
+        tab.setAttribute('tabindex', '0');
+        tab.focus();
         state.searchSource = tab.dataset.source || 'all';
         const raw = quickInput ? quickInput.value.trim() : '';
         if (raw && !isDirectUrl(raw) && quickResults) {
           executeUnifiedSearch(raw, state.searchSource, quickResults);
+        }
+      });
+
+      // Keyboard navigation: ArrowLeft, ArrowRight, Home, End (W3C WAI-ARIA 1.2 tablist pattern)
+      tab.addEventListener('keydown', (e) => {
+        let newIdx = -1;
+        if (e.key === 'ArrowRight') {
+          newIdx = (index + 1) % sourceTabs.length;
+        } else if (e.key === 'ArrowLeft') {
+          newIdx = (index - 1 + sourceTabs.length) % sourceTabs.length;
+        } else if (e.key === 'Home') {
+          newIdx = 0;
+        } else if (e.key === 'End') {
+          newIdx = sourceTabs.length - 1;
+        }
+
+        if (newIdx !== -1) {
+          e.preventDefault();
+          sourceTabs[newIdx].click();
         }
       });
     });

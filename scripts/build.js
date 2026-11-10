@@ -23,7 +23,8 @@ const sharedModules = [
   'shared/storage.js',
   'shared/sync-bridge.js',
   'shared/audio-utils.js',
-  'shared/studio-uploader.js'
+  'shared/studio-uploader.js',
+  'shared/install-manager.js'
 ];
 
 const coreAppModules = [
@@ -96,6 +97,7 @@ const coreExportBridge = `
     switchShowNotesTab,
     renderTranscriptView,
     loadEpisodeChapters,
+    parseId3v2Chapters,
     renderChapterTicksOnWaveform,
     updateActiveChapter,
     setupProgressTrackInteractivity,

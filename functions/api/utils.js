@@ -12,7 +12,14 @@ export function timingSafeEqual(a, b) {
   const aBuf = encoder.encode(a);
   const bBuf = encoder.encode(b);
   if (aBuf.byteLength !== bBuf.byteLength) return false;
-  return crypto.subtle.timingSafeEqual(aBuf, bBuf);
+  if (typeof crypto !== 'undefined' && typeof crypto.timingSafeEqual === 'function') {
+    return crypto.timingSafeEqual(aBuf, bBuf);
+  }
+  let diff = 0;
+  for (let i = 0; i < aBuf.byteLength; i++) {
+    diff |= aBuf[i] ^ bBuf[i];
+  }
+  return diff === 0;
 }
 
 export async function getUserFromRequest(request, env) {
@@ -210,4 +217,20 @@ export function normalizeEmail(rawEmail) {
   }
   return `${local}@${domain}`;
 }
+
+export async function canUserManageShow(env, user, show) {
+  if (!user || !show) return false;
+  if (show.owner_id === user.id) return true;
+
+  try {
+    const showOwner = await env.DB.prepare('SELECT id, email FROM users WHERE id = ?').bind(show.owner_id).first();
+    if (showOwner && normalizeEmail(showOwner.email) === normalizeEmail(user.email)) {
+      // Re-assign show ownership to current active user session to heal ownership permanently
+      await env.DB.prepare('UPDATE shows SET owner_id = ? WHERE id = ?').bind(user.id, show.id).run();
+      return true;
+    }
+  } catch (_) {}
+  return false;
+}
+
 

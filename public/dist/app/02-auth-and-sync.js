@@ -455,10 +455,16 @@ function restoreLastActiveEpisode() {
       state.activeEngine = 'audio';
       let streamUrl = lastEp.audioUrl;
       const isDownloaded = !!(state.downloadedEpisodes && state.downloadedEpisodes[lastEp.guid]);
+      const isVoiceBoostActive = Boolean(state.voiceBoost && state.experimentalSettings && state.experimentalSettings.enableVoiceBoost);
+
       if (isDownloaded) {
         streamUrl = `${streamUrl}${streamUrl.includes('?') ? '&' : '?'}offline=1`;
-      } else if (window.location.protocol === 'https:' && streamUrl.startsWith('http://')) {
+        elements.audio.crossOrigin = 'anonymous';
+      } else if (isVoiceBoostActive || (window.location.protocol === 'https:' && streamUrl.startsWith('http://'))) {
         streamUrl = `/api/audio-proxy?url=${encodeURIComponent(streamUrl)}`;
+        elements.audio.crossOrigin = 'anonymous';
+      } else {
+        elements.audio.removeAttribute('crossorigin');
       }
       state.pendingStartTime = curSec > 0 ? curSec : null;
       elements.audio.src = streamUrl;

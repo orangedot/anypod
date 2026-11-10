@@ -50,20 +50,60 @@ export async function generatePodcastGuid(feedUrlString) {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
 
-function buildAssetUrl(baseUrl, showSlug, objectKey) {
+async function hashToken(token) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(token);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function parseTokenFromRequest(request) {
+  const url = new URL(request.url);
+  const queryToken = url.searchParams.get('token');
+  if (queryToken && queryToken.trim()) return queryToken.trim();
+
+  const authHeader = request.headers.get('Authorization') || '';
+  if (authHeader.startsWith('Bearer ')) {
+    return authHeader.slice(7).trim();
+  }
+  if (authHeader.startsWith('Basic ')) {
+    try {
+      const b64 = authHeader.slice(6).trim();
+      const decoded = atob(b64);
+      const colonIdx = decoded.indexOf(':');
+      if (colonIdx !== -1) {
+        const user = decoded.slice(0, colonIdx).trim();
+        const pass = decoded.slice(colonIdx + 1).trim();
+        return pass || user;
+      }
+      return decoded.trim();
+    } catch (_) {}
+  }
+  return null;
+}
+
+function buildAssetUrl(baseUrl, showSlug, objectKey, feedToken = null) {
   if (!objectKey) return '';
   if (objectKey.startsWith('http://') || objectKey.startsWith('https://')) {
+    if (feedToken && !objectKey.includes('token=')) {
+      const sep = objectKey.includes('?') ? '&' : '?';
+      return `${objectKey}${sep}token=${encodeURIComponent(feedToken)}`;
+    }
     return objectKey;
   }
   const cleanKey = objectKey.startsWith(`${showSlug}/`)
     ? objectKey.slice(showSlug.length + 1)
     : objectKey.replace(/^\/+/, '');
-  return `${baseUrl}/audio/${encodeURIComponent(showSlug)}/${encodeURIComponent(cleanKey)}`;
+  const url = `${baseUrl}/audio/${encodeURIComponent(showSlug)}/${encodeURIComponent(cleanKey)}`;
+  return feedToken ? `${url}?token=${encodeURIComponent(feedToken)}` : url;
 }
 
-export async function buildRssXml(show, episodes, baseUrl) {
+export async function buildRssXml(show, episodes, baseUrl, feedToken = null) {
   const cleanBase = String(baseUrl || 'https://anypod.org').replace(/\/+$/, '');
-  const feedUrl = `${cleanBase}/feeds/${encodeURIComponent(show.slug)}.xml`;
+  const feedUrl = feedToken
+    ? `${cleanBase}/feeds/${encodeURIComponent(show.slug)}.xml?token=${encodeURIComponent(feedToken)}`
+    : `${cleanBase}/feeds/${encodeURIComponent(show.slug)}.xml`;
   const showLink = show.website_url || `${cleanBase}/embed/${encodeURIComponent(show.slug)}`;
   const podcastGuid = await generatePodcastGuid(feedUrl);
   const explicitStr = show.explicit ? 'true' : 'false';
@@ -72,9 +112,10 @@ export async function buildRssXml(show, episodes, baseUrl) {
   const author = show.author || show.title;
   const email = show.email || 'podcasts@anypod.org';
   const coverImage = show.cover_image_url || `${cleanBase}/icon-512.png`;
+  const isPrivate = Boolean(show.is_private);
 
   const itemsXml = (episodes || []).map(ep => {
-    const audioUrl = buildAssetUrl(cleanBase, show.slug, ep.audio_key);
+    const audioUrl = buildAssetUrl(cleanBase, show.slug, ep.audio_key, feedToken);
     const byteSize = Math.max(0, parseInt(ep.audio_byte_size || 0, 10));
     const audioType = ep.audio_content_type || 'audio/mpeg';
     const pubDate = formatRfc2822Date(ep.published_at || ep.created_at);
@@ -82,8 +123,8 @@ export async function buildRssXml(show, episodes, baseUrl) {
     const epExplicit = ep.explicit ? 'true' : 'false';
     const epType = ep.episode_type || 'full';
     const epLink = `${cleanBase}/embed/${encodeURIComponent(show.slug)}/${encodeURIComponent(ep.id)}`;
-    const transcriptUrl = ep.transcript_key ? buildAssetUrl(cleanBase, show.slug, ep.transcript_key) : '';
-    const chaptersUrl = ep.chapters_key ? buildAssetUrl(cleanBase, show.slug, ep.chapters_key) : '';
+    const transcriptUrl = ep.transcript_key ? buildAssetUrl(cleanBase, show.slug, ep.transcript_key, feedToken) : '';
+    const chaptersUrl = ep.chapters_key ? buildAssetUrl(cleanBase, show.slug, ep.chapters_key, feedToken) : '';
 
     let optionalTags = '';
     if (ep.episode_number !== null && ep.episode_number !== undefined) {
@@ -128,7 +169,7 @@ export async function buildRssXml(show, episodes, baseUrl) {
     <atom:link href="${escapeXml(feedUrl)}" rel="self" type="application/rss+xml" />
     <podcast:guid>${escapeXml(podcastGuid)}</podcast:guid>
     <podcast:medium>podcast</podcast:medium>
-    <podcast:locked owner="${escapeXml(email)}">no</podcast:locked>
+    <podcast:locked owner="${escapeXml(email)}">${isPrivate ? 'yes' : 'no'}</podcast:locked>
     <itunes:author>${escapeXml(author)}</itunes:author>
     <itunes:explicit>${explicitStr}</itunes:explicit>
     <itunes:type>episodic</itunes:type>
@@ -162,6 +203,7 @@ export async function onRequest(context) {
     return new Response('Method Not Allowed', { status: 405, headers });
   }
 
+  const isHead = method === 'HEAD';
   const rawParam = String(params?.slug || '').trim();
   const showSlug = rawParam.replace(/\.xml$/i, '').replace(/\.rss$/i, '').trim();
 
@@ -174,24 +216,64 @@ export async function onRequest(context) {
   }
 
   const show = await env.DB.prepare(
-    'SELECT id, owner_id, slug, title, description, author, email, cover_image_url, language, category, explicit, website_url, created_at FROM shows WHERE slug = ?'
+    'SELECT id, owner_id, slug, title, description, author, email, cover_image_url, language, category, explicit, website_url, is_private, auth_type, custom_domain, created_at FROM shows WHERE slug = ?'
   ).bind(showSlug).first();
 
   if (!show) {
     return new Response('Feed Not Found', { status: 404, headers });
   }
 
+  let feedToken = null;
+  if (show.is_private) {
+    feedToken = parseTokenFromRequest(request);
+    if (!feedToken) {
+      return new Response('Unauthorized: This podcast feed is private. A valid subscriber token is required.', {
+        status: 401,
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'WWW-Authenticate': 'Basic realm="Private Podcast Feed"'
+        }
+      });
+    }
+
+    const tokenHash = await hashToken(feedToken);
+    const validToken = await env.DB.prepare(
+      'SELECT id, subscriber_label FROM show_feed_tokens WHERE show_id = ? AND token_hash = ? AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > unixepoch())'
+    ).bind(show.id, tokenHash).first();
+
+    if (!validToken) {
+      return new Response('Forbidden: Invalid or revoked subscriber token', {
+        status: 403,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+      });
+    }
+
+    // Set private non-cacheable headers for subscriber feeds
+    headers['Cache-Control'] = 'private, no-cache, no-store, must-revalidate';
+    headers['Pragma'] = 'no-cache';
+    headers['Expires'] = '0';
+  }
+
+  const now = Math.floor(Date.now() / 1000);
   const episodesResult = await env.DB.prepare(
-    'SELECT id, show_id, title, description, audio_key, audio_content_type, audio_byte_size, duration_seconds, episode_number, season_number, episode_type, explicit, transcript_key, chapters_key, waveform_peaks_json, published_at, created_at FROM episodes WHERE show_id = ? AND published_at IS NOT NULL ORDER BY published_at DESC'
-  ).bind(show.id).all();
+    `SELECT id, show_id, title, description, audio_key, audio_content_type, audio_byte_size,
+            duration_seconds, episode_number, season_number, episode_type, explicit,
+            transcript_key, chapters_key, waveform_peaks_json, status, scheduled_for, published_at, created_at
+     FROM episodes
+     WHERE show_id = ?
+       AND (status = 'published' OR status IS NULL)
+       AND published_at IS NOT NULL
+       AND published_at <= ?
+     ORDER BY published_at DESC`
+  ).bind(show.id, now).all();
 
   const episodes = episodesResult?.results || [];
   const reqUrl = new URL(request.url);
   const baseUrl = (env && env.APP_URL) || reqUrl.origin;
 
-  const xml = await buildRssXml(show, episodes, baseUrl);
+  const xml = await buildRssXml(show, episodes, baseUrl, feedToken);
 
-  if (method === 'HEAD') {
+  if (isHead) {
     return new Response(null, { status: 200, headers });
   }
 

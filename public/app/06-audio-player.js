@@ -9,6 +9,7 @@
 
 let _isProxyFallbackInProgress = false;
 let _advanceUnplayableTimer = null;
+let _bindAudioListeners = null;
 
 function handleUnplayableTrackInQueue() {
   if (_advanceUnplayableTimer) return;
@@ -75,8 +76,6 @@ function triggerAudioProxyFallback(reason) {
 }
 
 function setupAudioEngines() {
-  const audio = elements.audio;
-
   const applyPendingAudioSeek = () => {
     if (state.pendingStartTime === null || state.pendingStartTime === undefined || state.pendingStartTime <= 1) return;
     const target = state.pendingStartTime;
@@ -287,7 +286,11 @@ function setupAudioEngines() {
     }
   }
 
-  audio.addEventListener('timeupdate', () => {
+  function attachAudioElementListeners(targetAudio) {
+    const audio = targetAudio;
+    if (!audio) return;
+
+    audio.addEventListener('timeupdate', () => {
     if (state.activeEngine === 'audio') {
       updateProgress();
       checkEpisodeEndWatchdog();
@@ -400,6 +403,9 @@ function setupAudioEngines() {
       syncPlaybackButtons();
       if (state.currentEpisode) {
         syncMediaSession(state.currentEpisode, false);
+      }
+      if (state.voiceBoost && state.experimentalSettings && state.experimentalSettings.enableVoiceBoost) {
+        applyVoiceBoostGraph(true);
       }
       liveTranscription.onPlayStateChange(true);
     }
@@ -623,6 +629,10 @@ function setupAudioEngines() {
       handleUnplayableTrackInQueue();
     }
   });
+}
+
+  _bindAudioListeners = attachAudioElementListeners;
+  attachAudioElementListeners(elements.audio);
 
   let seekBarDebounce = null;
   const updateSeekBarVisual = (pct) => {
@@ -639,8 +649,8 @@ function setupAudioEngines() {
   };
 
   const commitAudioSeek = (pct) => {
-    if (state.activeEngine === 'audio' && audio.duration && isFinite(audio.duration)) {
-      audio.currentTime = pct * audio.duration;
+    if (state.activeEngine === 'audio' && elements.audio && elements.audio.duration && isFinite(elements.audio.duration)) {
+      elements.audio.currentTime = pct * elements.audio.duration;
     } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getDuration) {
       const dur = state.ytPlayer.getDuration();
       if (dur) state.ytPlayer.seekTo(pct * dur, true);
@@ -751,8 +761,8 @@ function setupAudioEngines() {
   });
 
   elements.btnPrev15.addEventListener('click', () => {
-    if (state.activeEngine === 'audio') {
-      audio.currentTime = Math.max(0, audio.currentTime - 15);
+    if (state.activeEngine === 'audio' && elements.audio) {
+      elements.audio.currentTime = Math.max(0, elements.audio.currentTime - 15);
     } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
       const cur = state.ytPlayer.getCurrentTime();
       state.ytPlayer.seekTo(Math.max(0, cur - 15), true);
@@ -760,8 +770,8 @@ function setupAudioEngines() {
   });
 
   elements.btnNext15.addEventListener('click', () => {
-    if (state.activeEngine === 'audio' && audio.duration) {
-      audio.currentTime = Math.min(audio.duration, audio.currentTime + 15);
+    if (state.activeEngine === 'audio' && elements.audio && elements.audio.duration) {
+      elements.audio.currentTime = Math.min(elements.audio.duration, elements.audio.currentTime + 15);
     } else if (state.activeEngine === 'youtube' && state.ytPlayer && state.ytPlayer.getCurrentTime) {
       const cur = state.ytPlayer.getCurrentTime();
       const dur = state.ytPlayer.getDuration();
@@ -770,6 +780,11 @@ function setupAudioEngines() {
   });
 
   elements.btnSpeedToggle.addEventListener('click', cyclePlaybackSpeed);
+
+  if (elements.btnVoiceBoost) {
+    updateVoiceBoostUI();
+    elements.btnVoiceBoost.addEventListener('click', toggleVoiceBoost);
+  }
 
   if ('mediaSession' in navigator) {
     const setHandler = (action, handler) => {
@@ -1052,10 +1067,20 @@ function playEpisode(episode, overrideStartTime, context = null) {
     }
     let streamUrl = episode.audioUrl;
     const isDownloaded = !!state.downloadedEpisodes[episode.guid];
+    const isVoiceBoostActive = Boolean(state.voiceBoost && state.experimentalSettings?.enableVoiceBoost);
+
     if (isDownloaded) {
       streamUrl = `${streamUrl}${streamUrl.includes('?') ? '&' : '?'}offline=1`;
-    } else if (window.location.protocol === 'https:' && streamUrl.startsWith('http://')) {
+      if (elements.audio) elements.audio.crossOrigin = 'anonymous';
+    } else if (isVoiceBoostActive || (window.location.protocol === 'https:' && streamUrl.startsWith('http://'))) {
       streamUrl = `/api/audio-proxy?url=${encodeURIComponent(streamUrl)}`;
+      if (elements.audio) elements.audio.crossOrigin = 'anonymous';
+    } else {
+      if (typeof resetAudioElement === 'function' && _voiceBoostSource) {
+        resetAudioElement();
+      } else if (elements.audio) {
+        elements.audio.removeAttribute('crossorigin');
+      }
     }
 
     window.__ANYPOD_CURRENT_STREAM_URL = streamUrl;
@@ -1941,6 +1966,184 @@ function cyclePlaybackSpeed() {
   }
 
   elements.btnSpeedToggle.textContent = `${state.playbackSpeed}x`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SECTION 23.5 · Voice Boost (Overcast-Style Speech Normalization)
+// Wires Web Audio DynamicsCompressorNode with a speech compression curve:
+// threshold: -24 dB, knee: 12 dB, ratio: 4:1, attack: 0.003s, release: 0.25s
+// ─────────────────────────────────────────────────────────────────────────
+
+let _voiceBoostCtx = null;
+let _voiceBoostSource = null;
+let _voiceBoostCompressor = null;
+let _voiceBoostGain = null;
+let _voiceBoostActive = false;
+
+function resetAudioElement() {
+  if (!elements.audio) return;
+  const oldAudio = elements.audio;
+  try {
+    oldAudio.pause();
+    oldAudio.removeAttribute('src');
+    oldAudio.load();
+  } catch (_) {}
+
+  if (_voiceBoostSource) {
+    try {
+      _voiceBoostSource.disconnect();
+      if (_voiceBoostGain) _voiceBoostGain.disconnect();
+      if (_voiceBoostCompressor) _voiceBoostCompressor.disconnect();
+    } catch (_) {}
+    _voiceBoostSource = null;
+    _voiceBoostCompressor = null;
+    _voiceBoostGain = null;
+    _voiceBoostActive = false;
+  }
+  if (_voiceBoostCtx) {
+    try { _voiceBoostCtx.close().catch(() => {}); } catch (_) {}
+    _voiceBoostCtx = null;
+  }
+
+  const newAudio = document.createElement('audio');
+  newAudio.id = 'audio';
+  newAudio.preload = 'metadata';
+  if (oldAudio.parentNode) {
+    oldAudio.parentNode.replaceChild(newAudio, oldAudio);
+  }
+  elements.audio = newAudio;
+  if (typeof _bindAudioListeners === 'function') {
+    _bindAudioListeners(newAudio);
+  }
+}
+
+function ensureVoiceBoostCORSStream() {
+  if (!elements.audio || !state.currentEpisode || !state.currentEpisode.audioUrl) return;
+  if (state.activeEngine !== 'audio') return;
+
+  const currentSrc = elements.audio.currentSrc || elements.audio.src || '';
+  const isAlreadyProxied = currentSrc.includes('/api/audio-proxy') || currentSrc.includes('offline=1');
+  const hasAnonymousCORS = elements.audio.crossOrigin === 'anonymous';
+
+  if (isAlreadyProxied && hasAnonymousCORS) {
+    return;
+  }
+
+  const savedTime = elements.audio.currentTime || 0;
+  const wasPlaying = !elements.audio.paused;
+  const proxyUrl = `/api/audio-proxy?url=${encodeURIComponent(state.currentEpisode.audioUrl)}`;
+
+  elements.audio.crossOrigin = 'anonymous';
+  elements.audio.src = proxyUrl;
+  window.__ANYPOD_CURRENT_STREAM_URL = proxyUrl;
+
+  if (savedTime > 0.5) {
+    try { elements.audio.currentTime = savedTime; } catch (_) {}
+    elements.audio.addEventListener('loadedmetadata', () => {
+      if (savedTime > 0.5 && Math.abs(elements.audio.currentTime - savedTime) > 1.5) {
+        elements.audio.currentTime = savedTime;
+      }
+    }, { once: true });
+  }
+
+  elements.audio.playbackRate = state.playbackSpeed || 1.0;
+  if (wasPlaying) {
+    elements.audio.play().catch(err => {
+      if (err && err.name === 'AbortError') return;
+      console.warn('[VoiceBoost] Play failed after proxy rebind:', err);
+    });
+  }
+}
+
+function initVoiceBoostNodes() {
+  if (_voiceBoostSource) return true;
+  if (!elements.audio) return false;
+
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return false;
+
+  try {
+    if (!_voiceBoostCtx) {
+      _voiceBoostCtx = new AudioCtx();
+    }
+    _voiceBoostSource = _voiceBoostCtx.createMediaElementSource(elements.audio);
+
+    // Speech compressor node matching Overcast normalization specs:
+    // threshold: -24 dB, knee: 12 dB, ratio: 4:1, attack: 0.003s, release: 0.25s
+    _voiceBoostCompressor = _voiceBoostCtx.createDynamicsCompressor();
+    _voiceBoostCompressor.threshold.setValueAtTime(-24, _voiceBoostCtx.currentTime);
+    _voiceBoostCompressor.knee.setValueAtTime(12, _voiceBoostCtx.currentTime);
+    _voiceBoostCompressor.ratio.setValueAtTime(4, _voiceBoostCtx.currentTime);
+    _voiceBoostCompressor.attack.setValueAtTime(0.003, _voiceBoostCtx.currentTime);
+    _voiceBoostCompressor.release.setValueAtTime(0.25, _voiceBoostCtx.currentTime);
+
+    // Makeup gain (~+3 dB)
+    _voiceBoostGain = _voiceBoostCtx.createGain();
+    _voiceBoostGain.gain.setValueAtTime(1.41, _voiceBoostCtx.currentTime);
+
+    // Default passthrough
+    _voiceBoostSource.connect(_voiceBoostCtx.destination);
+    return true;
+  } catch (err) {
+    console.warn('[VoiceBoost] Failed to initialize Web Audio nodes:', err);
+    return false;
+  }
+}
+
+function updateVoiceBoostUI() {
+  const btn = elements.btnVoiceBoost;
+  if (!btn) return;
+  const isEnabled = Boolean(state.voiceBoost);
+  btn.classList.toggle('active', isEnabled);
+  btn.setAttribute('aria-pressed', String(isEnabled));
+  btn.title = isEnabled
+    ? 'Voice Boost ON (speech compression & normalization)'
+    : 'Voice Boost OFF (click to normalize speech)';
+}
+
+function applyVoiceBoostGraph(enabled) {
+  if (!initVoiceBoostNodes()) return;
+
+  if (_voiceBoostCtx && _voiceBoostCtx.state === 'suspended') {
+    _voiceBoostCtx.resume().catch(() => {});
+  }
+
+  try {
+    _voiceBoostSource.disconnect();
+    if (_voiceBoostGain) _voiceBoostGain.disconnect();
+    if (_voiceBoostCompressor) _voiceBoostCompressor.disconnect();
+
+    if (enabled) {
+      _voiceBoostSource.connect(_voiceBoostCompressor);
+      _voiceBoostCompressor.connect(_voiceBoostGain);
+      _voiceBoostGain.connect(_voiceBoostCtx.destination);
+      _voiceBoostActive = true;
+    } else {
+      _voiceBoostSource.connect(_voiceBoostCtx.destination);
+      _voiceBoostActive = false;
+    }
+  } catch (err) {
+    console.warn('[VoiceBoost] Audio routing error:', err);
+  }
+}
+
+function toggleVoiceBoost() {
+  state.voiceBoost = !state.voiceBoost;
+  try {
+    storage.setItem(STORAGE_KEYS.VOICE_BOOST, String(state.voiceBoost));
+  } catch (_) {}
+
+  if (state.voiceBoost) {
+    ensureVoiceBoostCORSStream();
+  }
+
+  applyVoiceBoostGraph(state.voiceBoost);
+  updateVoiceBoostUI();
+
+  if (typeof showToast === 'function') {
+    showToast(state.voiceBoost ? 'Voice Boost ON (speech normalization)' : 'Voice Boost OFF');
+  }
+  logPlayerDiagnostic('audio.voice_boost', `Voice Boost set to ${state.voiceBoost ? 'enabled' : 'disabled'}`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────

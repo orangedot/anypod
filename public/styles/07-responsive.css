@@ -6,7 +6,7 @@
     align-items: center !important;
     justify-content: space-between !important;
     gap: 0.3rem 0.3rem !important;
-    padding: 0.60rem !important;
+    padding: calc(0.60rem + env(safe-area-inset-top, 0px)) 0.75rem 0.60rem !important;
     position: sticky !important;
     top: 0 !important;
     z-index: 50 !important;

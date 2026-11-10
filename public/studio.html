@@ -6,7 +6,16 @@
   <meta name="theme-color" content="#0b0e14">
   <meta name="description" content="Anypod Studio: podcast hosting on Cloudflare R2 with zero egress fees, Podcasting 2.0 feeds and a free embeddable player.">
   <title>Anypod Studio · Podcast hosting with zero egress</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Anypod">
+  <meta name="application-name" content="Anypod Studio">
+  <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png">
+  <link rel="apple-touch-icon" href="/icon-192.png">
   <link rel="stylesheet" href="/studio-app/studio.css">
 </head>
 <body>
@@ -77,12 +86,46 @@
         <option>News</option>
       </select>
       <input class="st-input" id="st-new-cover" type="url" placeholder="Cover image URL (3000x3000 recommended)">
+      <input class="st-input" id="st-new-custom-domain" placeholder="Custom domain (optional, e.g. podcast.company.com)">
       <textarea class="st-textarea" id="st-new-desc" placeholder="What is your show about?"></textarea>
+      <label class="st-chip" style="cursor:pointer;margin:6px 0 12px 0;display:inline-flex;align-items:center">
+        <input type="checkbox" id="st-new-private" style="margin-right:8px"> Private Show (protect feed & audio with subscriber tokens)
+      </label>
       <div class="st-actions">
         <button type="button" class="st-btn" data-close-dialog="1">Cancel</button>
         <button type="submit" class="st-btn st-btn-primary">Create show</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog class="st-dialog" id="st-tokens-dialog" style="max-width:640px">
+    <div class="st-dialog-body">
+      <div class="st-card-head">
+        <div>
+          <h2 class="st-card-title">Private Subscriber Tokens</h2>
+          <p class="st-card-sub">Generate unique, revocable RSS feeds for individual subscribers, employees or members (ICPS).</p>
+        </div>
+        <button type="button" class="st-btn st-btn-sm" data-close-dialog="1">Close</button>
+      </div>
+
+      <form id="st-token-create-form" style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+        <input class="st-input" id="st-token-label" placeholder="Subscriber name or email (e.g. Alice / emp-402)" required style="flex:1;min-width:200px">
+        <button type="submit" class="st-btn st-btn-primary" id="st-btn-create-token">Generate Subscriber Link</button>
+      </form>
+
+      <div id="st-new-token-alert" class="hidden" style="margin-top:14px;padding:12px;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.2);border-radius:8px">
+        <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:4px">New Subscriber Link Created:</div>
+        <div class="st-code" id="st-new-token-url" style="word-break:break-all;user-select:all;margin-bottom:8px"></div>
+        <button type="button" class="st-btn st-btn-sm" id="st-copy-new-token-btn">Copy Subscriber Link</button>
+      </div>
+
+      <div style="margin-top:16px">
+        <h4 style="font-size:13px;font-weight:600;margin-bottom:8px">Active Subscriber Feeds</h4>
+        <div id="st-tokens-list" style="max-height:280px;overflow-y:auto">
+          <p class="st-card-sub">Loading subscriber tokens…</p>
+        </div>
+      </div>
+    </div>
   </dialog>
 
   <dialog class="st-dialog" id="st-library-dialog" style="max-width:680px">

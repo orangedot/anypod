@@ -32,7 +32,7 @@
       maxRecordingSeconds: 1800
     },
     usage: { shows: 0, episodes: 0, bytes: 0 },
-    checkoutUrl: 'https://polar.sh/anypod',
+    checkoutUrl: '/api/stripe/checkout?interval=month',
     shows: [],
     show: demo.show,
     episodes: demo.episodes,
@@ -252,7 +252,11 @@
         sampleRate: 48000,
         onUpdate: function () {
           if (state.view === 'record') {
-            bindRecordView();
+            if (window.StudioWorkstation && typeof window.StudioWorkstation.renderStage === 'function') {
+              window.StudioWorkstation.renderStage();
+            } else {
+              bindRecordView();
+            }
           }
         },
         onPlayhead: function (sec) {
@@ -351,9 +355,19 @@
   }
 
   function viewEpisodes() {
+    const nowSec = Math.floor(Date.now() / 1000);
     const rows = state.episodes.map(function (e) {
+      let statusBadge = '';
+      if (e.status === 'scheduled' || (e.scheduledFor && e.scheduledFor > nowSec)) {
+        const d = new Date((e.scheduledFor || e.publishedAt) * 1000);
+        const dateStr = d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        statusBadge = ' <span class="st-chip st-chip-accent" style="font-size:11px;padding:2px 6px">Scheduled: ' + esc(dateStr) + '</span>';
+      } else if (e.status === 'draft') {
+        statusBadge = ' <span class="st-chip" style="font-size:11px;padding:2px 6px">Draft</span>';
+      }
+
       return '<tr><td class="st-num">' + (e.number || '·') + '</td>' +
-        '<td><div class="st-ep-title">' + esc(e.title) + '</div><div class="st-ep-sub">' + esc(e.published || '') + '</div></td>' +
+        '<td><div class="st-ep-title">' + esc(e.title) + statusBadge + '</div><div class="st-ep-sub">' + esc(e.published || '') + '</div></td>' +
         '<td class="st-num">' + fmtDuration(e.durationSeconds) + '</td>' +
         '<td class="st-num">' + fmtMb(e.bytes) + '</td>' +
         '<td class="st-num">' + (e.downloads || 0).toLocaleString() + '</td>' +
@@ -366,7 +380,7 @@
     const body = state.episodes.length
       ? '<div class="st-table-wrap"><table class="st-table"><thead><tr><th>#</th><th>Episode</th><th>Duration</th><th>Size</th><th>Downloads</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
       : '<p class="st-card-sub">No episodes yet. Publish your first one.</p>';
-    return pageHeader('Episodes', state.episodes.length + ' published', '<button type="button" class="st-btn st-btn-primary" data-view="publish">New episode</button>') +
+    return pageHeader('Episodes', state.episodes.length + ' episodes', '<button type="button" class="st-btn st-btn-primary" data-view="publish">New episode</button>') +
       '<div class="st-content"><div class="st-card">' + body + '</div><div id="st-chapter-panel"></div></div>';
   }
 
@@ -401,16 +415,30 @@
       ? '<div class="st-field full"><label>Waveform and detected segments</label><div class="st-wave" id="st-wave-preview">' + waveBars(state.analysis.waveformPeaks, state.analysis.chapters, state.analysis.durationSeconds) + '</div><audio id="st-audio-preview" controls style="width:100%;margin-top:8px" src="' + esc(state.previewUrl) + '"></audio><div class="st-chapter-list">' +
         state.analysis.chapters.map(function (c) { return '<div class="st-chapter"><span>' + esc(c.title) + '</span><span class="st-num">' + fmtDuration(c.startTime) + '</span></div>'; }).join('') + '</div></div>'
       : '';
+    const hasShow = state.mode === 'live' && state.shows && state.shows.length > 0 && state.show && state.show.slug !== 'your-show';
+    const showGateBanner = !hasShow && state.mode === 'live'
+      ? '<div class="st-card" style="margin-bottom:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);"><div class="st-card-head"><div><h4 class="st-card-title">Setup required: Create your podcast show</h4><p class="st-card-sub">You need a show to publish episodes to your RSS feed.</p></div><button type="button" class="st-btn st-btn-primary" data-open-show="1">Create Show</button></div></div>'
+      : '';
+
     return pageHeader('Publish', 'Audio is analysed in your browser. Zero server CPU.', '<button type="button" class="st-btn" data-view="record">Open Recorder & Cutter</button>') +
-      '<div class="st-content"><form class="st-card" id="st-publish-form"><div class="st-form-grid">' +
+      '<div class="st-content">' + showGateBanner + '<form class="st-card" id="st-publish-form"><div class="st-form-grid">' +
       '<div class="st-field"><label>Episode title</label><input class="st-input" id="st-ep-title" required placeholder="Episode 4: The Quantum Leap"></div>' +
       '<div class="st-field"><label>Episode number</label><input class="st-input" id="st-ep-number" type="number" placeholder="4"></div>' +
       '<div class="st-field full"><label>Show notes</label><textarea class="st-textarea" id="st-ep-desc" placeholder="What is this episode about?"></textarea></div>' +
+      '<div class="st-field full"><label>Release timing</label>' +
+      '<div style="display:flex;gap:18px;align-items:center;margin-top:4px">' +
+      '<label style="display:inline-flex;align-items:center;cursor:pointer"><input type="radio" name="st-release-timing" value="now" checked id="st-timing-now" style="margin-right:6px"> Publish immediately</label>' +
+      '<label style="display:inline-flex;align-items:center;cursor:pointer"><input type="radio" name="st-release-timing" value="schedule" id="st-timing-schedule" style="margin-right:6px"> Schedule release (embargo)</label>' +
+      '</div>' +
+      '<div id="st-schedule-picker-wrap" class="hidden" style="margin-top:10px">' +
+      '<span class="st-card-sub" style="margin-bottom:4px;display:block">Target publication date and time:</span>' +
+      '<input class="st-input" id="st-ep-schedule-date" type="datetime-local" style="max-width:300px">' +
+      '</div></div>' +
       '<div class="st-field full"><label>Audio file</label><div class="st-dropzone" id="st-dropzone"><strong id="st-dz-label">' + fileMeta + '</strong><span class="st-card-sub">MP3, M4A or WAV</span><input type="file" id="st-file-input" accept="audio/*,.mp3,.m4a,.wav" hidden></div></div>' +
       '<div class="st-field full hidden" id="st-analysis-status"><span class="st-card-sub" id="st-analysis-text"></span></div>' +
       analysisBlock +
       '<div class="st-field full hidden" id="st-upload-wrap"><span class="st-card-sub" id="st-upload-text"></span><div class="st-progress"><div class="st-progress-fill" id="st-upload-bar"></div></div></div>' +
-      '</div><div class="st-actions"><button type="submit" class="st-btn st-btn-primary" id="st-publish-btn"' + (state.analysis ? '' : ' disabled') + '>' + (state.mode === 'demo' ? 'Save and publish' : 'Publish to Cloudflare R2') + '</button></div></form></div>';
+      '</div><div class="st-actions"><button type="submit" class="st-btn st-btn-primary" id="st-publish-btn"' + (state.analysis ? '' : ' disabled') + '>' + (!hasShow && state.mode === 'live' ? 'Create show to publish' : (state.mode === 'demo' ? 'Save and publish' : 'Publish to Cloudflare R2')) + '</button></div></form></div>';
   }
 
   function viewAnalytics() {
@@ -432,6 +460,9 @@
     const dist = loadDist();
     const done = dirs.filter(function (d) { return dist[d.id]; }).length;
     const pct = Math.round((done / dirs.length) * 100);
+    const isPrivate = Boolean(state.show && state.show.is_private);
+    const privateBanner = '<div class="st-card" style="margin-bottom:14px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);"><div class="st-card-head"><div><h3 class="st-card-title">' + (isPrivate ? '🔒 Private Show (ICPS Token Gating Active)' : 'Individual Subscriber Feeds (ICPS)') + '</h3><p class="st-card-sub">' + (isPrivate ? 'This podcast feed is protected. Only listeners with authorized subscriber tokens can fetch the feed and stream audio.' : 'Issue unique, revocable tokenized feed URLs for employees, paying members, or private groups.') + '</p></div><button type="button" class="st-btn st-btn-sm ' + (isPrivate ? 'st-btn-primary' : '') + '" data-open-tokens="1">Manage Subscriber Tokens</button></div></div>';
+
     const cards = dirs.map(function (d) {
       const checked = !!dist[d.id];
       const subscribe = d.subscribeScheme ? d.subscribeScheme(feedUrl(), origin()) : null;
@@ -442,7 +473,7 @@
         '</div></div></div>';
     }).join('');
     return pageHeader('Distribution', 'Submit once, appear in every podcast app', '') +
-      '<div class="st-content"><div class="st-card"><div class="st-card-head"><div><h3 class="st-card-title">Distribution checklist</h3><p class="st-card-sub">' + done + ' of ' + dirs.length + ' directories submitted. Your RSS feed is copied automatically when you press Submit feed.</p></div></div>' +
+      '<div class="st-content">' + privateBanner + '<div class="st-card"><div class="st-card-head"><div><h3 class="st-card-title">Distribution checklist</h3><p class="st-card-sub">' + done + ' of ' + dirs.length + ' directories submitted. Your RSS feed is copied automatically when you press Submit feed.</p></div></div>' +
       '<div class="st-progress"><div class="st-progress-fill" style="width:' + pct + '%"></div></div>' + copyRow('RSS', feedUrl(), 'RSS feed copied') + '</div>' +
       '<div class="st-grid st-grid-2">' + cards + '</div>' + shareCard() + '</div>';
   }
@@ -463,7 +494,11 @@
     const pct = Math.min(100, Math.round((usedBytes / maxBytes) * 100));
     const isPro = state.plan.id === 'pro';
 
-    return pageHeader('Plan & Settings', 'Creator quota, R2 storage and Pro upgrade', '') +
+    const customDomainStr = state.show && state.show.custom_domain
+      ? '<div class="st-card"><div class="st-card-head"><div><h3 class="st-card-title">Custom Domain</h3><p class="st-card-sub">Domain: ' + esc(state.show.custom_domain) + ' (Status: ' + esc(state.show.custom_domain_status || 'active') + ')</p></div><span class="st-chip st-chip-ok">' + esc(state.show.custom_domain) + '</span></div><div class="st-actions" style="justify-content:flex-start"><button type="button" class="st-btn st-btn-sm" data-open-show="1">Edit Domain</button></div></div>'
+      : '<div class="st-card"><div class="st-card-head"><div><h3 class="st-card-title">Custom Domain</h3><p class="st-card-sub">Serve your RSS feed and embed player from your own domain (e.g. podcast.company.com) with automatic Cloudflare SSL.</p></div></div><div class="st-actions" style="justify-content:flex-start"><button type="button" class="st-btn st-btn-sm" data-open-show="1">Add Custom Domain</button></div></div>';
+
+    return pageHeader('Plan & Settings', 'Creator quota, R2 storage, domains and Pro upgrade', '') +
       '<div class="st-content">' +
       '<div class="st-grid st-grid-2">' +
       '<div class="st-card"><div class="st-card-head"><div><h3 class="st-card-title">Current Plan: ' + esc(state.plan.label) + '</h3><p class="st-card-sub">' + (state.mode === 'demo' ? 'Sign in for a free creator account (1 show, 500 MB storage, 30 min studio recording).' : 'Shows: ' + state.usage.shows + ' / ' + state.plan.maxShows + ' · Storage: ' + fmtMb(usedBytes) + ' / ' + fmtMb(maxBytes)) + '</p></div><span class="st-chip ' + (isPro ? 'st-chip-ok' : 'st-chip-accent') + '">' + esc(state.plan.label.toUpperCase()) + '</span></div>' +
@@ -471,12 +506,14 @@
       '<div class="st-actions" style="justify-content:flex-start">' +
       (state.mode === 'demo' ? '<button type="button" class="st-btn st-btn-primary" data-open-claim="1">Sign in free</button>' : '<button type="button" class="st-btn" data-open-show="1">Create new show</button>') +
       '</div></div>' +
-      '<div class="st-card"><div class="st-card-head"><div><h3 class="st-card-title">Anypod Studio Pro</h3><p class="st-card-sub">10 hosted shows · 50 GB R2 audio storage · 60 min studio recording takes · Zero egress fees forever.</p></div><span class="st-chip st-chip-ok">$9 / mo</span></div>' +
+      '<div class="st-card"><div class="st-card-head"><div><h3 class="st-card-title">Anypod Studio Pro</h3><p class="st-card-sub">10 hosted shows · 50 GB R2 audio storage · 60 min studio recording takes · Zero egress fees forever.</p></div><span class="st-chip st-chip-ok">5 € / mo · 50 € / yr</span></div>' +
       '<div class="st-actions" style="justify-content:flex-start">' +
       (isPro
         ? '<span class="st-chip st-chip-ok">Pro Active</span>'
-        : '<a class="st-btn st-btn-primary" href="' + esc(state.checkoutUrl) + '" target="_blank" rel="noopener noreferrer">Checkout Pro</a><button type="button" class="st-btn" id="st-btn-upgrade-pro">Instant Pro Preview</button>') +
+        : '<a class="st-btn st-btn-primary" href="/api/stripe/checkout?interval=month">Upgrade 5 € / mo</a><a class="st-btn" href="/api/stripe/checkout?interval=year">50 € / yr (Save 17%)</a><button type="button" class="st-btn" id="st-btn-upgrade-pro">Instant Preview</button>') +
       '</div></div>' +
+      customDomainStr +
+      '<div class="st-card"><div class="st-card-head"><div><h3 class="st-card-title">Private Feed Gating (ICPS)</h3><p class="st-card-sub">' + (state.show && state.show.is_private ? 'Show is marked private. Feeds and media require cryptographic subscriber tokens.' : 'Protect your podcast feed and audio with tokenized subscriber links (ICPS).') + '</p></div>' + (state.show && state.show.is_private ? '<span class="st-chip st-chip-accent">Private Show</span>' : '') + '</div><div class="st-actions" style="justify-content:flex-start"><button type="button" class="st-btn st-btn-sm" data-open-tokens="1">Manage Tokens</button></div></div>' +
       '</div>' +
       '<div class="st-card"><h3 class="st-card-title">Open source</h3><p class="st-card-sub">Anypod Studio is licensed under the GNU AGPLv3. MP3 encoding powered by LAME (lame.sourceforge.net, LGPL-3.0).</p><div class="st-actions" style="justify-content:flex-start"><a class="st-btn" href="https://github.com/orangedot/anypod" target="_blank" rel="noopener noreferrer">GitHub (Open Source)</a><a class="st-btn" href="/">Back to player</a></div></div></div>';
   }
@@ -496,8 +533,24 @@
     renderNav();
     renderShowSelect();
     renderBanner();
+    let prevTitle = '';
+    let prevNum = '';
+    let prevDesc = '';
+    if (state.view === 'publish') {
+      const tEl = document.getElementById('st-ep-title');
+      const nEl = document.getElementById('st-ep-number');
+      const dEl = document.getElementById('st-ep-desc');
+      if (tEl) prevTitle = tEl.value;
+      if (nEl) prevNum = nEl.value;
+      if (dEl) prevDesc = dEl.value;
+    }
     els.root.innerHTML = (viewMap[state.view] || viewOverview)();
-    if (state.view === 'publish') bindPublish();
+    if (state.view === 'publish') {
+      bindPublish();
+      if (prevTitle) { const el = document.getElementById('st-ep-title'); if (el) el.value = prevTitle; }
+      if (prevNum) { const el = document.getElementById('st-ep-number'); if (el) el.value = prevNum; }
+      if (prevDesc) { const el = document.getElementById('st-ep-desc'); if (el) el.value = prevDesc; }
+    }
     if (state.view === 'record') bindRecordView();
     if (state.view === 'settings') bindSettingsView();
   }
@@ -972,6 +1025,19 @@
     input.addEventListener('change', function () {
       if (input.files[0]) handleFile(input.files[0]);
     });
+
+    const timingNow = document.getElementById('st-timing-now');
+    const timingSched = document.getElementById('st-timing-schedule');
+    const schedWrap = document.getElementById('st-schedule-picker-wrap');
+    if (timingNow && timingSched && schedWrap) {
+      timingNow.addEventListener('change', function () {
+        if (timingNow.checked) schedWrap.classList.add('hidden');
+      });
+      timingSched.addEventListener('change', function () {
+        if (timingSched.checked) schedWrap.classList.remove('hidden');
+      });
+    }
+
     form.addEventListener('submit', submitEpisode);
   }
 
@@ -1022,6 +1088,31 @@
       openClaim();
       return;
     }
+    const hasShow = state.shows && state.shows.length > 0 && state.show && state.show.slug !== 'your-show';
+    if (!hasShow) {
+      toast('Please create your podcast show first');
+      els.showDialog.showModal();
+      return;
+    }
+    const isScheduled = document.getElementById('st-timing-schedule') && document.getElementById('st-timing-schedule').checked;
+    const scheduleDateVal = document.getElementById('st-ep-schedule-date') ? document.getElementById('st-ep-schedule-date').value : '';
+    let status = 'published';
+    let scheduledFor = null;
+
+    if (isScheduled) {
+      if (!scheduleDateVal) {
+        toast('Please pick a date and time for scheduled release');
+        return;
+      }
+      const targetTs = Math.floor(new Date(scheduleDateVal).getTime() / 1000);
+      if (isNaN(targetTs) || targetTs <= Math.floor(Date.now() / 1000)) {
+        toast('Scheduled release time must be in the future');
+        return;
+      }
+      status = 'scheduled';
+      scheduledFor = targetTs;
+    }
+
     const wrap = document.getElementById('st-upload-wrap');
     const bar = document.getElementById('st-upload-bar');
     const text = document.getElementById('st-upload-text');
@@ -1036,21 +1127,26 @@
       audioFile: state.file,
       title: title,
       description: document.getElementById('st-ep-desc').value.trim(),
-      sessionToken: state.token,
+      status: status,
+      scheduledFor: scheduledFor,
+      sessionToken: state.token || localStorage.getItem('anypod_session_token') || localStorage.getItem('podcast_pulse_session_token') || '',
       onProgress: function (p) {
         bar.style.width = Math.round(p * 100) + '%';
         text.textContent = 'Uploading to Cloudflare R2: ' + Math.round(p * 100) + '%';
       }
     }).then(function () {
       bar.style.width = '100%';
-      text.textContent = 'Published. Your RSS feed is updated.';
-      toast('Episode published');
+      text.textContent = status === 'scheduled' ? 'Scheduled! Episode will release at the set time.' : 'Published. Your RSS feed is updated.';
+      toast(status === 'scheduled' ? 'Episode scheduled for release' : 'Episode published');
       state.file = null;
       state.analysis = null;
       loadShowEpisodes().then(function () { navigate('episodes'); });
     }).catch(function (err) {
       text.textContent = 'Publish failed: ' + err.message;
       btn.disabled = false;
+      if (err.message && (err.message.toLowerCase().includes('not found') || err.message.toLowerCase().includes('create your show'))) {
+        els.showDialog.showModal();
+      }
     });
   }
 
@@ -1064,16 +1160,16 @@
     const email = document.getElementById('st-claim-email').value.trim();
     if (!email) return;
     els.claimMsg.textContent = 'Sending magic link…';
-    fetch('/api/auth/send-magic-link', {
+    fetch('/api/auth/send-link', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email })
+      body: JSON.stringify({ email: email, origin: window.location.origin })
     }).then(function (res) {
       return res.json().then(function (data) { return { ok: res.ok, data: data }; });
     }).then(function (r) {
       els.claimMsg.textContent = r.ok ? 'Check your inbox for the sign-in link. Your work stays in this tab.' : (r.data.error || 'Could not send link');
-    }).catch(function () {
-      els.claimMsg.textContent = 'Network error';
+    }).catch(function (err) {
+      els.claimMsg.textContent = 'Network error: ' + (err && err.message ? err.message : 'Please check connection');
     });
   }
 
@@ -1106,6 +1202,41 @@
   }
 
   function loadShowEpisodes() {
+    if (state.mode === 'live' && state.show && (state.show.id || state.show.slug)) {
+      const epUrl = state.show.id
+        ? '/api/studio/episodes?showId=' + encodeURIComponent(state.show.id)
+        : '/api/studio/episodes?showSlug=' + encodeURIComponent(state.show.slug);
+      return fetch(epUrl, { credentials: 'include', headers: authHeaders() }).then(function (res) {
+        return res.ok ? res.json() : null;
+      }).then(function (data) {
+        if (data && Array.isArray(data.episodes)) {
+          state.episodes = data.episodes.map(function (ep) {
+            return {
+              id: ep.id,
+              title: ep.title,
+              description: ep.description,
+              number: ep.episode_number,
+              season: ep.season_number,
+              durationSeconds: ep.duration_seconds || 0,
+              bytes: ep.audio_byte_size || 0,
+              downloads: 0,
+              status: ep.status || 'published',
+              scheduledFor: ep.scheduled_for,
+              publishedAt: ep.published_at,
+              published: ep.published_at ? new Date(ep.published_at * 1000).toISOString().slice(0, 10) : (ep.created_at ? new Date(ep.created_at * 1000).toISOString().slice(0, 10) : ''),
+              peaks: ep.waveform_peaks_json ? JSON.parse(ep.waveform_peaks_json) : null
+            };
+          });
+          state.downloadsByDay = new Array(14).fill(0);
+          return;
+        }
+        return fetchFeedFallback();
+      }).catch(fetchFeedFallback);
+    }
+    return fetchFeedFallback();
+  }
+
+  function fetchFeedFallback() {
     return fetch(feedUrl()).then(function (res) {
       return res.ok ? res.text() : '';
     }).then(function (xml) {
@@ -1163,13 +1294,17 @@
 
   function createShow(e) {
     e.preventDefault();
+    const isPrivate = document.getElementById('st-new-private') && document.getElementById('st-new-private').checked ? 1 : 0;
+    const customDom = document.getElementById('st-new-custom-domain') ? document.getElementById('st-new-custom-domain').value.trim() : null;
     const body = {
       title: document.getElementById('st-new-title').value.trim(),
       slug: document.getElementById('st-new-slug').value.trim(),
       author: document.getElementById('st-new-author').value.trim(),
       category: document.getElementById('st-new-category').value,
       description: document.getElementById('st-new-desc').value.trim(),
-      cover_image_url: document.getElementById('st-new-cover').value.trim()
+      cover_image_url: document.getElementById('st-new-cover').value.trim(),
+      is_private: isPrivate,
+      custom_domain: customDom || null
     };
     fetch('/api/studio/shows', {
       method: 'POST',
@@ -1197,8 +1332,115 @@
     });
   }
 
+  function openTokensModal() {
+    const dialog = document.getElementById('st-tokens-dialog');
+    if (!dialog) return;
+    const alertBox = document.getElementById('st-new-token-alert');
+    if (alertBox) alertBox.classList.add('hidden');
+    loadTokensList();
+    if (!dialog.open) dialog.showModal();
+  }
+
+  function loadTokensList() {
+    const listEl = document.getElementById('st-tokens-list');
+    if (!listEl) return;
+    if (!state.show || !state.show.id) {
+      listEl.innerHTML = '<p class="st-card-sub">Create or select a show first to manage tokens.</p>';
+      return;
+    }
+    listEl.innerHTML = '<p class="st-card-sub">Loading subscriber tokens…</p>';
+    fetch('/api/studio/tokens?showId=' + encodeURIComponent(state.show.id), {
+      credentials: 'include',
+      headers: authHeaders()
+    }).then(function (res) {
+      return res.ok ? res.json() : null;
+    }).then(function (data) {
+      if (!data || !Array.isArray(data.tokens) || !data.tokens.length) {
+        listEl.innerHTML = '<p class="st-card-sub">No subscriber tokens issued yet. Create one above to invite a private listener.</p>';
+        return;
+      }
+      listEl.innerHTML = data.tokens.map(function (t) {
+        const isRevoked = Boolean(t.revoked_at);
+        const dateStr = t.created_at ? new Date(t.created_at * 1000).toLocaleDateString() : '';
+        return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06)">' +
+          '<div>' +
+          '<div style="font-size:13px;font-weight:600">' + esc(t.subscriber_label) + (isRevoked ? ' <span class="st-chip" style="font-size:10px;padding:1px 5px">Revoked</span>' : ' <span class="st-chip st-chip-ok" style="font-size:10px;padding:1px 5px">Active</span>') + '</div>' +
+          '<div class="st-card-sub" style="font-size:11px">Token: ' + esc(t.token_preview) + ' · Issued: ' + esc(dateStr) + '</div>' +
+          '</div>' +
+          '<div>' +
+          (isRevoked
+            ? '<span class="st-card-sub" style="font-size:11px">Revoked</span>'
+            : '<button type="button" class="st-btn st-btn-sm" data-revoke-token="' + esc(t.id) + '">Revoke</button>') +
+          '</div></div>';
+      }).join('');
+    }).catch(function (err) {
+      listEl.innerHTML = '<p class="st-card-sub">Error loading tokens: ' + esc(err.message) + '</p>';
+    });
+  }
+
+  function handleCreateToken(e) {
+    e.preventDefault();
+    const labelInput = document.getElementById('st-token-label');
+    const label = labelInput ? labelInput.value.trim() : '';
+    if (!label || !state.show || !state.show.id) return;
+
+    const btn = document.getElementById('st-btn-create-token');
+    if (btn) btn.disabled = true;
+
+    fetch('/api/studio/tokens', {
+      method: 'POST',
+      credentials: 'include',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        show_id: state.show.id,
+        subscriber_label: label
+      })
+    }).then(function (res) {
+      return res.json().then(function (data) { return { ok: res.ok, data: data }; });
+    }).then(function (r) {
+      if (btn) btn.disabled = false;
+      if (!r.ok) throw new Error(r.data.error || 'Failed to create token');
+      labelInput.value = '';
+      const alertBox = document.getElementById('st-new-token-alert');
+      const urlBox = document.getElementById('st-new-token-url');
+      const copyBtn = document.getElementById('st-copy-new-token-btn');
+      if (alertBox && urlBox) {
+        urlBox.textContent = r.data.token.feed_url;
+        alertBox.classList.remove('hidden');
+        if (copyBtn) {
+          copyBtn.onclick = function () {
+            copy(r.data.token.feed_url, 'Private subscriber feed copied');
+          };
+        }
+      }
+      toast('Subscriber feed token generated');
+      state.show.is_private = 1;
+      loadTokensList();
+    }).catch(function (err) {
+      if (btn) btn.disabled = false;
+      toast(err.message);
+    });
+  }
+
+  function handleRevokeToken(tokenId) {
+    if (!confirm('Revoke this subscriber link? The subscriber will immediately lose access to the feed and audio.')) return;
+    fetch('/api/studio/tokens?id=' + encodeURIComponent(tokenId), {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: authHeaders()
+    }).then(function (res) {
+      return res.json().then(function (data) { return { ok: res.ok, data: data }; });
+    }).then(function (r) {
+      if (!r.ok) throw new Error(r.data.error || 'Failed to revoke token');
+      toast('Subscriber link revoked');
+      loadTokensList();
+    }).catch(function (err) {
+      toast(err.message);
+    });
+  }
+
   document.addEventListener('click', function (e) {
-    const target = e.target.closest('[data-view],[data-copy],[data-open-claim],[data-open-show],[data-preview-ep],[data-native-share],[data-embed-theme],[data-copy-feed],[data-close-dialog],[data-toggle-theme]');
+    const target = e.target.closest('[data-view],[data-copy],[data-open-claim],[data-open-show],[data-open-tokens],[data-revoke-token],[data-preview-ep],[data-native-share],[data-embed-theme],[data-copy-feed],[data-close-dialog],[data-toggle-theme]');
     if (!target) return;
     if (target.dataset.view) {
       navigate(target.dataset.view);
@@ -1212,6 +1454,10 @@
       } else {
         els.showDialog.showModal();
       }
+    } else if (target.dataset.openTokens) {
+      openTokensModal();
+    } else if (target.dataset.revokeToken) {
+      handleRevokeToken(target.dataset.revokeToken);
     } else if (target.dataset.previewEp) {
       renderChapterPanel(target.dataset.previewEp);
     } else if (target.dataset.nativeShare) {
@@ -1340,6 +1586,8 @@
 
   document.getElementById('st-claim-form').addEventListener('submit', sendMagicLink);
   document.getElementById('st-show-form').addEventListener('submit', createShow);
+  const tokenCreateForm = document.getElementById('st-token-create-form');
+  if (tokenCreateForm) tokenCreateForm.addEventListener('submit', handleCreateToken);
 
   const titleInput = document.getElementById('st-new-title');
   const slugInput = document.getElementById('st-new-slug');

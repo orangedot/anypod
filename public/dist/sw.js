@@ -1,9 +1,12 @@
-const CACHE_NAME = 'anypod-v20';
+const CACHE_NAME = 'anypod-v22';
 const AUDIO_CACHE_NAME = 'anypod-audio-v1';
 
 const APP_SHELL = [
   '/',
   '/index.html',
+  '/studio.html',
+  '/dj.html',
+  '/sets.html',
   '/style.min.css',
   '/fonts/outfit-latin.woff2',
   '/fonts/outfit-latin-ext.woff2',
@@ -11,6 +14,7 @@ const APP_SHELL = [
     '/player.min.js',
   '/manifest.webmanifest',
   '/icon.svg',
+  '/icon-180.png',
   '/icon-192.png',
   '/icon-512.png'
 ];
@@ -121,7 +125,13 @@ async function handleCachedAudioRequest(req) {
 async function servePartialAudio(req, cachedResponse) {
   const rangeHeader = req.headers.get('range');
   if (!rangeHeader) {
-    return cachedResponse;
+    const headers = new Headers(cachedResponse.headers);
+    headers.set('Access-Control-Allow-Origin', '*');
+    return new Response(cachedResponse.body, {
+      status: cachedResponse.status,
+      statusText: cachedResponse.statusText,
+      headers
+    });
   }
 
   const blob = await cachedResponse.blob();
@@ -139,7 +149,8 @@ async function servePartialAudio(req, cachedResponse) {
       'Content-Type': cachedResponse.headers.get('Content-Type') || 'audio/mpeg',
       'Content-Range': `bytes ${start}-${boundedEnd}/${total}`,
       'Content-Length': String(chunk.size),
-      'Accept-Ranges': 'bytes'
+      'Accept-Ranges': 'bytes',
+      'Access-Control-Allow-Origin': '*'
     }
   });
 }
@@ -157,9 +168,28 @@ async function handleStaticRequest(req) {
   } catch (err) {
     if (cached) return cached;
     if (req.mode === 'navigate') {
-      const fallback = await cache.match('/') || await cache.match('/index.html');
+      try {
+        const url = new URL(req.url);
+        if (url.pathname.startsWith('/studio')) {
+          const studioFallback = await cache.match('/studio.html');
+          if (studioFallback) return studioFallback;
+        }
+        if (url.pathname.startsWith('/dj')) {
+          const djFallback = await cache.match('/dj.html');
+          if (djFallback) return djFallback;
+        }
+        if (url.pathname.startsWith('/sets')) {
+          const setsFallback = await cache.match('/sets.html');
+          if (setsFallback) return setsFallback;
+        }
+      } catch (_) {}
+      const fallback = (await cache.match('/')) || (await cache.match('/index.html'));
       if (fallback) return fallback;
     }
-    throw err;
+    return new Response('Network unavailable', {
+      status: 503,
+      statusText: 'Service Unavailable',
+      headers: { 'Content-Type': 'text/plain' }
+    });
   }
 }

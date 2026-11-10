@@ -116,11 +116,12 @@
       throw new Error('showSlug, title, and audioFile are required');
     }
 
+    const activeToken = sessionToken || (typeof localStorage !== 'undefined' ? (localStorage.getItem('anypod_session_token') || localStorage.getItem('podcast_pulse_session_token')) : '') || '';
     const authHeaders = {
       'Content-Type': 'application/json'
     };
-    if (sessionToken) {
-      authHeaders['X-Session-Token'] = sessionToken;
+    if (activeToken) {
+      authHeaders['X-Session-Token'] = activeToken;
     }
 
     const arrayBuffer = await audioFile.arrayBuffer();
@@ -128,6 +129,7 @@
 
     const ticketRes = await fetch('/api/studio/upload', {
       method: 'POST',
+      credentials: 'include',
       headers: authHeaders,
       body: JSON.stringify({
         showSlug,
@@ -162,6 +164,7 @@
 
     const epRes = await fetch('/api/studio/episodes', {
       method: 'POST',
+      credentials: 'include',
       headers: authHeaders,
       body: JSON.stringify({
         showSlug,
@@ -173,7 +176,10 @@
         duration_seconds: analysis.durationSeconds,
         waveform_peaks: analysis.waveformPeaks,
         chapters: finalChapters,
-        transcript_vtt: transcriptVtt || null
+        transcript_vtt: transcriptVtt || null,
+        status: options.status || 'published',
+        scheduled_for: options.scheduledFor || options.scheduled_for || null,
+        published_at: options.publishedAt || options.published_at || null
       })
     });
 

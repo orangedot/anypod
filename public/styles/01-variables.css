@@ -50,6 +50,12 @@
   --backdrop-blur: blur(16px);
   --dock-height: 46px;
   --mini-player-height: 52px;
+  
+  /* Semantic Tab Contrast Tokens (WCAG AA/AAA compliant) */
+  --tab-active-bg: #f2f2f4;
+  --tab-active-fg: #161618;
+  --tab-inactive-bg: #202024;
+  --tab-inactive-fg: #a8a8b3;
 }
 
 @media (prefers-color-scheme: light) {
@@ -76,6 +82,11 @@
     --border-light: rgba(0, 0, 0, 0.08);
     --border-focus: #635c53;
     --shadow-main: 0 8px 24px rgba(0, 0, 0, 0.06);
+    
+    --tab-active-bg: #18181b;
+    --tab-active-fg: #ffffff;
+    --tab-inactive-bg: #f3f4f6;
+    --tab-inactive-fg: #52525c;
   }
 }
 
@@ -102,6 +113,11 @@
   --border-light: rgba(0, 0, 0, 0.08);
   --border-focus: #635c53;
   --shadow-main: 0 8px 24px rgba(0, 0, 0, 0.06);
+  
+  --tab-active-bg: #18181b;
+  --tab-active-fg: #ffffff;
+  --tab-inactive-bg: #f3f4f6;
+  --tab-inactive-fg: #52525c;
 }
 
 [data-theme="dark"] {
@@ -127,6 +143,11 @@
   --border-light: rgba(255, 255, 255, 0.08);
   --border-focus: #d8cdbe;
   --shadow-main: 0 10px 30px rgba(0, 0, 0, 0.4);
+
+  --tab-active-bg: #f2f2f4;
+  --tab-active-fg: #161618;
+  --tab-inactive-bg: #202024;
+  --tab-inactive-fg: #a8a8b3;
 }
 /* ───────────────────────────────────────────────────────────
    Minimal palette – fewer borders, no orange accent, no icons

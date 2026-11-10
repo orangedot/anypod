@@ -24,7 +24,8 @@
     SHUFFLE: 'anypod_shuffle',
     LAST_EPISODE: 'anypod_last_active_episode',
     DJ_CUES: 'anypod_dj_cues',
-    SETS_ROUTINE: 'anypod_sets_routine_v1'
+    SETS_ROUTINE: 'anypod_sets_routine_v1',
+    VOICE_BOOST: 'anypod_voice_boost'
   };
 
   let _storageBlocked = false;

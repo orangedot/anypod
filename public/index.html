@@ -18,9 +18,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Anypod">
+  <meta name="application-name" content="Anypod">
   <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="ard" type="application/json" href="/.well-known/ard.json">
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png">
   <link rel="apple-touch-icon" href="/icon-192.png">
 
   <!-- Preload primary self-hosted font (0ms external latency) -->
@@ -116,6 +120,16 @@
             <!-- 5 podcast cards + trailing 'see all in discover' button render here -->
           </div>
         </div>
+
+        <!-- Install PWA button (Chrome/Edge/Android or iOS Safari) -->
+        <button class="btn-install-pill hidden" id="btn-install-app" title="Install Anypod" aria-label="Install Anypod on your home screen or desktop">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>Install</span>
+        </button>
 
         <!-- Settings gear icon -->
         <button class="btn-icon btn-header-settings" id="btn-open-settings" title="Settings" aria-label="Open settings">
@@ -261,6 +275,21 @@
 
       <!-- TAB 3: Settings & Storage -->
       <section class="tab-panel" id="panel-settings">
+        <div class="settings-card" id="card-install-app">
+          <h3>install on device</h3>
+          <p id="install-app-status">add anypod to your home screen or desktop for offline listening, lock screen controls, and faster loading.</p>
+          <div class="settings-actions">
+            <button class="btn btn-secondary" id="btn-settings-install">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>install app</span>
+            </button>
+          </div>
+        </div>
+
         <div class="settings-card">
           <h3>appearance</h3>
           <p>choose interface theme or match your system preferences.</p>
@@ -335,6 +364,19 @@
               </div>
               <div class="toggle-switch">
                 <input type="checkbox" id="toggle-jump-buttons">
+                <span class="toggle-track"></span>
+              </div>
+            </label>
+          </div>
+
+          <div class="experimental-row">
+            <label class="experimental-toggle-label" for="toggle-voice-boost">
+              <div>
+                <strong>voice boost button</strong>
+                <span>display voice boost (speech normalization) button in the player bar</span>
+              </div>
+              <div class="toggle-switch">
+                <input type="checkbox" id="toggle-voice-boost" role="switch">
                 <span class="toggle-track"></span>
               </div>
             </label>
@@ -695,6 +737,67 @@
       <!-- <button class="btn btn-secondary btn-sm btn-dock-refresh" id="btn-refresh-all" title="refresh all feeds">refresh</button> -->
     </aside>
 
+    <!-- iOS Install Guidance Modal -->
+    <div class="modal-overlay hidden" id="ios-install-modal" role="dialog" aria-modal="true" aria-labelledby="ios-install-title">
+      <div class="modal-card ios-install-card">
+        <button class="btn-apple-close" id="btn-close-ios-install" aria-label="Close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+
+        <div class="ios-install-brand">
+          <img src="/icon-192.png" alt="Anypod Icon" class="ios-install-icon" width="48" height="48">
+          <div>
+            <h3 class="ios-install-title" id="ios-install-title">Install Anypod</h3>
+            <p class="ios-install-subtitle">Add to your Home Screen for offline listening</p>
+          </div>
+        </div>
+
+        <div class="ios-install-steps">
+          <div class="ios-step-row">
+            <div class="ios-step-num">1</div>
+            <div class="ios-step-content">
+              <p>Tap the <strong>Share</strong> button in Safari's toolbar</p>
+              <div class="ios-step-icon" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
+                  <polyline points="16 6 12 2 8 6"></polyline>
+                  <line x1="12" y1="2" x2="12" y2="15"></line>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="ios-step-row">
+            <div class="ios-step-num">2</div>
+            <div class="ios-step-content">
+              <p>Scroll down and tap <strong>Add to Home Screen</strong></p>
+              <div class="ios-step-icon" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="4" ry="4"></rect>
+                  <line x1="12" y1="8" x2="12" y2="16"></line>
+                  <line x1="8" y1="12" x2="16" y2="12"></line>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="ios-step-row">
+            <div class="ios-step-num">3</div>
+            <div class="ios-step-content">
+              <p>Tap <strong>Add</strong> in the top-right corner to finish</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="ios-install-footer">
+          <button type="button" class="btn btn-secondary btn-full" id="btn-dismiss-ios-install">Got it</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Live Caption Popup — floats above the player bar -->
     <div class="live-caption-popup hidden" id="live-caption-popup" aria-live="polite" aria-atomic="true">
       <button class="live-caption-close" id="btn-close-caption" aria-label="Close captions">×</button>
@@ -752,6 +855,7 @@
         <div class="player-center-controls">
           <div class="control-buttons">
             <button class="btn-pill" id="btn-speed-toggle" title="playback speed">1.0x</button>
+            <button class="btn-pill btn-voice-boost hidden" id="btn-voice-boost" title="Voice Boost (speech normalization)" aria-label="Toggle Voice Boost" aria-pressed="false">boost</button>
             <button class="btn-icon" id="btn-prev-15" title="skip back 15s">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 19l-9-7 9-7v14z"></path><path d="M22 19l-9-7 9-7v14z"></path></svg>
               <span class="btn-subtext">15</span>
@@ -926,6 +1030,7 @@
   <script src="shared/sync-bridge.js?v=20261023d" defer></script>
   <script src="shared/audio-utils.js?v=20261023d" defer></script>
   <script src="shared/studio-uploader.js?v=20261023d" defer></script>
+  <script src="shared/install-manager.js?v=20261023d" defer></script>
 
   <!-- Modular App Feature Scripts (Zero-Build Dev) -->
   <script src="app/01-state-and-dom.js?v=20261023d" defer></script>

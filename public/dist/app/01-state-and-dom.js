@@ -1211,6 +1211,7 @@ let state = {
   episodeChapters: [],
   currentChapter: null,
   playbackSpeed: 1.0,
+  voiceBoost: safeStorage.getItem(STORAGE_KEYS.VOICE_BOOST) === 'true',
   sortOrder: 'newest',
   isShuffle: storage.getItem('anypod_shuffle') === 'true',
   searchQuery: '',
@@ -1249,7 +1250,8 @@ let state = {
     autoSkipSpeech: false,
     enableTranscript: false,
     enableLiveTranscript: false,
-    enableVerboseDiagnostics: false
+    enableVerboseDiagnostics: false,
+    enableVoiceBoost: false
   },
   episodeTimeline: {
     guid: null,
@@ -1446,6 +1448,7 @@ const elements = {
   totalDurationLabel: document.getElementById('total-duration'),
   seekBar: document.getElementById('seek-bar'),
   btnSpeedToggle: document.getElementById('btn-speed-toggle'),
+  btnVoiceBoost: document.getElementById('btn-voice-boost'),
   btnPlayerTranscript: document.getElementById('btn-player-transcript'),
   btnPlayerNotes: document.getElementById('btn-player-notes'),
   btnPlayerShare: document.getElementById('btn-player-share'),
@@ -1492,6 +1495,7 @@ const elements = {
   // Experimental feature toggles
   toggleVisualizer: document.getElementById('toggle-visualizer'),
   toggleClassifier: document.getElementById('toggle-classifier'),
+  toggleVoiceBoost: document.getElementById('toggle-voice-boost'),
   toggleLiveTranscript: document.getElementById('toggle-live-transcript'),
   rowLiveTranscript: document.getElementById('row-live-transcript'),
   toggleAutoSkip: document.getElementById('toggle-auto-skip'),

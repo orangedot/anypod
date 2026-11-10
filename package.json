@@ -8,6 +8,7 @@
     "build": "node scripts/build.js",
     "predeploy": "node scripts/verify-deploy.js",
     "test:smoke": "node scripts/smoke_test.js",
+    "test:pwa": "node scripts/test_pwa_installability.js",
     "test:shelves": "node scripts/test_shelves_interaction.js",
     "profile:discover": "node scripts/profile_discover_tab.js",
     "dev": "wrangler pages dev public --ip 0.0.0.0 --port 8788",

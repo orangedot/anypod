@@ -113,8 +113,21 @@ export async function applyPlanChange(env, change) {
   const plan = change && change.plan === 'pro' ? 'pro' : 'free';
   const until = change && change.until ? Math.floor(Number(change.until)) : null;
   if (!email) return 0;
+
+  let normEmail = email;
+  const atIdx = email.lastIndexOf('@');
+  if (atIdx !== -1) {
+    let local = email.slice(0, atIdx);
+    let domain = email.slice(atIdx + 1);
+    if (domain === 'googlemail.com') domain = 'gmail.com';
+    if (domain === 'gmail.com') {
+      local = local.replace(/\./g, '').split('+')[0];
+    }
+    normEmail = `${local}@${domain}`;
+  }
+
   const result = await env.DB.prepare(
-    'UPDATE users SET studio_plan = ?, studio_plan_until = ? WHERE lower(email) = ?'
-  ).bind(plan, plan === 'pro' ? until : null, email).run();
+    'UPDATE users SET studio_plan = ?, studio_plan_until = ? WHERE lower(email) = ? OR lower(email) = ?'
+  ).bind(plan, plan === 'pro' ? until : null, email, normEmail).run();
   return Number((result && result.meta && result.meta.changes) || 0);
 }

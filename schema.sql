@@ -100,11 +100,16 @@ CREATE TABLE IF NOT EXISTS shows (
   category TEXT,
   explicit INTEGER DEFAULT 0,
   website_url TEXT,
+  is_private INTEGER DEFAULT 0,
+  auth_type TEXT DEFAULT 'token',
+  custom_domain TEXT,
+  custom_domain_status TEXT DEFAULT 'none',
   created_at INTEGER DEFAULT (unixepoch()),
   FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_shows_slug ON shows(slug);
+CREATE INDEX IF NOT EXISTS idx_shows_custom_domain ON shows(custom_domain);
 
 CREATE TABLE IF NOT EXISTS episodes (
   id TEXT PRIMARY KEY,
@@ -122,11 +127,29 @@ CREATE TABLE IF NOT EXISTS episodes (
   transcript_key TEXT,
   chapters_key TEXT,
   waveform_peaks_json TEXT,
+  status TEXT DEFAULT 'published',
+  scheduled_for INTEGER,
   published_at INTEGER,
   created_at INTEGER DEFAULT (unixepoch()),
   FOREIGN KEY (show_id) REFERENCES shows(id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_episodes_show_published ON episodes(show_id, published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_episodes_scheduled ON episodes(show_id, status, scheduled_for);
+
+CREATE TABLE IF NOT EXISTS show_feed_tokens (
+  id TEXT PRIMARY KEY,
+  show_id TEXT NOT NULL,
+  subscriber_label TEXT NOT NULL,
+  token_hash TEXT UNIQUE NOT NULL,
+  token_preview TEXT NOT NULL,
+  created_at INTEGER DEFAULT (unixepoch()),
+  expires_at INTEGER,
+  revoked_at INTEGER,
+  FOREIGN KEY (show_id) REFERENCES shows(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_feed_tokens_lookup ON show_feed_tokens(show_id, token_hash);
+
 
 

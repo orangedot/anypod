@@ -168,11 +168,11 @@ export function generateDiscoverShellHtml() {
       <!-- Unified Multi-Source Search & Exploration -->
       <div class="discover-search-box">
         <div class="discover-search-controls">
-          <div class="search-source-tabs" role="tablist" aria-label="Search source">
-            <button type="button" class="source-tab active" data-source="all">All</button>
-            <button type="button" class="source-tab" data-source="podcasts">Podcasts</button>
-            <button type="button" class="source-tab" data-source="youtube">YouTube</button>
-            <button type="button" class="source-tab" data-source="music">YT Music</button>
+          <div class="search-source-tabs" role="tablist" aria-label="Search source" aria-orientation="horizontal">
+            <button type="button" role="tab" id="source-tab-all" class="source-tab active" data-source="all" aria-selected="true" tabindex="0" aria-controls="empty-quick-results">All</button>
+            <button type="button" role="tab" id="source-tab-podcasts" class="source-tab" data-source="podcasts" aria-selected="false" tabindex="-1" aria-controls="empty-quick-results">Podcasts</button>
+            <button type="button" role="tab" id="source-tab-youtube" class="source-tab" data-source="youtube" aria-selected="false" tabindex="-1" aria-controls="empty-quick-results">YouTube</button>
+            <button type="button" role="tab" id="source-tab-music" class="source-tab" data-source="music" aria-selected="false" tabindex="-1" aria-controls="empty-quick-results">YT Music</button>
           </div>
           <form id="empty-quick-form" class="quick-add-form" action="javascript:void(0);">
             <div class="quick-add-input-wrap">

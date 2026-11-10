@@ -65,6 +65,39 @@ export function parseByteRangeHeader(rangeHeader, totalSize) {
   return { start, end, length, r2Range: { offset: start, length } };
 }
 
+async function hashToken(token) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(token);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function parseTokenFromRequest(request) {
+  const url = new URL(request.url);
+  const queryToken = url.searchParams.get('token');
+  if (queryToken && queryToken.trim()) return queryToken.trim();
+
+  const authHeader = request.headers.get('Authorization') || '';
+  if (authHeader.startsWith('Bearer ')) {
+    return authHeader.slice(7).trim();
+  }
+  if (authHeader.startsWith('Basic ')) {
+    try {
+      const b64 = authHeader.slice(6).trim();
+      const decoded = atob(b64);
+      const colonIdx = decoded.indexOf(':');
+      if (colonIdx !== -1) {
+        const user = decoded.slice(0, colonIdx).trim();
+        const pass = decoded.slice(colonIdx + 1).trim();
+        return pass || user;
+      }
+      return decoded.trim();
+    } catch (_) {}
+  }
+  return null;
+}
+
 export async function onRequestOptions() {
   return new Response(null, {
     status: 204,
@@ -102,6 +135,30 @@ export async function onRequest(context) {
       status: 503,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json; charset=utf-8' }
     });
+  }
+
+  if (env && env.DB) {
+    const show = await env.DB.prepare('SELECT id, is_private FROM shows WHERE slug = ?').bind(showSlug).first();
+    if (show && show.is_private) {
+      const feedToken = parseTokenFromRequest(request);
+      if (!feedToken) {
+        return new Response(JSON.stringify({ error: 'Unauthorized: Private show audio requires a valid subscriber token' }), {
+          status: 401,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json; charset=utf-8' }
+        });
+      }
+      const tokenHash = await hashToken(feedToken);
+      const validToken = await env.DB.prepare(
+        'SELECT id FROM show_feed_tokens WHERE show_id = ? AND token_hash = ? AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > unixepoch())'
+      ).bind(show.id, tokenHash).first();
+
+      if (!validToken) {
+        return new Response(JSON.stringify({ error: 'Forbidden: Invalid or revoked subscriber token' }), {
+          status: 403,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json; charset=utf-8' }
+        });
+      }
+    }
   }
 
   const objectKey = `${showSlug}/${filename}`;

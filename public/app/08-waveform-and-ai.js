@@ -36,8 +36,14 @@ function loadExperimentalSettings() {
       if (parsed.enableVerboseDiagnostics !== undefined) {
         state.experimentalSettings.enableVerboseDiagnostics = !!parsed.enableVerboseDiagnostics;
       }
+      if (parsed.enableVoiceBoost !== undefined) {
+        state.experimentalSettings.enableVoiceBoost = !!parsed.enableVoiceBoost;
+      }
     }
   } catch (_) {}
+  if (!state.experimentalSettings.enableVoiceBoost) {
+    state.voiceBoost = false;
+  }
   state.experimentalSettings.enableVisualizer = true;
   syncExperimentalUI();
 }
@@ -57,15 +63,21 @@ function syncExperimentalUI() {
   const isAutoSkip = !!es.autoSkipSpeech;
   const isLiveTrans = !!es.enableLiveTranscript;
   const isVerboseDiag = !!es.enableVerboseDiagnostics;
+  const isBoost = !!es.enableVoiceBoost;
 
   const toggleJump = document.getElementById('toggle-jump-buttons');
   if (toggleJump) toggleJump.checked = showButtons;
   if (elements.toggleVisualizer) elements.toggleVisualizer.checked = isVis;
   if (elements.toggleClassifier) elements.toggleClassifier.checked = isClass;
+  if (elements.toggleVoiceBoost) elements.toggleVoiceBoost.checked = isBoost;
   if (elements.toggleAutoSkip) elements.toggleAutoSkip.checked = !!es.autoSkipSpeech;
   if (elements.toggleTranscript) elements.toggleTranscript.checked = isTrans;
   if (elements.toggleLiveTranscript) elements.toggleLiveTranscript.checked = isLiveTrans;
   if (elements.toggleVerboseDiag) elements.toggleVerboseDiag.checked = isVerboseDiag;
+
+  if (elements.btnVoiceBoost) {
+    elements.btnVoiceBoost.classList.toggle('hidden', !isBoost);
+  }
   // Show live transcript row only when classifier is enabled (needs segment data)
   if (elements.rowLiveTranscript) {
     elements.rowLiveTranscript.style.display = isClass ? '' : 'none';
@@ -185,6 +197,19 @@ function setupExperimentalSettings() {
       state.experimentalSettings.enableVerboseDiagnostics = elements.toggleVerboseDiag.checked;
       saveExperimentalSettings();
       showToast(state.experimentalSettings.enableVerboseDiagnostics ? 'Verbose diagnostic logs ON' : 'Verbose diagnostic logs OFF');
+    });
+  }
+  if (elements.toggleVoiceBoost) {
+    elements.toggleVoiceBoost.addEventListener('change', () => {
+      state.experimentalSettings.enableVoiceBoost = elements.toggleVoiceBoost.checked;
+      if (!state.experimentalSettings.enableVoiceBoost && state.voiceBoost) {
+        state.voiceBoost = false;
+        try { storage.setItem(STORAGE_KEYS.VOICE_BOOST, 'false'); } catch (_) {}
+        if (typeof applyVoiceBoostGraph === 'function') applyVoiceBoostGraph(false);
+        if (typeof updateVoiceBoostUI === 'function') updateVoiceBoostUI();
+      }
+      saveExperimentalSettings();
+      syncExperimentalUI();
     });
   }
 }

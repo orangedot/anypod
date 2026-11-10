@@ -574,6 +574,109 @@
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   iOS Install Guidance Card & Contextual Install Banner
+   ───────────────────────────────────────────────────────────────────────── */
+.ios-install-card {
+  max-width: 440px;
+  width: calc(100% - 2rem);
+  margin: auto;
+  background: var(--bg-card, #18181b);
+  border: 1px solid var(--border-light, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-lg, 16px);
+  padding: 1.5rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  position: relative;
+}
+
+.ios-install-brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.ios-install-icon {
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  flex-shrink: 0;
+}
+
+.ios-install-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.ios-install-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0.2rem 0 0 0;
+}
+
+.ios-install-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin: 1.25rem 0 1.5rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--border-light, rgba(255, 255, 255, 0.06));
+  border-bottom: 1px solid var(--border-light, rgba(255, 255, 255, 0.06));
+}
+
+.ios-step-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.ios-step-num {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ios-step-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.ios-step-content strong {
+  color: var(--text-primary);
+}
+
+.ios-step-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  color: var(--accent, #f97316);
+  flex-shrink: 0;
+}
+
+.ios-install-footer .btn-full {
+  width: 100%;
+  justify-content: center;
+  padding: 0.65rem 1rem;
+}
+
 .hidden {
   display: none !important;
 }
