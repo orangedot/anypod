@@ -257,7 +257,14 @@ Anypod utilizes a modular architecture designed for developer happiness and mult
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
-  created_at INTEGER DEFAULT (unixepoch())
+  created_at INTEGER DEFAULT (unixepoch()),
+  last_active_at INTEGER,
+  warned_30d_at INTEGER,
+  warned_50d_at INTEGER,
+  studio_plan TEXT DEFAULT 'free',
+  studio_plan_until INTEGER,
+  listener_plan TEXT DEFAULT 'free',
+  listener_plan_until INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS auth_tokens (
@@ -298,6 +305,61 @@ CREATE TABLE IF NOT EXISTS playback_state (
   UNIQUE(user_id, episode_guid),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS favorites (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  episode_guid TEXT NOT NULL,
+  feed_url TEXT,
+  title TEXT,
+  podcast_title TEXT,
+  artwork TEXT,
+  audio_url TEXT,
+  duration TEXT,
+  pub_date TEXT,
+  created_at INTEGER DEFAULT (unixepoch()),
+  UNIQUE(user_id, episode_guid),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Studio Creator & Private Tokenized Feeds
+CREATE TABLE IF NOT EXISTS shows (
+  id TEXT PRIMARY KEY,
+  owner_id TEXT NOT NULL,
+  slug TEXT UNIQUE NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  author TEXT,
+  cover_image_url TEXT,
+  is_private INTEGER DEFAULT 0,
+  created_at INTEGER DEFAULT (unixepoch()),
+  FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS episodes (
+  id TEXT PRIMARY KEY,
+  show_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  audio_key TEXT NOT NULL,
+  duration_seconds REAL DEFAULT 0,
+  status TEXT DEFAULT 'published',
+  scheduled_for INTEGER,
+  published_at INTEGER,
+  created_at INTEGER DEFAULT (unixepoch()),
+  FOREIGN KEY (show_id) REFERENCES shows(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS show_feed_tokens (
+  id TEXT PRIMARY KEY,
+  show_id TEXT NOT NULL,
+  subscriber_label TEXT NOT NULL,
+  token_hash TEXT UNIQUE NOT NULL,
+  token_preview TEXT NOT NULL,
+  created_at INTEGER DEFAULT (unixepoch()),
+  expires_at INTEGER,
+  revoked_at INTEGER,
+  FOREIGN KEY (show_id) REFERENCES shows(id) ON DELETE CASCADE
+);
 ```
 
 ---
@@ -337,6 +399,18 @@ CREATE TABLE IF NOT EXISTS playback_state (
 
 ## CLI & Verification Tools
 
+### Workspace Health & Comprehensive Test Suite
+Run the unified 26-point verification suite checking script compilation, PWA installability, guest search, audiobooks discovery, AXTree accessibility, studio token gating, and stealth pro rules:
+```bash
+npm test
+```
+
+### Validate Curated & Audiobook Feeds
+Verify live HTTP status and enclosure validity across all curated catalog feeds:
+```bash
+npm run test:feeds
+```
+
 ### Audio Source & Byte-Range Auditor
 Test any audio URL or podcast feed for HTTP HEAD status, MIME types, HTTP 206 Range support, and proxy readiness:
 ```bash
@@ -345,11 +419,6 @@ npm run test:sources -- "https://example.com/episode.mp3"
 
 # Audit an entire podcast RSS feed
 npm run test:sources -- --feed "https://example.com/podcast.rss"
-```
-
-### Validate Curated Feeds
-```bash
-npm run test:feeds
 ```
 
 ### In-App Live Diagnostic Report
@@ -395,6 +464,8 @@ Runs pre-flight verification, builds production assets, and deploys to Cloudflar
 ```bash
 npm run deploy
 ```
+
+> **Cloudflare Auth Troubleshooting**: If Wrangler reports `Authentication error [code: 10000]` or `permission error [code: 7500]`, your local environment may have an expired or restricted custom API token. Run with `env -u CLOUDFLARE_API_TOKEN npm run deploy` to authenticate via your Super Administrator OAuth session (`wrangler login`).
 
 ---
 

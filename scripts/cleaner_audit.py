@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Anypod Cleaner Monday Audit & Automation Runner
-Inspects inactive accounts against the 30d / 50d / 60d GDPR storage limitation lifecycle policy.
+Inspects inactive accounts against the 60d / 80d / 90d GDPR storage limitation lifecycle policy.
 Supports dry-run preview, tokenized action link inspection, and live execution.
 
 Usage:
@@ -205,7 +205,7 @@ def ensure_cleaner_columns(token: str, account_id: str, db_id: str, db_name: str
 
 
 def run_cleaner_audit(token: str, account_id: str, db_id: str) -> Dict[str, Any]:
-    """Audit all users against the 30d / 50d / 60d thresholds."""
+    """Audit all users against the 60d / 80d / 90d thresholds."""
     ensure_cleaner_columns(token, account_id, db_id, DB_NAME)
 
     # Reconcile columns
