@@ -1869,6 +1869,13 @@ async function executeUnifiedSearch(query, source = 'all', targetContainer = nul
   // Scoped at function level so it is universally available across cache, fetch, and render paths
   const userHasPro = Boolean((typeof isUserListenerPro === 'function' && isUserListenerPro()) || (state && state.isListenerPro));
 
+  // Video sources do not exist for non-Pro viewers: a stale/forced source silently becomes 'all'
+  if (!userHasPro && (source === 'youtube' || source === 'music')) source = 'all';
+
+  // Audiobooks reuse the podcast directory, biased toward audiobook titles
+  const podcastTerm = source === 'audiobooks' ? `${q} audiobook` : q;
+  const searchesDirectory = source === 'all' || source === 'podcasts' || source === 'audiobooks';
+
   const countryKey = (state.directoryCountry && state.directoryCountry !== 'all') ? state.directoryCountry : 'all';
   const cacheKey = `${q.toLowerCase()}::${source}::${countryKey}`;
   const cachedEntry = _unifiedSearchCache.get(cacheKey);
@@ -1878,7 +1885,7 @@ async function executeUnifiedSearch(query, source = 'all', targetContainer = nul
       <div style="padding: 0.75rem 0.25rem; width: 100%;">
         <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.85rem;">
           <svg class="spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9" stroke-opacity="0.25"></circle><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"></path></svg>
-          <span>searching ${escapeHtml(source === 'all' ? 'podcasts, youtube & music' : source)} for "${escapeHtml(q)}"...</span>
+          <span>searching ${escapeHtml(source === 'all' ? (userHasPro ? 'podcasts, youtube & music' : 'podcasts & audiobooks') : source)} for "${escapeHtml(q)}"...</span>
         </div>
         <div class="discover-narrative-grid">
           <div class="skeleton-card"><div class="skeleton-art"></div><div class="skeleton-lines"><div class="skeleton-line" style="width: 40%;"></div><div class="skeleton-line" style="width: 75%;"></div></div></div>
@@ -1898,21 +1905,21 @@ async function executeUnifiedSearch(query, source = 'all', targetContainer = nul
     } else {
       const fetchPromises = [];
 
-      // 1. Podcast Directory search (for 'all' or 'podcasts' - 100% free for guests & subscribers)
-      if (source === 'all' || source === 'podcasts') {
+      // 1. Podcast Directory search (all / podcasts / audiobooks - 100% free for guests & subscribers)
+      if (searchesDirectory) {
         const countryParam = (state.directoryCountry && state.directoryCountry !== 'all') ? `&country=${encodeURIComponent(state.directoryCountry)}` : '';
         const podcastLimit = source === 'all' ? 12 : 30;
 
         const fetchPodcasts = async () => {
           let pData = null;
           try {
-            const directRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=podcast${countryParam}&limit=${podcastLimit}`);
+            const directRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(podcastTerm)}&entity=podcast${countryParam}&limit=${podcastLimit}`);
             if (directRes.ok) pData = await directRes.json();
           } catch (_) {}
 
           if (!pData || !pData.results) {
             try {
-              const proxyRes = await fetch(`/api/search-directory?term=${encodeURIComponent(q)}${countryParam}&limit=${podcastLimit}`);
+              const proxyRes = await fetch(`/api/search-directory?term=${encodeURIComponent(podcastTerm)}${countryParam}&limit=${podcastLimit}`);
               if (proxyRes.ok) pData = await proxyRes.json();
             } catch (_) {}
           }
@@ -1974,30 +1981,12 @@ async function executeUnifiedSearch(query, source = 'all', targetContainer = nul
 
     container.innerHTML = '';
 
-    if (!userHasPro && (source === 'youtube' || source === 'music')) {
-      container.innerHTML = `
-        <div style="padding: 2.2rem 1.5rem; text-align: center; color: var(--text-secondary); background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-light); border-radius: var(--radius-md); max-width: 460px; margin: 1.5rem auto;">
-          <div style="display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: rgba(216, 205, 190, 0.12); margin-bottom: 0.85rem; color: var(--primary); font-size: 1.1rem;">
-            ★
-          </div>
-          <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin: 0 0 0.4rem 0;">Listener Pro Preview</h3>
-          <p style="font-size: 0.85rem; line-height: 1.5; color: var(--text-secondary); margin: 0 0 1rem 0;">
-            YouTube &amp; YouTube Music integration is currently in private preview for Listener Pro accounts.
-          </p>
-          <div style="font-size: 0.8rem; color: var(--text-muted); border-top: 1px solid var(--border-light); padding-top: 0.85rem;">
-            Standard podcast directory search &amp; direct RSS streaming remain 100% free and unlimited.
-          </div>
-        </div>
-      `;
-      return;
-    }
-
     const totalResults = (podcastResults?.length || 0) + (ytResults?.length || 0);
     if (totalResults === 0) {
       container.innerHTML = `
         <div style="padding: 1.5rem 1rem; text-align: center; color: var(--text-muted); background: rgba(0, 0, 0, 0.03); border: 1px solid var(--border-light); border-radius: var(--radius-sm); width: 100%;">
           <p style="font-weight: 500; color: var(--text-primary); margin-bottom: 0.25rem;">no results found</p>
-          <p style="font-size: 0.82rem;">no matches found for "${escapeHtml(q)}" in ${escapeHtml(source)}. try a broader keyword or paste a direct RSS or YouTube URL.</p>
+          <p style="font-size: 0.82rem;">no matches found for "${escapeHtml(q)}" in ${escapeHtml(source)}. try a broader keyword or paste a direct RSS link.</p>
         </div>
       `;
       return;
@@ -2027,7 +2016,7 @@ async function executeUnifiedSearch(query, source = 'all', targetContainer = nul
         if (i < podcastResults.length) combined.push(podcastResults[i]);
         if (i < ytResults.length) combined.push(ytResults[i]);
       }
-    } else if (source === 'podcasts') {
+    } else if (source === 'podcasts' || source === 'audiobooks') {
       combined.push(...podcastResults);
     } else {
       combined.push(...ytResults);
@@ -2679,7 +2668,7 @@ function buildDiscoverShowCard(show, whyNote, idx = 0) {
   card.dataset.feed = show.feed;
 
   const isSubbed = state.feeds.includes(show.feed);
-  let art = show.artwork || (state.feedMetadata[show.feed] && state.feedMetadata[show.feed].artwork) || (_curatedArtworkCache && _curatedArtworkCache[show.feed]) || FALLBACK_ARTWORK;
+  let art = show.artwork || (state.feedMetadata[show.feed] && state.feedMetadata[show.feed].artwork) || (_curatedArtworkCache && _curatedArtworkCache[show.feed]) || makeCoverArt(show.title);
   if (typeof art === 'string' && art.includes('600x600bb')) {
     art = art.replace('600x600bb', '100x100bb');
   }
@@ -3187,7 +3176,7 @@ function renderCatalogShowCard(show) {
   card.className = 'catalog-show-card';
   card.dataset.feed = show.feed;
   const isSubbed = state.feeds && state.feeds.includes(show.feed);
-  const art = show.artwork || (_curatedArtworkCache && _curatedArtworkCache[show.feed]) || FALLBACK_ARTWORK;
+  const art = show.artwork || (_curatedArtworkCache && _curatedArtworkCache[show.feed]) || makeCoverArt(show.title);
 
   card.innerHTML = `
     <div class="catalog-card-header">
@@ -3407,7 +3396,8 @@ function renderDiscover(forceRebuild = false) {
 
   const hasFeeds = state.feeds && state.feeds.length > 0;
   const existingWrap = container.querySelector('.discover-view-wrap');
-  const currentFeedsKey = hasFeeds ? state.feeds.join(',') : 'empty';
+  const isProViewer = typeof isUserListenerPro === 'function' && isUserListenerPro();
+  const currentFeedsKey = (hasFeeds ? state.feeds.join(',') : 'empty') + (isProViewer ? ':pro' : '');
 
   // 1. If already hydrated and state hasn't changed, instant 0ms tab return!
   if (!forceRebuild && existingWrap && existingWrap.dataset.prerendered === 'hydrated') {
@@ -3417,8 +3407,9 @@ function renderDiscover(forceRebuild = false) {
     }
   }
 
-  // 2. If new visitor with no custom feeds and pre-rendered shell is already present in DOM:
-  if (!hasFeeds && existingWrap && (existingWrap.dataset.prerendered === 'true' || existingWrap.dataset.prerendered === 'hydrated')) {
+  // 2. If new visitor with no custom feeds and pre-rendered shell is already present in DOM
+  //    (the static shell is the non-Pro layout, so Pro viewers rebuild to get video tabs):
+  if (!hasFeeds && !isProViewer && existingWrap && (existingWrap.dataset.prerendered === 'true' || existingWrap.dataset.prerendered === 'hydrated')) {
     existingWrap.dataset.prerendered = 'hydrated';
     existingWrap.dataset.feedsKey = 'empty';
     wireEmptyStateEvents(container);
@@ -3528,6 +3519,13 @@ function renderDiscover(forceRebuild = false) {
     ? `Handpicked podcasts outside your current library, selected because their reporting depth directly complements your audio taste.`
     : `Curated starter shows from worldwide producers to introduce fresh perspectives and tune your profile.`;
 
+  // Video sources (YouTube / YT Music) are invisible unless the account has Listener Pro.
+  const showVideoSources = typeof isUserListenerPro === 'function' && isUserListenerPro();
+  if (!showVideoSources && (state.searchSource === 'youtube' || state.searchSource === 'music')) {
+    state.searchSource = 'all';
+  }
+  const activeSource = state.searchSource || 'all';
+
   container.innerHTML = `
     <div class="discover-view-wrap" data-prerendered="hydrated" data-feeds-key="${escapeHtml(currentFeedsKey)}">
       <!-- AI Taste Persona Banner -->
@@ -3571,8 +3569,10 @@ function renderDiscover(forceRebuild = false) {
           <div class="search-source-tabs" role="tablist" aria-label="Search source" aria-orientation="horizontal">
             <button type="button" role="tab" id="source-tab-all" class="source-tab ${state.searchSource === 'all' || !state.searchSource ? 'active' : ''}" data-source="all" aria-selected="${state.searchSource === 'all' || !state.searchSource ? 'true' : 'false'}" tabindex="${state.searchSource === 'all' || !state.searchSource ? '0' : '-1'}" aria-controls="empty-quick-results">All</button>
             <button type="button" role="tab" id="source-tab-podcasts" class="source-tab ${state.searchSource === 'podcasts' ? 'active' : ''}" data-source="podcasts" aria-selected="${state.searchSource === 'podcasts' ? 'true' : 'false'}" tabindex="${state.searchSource === 'podcasts' ? '0' : '-1'}" aria-controls="empty-quick-results">Podcasts</button>
-            <button type="button" role="tab" id="source-tab-youtube" class="source-tab ${state.searchSource === 'youtube' ? 'active' : ''}" data-source="youtube" aria-selected="${state.searchSource === 'youtube' ? 'true' : 'false'}" tabindex="${state.searchSource === 'youtube' ? '0' : '-1'}" aria-controls="empty-quick-results">YouTube${!(typeof isUserListenerPro === 'function' && isUserListenerPro()) ? ' <span style="font-size: 0.6rem; padding: 1px 4px; border-radius: 4px; background: rgba(216, 205, 190, 0.15); color: var(--primary); font-weight: 600; vertical-align: middle; margin-left: 2px;">PRO</span>' : ''}</button>
-            <button type="button" role="tab" id="source-tab-music" class="source-tab ${state.searchSource === 'music' ? 'active' : ''}" data-source="music" aria-selected="${state.searchSource === 'music' ? 'true' : 'false'}" tabindex="${state.searchSource === 'music' ? '0' : '-1'}" aria-controls="empty-quick-results">YT Music${!(typeof isUserListenerPro === 'function' && isUserListenerPro()) ? ' <span style="font-size: 0.6rem; padding: 1px 4px; border-radius: 4px; background: rgba(216, 205, 190, 0.15); color: var(--primary); font-weight: 600; vertical-align: middle; margin-left: 2px;">PRO</span>' : ''}</button>
+            <button type="button" role="tab" id="source-tab-audiobooks" class="source-tab ${activeSource === 'audiobooks' ? 'active' : ''}" data-source="audiobooks" aria-selected="${activeSource === 'audiobooks' ? 'true' : 'false'}" tabindex="${activeSource === 'audiobooks' ? '0' : '-1'}" aria-controls="empty-quick-results">Audiobooks</button>
+            ${showVideoSources ? `
+            <button type="button" role="tab" id="source-tab-youtube" class="source-tab ${activeSource === 'youtube' ? 'active' : ''}" data-source="youtube" aria-selected="${activeSource === 'youtube' ? 'true' : 'false'}" tabindex="${activeSource === 'youtube' ? '0' : '-1'}" aria-controls="empty-quick-results">YouTube</button>
+            <button type="button" role="tab" id="source-tab-music" class="source-tab ${activeSource === 'music' ? 'active' : ''}" data-source="music" aria-selected="${activeSource === 'music' ? 'true' : 'false'}" tabindex="${activeSource === 'music' ? '0' : '-1'}" aria-controls="empty-quick-results">YT Music</button>` : ''}
           </div>
           <form id="empty-quick-form" class="quick-add-form" action="javascript:void(0);">
             <div class="quick-add-input-wrap">
@@ -3580,13 +3580,14 @@ function renderDiscover(forceRebuild = false) {
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
-              <input type="text" id="empty-quick-input" placeholder="search podcasts, youtube, yt music, or paste url..." autocomplete="off">
+              <input type="text" id="empty-quick-input" placeholder="${showVideoSources ? 'search podcasts, audiobooks, youtube, or paste url...' : 'search podcasts, audiobooks, or paste an rss link...'}" autocomplete="off">
               <button type="button" class="btn-discover-clear-search hidden" id="btn-discover-clear-search" title="clear">×</button>
               <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-empty-quick-submit">search / add</button>
             </div>
           </form>
         </div>
         <div class="empty-category-chips" id="empty-category-chips">
+          <button type="button" class="category-chip" data-category="Audiobooks">audiobooks</button>
           <button type="button" class="category-chip" data-category="Science">science</button>
           <button type="button" class="category-chip" data-category="Music">music</button>
           <button type="button" class="category-chip" data-category="Climate">climate &amp; planet</button>
@@ -3783,7 +3784,7 @@ function wireEmptyStateEvents(targetRoot = document) {
         const userHasPro = typeof isUserListenerPro === 'function' ? isUserListenerPro() : Boolean(state.isListenerPro);
 
         if (isYtUrl && !userHasPro) {
-          showToast('★ YouTube playlist streaming requires Listener Pro preview. Standard podcast RSS feeds are free!', 4500);
+          showToast('That link type is not supported. Paste a podcast RSS feed link instead.', 4000);
           return;
         }
 

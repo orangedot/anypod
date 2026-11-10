@@ -1747,8 +1747,9 @@ function wireFeedsEmptyStateEvents() {
 
 const FEED_CATEGORIES = [
   { id: 'all', label: 'all podcasts', match: () => true },
+  { id: 'audiobooks', label: 'audiobooks', match: (url, meta) => /audiobook|librivox|novel|fiction|classic|tales|poetry|story|stories|drama|hörbuch/i.test(((meta.title || '') + ' ' + (meta.description || ''))) },
   { id: 'audio', label: 'audio', match: (url) => !url.includes('youtube.com') && !url.includes('youtu.be') },
-  { id: 'video', label: 'video / youtube', match: (url) => url.includes('youtube.com') || url.includes('youtu.be') },
+  { id: 'video', label: 'video', match: (url) => url.includes('youtube.com') || url.includes('youtu.be') },
   { id: 'news', label: 'news', match: (url, meta) => /news|nachrichten|politik|zeit|hintergrund|berichte|report|tagesschau|bbc|spiegel|echo/i.test(((meta.title || '') + ' ' + (meta.description || ''))) },
   { id: 'science', label: 'science', match: (url, meta) => /science|forschung|wissen|spektrum|nature|nasa|physik|biology|climate|klima|space|planet/i.test(((meta.title || '') + ' ' + (meta.description || ''))) },
   { id: 'doc', label: 'docs', match: (url, meta) => /doc|doku|story|geschichten|history|investigative|feature|crime|leben/i.test(((meta.title || '') + ' ' + (meta.description || ''))) },

@@ -24,7 +24,7 @@ Anypod is a free, open-source podcast player that respects you. Open it, search 
 | Self-hostable | ✅ | ❌ | ❌ | ❌ |
 | Auto-deletes inactive accounts | ✅ | ❌ | ❌ | ❌ |
 | Offline playback (PWA) | ✅ | ✅ (app) | ✅ (app) | ✅ (app) |
-| YouTube feeds & playlists | ✅ | ❌ | ❌ | ❌ |
+| Curated Audiobooks & Classic Literature | ✅ | ✅ | ❌ | ❌ |
 | Synchronized song lyrics (LRCLIB) | ✅ | ✅ | ❌ | ❌ |
 | Dual-deck DJ mixing mode | ✅ | ❌ | ❌ | ❌ |
 | HIIT / workout interval sequencer | ✅ | ❌ | ❌ | ❌ |
@@ -33,7 +33,7 @@ Anypod is a free, open-source podcast player that respects you. Open it, search 
 
 - **Email only** — the only personal data we ever store is your email (for optional sync login)
 - **No tracking, no analytics SDKs, no ads** — the codebase has zero third-party scripts
-- **Account auto-deletion** — if you don't log in for 50 days, your account is deleted automatically. We send two warning emails beforehand, each with a one-click link to export your data. We don't hoard.
+- **Account auto-deletion** — if you don't log in for 90 days, your account is deleted automatically (warnings sent at 60 and 80 days, each with a one-click link to keep your account or export your data). We don't hoard.
 - **Data portability** — export your subscriptions as OPML any time, import them anywhere
 - **Self-host it** — run your own instance in ~10 minutes on Cloudflare's free tier, or locally with Docker
 
@@ -112,9 +112,9 @@ Anypod is a free, open-source podcast player that respects you. Open it, search 
   - *Curated Global Catalog*: 50 international science and climate shows filterable by language and topic.
 - **Optional Local LLM Hook**: Automatically connects to local Ollama (`localhost:11434`) if running to generate live generative commentary, with instant fallback to client-side heuristic copy.
 
-### 🎧 Audio & Podcast Playback
-- **Podcast RSS Enclosures**: High-fidelity streaming of MP3, M4A, AAC with Range request support (`HTTP 206`).
-- **YouTube Playlists & Channels**: Direct YouTube playback without API keys; retains original video creators and playlist titles.
+### 🎧 Audio, Podcast & Audiobook Playback
+- **Podcast & Audiobook RSS Enclosures**: High-fidelity streaming of MP3, M4A, AAC with Range request support (`HTTP 206`).
+- **Curated Audiobooks & Literature**: Direct access to public-domain classic novels, short fiction, poetry, and serialized audio drama.
 - **Continuous Background Playback**: Android and iOS lockscreen support via MediaSession with multi-density artwork (96px up to 512px).
 - **Zero-Stall Network Recovery**: Automatic reconnect watchdog and immediate fallback to `/api/audio-proxy` on CDN/demux errors (Code 4) without blocking in background tabs.
 - **Offline Audio Caching (PWA)**: Service worker with CacheStorage management and byte-range streaming for offline listening.
@@ -141,14 +141,14 @@ Anypod is a free, open-source podcast player that respects you. Open it, search 
 ## 🎚️ Companion Apps & Specialized Modes
 
 ### 1. DJ Studio (`dj.anypod.org` / `/dj`)
-- **Dual-Deck Web Audio & YouTube Hybrid Engine**: Independent Deck A & Deck B players supporting both high-fidelity Web Audio files and interactive YouTube IFrame audio with equal-power crossfader.
+- **Dual-Deck Web Audio Engine**: Independent Deck A & Deck B players supporting high-fidelity Web Audio files with equal-power crossfader.
 - **Automatic BPM & Key Detection**: Client-side DSP analysis running onset energy flux and autocorrelation for real-time BPM detection, plus Goertzel chroma analysis with Krumhansl-Schmuckler profiles mapped to Camelot (`1A`–`12B`) and Traktor OpenKey (`1m`–`12m`) notation. Includes metadata parsing and persistent cache.
 - **Headphone Monitoring & PFL Routing**: Pre-Fade Listen bus with 3 cue routing modes: Multi-Device Bluetooth/USB-C split (`setSinkId`), DJ Splitter Cable (Mono Master Left / Cue Right), and Stereo Cue Mix blend.
 - **Modular Studio FX Processors**: Real-time tempo-synced Delay (DLY), algorithmic Reverb (REV), resonant Filter Sweep (FLT), and square-wave Beat Gater (GATE) with Dry/Wet mix controls.
 - **Tactile Scratch Platters & Vinyl Mode**: Interactive touch jog wheels and waveform scrubbing backed by a procedural `VinylScratchAudio` physical modeling synthesizer (groove friction, formant filter, and needle contact audio).
 - **Performance Transport & Loops**: 4 persistent Hot Cue pads per deck, seamless beat looping with dynamic `½` halve and `2×` double multipliers, pitch nudge buttons, and smooth tempo faders.
 - **Hardware-Style 3-Band EQ & Bipolar Filters**: Isolator High/Mid/Low EQ and morphing low-pass/high-pass color filters with double-click center snap.
-- **DJ Crate & Unified Collection**: Direct integration with your subscribed podcasts, YouTube playlists, favorites, and queued tracks, plus quick `+ Add URL` import.
+- **DJ Crate & Unified Collection**: Direct integration with your subscribed podcasts, favorites, and queued tracks, plus quick `+ Add URL` import.
 
 ### 2. Workout Interval DJ Sequencer (`sets.anypod.org` / `/sets.html`)
 - **OLED High-Contrast UI**: Electric Red (Work), Neon Cyan (Rest), Amber (Warmup), and Emerald (Cooldown).
@@ -165,7 +165,6 @@ Anypod is a free, open-source podcast player that respects you. Open it, search 
 ## Guides & Documentation
 
 - 🎧 **[DJ Studio Console Guide & Feature Roadmap](docs/DJ_STUDIO_ROADMAP.md)** — Control-by-control implementation audit, active vs. planned features, and multi-device audio routing (Bluetooth PFL cueing + USB-C/Jack main out).
-- 🎵 **[YouTube Music & Playlist Export Guide](docs/YOUTUBE_MUSIC_EXPORT.md)** — Export your private Liked Music library or YouTube playlists into Anypod using a 1-click console script or range selector.
 - ⏱️ **[Workout Sets & Interval DJ Guide](docs/SETS.md)** — Architecture, dual-deck crossfade curves, and configuration for the interval sequencer.
 - 🚀 **[Self-Hosting Guide](SELF_HOSTING.md)** — Run your own Anypod instance on Cloudflare Pages or Docker.
 
@@ -188,15 +187,14 @@ Anypod is a free, open-source podcast player that respects you. Open it, search 
 anypod/
 ├── docs/
 │   ├── screenshots/              # Application preview screenshots (Desktop, Mobile, AI Discover)
-│   ├── SETS.md                   # Workout Interval DJ Sequencer docs
-│   └── YOUTUBE_MUSIC_EXPORT.md   # YouTube Music export documentation
+│   └── SETS.md                   # Workout Interval DJ Sequencer docs
 ├── functions/
 │   ├── _middleware.js            # Subdomain routing (dj.*, sets.*, canonical 301)
 │   └── api/
 │       ├── auth/                 # Passwordless login, session verification, logout
 │       ├── sync/                 # D1 cross-device subscription and position sync
 │       ├── audio-proxy.js        # Edge streaming proxy for CORS & restrictive CDNs
-│       ├── feed.js               # RSS, iTunes search & YouTube feed parser
+│       ├── feed.js               # RSS & podcast directory feed parser
 │       └── utils.js
 ├── public/
 │   ├── index.html                # Development entrypoint (loads modular scripts directly)

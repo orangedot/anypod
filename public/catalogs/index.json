@@ -1,5 +1,76 @@
 [
   {
+    "id": "audiobooks",
+    "title": "Audiobooks & Stories",
+    "emoji": "",
+    "description": "Classic literature read aloud, serialized fiction, short stories, and true tales.",
+    "totalShows": 18,
+    "featured": [
+      {
+        "title": "LibriVox Audiobooks",
+        "feed": "https://anchor.fm/s/c2f1f370/podcast/rss",
+        "lang": "en",
+        "badge": "EN • Classics",
+        "topic": "classics",
+        "whyNote": "Public-domain classics, read by volunteers"
+      },
+      {
+        "title": "Sherlock Holmes Audiobooks",
+        "feed": "https://www.spreaker.com/show/7222222/episodes/feed",
+        "lang": "en",
+        "badge": "EN • Mystery",
+        "topic": "classics",
+        "whyNote": "The complete Conan Doyle canon, read aloud"
+      },
+      {
+        "title": "Pride and Prejudice by Jane Austen",
+        "feed": "https://rss.libsyn.com/shows/17274/destinations/5578.xml",
+        "lang": "en",
+        "badge": "EN • Novel",
+        "topic": "classics",
+        "whyNote": "A full novel, chapter by chapter"
+      },
+      {
+        "title": "The Classic Tales Podcast",
+        "feed": "https://feeds.libsyn.com/30031/rss",
+        "lang": "en",
+        "badge": "EN • Classics",
+        "topic": "classics",
+        "whyNote": "Classic short stories, narrated"
+      },
+      {
+        "title": "Classic Poetry Aloud",
+        "feed": "https://classicpoetryaloud.podomatic.com/rss2.xml",
+        "lang": "en",
+        "badge": "EN • Poetry",
+        "topic": "classics",
+        "whyNote": "Timeless poems, read aloud"
+      }
+    ],
+    "subtopics": [
+      {
+        "id": "all",
+        "label": "All Shows"
+      },
+      {
+        "id": "classics",
+        "label": "Classic Literature"
+      },
+      {
+        "id": "fiction",
+        "label": "Fiction & Audio Drama"
+      },
+      {
+        "id": "stories",
+        "label": "True Stories"
+      },
+      {
+        "id": "kids",
+        "label": "Family & Bedtime"
+      }
+    ]
+  },
+  {
     "id": "science",
     "title": "Science & Cosmos",
     "emoji": "🔬",

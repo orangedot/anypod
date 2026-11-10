@@ -1158,3 +1158,70 @@ body.has-active-episode.has-mini-player .player-bar {
   pointer-events: none;
 }
 
+
+/* ── Discover: search-first layout (quiet, warm stone; no new icons) ── */
+.discover-view-wrap > .discover-search-box {
+  order: -1; /* search leads the page; AI taste banner follows as context */
+}
+
+.discover-search-box .search-source-tabs {
+  gap: 0.35rem;
+}
+
+.discover-search-box .quick-add-input-wrap {
+  min-height: 3.1rem;
+  background: rgba(216, 205, 190, 0.07);
+  border: 1px solid rgba(216, 205, 190, 0.28);
+  box-shadow: none;
+}
+
+.discover-search-box .quick-add-input-wrap:hover {
+  border-color: rgba(216, 205, 190, 0.42);
+}
+
+.discover-search-box .quick-add-input-wrap:focus-within {
+  background: rgba(216, 205, 190, 0.1);
+  border-color: #d8cdbe;
+  box-shadow: 0 0 0 3px rgba(216, 205, 190, 0.16);
+}
+
+.discover-search-box .quick-add-input-wrap .quick-add-icon {
+  color: #d8cdbe;
+  opacity: 0.85;
+}
+
+.discover-search-box .quick-add-input-wrap input {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.discover-search-box .quick-add-input-wrap input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.85;
+}
+
+.discover-search-box .empty-category-chips {
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+}
+
+.discover-search-box .category-chip {
+  color: var(--text-secondary);
+  border-color: var(--border-light);
+  background: transparent;
+  opacity: 1;
+}
+
+.discover-search-box .category-chip:hover {
+  color: var(--text-primary);
+  border-color: rgba(216, 205, 190, 0.4);
+}
+
+[data-theme="light"] .discover-search-box .quick-add-input-wrap {
+  background: #ffffff;
+  border-color: rgba(60, 50, 40, 0.22);
+}
+
+[data-theme="light"] .discover-search-box .quick-add-input-wrap .quick-add-icon {
+  color: #6b6358;
+}

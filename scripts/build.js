@@ -20,6 +20,7 @@ if (!fs.existsSync(distDir)) {
 const sharedModules = [
   'scripts/settings.js',
   'shared/formatters.js',
+  'shared/cover-art.js',
   'shared/storage.js',
   'shared/sync-bridge.js',
   'shared/audio-utils.js',

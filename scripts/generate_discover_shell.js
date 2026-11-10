@@ -24,7 +24,12 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
-const FALLBACK_ARTWORK = 'data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%2318181b%22/%3E%3C/svg%3E';
+const FALLBACK_ARTWORK = 'data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%232b2724%22/%3E%3C/svg%3E';
+
+// Single source of truth for placeholder covers: public/shared/cover-art.js (browser script, evaluated here)
+const makeCoverArt = new Function(
+  `${fs.readFileSync(path.join(rootDir, 'public', 'shared', 'cover-art.js'), 'utf8')}; return makeCoverArt;`
+)();
 
 // Read CURATED_CATEGORIES from catalogs/index.json
 let CURATED_CATEGORIES = [];
@@ -71,7 +76,7 @@ export function generateDiscoverShellHtml() {
             <span class="why-text">${escapeHtml(note)}</span>
           </div>
           <div class="episode-card-top">
-            <img class="episode-artwork feed-art" src="${FALLBACK_ARTWORK}" alt="" ${loadingAttr} width="76" height="76" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
+            <img class="episode-artwork feed-art" src="${makeCoverArt(show.title)}" alt="" ${loadingAttr} width="76" height="76" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
             <div class="episode-header-info">
               <div class="episode-podcast-name">${escapeHtml(show.badge || 'Recommended Show')}</div>
               <div class="episode-title">${escapeHtml(show.title)}</div>
@@ -171,8 +176,7 @@ export function generateDiscoverShellHtml() {
           <div class="search-source-tabs" role="tablist" aria-label="Search source" aria-orientation="horizontal">
             <button type="button" role="tab" id="source-tab-all" class="source-tab active" data-source="all" aria-selected="true" tabindex="0" aria-controls="empty-quick-results">All</button>
             <button type="button" role="tab" id="source-tab-podcasts" class="source-tab" data-source="podcasts" aria-selected="false" tabindex="-1" aria-controls="empty-quick-results">Podcasts</button>
-            <button type="button" role="tab" id="source-tab-youtube" class="source-tab" data-source="youtube" aria-selected="false" tabindex="-1" aria-controls="empty-quick-results">YouTube</button>
-            <button type="button" role="tab" id="source-tab-music" class="source-tab" data-source="music" aria-selected="false" tabindex="-1" aria-controls="empty-quick-results">YT Music</button>
+            <button type="button" role="tab" id="source-tab-audiobooks" class="source-tab" data-source="audiobooks" aria-selected="false" tabindex="-1" aria-controls="empty-quick-results">Audiobooks</button>
           </div>
           <form id="empty-quick-form" class="quick-add-form" action="javascript:void(0);">
             <div class="quick-add-input-wrap">
@@ -180,13 +184,14 @@ export function generateDiscoverShellHtml() {
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
-              <input type="text" id="empty-quick-input" placeholder="search podcasts, youtube, yt music, or paste url..." autocomplete="off">
+              <input type="text" id="empty-quick-input" placeholder="search podcasts, audiobooks, or paste an rss link..." autocomplete="off">
               <button type="button" class="btn-discover-clear-search hidden" id="btn-discover-clear-search" title="clear">×</button>
               <button type="submit" class="btn btn-primary btn-quick-submit" id="btn-empty-quick-submit">search / add</button>
             </div>
           </form>
         </div>
         <div class="empty-category-chips" id="empty-category-chips">
+          <button type="button" class="category-chip" data-category="Audiobooks">audiobooks</button>
           <button type="button" class="category-chip" data-category="Science">science</button>
           <button type="button" class="category-chip" data-category="Music">music</button>
           <button type="button" class="category-chip" data-category="Climate">climate &amp; planet</button>

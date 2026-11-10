@@ -154,7 +154,8 @@ const CARD_ICONS = {
   TRASH: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>'
 };
 
-const FALLBACK_ARTWORK = 'data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%2318181b%22/%3E%3C/svg%3E';
+// Soft warm-stone square (never pure black). Per-show covers use makeCoverArt(title) from shared/cover-art.js.
+const FALLBACK_ARTWORK = 'data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22100%22%20height=%22100%22%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22%232b2724%22/%3E%3C/svg%3E';
 
 const DEFAULT_STARTER_FEEDS = [
   'https://feeds.megaphone.fm/NATIONALAERONAUTICSANDSPACEADMINISTRATION8162188566',
@@ -177,6 +178,77 @@ const CANONICAL_FEED_MIGRATIONS = {
 };
 
 const CURATED_CATEGORIES = [
+  {
+    "id": "audiobooks",
+    "title": "Audiobooks & Stories",
+    "emoji": "",
+    "description": "Classic literature read aloud, serialized fiction, short stories, and true tales.",
+    "totalShows": 18,
+    "featured": [
+      {
+        "title": "LibriVox Audiobooks",
+        "feed": "https://anchor.fm/s/c2f1f370/podcast/rss",
+        "lang": "en",
+        "badge": "EN • Classics",
+        "topic": "classics",
+        "whyNote": "Public-domain classics, read by volunteers"
+      },
+      {
+        "title": "Sherlock Holmes Audiobooks",
+        "feed": "https://www.spreaker.com/show/7222222/episodes/feed",
+        "lang": "en",
+        "badge": "EN • Mystery",
+        "topic": "classics",
+        "whyNote": "The complete Conan Doyle canon, read aloud"
+      },
+      {
+        "title": "Pride and Prejudice by Jane Austen",
+        "feed": "https://rss.libsyn.com/shows/17274/destinations/5578.xml",
+        "lang": "en",
+        "badge": "EN • Novel",
+        "topic": "classics",
+        "whyNote": "A full novel, chapter by chapter"
+      },
+      {
+        "title": "The Classic Tales Podcast",
+        "feed": "https://feeds.libsyn.com/30031/rss",
+        "lang": "en",
+        "badge": "EN • Classics",
+        "topic": "classics",
+        "whyNote": "Classic short stories, narrated"
+      },
+      {
+        "title": "Classic Poetry Aloud",
+        "feed": "https://classicpoetryaloud.podomatic.com/rss2.xml",
+        "lang": "en",
+        "badge": "EN • Poetry",
+        "topic": "classics",
+        "whyNote": "Timeless poems, read aloud"
+      }
+    ],
+    "subtopics": [
+      {
+        "id": "all",
+        "label": "All Shows"
+      },
+      {
+        "id": "classics",
+        "label": "Classic Literature"
+      },
+      {
+        "id": "fiction",
+        "label": "Fiction & Audio Drama"
+      },
+      {
+        "id": "stories",
+        "label": "True Stories"
+      },
+      {
+        "id": "kids",
+        "label": "Family & Bedtime"
+      }
+    ]
+  },
   {
     "id": "science",
     "title": "Science & Cosmos",

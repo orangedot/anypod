@@ -11,6 +11,7 @@ const APP_SHELL = [
   '/fonts/outfit-latin.woff2',
   '/fonts/outfit-latin-ext.woff2',
   '/shared/formatters.js',
+  '/shared/cover-art.js',
   '/shared/storage.js',
   '/shared/sync-bridge.js',
   '/shared/audio-utils.js',

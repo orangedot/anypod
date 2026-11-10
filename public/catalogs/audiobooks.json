@@ -1,0 +1,216 @@
+{
+  "id": "audiobooks",
+  "title": "Audiobooks & Stories",
+  "emoji": "",
+  "description": "Classic literature read aloud, serialized fiction, short stories, and true tales.",
+  "subtopics": [
+    {
+      "id": "all",
+      "label": "All Shows"
+    },
+    {
+      "id": "classics",
+      "label": "Classic Literature"
+    },
+    {
+      "id": "fiction",
+      "label": "Fiction & Audio Drama"
+    },
+    {
+      "id": "stories",
+      "label": "True Stories"
+    },
+    {
+      "id": "kids",
+      "label": "Family & Bedtime"
+    }
+  ],
+  "featured": [
+    {
+      "title": "LibriVox Audiobooks",
+      "feed": "https://anchor.fm/s/c2f1f370/podcast/rss",
+      "lang": "en",
+      "badge": "EN • Classics",
+      "topic": "classics",
+      "whyNote": "Public-domain classics, read by volunteers"
+    },
+    {
+      "title": "Sherlock Holmes Audiobooks",
+      "feed": "https://www.spreaker.com/show/7222222/episodes/feed",
+      "lang": "en",
+      "badge": "EN • Mystery",
+      "topic": "classics",
+      "whyNote": "The complete Conan Doyle canon, read aloud"
+    },
+    {
+      "title": "Pride and Prejudice by Jane Austen",
+      "feed": "https://rss.libsyn.com/shows/17274/destinations/5578.xml",
+      "lang": "en",
+      "badge": "EN • Novel",
+      "topic": "classics",
+      "whyNote": "A full novel, chapter by chapter"
+    },
+    {
+      "title": "The Classic Tales Podcast",
+      "feed": "https://feeds.libsyn.com/30031/rss",
+      "lang": "en",
+      "badge": "EN • Classics",
+      "topic": "classics",
+      "whyNote": "Classic short stories, narrated"
+    },
+    {
+      "title": "Classic Poetry Aloud",
+      "feed": "https://classicpoetryaloud.podomatic.com/rss2.xml",
+      "lang": "en",
+      "badge": "EN • Poetry",
+      "topic": "classics",
+      "whyNote": "Timeless poems, read aloud"
+    }
+  ],
+  "shows": [
+    {
+      "title": "LibriVox Audiobooks",
+      "feed": "https://anchor.fm/s/c2f1f370/podcast/rss",
+      "lang": "en",
+      "badge": "EN • Classics",
+      "topic": "classics",
+      "whyNote": "Public-domain classics, read by volunteers"
+    },
+    {
+      "title": "Sherlock Holmes Audiobooks",
+      "feed": "https://www.spreaker.com/show/7222222/episodes/feed",
+      "lang": "en",
+      "badge": "EN • Mystery",
+      "topic": "classics",
+      "whyNote": "The complete Conan Doyle canon, read aloud"
+    },
+    {
+      "title": "Pride and Prejudice by Jane Austen",
+      "feed": "https://rss.libsyn.com/shows/17274/destinations/5578.xml",
+      "lang": "en",
+      "badge": "EN • Novel",
+      "topic": "classics",
+      "whyNote": "A full novel, chapter by chapter"
+    },
+    {
+      "title": "The Classic Tales Podcast",
+      "feed": "https://feeds.libsyn.com/30031/rss",
+      "lang": "en",
+      "badge": "EN • Classics",
+      "topic": "classics",
+      "whyNote": "Classic short stories, narrated"
+    },
+    {
+      "title": "Classic Poetry Aloud",
+      "feed": "https://classicpoetryaloud.podomatic.com/rss2.xml",
+      "lang": "en",
+      "badge": "EN • Poetry",
+      "topic": "classics",
+      "whyNote": "Timeless poems, read aloud"
+    },
+    {
+      "title": "Audiobooks by George Orwell",
+      "feed": "https://www.spreaker.com/show/6831865/episodes/feed",
+      "lang": "en",
+      "badge": "EN • Novel",
+      "topic": "classics",
+      "whyNote": "Orwell's major works as audiobooks"
+    },
+    {
+      "title": "Escape Pod",
+      "feed": "https://feeds.feedburner.com/EscapePod",
+      "lang": "en",
+      "badge": "EN • Sci-Fi",
+      "topic": "fiction",
+      "whyNote": "Weekly science fiction short stories"
+    },
+    {
+      "title": "PodCastle",
+      "feed": "https://podcastle.org/feed/podcast/",
+      "lang": "en",
+      "badge": "EN • Fantasy",
+      "topic": "fiction",
+      "whyNote": "Fantasy short stories, professionally narrated"
+    },
+    {
+      "title": "Pseudopod",
+      "feed": "https://pseudopod.org/feed/podcast/",
+      "lang": "en",
+      "badge": "EN • Horror",
+      "topic": "fiction",
+      "whyNote": "Horror fiction for the late hours"
+    },
+    {
+      "title": "Welcome to Night Vale",
+      "feed": "http://feeds.nightvalepresents.com/welcometonightvalepodcast",
+      "lang": "en",
+      "badge": "EN • Fiction",
+      "topic": "fiction",
+      "whyNote": "Serialized weird fiction as community radio"
+    },
+    {
+      "title": "The Truth",
+      "feed": "https://feeds.megaphone.fm/SBP9327453320",
+      "lang": "en",
+      "badge": "EN • Audio Drama",
+      "topic": "fiction",
+      "whyNote": "Short, cinematic audio dramas"
+    },
+    {
+      "title": "LeVar Burton Reads",
+      "feed": "https://feeds.simplecast.com/LDNgBXht",
+      "lang": "en",
+      "badge": "EN • Short Stories",
+      "topic": "fiction",
+      "whyNote": "Short fiction read by LeVar Burton"
+    },
+    {
+      "title": "Selected Shorts",
+      "feed": "https://rss.introcast.io/253191824/feeds.simplecast.com/ZoGIhfvz",
+      "lang": "en",
+      "badge": "EN • Short Stories",
+      "topic": "fiction",
+      "whyNote": "Great short stories read by actors"
+    },
+    {
+      "title": "The Moth Podcast",
+      "feed": "https://feeds.feedburner.com/themothpodcast",
+      "lang": "en",
+      "badge": "EN • Storytelling",
+      "topic": "stories",
+      "whyNote": "True stories told live, without notes"
+    },
+    {
+      "title": "StoryCorps",
+      "feed": "https://feeds.npr.org/510200/podcast.xml",
+      "lang": "en",
+      "badge": "EN • Storytelling",
+      "topic": "stories",
+      "whyNote": "Everyday conversations that become stories"
+    },
+    {
+      "title": "Grimm's Fairy Tales",
+      "feed": "https://feeds.megaphone.fm/CPP3085892762",
+      "lang": "en",
+      "badge": "EN • Fairy Tales",
+      "topic": "kids",
+      "whyNote": "The original tales, read aloud"
+    },
+    {
+      "title": "Storynory",
+      "feed": "https://www.storynory.com/feeds/stories",
+      "lang": "en",
+      "badge": "EN • Family",
+      "topic": "kids",
+      "whyNote": "Original and classic stories for children"
+    },
+    {
+      "title": "Nothing Much Happens",
+      "feed": "https://feeds.megaphone.fm/SSM2868305742",
+      "lang": "en",
+      "badge": "EN • Bedtime",
+      "topic": "kids",
+      "whyNote": "Gentle stories for winding down"
+    }
+  ]
+}
