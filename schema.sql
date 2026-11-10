@@ -6,7 +6,9 @@ CREATE TABLE IF NOT EXISTS users (
   warned_30d_at INTEGER,
   warned_50d_at INTEGER,
   studio_plan TEXT DEFAULT 'free',
-  studio_plan_until INTEGER
+  studio_plan_until INTEGER,
+  listener_plan TEXT DEFAULT 'free',
+  listener_plan_until INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS auth_tokens (

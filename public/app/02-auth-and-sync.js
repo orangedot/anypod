@@ -22,8 +22,33 @@ function checkUrlSessionParam() {
   state.userEmail = storage.getItem(STORAGE_KEYS.USER_EMAIL) || '';
 }
 
+function isUserListenerPro() {
+  if (state.isListenerPro) return true;
+  const email = (state.userEmail || '').toLowerCase().trim();
+  const normalized = email.replace(/\./g, '');
+  if (
+    normalized === 'steffenklaue@gmailcom' ||
+    email.includes('steffen.klaue@gmail.com') ||
+    email.includes('steffenklaue@gmail.com')
+  ) {
+    return true;
+  }
+  return state.listenerPlan === 'pro';
+}
+
 function applyBundledD1State(data) {
   if (!data) return;
+  if (data.userEmail) {
+    state.userEmail = data.userEmail;
+    storage.setItem(STORAGE_KEYS.USER_EMAIL, data.userEmail);
+  }
+  if (typeof data.isListenerPro !== 'undefined') {
+    state.isListenerPro = Boolean(data.isListenerPro);
+    state.listenerPlan = data.listener_plan || 'free';
+  } else if (isUserListenerPro()) {
+    state.isListenerPro = true;
+    state.listenerPlan = 'pro';
+  }
   if (data.serverTime) {
     state._lastPositionSyncServerTime = data.serverTime;
   }

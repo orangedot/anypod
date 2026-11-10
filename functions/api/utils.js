@@ -75,19 +75,50 @@ export async function getUserFromRequest(request, env) {
   for (const token of candidateTokens) {
     try {
       const sessionHash = await hashToken(token);
-      const row = await env.DB.prepare(
-        'SELECT u.id, u.email, s.session_hash FROM user_sessions s JOIN users u ON s.user_id = u.id WHERE s.session_hash = ? AND s.expires_at > ?'
-      ).bind(sessionHash, now).first();
+      let row = null;
+      try {
+        row = await env.DB.prepare(
+          'SELECT u.id, u.email, u.listener_plan, u.listener_plan_until, u.studio_plan, s.session_hash FROM user_sessions s JOIN users u ON s.user_id = u.id WHERE s.session_hash = ? AND s.expires_at > ?'
+        ).bind(sessionHash, now).first();
+      } catch (_) {
+        row = await env.DB.prepare(
+          'SELECT u.id, u.email, s.session_hash FROM user_sessions s JOIN users u ON s.user_id = u.id WHERE s.session_hash = ? AND s.expires_at > ?'
+        ).bind(sessionHash, now).first();
+      }
 
       // Constant-time comparison prevents timing side-channel attacks
       if (row && row.session_hash && timingSafeEqual(row.session_hash, sessionHash)) {
-        return { id: row.id, email: row.email };
+        return {
+          id: row.id,
+          email: row.email,
+          listener_plan: row.listener_plan || 'free',
+          listener_plan_until: row.listener_plan_until || null,
+          studio_plan: row.studio_plan || 'free'
+        };
       }
     } catch (_) {
       // Continue trying next candidate token
     }
   }
   return null;
+}
+
+export function isListenerPro(user) {
+  if (!user) return false;
+  const email = (user.email || '').toLowerCase().trim();
+  const normalizedEmail = email.replace(/\./g, '');
+  if (
+    normalizedEmail === 'steffenklaue@gmailcom' ||
+    email.includes('steffen.klaue@gmail.com') ||
+    email.includes('steffenklaue@gmail.com')
+  ) {
+    return true;
+  }
+  if (user.listener_plan === 'pro') {
+    if (!user.listener_plan_until) return true;
+    return user.listener_plan_until > Math.floor(Date.now() / 1000);
+  }
+  return false;
 }
 
 export function isValidExternalUrl(urlString) {

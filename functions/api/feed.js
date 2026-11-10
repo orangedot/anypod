@@ -1,4 +1,4 @@
-import { getUserFromRequest, isValidExternalUrl } from './utils.js';
+import { getUserFromRequest, isValidExternalUrl, isListenerPro } from './utils.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -18,6 +18,35 @@ export async function onRequest(context) {
     return new Response(null, { headers: corsHeaders, status: 204 });
   }
 
+  // Check if target is a YouTube URL and gate to Listener Pro
+  let isYouTubeTarget = false;
+  if (targetUrl) {
+    try {
+      const parsed = new URL(targetUrl);
+      if (parsed.hostname.includes('youtube.com') || parsed.hostname.includes('youtu.be')) {
+        isYouTubeTarget = true;
+      }
+    } catch (_) {}
+  }
+
+  const isBatch = urlParams.get('batch');
+  const playlistId = urlParams.get('playlistId');
+  const continuation = urlParams.get('continuation');
+
+  if (isYouTubeTarget || (isBatch && playlistId)) {
+    const user = await getUserFromRequest(request, env);
+    if (!isListenerPro(user)) {
+      return new Response(JSON.stringify({
+        error: 'pro_required',
+        feature: 'youtube_playlists',
+        message: 'YouTube playlist streaming is currently reserved for Listener Pro accounts.'
+      }), {
+        headers: corsHeaders,
+        status: 403
+      });
+    }
+  }
+
   const cache = typeof caches !== 'undefined' && caches.default ? caches.default : null;
   const cacheKeyUrl = new URL(reqUrl.toString());
   const cacheKey = new Request(cacheKeyUrl.toString(), { method: 'GET' });
@@ -33,10 +62,6 @@ export async function onRequest(context) {
   }
 
   // 1. YouTube continuation pagination requests
-  const isBatch = urlParams.get('batch');
-  const playlistId = urlParams.get('playlistId');
-  const continuation = urlParams.get('continuation');
-
   if (isBatch && playlistId) {
     try {
       let batchData = await fetchYouTubePlaylistBatch(playlistId, continuation);

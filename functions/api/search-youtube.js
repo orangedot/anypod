@@ -1,10 +1,13 @@
+import { getUserFromRequest, isListenerPro } from './utils.js';
+
 // Cloudflare Pages Function: /api/search-youtube
 // Searches YouTube and YouTube Music without requiring API keys.
 // Returns normalized video and music objects compatible with Anypod's player engine.
-// Caches results at the Cloudflare edge for 30 minutes.
+// Gated to Listener Pro accounts to protect streaming quotas and IP reputation.
+// Caches results at the Cloudflare edge for 30 minutes for Pro users.
 
 export async function onRequestGet(context) {
-  const { request } = context;
+  const { request, env } = context;
   const url = new URL(request.url);
   const q = url.searchParams.get('q') || url.searchParams.get('query') || url.searchParams.get('term') || '';
   const type = url.searchParams.get('type') || 'all'; // 'all' | 'video' | 'music'
@@ -16,6 +19,21 @@ export async function onRequestGet(context) {
     'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Session-Token'
   };
+
+  // Enforce Listener Pro entitlement
+  const user = await getUserFromRequest(request, env);
+  if (!isListenerPro(user)) {
+    return new Response(JSON.stringify({
+      error: 'pro_required',
+      feature: 'youtube_search',
+      message: 'YouTube and Music search are currently reserved for Listener Pro accounts.',
+      query: q,
+      results: []
+    }), {
+      status: 403,
+      headers: corsHeaders
+    });
+  }
 
   if (!q.trim()) {
     return new Response(JSON.stringify({ query: '', results: [] }), {

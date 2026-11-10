@@ -1,4 +1,4 @@
-import { getUserFromRequest, isValidExternalUrl, getCorsHeaders } from '../utils.js';
+import { getUserFromRequest, isValidExternalUrl, getCorsHeaders, isListenerPro } from '../utils.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -20,6 +20,20 @@ export async function onRequest(context) {
 
   const userId = user.id;
   db.prepare('UPDATE users SET last_active_at = unixepoch(), warned_30d_at = NULL, warned_50d_at = NULL WHERE id = ?').bind(userId).run().catch(() => {});
+
+  // Self-healing schema migration: ensure listener_plan columns and activate Pro for recognized accounts
+  if (isListenerPro(user) && user.listener_plan !== 'pro') {
+    try {
+      await db.prepare("ALTER TABLE users ADD COLUMN listener_plan TEXT DEFAULT 'free'").run();
+    } catch (_) {}
+    try {
+      await db.prepare("ALTER TABLE users ADD COLUMN listener_plan_until INTEGER").run();
+    } catch (_) {}
+    try {
+      await db.prepare("UPDATE users SET listener_plan = 'pro' WHERE id = ?").bind(userId).run();
+      user.listener_plan = 'pro';
+    } catch (_) {}
+  }
 
   try {
     if (request.method === 'GET') {
@@ -83,6 +97,8 @@ export async function onRequest(context) {
             positions,
             favorites,
             userEmail: user.email,
+            listener_plan: user.listener_plan || 'free',
+            isListenerPro: isListenerPro(user),
             sessionToken,
             serverTime: Math.floor(Date.now() / 1000)
           }),
@@ -91,7 +107,13 @@ export async function onRequest(context) {
       }
 
       const rows = await db.prepare('SELECT feed_url, title, artwork FROM subscriptions WHERE user_id = ? ORDER BY created_at ASC').bind(userId).all();
-      return new Response(JSON.stringify({ feeds: rows.results || [], userEmail: user.email, sessionToken }), { headers: corsHeaders, status: 200 });
+      return new Response(JSON.stringify({
+        feeds: rows.results || [],
+        userEmail: user.email,
+        listener_plan: user.listener_plan || 'free',
+        isListenerPro: isListenerPro(user),
+        sessionToken
+      }), { headers: corsHeaders, status: 200 });
     }
 
     if (request.method === 'POST') {
