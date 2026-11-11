@@ -12,3 +12,9 @@ public/app.js
 scripts/active_users.py
 scripts/anycloud.py
 
+# Confidential internal docs & local-only roadmaps
+docs/internal/
+internal/
+*.local.md
+
+
