@@ -110,21 +110,64 @@ const coreExportBridge = `
     hideStatus
   });
 
-  // Default playback stubs before player engine finishes executing
-  if (typeof window.toggleEpisodePlayback !== 'function') {
-    window.toggleEpisodePlayback = function (ep, context) {
-      if (typeof window.__realToggleEpisodePlayback === 'function') {
-        return window.__realToggleEpisodePlayback(ep, context);
-      }
-    };
-  }
-  if (typeof window.playEpisode !== 'function') {
-    window.playEpisode = function (ep, overrideStartTime, context) {
-      if (typeof window.__realPlayEpisode === 'function') {
-        return window.__realPlayEpisode(ep, overrideStartTime, context);
-      }
-    };
-  }
+  // On-demand lazy loader for Deferred Audio Engine (player.min.js)
+  let _playerLoadPromise = null;
+  window.ensurePlayerLoaded = function ensurePlayerLoaded() {
+    if (typeof window.__realPlayEpisode === 'function') {
+      return Promise.resolve();
+    }
+    if (_playerLoadPromise) return _playerLoadPromise;
+    const playerSrc = (document.body && document.body.dataset && document.body.dataset.playerSrc) || 'player.min.js';
+    _playerLoadPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = playerSrc;
+      s.onload = () => resolve();
+      s.onerror = (err) => {
+        _playerLoadPromise = null;
+        reject(err);
+      };
+      document.head.appendChild(s);
+    });
+    return _playerLoadPromise;
+  };
+
+  // Transparent async stubs for player/audio/OPML actions triggered before engine load
+  const DEFERRED_PLAYER_FNS = [
+    'toggleEpisodePlayback', 'playEpisode', 'playNextEpisode', 'skipToNextEpisode',
+    'toggleShuffle', 'setPlayerCollapsed', 'cyclePlaybackSpeed', 'startSleepTimer',
+    'stopSleepTimer', 'addFeed', 'openConfirmDialog', 'promptRemoveFeed',
+    'purgeOrphanedDownloads', 'removeFeed', 'importOpml', 'exportOpml',
+    'initOrLoadEpisodeTimeline', 'renderWaveformChart', 'startYouTubeBackgroundPaging'
+  ];
+  DEFERRED_PLAYER_FNS.forEach((fnName) => {
+    if (typeof window[fnName] !== 'function') {
+      window[fnName] = function (...args) {
+        return window.ensurePlayerLoaded().then(() => {
+          const realFn = fnName === 'playEpisode'
+            ? window.__realPlayEpisode
+            : (fnName === 'toggleEpisodePlayback' ? window.__realToggleEpisodePlayback : window[fnName]);
+          if (typeof realFn === 'function') {
+            return realFn(...args);
+          }
+        });
+      };
+    }
+  });
+
+  // Warm the player engine proactively on first human gesture or returning listener session
+  const warmPlayerOnGesture = () => { window.ensurePlayerLoaded().catch(() => {}); };
+  window.addEventListener('pointerdown', warmPlayerOnGesture, { once: true, passive: true });
+  window.addEventListener('keydown', warmPlayerOnGesture, { once: true, passive: true });
+  try {
+    const hasReturningState = Boolean(
+      storage.getItem(STORAGE_KEYS.CURRENT_EPISODE) ||
+      (storage.getItem(STORAGE_KEYS.FEEDS) && storage.getItem(STORAGE_KEYS.FEEDS) !== '[]')
+    );
+    if (hasReturningState) {
+      const scheduleIdle = window.requestIdleCallback || ((cb) => setTimeout(cb, 1500));
+      scheduleIdle(() => { window.ensurePlayerLoaded().catch(() => {}); });
+    }
+  } catch (_) {}
 `;
 
 const assembledCoreJs = `${sharedCode}\n\n(function () {\n  'use strict';\n\n
@@ -379,21 +422,22 @@ let prodHtml = rawHtml
     '<div id="discover-content-container"></div>',
     `<div id="discover-content-container">${staticDiscoverHtml}</div>`
   )
-  // 2. Ensure Discover panel & tab are active by default in initial HTML (eliminates Slow 4G JS wait for LCP)
+  // 2. Ensure Discover panel & tab are active by default and attach deferred player bundle src
+  .replace(/<body>/i, `<body data-player-src="player.min.js?v=${v}">`)
   .replace(/<section class="tab-panel active" id="panel-timeline">/g, '<section class="tab-panel" id="panel-timeline">')
   .replace(/<section class="tab-panel" id="panel-discover">/g, '<section class="tab-panel active" id="panel-discover">')
   .replace(/<button class="nav-tab active" data-tab="timeline" id="tab-timeline">/g, '<button class="nav-tab" data-tab="timeline" id="tab-timeline">')
   .replace(/<button class="nav-tab" data-tab="discover" id="tab-discover">/g, '<button class="nav-tab active" data-tab="discover" id="tab-discover">')
   // 3. Inline minified CSS directly (eliminates render-blocking audit and FOUC permanently)
   .replace(/<link[^>]*href=["']\/?style\.css(\?[^"']*)?["'][^>]*>/i, `<style>${minCss}</style>`)
-  // 4. Replace modular shared/ and app/ script tags with dual minified bundles (core shell + player engine)
+  // 4. Replace modular shared/ and app/ script tags with core shell bundle (player.min.js loads on demand)
   .replace(
     /<!-- Experimental defaults[\s\S]*?<script src="app\/08-waveform-and-ai\.js(\?[^"']*)?" defer><\/script>/i,
-    `<script src="app.min.js?v=${v}" defer></script>\n  <script src="player.min.js?v=${v}" defer></script>`
+    `<script src="app.min.js?v=${v}" defer></script>`
   )
   .replace(
     /<!-- Shared Functional Modules \(AnypodShared\) -->[\s\S]*?<script src="app\/08-waveform-and-ai\.js(\?[^"']*)?" defer><\/script>/i,
-    `<script src="app.min.js?v=${v}" defer></script>\n  <script src="player.min.js?v=${v}" defer></script>`
+    `<script src="app.min.js?v=${v}" defer></script>`
   )
   .replace(/src=["']\/?app\.js(\?[^"']*)?["']/g, `src="app.min.js?v=${v}"`)
   // 5. Normalize any duplicate rel attributes to standard rel="stylesheet"

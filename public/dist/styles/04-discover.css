@@ -177,13 +177,6 @@
 .persona-sparkle {
   display: inline-block;
   font-size: 0.95rem;
-  animation: pulseSparkle 2.5s infinite ease-in-out;
-  will-change: transform, opacity;
-}
-
-@keyframes pulseSparkle {
-  0%, 100% { opacity: 0.7; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.2); }
 }
 
 .btn-recalibrate-taste {
@@ -542,6 +535,11 @@
   gap: 0.85rem;
   width: 100%;
   scroll-margin-top: 100px;
+}
+
+.discover-shelf:nth-child(n+3) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 340px;
 }
 
 .discover-shelf-header {

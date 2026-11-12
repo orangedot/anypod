@@ -64,17 +64,27 @@ async function test() {
     await page.goto(url, { waitUntil: 'domcontentloaded' });
     await new Promise(r => setTimeout(r, 1000));
 
-    // 1. Verify all 7 shelves in DOM
+    // 1. Verify all 8 shelves in DOM
     const shelfIds = await page.evaluate(() => {
       const shelves = document.querySelectorAll('.discover-shelf');
       return Array.from(shelves).map(s => s.id);
     });
     console.log('✅ Found shelves:', shelfIds);
-    if (shelfIds.length !== 7) {
-      throw new Error(`Expected 7 shelves, found ${shelfIds.length}`);
+    if (shelfIds.length !== 8) {
+      throw new Error(`Expected 8 shelves, found ${shelfIds.length}`);
     }
 
-    // 2. Verify cards per shelf
+    // 2. Scroll down sequentially so IntersectionObserver hydrates lazy shelves 3-8
+    await page.evaluate(async () => {
+      const shelves = Array.from(document.querySelectorAll('.discover-shelf'));
+      for (const s of shelves) {
+        s.scrollIntoView();
+        await new Promise(r => setTimeout(r, 80));
+      }
+    });
+    await new Promise(r => setTimeout(r, 300));
+
+    // Verify cards per shelf after scroll hydration
     const cardCounts = await page.evaluate(() => {
       const shelves = document.querySelectorAll('.discover-shelf');
       return Array.from(shelves).map(s => s.querySelectorAll('.discover-shelf-card').length);

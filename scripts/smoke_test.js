@@ -254,8 +254,21 @@ export async function runSmokeTest() {
     }
     console.log('✅ Live browser XSS sanitization verified: all malicious handlers stripped, valid timestamps preserved.');
 
-    // Step 4: Wait for idle execution (deferred scripts like player bundle, timers)
-    console.log('⏳ Awaiting idle callbacks and deferred script execution (3s)...');
+    // Step 4: Verify deferred player engine loads cleanly on demand
+    if (typeof (await page.evaluate(() => typeof window.ensurePlayerLoaded)) === 'string') {
+      const playerCheck = await page.evaluate(async () => {
+        if (typeof window.ensurePlayerLoaded !== 'function') return { skipped: true };
+        await window.ensurePlayerLoaded();
+        return { loaded: typeof window.__realPlayEpisode === 'function' };
+      });
+      if (!playerCheck.skipped && !playerCheck.loaded) {
+        throw new Error('On-demand ensurePlayerLoaded() failed to expose __realPlayEpisode');
+      }
+      console.log('✅ On-demand Audio Player engine verified (player.min.js loaded cleanly).');
+    }
+
+    // Step 5: Wait for idle execution (timers, lazy observers)
+    console.log('⏳ Awaiting idle callbacks and deferred execution (3s)...');
     await new Promise(r => setTimeout(r, 3200));
 
     // Evaluate final errors

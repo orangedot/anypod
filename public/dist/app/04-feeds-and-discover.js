@@ -4058,13 +4058,86 @@ function wireEmptyStateEvents(targetRoot = document) {
     });
   }
 
-  // Wire clickable vibe chips to smooth-scroll to shelves
+  function wireDiscoverCards(scopeRoot) {
+    if (!scopeRoot) return;
+    // Wire discover show card clicks (open feed detail preview)
+    scopeRoot.querySelectorAll('.discover-shelf-card, .discover-show-recommendation-card').forEach(card => {
+      if (card.dataset.cardWired) return;
+      card.dataset.cardWired = 'true';
+      const feedUrl = card.dataset.feed;
+      if (!feedUrl) return;
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.btn-discover-follow') || e.target.closest('.recent-ep-row')) return;
+        if (typeof openFeedDetail === 'function') {
+          openFeedDetail(feedUrl);
+        }
+      });
+    });
+
+    // Wire follow buttons on pre-rendered or dynamically rendered show cards
+    scopeRoot.querySelectorAll('.btn-discover-follow').forEach(btn => {
+      if (btn.dataset.wired) return;
+      btn.dataset.wired = 'true';
+      const card = btn.closest('[data-feed]');
+      const feedUrl = card?.dataset.feed;
+      if (!feedUrl) return;
+      if (state.feeds && state.feeds.includes(feedUrl)) {
+        btn.textContent = '✓ Followed';
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-secondary');
+        btn.disabled = true;
+        return;
+      }
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        btn.textContent = 'Adding...';
+        btn.disabled = true;
+        try {
+          const title = card.querySelector('.episode-title, h4')?.textContent || 'Podcast';
+          const art = card.querySelector('.episode-artwork, .feed-art')?.src || '';
+          await addFeed(feedUrl, title, art);
+          btn.textContent = '✓ Followed';
+          btn.classList.remove('btn-primary');
+          btn.classList.add('btn-secondary');
+          showToast(`Subscribed to ${title}!`);
+        } catch (err) {
+          btn.textContent = '+ Follow Show';
+          btn.disabled = false;
+        }
+      });
+    });
+  }
+
+  function hydrateLazyShelf(shelfEl) {
+    if (!shelfEl || shelfEl.dataset.lazyCards !== 'true') return;
+    shelfEl.removeAttribute('data-lazy-cards');
+    const catId = shelfEl.dataset.category;
+    const track = shelfEl.querySelector('.discover-shelf-track');
+    if (!catId || !track || track.children.length > 0) return;
+
+    const categories = (typeof CURATED_CATEGORIES !== 'undefined') ? CURATED_CATEGORIES : [];
+    const cat = categories.find(c => c.id === catId);
+    if (!cat || !Array.isArray(cat.featured)) return;
+
+    const frag = document.createDocumentFragment();
+    cat.featured.forEach(show => {
+      const card = buildDiscoverShowCard(show, show.whyNote || `✦ Curated ${cat.title} selection`, 2);
+      card.classList.add('discover-shelf-card');
+      frag.appendChild(card);
+    });
+    track.appendChild(frag);
+    wireDiscoverCards(track);
+  }
+
+  // Wire clickable vibe chips to hydrate (if lazy) and smooth-scroll to shelves
   targetRoot.querySelectorAll('.persona-vibe-chip[data-target-shelf]').forEach(chip => {
     chip.addEventListener('click', (e) => {
       e.preventDefault();
       const targetId = chip.dataset.targetShelf;
       const shelfEl = document.getElementById(targetId);
       if (shelfEl) {
+        hydrateLazyShelf(shelfEl);
         shelfEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     });
@@ -4088,58 +4161,31 @@ function wireEmptyStateEvents(targetRoot = document) {
       const targetTrackId = btn.dataset.target;
       const track = document.getElementById(targetTrackId);
       if (!track) return;
+      const shelfEl = track.closest('.discover-shelf');
+      if (shelfEl) hydrateLazyShelf(shelfEl);
       const isLeft = btn.classList.contains('btn-shelf-scroll-left');
       track.scrollBy({ left: isLeft ? -300 : 300, behavior: 'smooth' });
     });
   });
 
-  // Wire discover show card clicks (open feed detail preview)
-  targetRoot.querySelectorAll('.discover-shelf-card, .discover-show-recommendation-card').forEach(card => {
-    if (card.dataset.cardWired) return;
-    card.dataset.cardWired = 'true';
-    const feedUrl = card.dataset.feed;
-    if (!feedUrl) return;
-    card.addEventListener('click', (e) => {
-      if (e.target.closest('.btn-discover-follow') || e.target.closest('.recent-ep-row')) return;
-      if (typeof openFeedDetail === 'function') {
-        openFeedDetail(feedUrl);
-      }
-    });
-  });
+  wireDiscoverCards(targetRoot);
 
-  // Wire follow buttons on pre-rendered or dynamically rendered show cards
-  targetRoot.querySelectorAll('.btn-discover-follow').forEach(btn => {
-    if (btn.dataset.wired) return;
-    btn.dataset.wired = 'true';
-    const card = btn.closest('[data-feed]');
-    const feedUrl = card?.dataset.feed;
-    if (!feedUrl) return;
-    if (state.feeds && state.feeds.includes(feedUrl)) {
-      btn.textContent = '✓ Followed';
-      btn.classList.remove('btn-primary');
-      btn.classList.add('btn-secondary');
-      btn.disabled = true;
-      return;
+  // Lazy-hydrate off-screen shelves 3-8 when approaching viewport
+  const lazyShelves = targetRoot.querySelectorAll('.discover-shelf[data-lazy-cards="true"]');
+  if (lazyShelves.length > 0) {
+    if ('IntersectionObserver' in window) {
+      const shelfObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (!entry.isIntersecting) return;
+          shelfObserver.unobserve(entry.target);
+          hydrateLazyShelf(entry.target);
+        });
+      }, { rootMargin: '400px 0px' });
+      lazyShelves.forEach(s => shelfObserver.observe(s));
+    } else {
+      lazyShelves.forEach(hydrateLazyShelf);
     }
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      btn.textContent = 'Adding...';
-      btn.disabled = true;
-      try {
-        const title = card.querySelector('.episode-title, h4')?.textContent || 'Podcast';
-        const art = card.querySelector('.episode-artwork, .feed-art')?.src || '';
-        await addFeed(feedUrl, title, art);
-        btn.textContent = '✓ Followed';
-        btn.classList.remove('btn-primary');
-        btn.classList.add('btn-secondary');
-        showToast(`Subscribed to ${title}!`);
-      } catch (err) {
-        btn.textContent = '+ Follow Show';
-        btn.disabled = false;
-      }
-    });
-  });
+  }
 
   if (typeof loadCuratedFeedEpisodes === 'function') {
     loadCuratedFeedEpisodes(targetRoot);

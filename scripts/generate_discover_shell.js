@@ -56,9 +56,10 @@ export function generateDiscoverShellHtml() {
     engineLabel: 'curated multi-genre catalog'
   };
 
-  // Render all 7 shelves
+  // Pre-render top 2 shelves in full for instant LCP; defer off-screen shelves 3-8 to keep initial DOM lean
   const shelvesHtml = CURATED_CATEGORIES.map((cat, catIdx) => {
-    const featuredCardsHtml = (cat.featured || []).map((show, showIdx) => {
+    const isEagerShelf = catIdx < 2;
+    const featuredCardsHtml = isEagerShelf ? (cat.featured || []).map((show, showIdx) => {
       const isTopShelfFirstCards = (catIdx === 0 && showIdx < 2);
       const loadingAttr = isTopShelfFirstCards ? 'fetchpriority="high" decoding="async"' : 'loading="lazy" decoding="async"';
       let icon = '✦';
@@ -103,10 +104,10 @@ export function generateDiscoverShellHtml() {
           </div>
         </div>
       `;
-    }).join('');
+    }).join('') : '';
 
     return `
-      <section class="discover-shelf" id="shelf-${cat.id}" data-category="${cat.id}">
+      <section class="discover-shelf" id="shelf-${cat.id}" data-category="${cat.id}"${isEagerShelf ? '' : ' data-lazy-cards="true"'}>
         <div class="discover-shelf-header">
           <div class="discover-shelf-title-wrap">
             <h3 class="discover-shelf-title">

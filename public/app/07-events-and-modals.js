@@ -1612,3 +1612,9 @@ function formatHighlightedDesc(fullText, query) {
   return highlightText(excerpt, q);
 }
 
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+
