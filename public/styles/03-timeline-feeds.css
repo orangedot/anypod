@@ -2295,10 +2295,10 @@ button.feed-link-badge:hover {
 
 .bottom-action-dock {
   position: fixed;
-  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
-  z-index: 95;
+  z-index: 105;
   transition: bottom 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s ease;
 
   display: flex;
@@ -2315,10 +2315,10 @@ button.feed-link-badge:hover {
 }
 
 body.has-active-episode.has-mini-player .bottom-action-dock {
-  bottom: calc(var(--mini-player-height, 52px) + 8px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--mini-player-height, 52px) + 10px + env(safe-area-inset-bottom, 0px));
 }
 
 body.has-active-episode:not(.has-mini-player) .bottom-action-dock {
-  bottom: calc(80px + 8px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--player-bar-height, 108px) + 12px + env(safe-area-inset-bottom, 0px));
 }
 

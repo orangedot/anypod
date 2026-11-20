@@ -2308,6 +2308,25 @@ function setTheme(theme) {
 // file). Runs all setup functions in dependency order.
 // ─────────────────────────────────────────────────────────────────────────
 
+function setupLayoutMetricsObserver() {
+  const rootStyle = document.documentElement.style;
+  const syncMetrics = () => {
+    if (elements.playerBar && elements.playerBar.offsetHeight > 0) {
+      rootStyle.setProperty('--player-bar-height', `${elements.playerBar.offsetHeight}px`);
+    }
+    if (elements.bottomActionDock && elements.bottomActionDock.offsetHeight > 0) {
+      rootStyle.setProperty('--dock-height', `${elements.bottomActionDock.offsetHeight}px`);
+    }
+  };
+  syncMetrics();
+  if (typeof ResizeObserver === 'function') {
+    const observer = new ResizeObserver(syncMetrics);
+    if (elements.playerBar) observer.observe(elements.playerBar);
+    if (elements.bottomActionDock) observer.observe(elements.bottomActionDock);
+  }
+  window.addEventListener('resize', syncMetrics, { passive: true });
+}
+
 function init() {
   initTheme();
   checkUrlSessionParam();
@@ -2320,6 +2339,7 @@ function init() {
   }
 
   setupEventListeners();
+  setupLayoutMetricsObserver();
   if (typeof setupAudioEngines === 'function') {
     setupAudioEngines();
   }

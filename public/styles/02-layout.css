@@ -41,6 +41,10 @@ body.has-active-episode .app-container {
   padding-bottom: calc(var(--mini-player-height, 52px) + var(--dock-height, 46px) + env(safe-area-inset-bottom, 16px) + 28px);
 }
 
+body.has-active-episode:not(.has-mini-player) .app-container {
+  padding-bottom: calc(var(--player-bar-height, 108px) + var(--dock-height, 46px) + env(safe-area-inset-bottom, 16px) + 32px);
+}
+
 /* Standalone PWA Mode Safe-Area Polish */
 html.is-standalone .app-header {
   padding-top: calc(0.85rem + env(safe-area-inset-top, 0px));
@@ -352,7 +356,7 @@ body.has-active-episode .continue-sticky-bar {
 
 .continue-shelf.is-expanded .continue-toggle-wrap {
   position: fixed;
-  bottom: 25px; /* Above bottom edge on desktop */
+  bottom: calc(var(--dock-height, 46px) + 22px + env(safe-area-inset-bottom, 0px)); /* Above bottom filter dock */
   left: 0;
   right: 0;
   z-index: 150;
@@ -361,8 +365,11 @@ body.has-active-episode .continue-sticky-bar {
   justify-content: center;
   margin: 0;
 }
-body.has-active-episode .continue-shelf.is-expanded .continue-toggle-wrap {
-  bottom: 85px; /* Above desktop player bar */
+body.has-active-episode.has-mini-player .continue-shelf.is-expanded .continue-toggle-wrap {
+  bottom: calc(var(--mini-player-height, 52px) + var(--dock-height, 46px) + 20px + env(safe-area-inset-bottom, 0px)); /* Above mini player + filter dock */
+}
+body.has-active-episode:not(.has-mini-player) .continue-shelf.is-expanded .continue-toggle-wrap {
+  bottom: calc(var(--player-bar-height, 108px) + var(--dock-height, 46px) + 22px + env(safe-area-inset-bottom, 0px)); /* Above big player + filter dock */
 }
 
 /* Ensure the button inside is clickable and has elevation while floating */
@@ -376,16 +383,16 @@ body.has-active-episode .continue-shelf.is-expanded .continue-toggle-wrap {
 @media (max-width: 768px) {
   .continue-shelf.is-expanded .continue-toggle-wrap {
     position: fixed !important;
-    bottom: calc(55px + env(safe-area-inset-bottom, 0px)) !important;
+    bottom: calc(var(--dock-height, 46px) + 18px + env(safe-area-inset-bottom, 0px)) !important;
     left: 0 !important;
     right: 0 !important;
     z-index: 150 !important;
   }
   body.has-active-episode.has-mini-player .continue-shelf.is-expanded .continue-toggle-wrap {
-    bottom: calc(105px + env(safe-area-inset-bottom, 0px)) !important;
+    bottom: calc(var(--mini-player-height, 55px) + var(--dock-height, 46px) + 18px + env(safe-area-inset-bottom, 0px)) !important;
   }
   body.has-active-episode:not(.has-mini-player) .continue-shelf.is-expanded .continue-toggle-wrap {
-    bottom: calc(230px + env(safe-area-inset-bottom, 0px)) !important;
+    bottom: calc(var(--player-bar-height, 170px) + var(--dock-height, 46px) + 20px + env(safe-area-inset-bottom, 0px)) !important;
   }
 }
 
