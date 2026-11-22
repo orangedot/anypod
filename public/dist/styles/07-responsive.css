@@ -78,12 +78,12 @@
   }
 
   .user-status-pill.is-expanded {
-    max-width: 220px;
+    max-width: 280px;
     padding: 0.35rem 0.65rem;
   }
 
   #user-email-label {
-    max-width: 110px;
+    max-width: 95px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

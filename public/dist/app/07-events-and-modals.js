@@ -119,9 +119,18 @@ function setupEventListeners() {
     });
   }
 
+  if (elements.btnPillResync) {
+    elements.btnPillResync.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (typeof handleQuickResync === 'function') {
+        handleQuickResync();
+      }
+    });
+  }
+
   if (elements.userStatusPill) {
     elements.userStatusPill.addEventListener('click', (e) => {
-      if (e.target.closest('#btn-account-toggle')) return;
+      if (e.target.closest('#btn-account-toggle') || e.target.closest('#btn-pill-resync')) return;
       elements.userStatusPill.classList.toggle('is-expanded');
     });
 

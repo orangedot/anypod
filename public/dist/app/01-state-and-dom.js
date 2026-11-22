@@ -1370,6 +1370,7 @@ const elements = {
   userStatusPill: document.getElementById('user-status-pill'),
   statusIndicator: document.getElementById('status-indicator'),
   userEmailLabel: document.getElementById('user-email-label'),
+  btnPillResync: document.getElementById('btn-pill-resync'),
   btnAccountToggle: document.getElementById('btn-account-toggle'),
 
   confirmModal: document.getElementById('confirm-modal'),

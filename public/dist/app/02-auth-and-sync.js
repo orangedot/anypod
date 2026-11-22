@@ -87,9 +87,10 @@ function applyBundledD1State(data) {
 }
 
 async function checkAuth() {
+  setupSyncRecoveryListeners();
   if (state.sessionToken) {
     elements.authModal.classList.add('hidden');
-    updateSyncStatusUI('authenticated via magic session (cloud d1 synced)', state.userEmail, true);
+    updateSyncStatusUI('syncing cloud library...', state.userEmail, true, 'syncing');
     syncFeedsWithD1();
     return;
   }
@@ -144,7 +145,7 @@ async function checkAuth() {
     } else {
       console.warn('Sync server responded with', res.status);
       elements.authModal.classList.add('hidden');
-      updateSyncStatusUI('cloud sync temporarily unavailable — listening offline', state.userEmail, !!state.sessionToken);
+      updateSyncStatusUI('cloud sync temporarily unavailable — listening offline', state.userEmail, !!state.sessionToken, state.sessionToken ? 'degraded' : 'guest');
       if (!state.feeds || state.feeds.length === 0) {
         loadFeedsFromStorage();
       }
@@ -159,7 +160,7 @@ async function checkAuth() {
   } catch (e) {
     console.warn('Auth check network error:', e);
     elements.authModal.classList.add('hidden');
-    updateSyncStatusUI('cloud sync temporarily unavailable — listening offline', state.userEmail, !!state.sessionToken);
+    updateSyncStatusUI('cloud sync temporarily unavailable — listening offline', state.userEmail, !!state.sessionToken, state.sessionToken ? 'degraded' : 'guest');
     if (!state.feeds || state.feeds.length === 0) {
       loadFeedsFromStorage();
     }
@@ -181,15 +182,50 @@ async function checkAuth() {
   }
 }
 
-function updateSyncStatusUI(statusText, email = '', isConnected = false) {
+function updateSyncStatusUI(statusText, email = '', isConnected = false, syncState = null) {
+  const resolvedState = syncState || (isConnected ? 'synced' : 'guest');
+  state._syncState = resolvedState;
+
   if (elements.userSyncStatus) {
     elements.userSyncStatus.textContent = (statusText || '').toLowerCase();
   }
   if (elements.statusIndicator) {
-    if (isConnected) {
+    elements.statusIndicator.classList.remove('online', 'sync-warning', 'sync-error', 'syncing');
+    if (resolvedState === 'synced') {
       elements.statusIndicator.classList.add('online');
+    } else if (resolvedState === 'syncing') {
+      elements.statusIndicator.classList.add('sync-warning', 'syncing');
+    } else if (resolvedState === 'degraded') {
+      elements.statusIndicator.classList.add('sync-warning');
+    } else if (resolvedState === 'expired') {
+      elements.statusIndicator.classList.add('sync-error');
+    }
+  }
+  if (elements.userStatusPill) {
+    elements.userStatusPill.title = statusText || 'Account & sync status';
+  }
+  if (elements.btnPillResync) {
+    elements.btnPillResync.classList.remove('is-warning', 'is-error');
+    if (resolvedState === 'guest') {
+      elements.btnPillResync.classList.add('hidden');
     } else {
-      elements.statusIndicator.classList.remove('online');
+      elements.btnPillResync.classList.remove('hidden');
+      elements.btnPillResync.disabled = resolvedState === 'syncing';
+      if (resolvedState === 'expired') {
+        elements.btnPillResync.textContent = 'sign in';
+        elements.btnPillResync.classList.add('is-error');
+        elements.btnPillResync.title = 'Session expired — tap to sign in again';
+      } else if (resolvedState === 'degraded') {
+        elements.btnPillResync.textContent = 're-sync';
+        elements.btnPillResync.classList.add('is-warning');
+        elements.btnPillResync.title = 'Cloud sync unavailable — tap to retry';
+      } else if (resolvedState === 'syncing') {
+        elements.btnPillResync.textContent = 'syncing…';
+        elements.btnPillResync.title = 'Syncing with cloud…';
+      } else {
+        elements.btnPillResync.textContent = 'sync';
+        elements.btnPillResync.title = 'Re-sync cloud library now';
+      }
     }
   }
   if (elements.userEmailLabel) {
@@ -309,8 +345,71 @@ async function submitMagicAuth() {
 // syncFeedsWithD1 — pulls remote feeds + positions on login/startup.
 // ─────────────────────────────────────────────────────────────────────────
 
-async function syncFeedsWithD1() {
-  showStatus('syncing feeds & playback state with cloud d1...');
+let _syncRecoveryListenersAttached = false;
+
+function setupSyncRecoveryListeners() {
+  if (_syncRecoveryListenersAttached || typeof window === 'undefined') return;
+  _syncRecoveryListenersAttached = true;
+
+  const tryAutoRecoverSync = () => {
+    if (!state.sessionToken || state._syncInFlight) return;
+    const isDegraded = state._syncState === 'degraded';
+    const isStale = !state._lastCloudSyncAt || (Date.now() - state._lastCloudSyncAt > 5 * 60 * 1000);
+    if (isDegraded || isStale) {
+      syncFeedsWithD1({ silent: true });
+    }
+  };
+
+  window.addEventListener('online', tryAutoRecoverSync);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      tryAutoRecoverSync();
+    }
+  });
+}
+
+async function handleQuickResync() {
+  if (state._syncState === 'expired') {
+    if (elements.magicEmailInput && state.userEmail) {
+      elements.magicEmailInput.value = state.userEmail;
+    }
+    if (elements.authModal) elements.authModal.classList.remove('hidden');
+    if (elements.userStatusPill) elements.userStatusPill.classList.remove('is-expanded');
+    return;
+  }
+  const ok = await syncFeedsWithD1({ silent: true });
+  if (typeof showToast === 'function') {
+    if (ok) {
+      showToast('Cloud sync restored');
+    } else if (state._syncState === 'expired') {
+      showToast('Session expired — please sign in again');
+    } else {
+      showToast('Still unable to reach cloud sync — listening offline');
+    }
+  }
+}
+
+async function syncFeedsWithD1(options = {}) {
+  if (state._syncInFlight) return false;
+  state._syncInFlight = true;
+  const silent = Boolean(options && options.silent);
+  if (!silent) {
+    showStatus('syncing feeds & playback state with cloud d1...');
+  }
+  updateSyncStatusUI('syncing cloud library...', state.userEmail, true, 'syncing');
+
+  const fallbackOfflineRender = () => {
+    if (!state.feeds || state.feeds.length === 0) {
+      loadFeedsFromStorage();
+    }
+    loadCacheFromStorage();
+    if (state.feeds && state.feeds.length > 0) {
+      refreshAllFeeds();
+    } else {
+      renderTimeline();
+    }
+  };
+
   try {
     const headers = {};
     if (state.sessionToken) headers['X-Session-Token'] = state.sessionToken;
@@ -318,33 +417,17 @@ async function syncFeedsWithD1() {
     const res = await fetch('/api/sync/feeds?bundle=1', { headers, credentials: 'include' });
 
     if (res.status === 401) {
-      console.warn('D1 sync returned 401. Preserving offline session & library.');
-      updateSyncStatusUI('cloud sync temporarily unavailable — listening offline', state.userEmail, !!state.sessionToken);
-      if (!state.feeds || state.feeds.length === 0) {
-        loadFeedsFromStorage();
-      }
-      loadCacheFromStorage();
-      if (state.feeds && state.feeds.length > 0) {
-        refreshAllFeeds();
-      } else {
-        renderTimeline();
-      }
-      return;
+      console.warn('D1 sync returned 401. Session expired; preserving offline library.');
+      updateSyncStatusUI('session expired — sign in again to re-sync', state.userEmail, !!state.sessionToken, state.sessionToken ? 'expired' : 'guest');
+      fallbackOfflineRender();
+      return false;
     }
 
     if (!res.ok) {
       console.warn('D1 sync HTTP error:', res.status);
-      updateSyncStatusUI('cloud sync temporarily unavailable — listening offline', state.userEmail, true);
-      if (!state.feeds || state.feeds.length === 0) {
-        loadFeedsFromStorage();
-      }
-      loadCacheFromStorage();
-      if (state.feeds && state.feeds.length > 0) {
-        refreshAllFeeds();
-      } else {
-        renderTimeline();
-      }
-      return;
+      updateSyncStatusUI('cloud sync temporarily unavailable — listening offline', state.userEmail, true, 'degraded');
+      fallbackOfflineRender();
+      return false;
     }
 
     const data = await res.json();
@@ -360,7 +443,8 @@ async function syncFeedsWithD1() {
         storage.setItem(STORAGE_KEYS.USER_EMAIL, data.userEmail);
       } catch (_) {}
     }
-    updateSyncStatusUI('cloud d1 synced', state.userEmail, true);
+    state._lastCloudSyncAt = Date.now();
+    updateSyncStatusUI('cloud d1 synced', state.userEmail, true, 'synced');
 
     const remoteFeeds = Array.isArray(data.feeds) ? data.feeds : [];
     if (remoteFeeds.length > 0 || !state.feeds || state.feeds.length === 0) {
@@ -371,21 +455,16 @@ async function syncFeedsWithD1() {
 
     applyBundledD1State(data);
     await refreshAllFeeds();
+    return true;
 
   } catch (err) {
     console.warn('D1 sync warning:', err);
-    updateSyncStatusUI('cloud sync temporarily unavailable — listening offline', state.userEmail, true);
-    if (!state.feeds || state.feeds.length === 0) {
-      loadFeedsFromStorage();
-    }
-    loadCacheFromStorage();
-    if (state.feeds && state.feeds.length > 0) {
-      refreshAllFeeds();
-    } else {
-      renderTimeline();
-    }
+    updateSyncStatusUI('cloud sync temporarily unavailable — listening offline', state.userEmail, true, 'degraded');
+    fallbackOfflineRender();
+    return false;
   } finally {
-    hideStatus();
+    state._syncInFlight = false;
+    if (!silent) hideStatus();
   }
 }
 

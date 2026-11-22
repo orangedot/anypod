@@ -78,16 +78,24 @@ export async function getUserFromRequest(request, env) {
       let row = null;
       try {
         row = await env.DB.prepare(
-          'SELECT u.id, u.email, u.listener_plan, u.listener_plan_until, u.studio_plan, s.session_hash FROM user_sessions s JOIN users u ON s.user_id = u.id WHERE s.session_hash = ? AND s.expires_at > ?'
+          'SELECT u.id, u.email, u.listener_plan, u.listener_plan_until, u.studio_plan, s.session_hash, s.expires_at FROM user_sessions s JOIN users u ON s.user_id = u.id WHERE s.session_hash = ? AND s.expires_at > ?'
         ).bind(sessionHash, now).first();
       } catch (_) {
         row = await env.DB.prepare(
-          'SELECT u.id, u.email, s.session_hash FROM user_sessions s JOIN users u ON s.user_id = u.id WHERE s.session_hash = ? AND s.expires_at > ?'
+          'SELECT u.id, u.email, s.session_hash, s.expires_at FROM user_sessions s JOIN users u ON s.user_id = u.id WHERE s.session_hash = ? AND s.expires_at > ?'
         ).bind(sessionHash, now).first();
       }
 
       // Constant-time comparison prevents timing side-channel attacks
       if (row && row.session_hash && timingSafeEqual(row.session_hash, sessionHash)) {
+        // Sliding 30-day session renewal (throttled to write at most once every 5 days)
+        if (row.expires_at && row.expires_at < now + 25 * 24 * 60 * 60) {
+          const renewedExpiresAt = now + 30 * 24 * 60 * 60;
+          env.DB.prepare('UPDATE user_sessions SET expires_at = ? WHERE session_hash = ?')
+            .bind(renewedExpiresAt, sessionHash)
+            .run()
+            .catch(() => {});
+        }
         return {
           id: row.id,
           email: row.email,
