@@ -797,14 +797,15 @@ function saveCuratedArtworkCache() {
 
 async function loadCuratedArtworks(container) {
   if (!container) return;
-  const cards = container.querySelectorAll('.starter-show-card');
+  const cards = container.querySelectorAll('.starter-show-card, .discover-shelf-card, .catalog-show-card');
   if (!cards.length) return;
 
   const fetchCardArtwork = async (card) => {
     const feedUrl = card.dataset.feed;
-    const title = card.dataset.title;
+    const title = card.dataset.title || card.querySelector('.episode-title, .catalog-card-title')?.textContent?.trim();
     const img = card.querySelector('.feed-art');
-    if (!img || !feedUrl) return;
+    if (!img || !feedUrl || !title || img.dataset.artLoaded === 'true') return;
+    img.dataset.artLoaded = 'true';
 
     // 1. Return from existing state or persistent localStorage cache (0 network requests!)
     if (state.feedMetadata[feedUrl]?.artwork) {

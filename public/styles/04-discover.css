@@ -503,12 +503,45 @@
 .discover-why-badge .why-icon {
   font-size: 0.8rem;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .discover-why-badge .why-text {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.discover-shelf-card .discover-why-badge {
+  align-items: flex-start;
+  padding: 0.3rem 0.55rem;
+}
+
+.discover-shelf-card .discover-why-badge .why-icon {
+  margin-top: 0.1rem;
+}
+
+.discover-shelf-card .discover-why-badge .why-text {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.32;
+}
+
+.discover-shelf-card .episode-footer {
+  gap: 0.5rem;
+  padding-top: 0.65rem;
+}
+
+.discover-shelf-card .episode-footer-left {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.discover-shelf-card .episode-card-actions {
+  flex-shrink: 0;
 }
 
 /* Follow show button inside external recommendation cards */
@@ -1222,19 +1255,30 @@ body.has-active-episode.has-mini-player .player-bar {
 
 /* ── First-time visitor manifesto (shown when no feeds are subscribed) ── */
 .discover-welcome-manifesto {
-  background: var(--bg-card);
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.06) 0%, rgba(255, 255, 255, 0.025) 100%);
   border: 1px solid var(--border-light);
+  border-left: 3px solid var(--accent-orange);
   border-radius: var(--radius-lg);
-  padding: 1.25rem 1.4rem;
+  padding: 1.25rem 1.45rem;
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.85rem;
+}
+
+[data-theme="light"] .discover-welcome-manifesto {
+  background: linear-gradient(135deg, rgba(234, 88, 12, 0.05) 0%, rgba(255, 255, 255, 0.72) 100%);
+}
+
+.welcome-manifesto-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
 }
 
 .welcome-manifesto-title {
   margin: 0;
-  font-size: 1.05rem;
-  font-weight: 500;
+  font-size: 1.08rem;
+  font-weight: 550;
   letter-spacing: -0.015em;
   color: var(--text-primary);
   line-height: 1.35;
@@ -1246,4 +1290,23 @@ body.has-active-episode.has-mini-player .player-bar {
   font-weight: 350;
   line-height: 1.55;
   color: var(--text-secondary);
+}
+
+.welcome-manifesto-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+@media (max-width: 580px) {
+  .discover-welcome-manifesto {
+    padding: 1rem;
+    gap: 0.75rem;
+  }
+  .welcome-manifesto-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }

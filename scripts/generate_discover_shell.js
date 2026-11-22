@@ -71,7 +71,7 @@ export function generateDiscoverShellHtml() {
       }
 
       return `
-        <div class="episode-card discover-show-recommendation-card discover-shelf-card" data-feed="${escapeHtml(show.feed)}">
+        <div class="episode-card discover-show-recommendation-card discover-shelf-card" data-feed="${escapeHtml(show.feed)}" data-title="${escapeHtml(show.title)}">
           <div class="discover-why-badge">
             <span class="why-icon">${escapeHtml(icon)}</span>
             <span class="why-text">${escapeHtml(note)}</span>
@@ -83,19 +83,10 @@ export function generateDiscoverShellHtml() {
               <div class="episode-title">${escapeHtml(show.title)}</div>
             </div>
           </div>
-          <div class="feed-recent-widget feed-recent-preview-empty" data-feed="${escapeHtml(show.feed)}">
-            <div class="feed-recent-list">
-              <div class="recent-ep-row recent-ep-placeholder" style="color: var(--text-muted); font-size: 0.78rem; padding: 0.35rem 0.5rem;">
-                <span>Click card to explore episodes</span>
-              </div>
-            </div>
-          </div>
           <div class="episode-footer" style="margin-top:auto;">
             <div class="episode-footer-left">
               <div class="episode-meta">
-                <span class="date-line">${escapeHtml(show.topic ? show.topic.toUpperCase() : 'PODCAST')}</span>
-                <span class="meta-sep">•</span>
-                <span class="time-line"><span class="btn-preview-link">Explore episodes →</span></span>
+                <span class="time-line"><span class="btn-preview-link">Episodes →</span></span>
               </div>
             </div>
             <div class="episode-card-actions" style="display:flex; gap:6px;">
@@ -140,39 +131,18 @@ export function generateDiscoverShellHtml() {
 
   return `
     <div class="discover-view-wrap" data-prerendered="true" data-feeds-key="empty">
-      <!-- First-Time Visitor Manifesto (shown while library is empty) -->
+      <!-- Unified First-Time Visitor Hero (Primary Text-First LCP Target, shown while library is empty) -->
       <div class="discover-welcome-manifesto" id="discover-welcome-manifesto">
-        <h2 class="welcome-manifesto-title">Your podcasts. No algorithm. No ads. No account required.</h2>
-        <p class="welcome-manifesto-body">Anypod is a free, open-source podcast player that respects you. Open it, search any podcast, and start listening — no sign-up wall, no tracking, no data sold. Cloud sync is optional and the data you give us has an expiry date.</p>
-      </div>
-
-      <!-- AI Taste Persona Banner (Primary Text-First LCP Target) -->
-      <div class="discover-persona-banner">
-        <div class="persona-banner-header">
-          <div class="persona-badge">
-            <span class="persona-sparkle">✦</span>
-            <span class="persona-badge-title">AI Taste Profile</span>
-          </div>
-          <button type="button" class="btn-recalibrate-taste" id="btn-recalibrate-taste" title="Recalibrate taste profile based on current library and history">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="23 4 23 10 17 10"></polyline>
-              <polyline points="1 20 1 14 7 14"></polyline>
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-            </svg>
-            <span>Recalibrate</span>
-          </button>
+        <div class="welcome-manifesto-main">
+          <h2 class="welcome-manifesto-title">Your podcasts. No algorithm. No ads. No account required.</h2>
+          <p class="welcome-manifesto-body">Anypod is a free, open-source podcast player that respects you. Open it, search any podcast, and start listening — no sign-up wall, no tracking, no data sold. Cloud sync is optional and the data you give us has an expiry date.</p>
         </div>
-        <div class="persona-main">
-          <h2 class="persona-title">${escapeHtml(profile.title)}</h2>
-          <p class="persona-narrative">${escapeHtml(profile.narrative)}</p>
-        </div>
-        <div class="persona-footer">
+        <div class="welcome-manifesto-footer">
           <div class="persona-vibes">
             ${profile.vibes.map(v => `<span class="persona-vibe-chip clickable" data-target-shelf="${escapeHtml(v.target)}">${escapeHtml(v.label)}</span>`).join('')}
           </div>
           <div class="persona-stats">
             <span>${escapeHtml(profile.stats)}</span>
-            <span class="persona-engine-tag" title="Runs privately and locally on your device">${escapeHtml(profile.engineLabel)}</span>
           </div>
         </div>
       </div>

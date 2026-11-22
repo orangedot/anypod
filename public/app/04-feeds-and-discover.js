@@ -2865,6 +2865,7 @@ function buildDiscoverShowCard(show, whyNote, idx = 0) {
   const card = document.createElement('div');
   card.className = 'episode-card discover-show-recommendation-card discover-shelf-card';
   card.dataset.feed = show.feed;
+  card.dataset.title = show.title || '';
 
   const isSubbed = state.feeds.includes(show.feed);
   let art = show.artwork || (state.feedMetadata[show.feed] && state.feedMetadata[show.feed].artwork) || (_curatedArtworkCache && _curatedArtworkCache[show.feed]) || makeCoverArt(show.title);
@@ -2894,19 +2895,10 @@ function buildDiscoverShowCard(show, whyNote, idx = 0) {
         <div class="episode-title">${escapeHtml(show.title)}</div>
       </div>
     </div>
-    <div class="feed-recent-widget feed-recent-preview-empty" data-feed="${escapeHtml(show.feed)}">
-      <div class="feed-recent-list">
-        <div class="recent-ep-row recent-ep-placeholder" style="color: var(--text-muted); font-size: 0.78rem; padding: 0.35rem 0.5rem;">
-          <span>Click card to explore episodes</span>
-        </div>
-      </div>
-    </div>
     <div class="episode-footer" style="margin-top:auto;">
       <div class="episode-footer-left">
         <div class="episode-meta">
-          <span class="date-line">${escapeHtml(show.topic ? show.topic.toUpperCase() : 'PODCAST')}</span>
-          <span class="meta-sep">•</span>
-          <span class="time-line"><span class="btn-preview-link">Explore episodes →</span></span>
+          <span class="time-line"><span class="btn-preview-link">Episodes →</span></span>
         </div>
       </div>
       <div class="episode-card-actions" style="display:flex; gap:6px;">
@@ -3671,9 +3663,10 @@ function renderDiscover(forceRebuild = false) {
   libraryCandidates.sort((a, b) => b.score - a.score);
   const selectedLibraryEps = libraryCandidates.slice(0, 6);
 
-  // 2. Fast In-Place DOM Update if shelves are already mounted! (0ms, no DOM destruction)
+  // 2. Fast In-Place DOM Update if shelves are already mounted and hero mode matches!
   const existingShelves = existingWrap ? existingWrap.querySelector('.discover-shelves-container') : null;
-  if (!forceRebuild && existingWrap && existingShelves) {
+  const hasPersonaBanner = Boolean(existingWrap && existingWrap.querySelector('.discover-persona-banner'));
+  if (!forceRebuild && existingWrap && existingShelves && (hasFeeds === hasPersonaBanner)) {
     updateDiscoverPersonaBanner(existingWrap, profile);
     updateDiscoverLibrarySection(existingWrap, selectedLibraryEps, hasFeeds);
     updateDiscoverFollowButtons(existingWrap);
@@ -3728,12 +3721,26 @@ function renderDiscover(forceRebuild = false) {
   container.innerHTML = `
     <div class="discover-view-wrap" data-prerendered="hydrated" data-feeds-key="${escapeHtml(currentFeedsKey)}">
       ${!hasFeeds ? `
+      <!-- Unified First-Time Visitor Hero (shown while library is empty) -->
       <div class="discover-welcome-manifesto" id="discover-welcome-manifesto">
-        <h2 class="welcome-manifesto-title">Your podcasts. No algorithm. No ads. No account required.</h2>
-        <p class="welcome-manifesto-body">Anypod is a free, open-source podcast player that respects you. Open it, search any podcast, and start listening — no sign-up wall, no tracking, no data sold. Cloud sync is optional and the data you give us has an expiry date.</p>
-      </div>` : ''}
-
-      <!-- AI Taste Persona Banner -->
+        <div class="welcome-manifesto-main">
+          <h2 class="welcome-manifesto-title">Your podcasts. No algorithm. No ads. No account required.</h2>
+          <p class="welcome-manifesto-body">Anypod is a free, open-source podcast player that respects you. Open it, search any podcast, and start listening — no sign-up wall, no tracking, no data sold. Cloud sync is optional and the data you give us has an expiry date.</p>
+        </div>
+        <div class="welcome-manifesto-footer">
+          <div class="persona-vibes">
+            ${profile.vibes.map(v => {
+              const label = typeof v === 'object' ? v.label : v;
+              const target = typeof v === 'object' ? v.target : null;
+              return `<span class="persona-vibe-chip ${target ? 'clickable' : ''}" ${target ? `data-target-shelf="${escapeHtml(target)}"` : ''}>${escapeHtml(label)}</span>`;
+            }).join('')}
+          </div>
+          <div class="persona-stats">
+            <span>${escapeHtml(profile.stats)}</span>
+          </div>
+        </div>
+      </div>` : `
+      <!-- AI Taste Persona Banner (shown once user has subscribed feeds) -->
       <div class="discover-persona-banner">
         <div class="persona-banner-header">
           <div class="persona-badge">
@@ -3766,7 +3773,7 @@ function renderDiscover(forceRebuild = false) {
             <span class="persona-engine-tag" title="Runs privately and locally on your device">${escapeHtml(profile.engineLabel)}</span>
           </div>
         </div>
-      </div>
+      </div>`}
 
       <!-- Unified Multi-Source Search & Exploration -->
       <div class="discover-search-box">
@@ -4134,6 +4141,9 @@ function wireEmptyStateEvents(targetRoot = document) {
     });
     track.appendChild(frag);
     wireDiscoverCards(track);
+    if (typeof loadCuratedArtworks === 'function') {
+      loadCuratedArtworks(track);
+    }
   }
 
   // Wire clickable vibe chips to hydrate (if lazy) and smooth-scroll to shelves
@@ -4191,6 +4201,10 @@ function wireEmptyStateEvents(targetRoot = document) {
     } else {
       lazyShelves.forEach(hydrateLazyShelf);
     }
+  }
+
+  if (typeof loadCuratedArtworks === 'function') {
+    loadCuratedArtworks(targetRoot);
   }
 
   if (typeof loadCuratedFeedEpisodes === 'function') {
