@@ -2176,6 +2176,42 @@ button.feed-link-badge:hover {
   box-sizing: border-box;
 }
 
+html.is-standalone #card-install-app,
+#card-install-app.is-installed-compact {
+  order: 99;
+  grid-column: 1 / -1;
+  height: auto;
+  padding: 0.6rem 1rem;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border-color: var(--border-light);
+}
+
+html.is-standalone #card-install-app h3,
+html.is-standalone #card-install-app p,
+#card-install-app.is-installed-compact h3,
+#card-install-app.is-installed-compact p {
+  display: none;
+}
+
+html.is-standalone #card-install-app .settings-actions,
+#card-install-app.is-installed-compact .settings-actions {
+  margin: 0;
+}
+
+html.is-standalone #card-install-app #btn-settings-install,
+#card-install-app.is-installed-compact #btn-settings-install {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  cursor: default;
+  box-shadow: none;
+}
+
 .settings-card h3 {
   font-size: 1.1rem;
   font-weight: 450;

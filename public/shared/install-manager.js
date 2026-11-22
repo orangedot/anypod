@@ -43,12 +43,11 @@
 
     if (state.isStandalone) {
       if (installPill) installPill.classList.add('hidden');
+      const installCard = document.getElementById('card-install-app');
+      if (installCard) installCard.classList.add('is-installed-compact');
       if (settingsBtn) {
         settingsBtn.disabled = true;
-        settingsBtn.innerHTML = '<span>&#10003; app installed (offline ready)</span>';
-      }
-      if (settingsStatus) {
-        settingsStatus.textContent = 'Anypod is running in standalone mode on your home screen or dock.';
+        settingsBtn.innerHTML = '<span>&#10003; app installed · offline ready</span>';
       }
       return;
     }
