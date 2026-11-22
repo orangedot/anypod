@@ -3727,6 +3727,12 @@ function renderDiscover(forceRebuild = false) {
 
   container.innerHTML = `
     <div class="discover-view-wrap" data-prerendered="hydrated" data-feeds-key="${escapeHtml(currentFeedsKey)}">
+      ${!hasFeeds ? `
+      <div class="discover-welcome-manifesto" id="discover-welcome-manifesto">
+        <h2 class="welcome-manifesto-title">Your podcasts. No algorithm. No ads. No account required.</h2>
+        <p class="welcome-manifesto-body">Anypod is a free, open-source podcast player that respects you. Open it, search any podcast, and start listening — no sign-up wall, no tracking, no data sold. Cloud sync is optional and the data you give us has an expiry date.</p>
+      </div>` : ''}
+
       <!-- AI Taste Persona Banner -->
       <div class="discover-persona-banner">
         <div class="persona-banner-header">

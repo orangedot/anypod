@@ -140,6 +140,12 @@ export function generateDiscoverShellHtml() {
 
   return `
     <div class="discover-view-wrap" data-prerendered="true" data-feeds-key="empty">
+      <!-- First-Time Visitor Manifesto (shown while library is empty) -->
+      <div class="discover-welcome-manifesto" id="discover-welcome-manifesto">
+        <h2 class="welcome-manifesto-title">Your podcasts. No algorithm. No ads. No account required.</h2>
+        <p class="welcome-manifesto-body">Anypod is a free, open-source podcast player that respects you. Open it, search any podcast, and start listening — no sign-up wall, no tracking, no data sold. Cloud sync is optional and the data you give us has an expiry date.</p>
+      </div>
+
       <!-- AI Taste Persona Banner (Primary Text-First LCP Target) -->
       <div class="discover-persona-banner">
         <div class="persona-banner-header">
