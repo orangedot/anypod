@@ -88,8 +88,8 @@ export async function getUserFromRequest(request, env) {
 
       // Constant-time comparison prevents timing side-channel attacks
       if (row && row.session_hash && timingSafeEqual(row.session_hash, sessionHash)) {
-        // Sliding 30-day session renewal (throttled to write at most once every 5 days)
-        if (row.expires_at && row.expires_at < now + 25 * 24 * 60 * 60) {
+        // Sliding 30-day session renewal (throttled to write at most once every 10 days)
+        if (row.expires_at && row.expires_at < now + 20 * 24 * 60 * 60) {
           const renewedExpiresAt = now + 30 * 24 * 60 * 60;
           env.DB.prepare('UPDATE user_sessions SET expires_at = ? WHERE session_hash = ?')
             .bind(renewedExpiresAt, sessionHash)
