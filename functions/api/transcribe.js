@@ -16,11 +16,15 @@
  *   body: raw audio blob
  */
 
+import { enforceStudioRateLimit } from '../../workers/studio-private/index.js';
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, X-Session-Token, X-Episode-Lang'
 };
+
+const MAX_TRANSCRIBE_BYTES = 2 * 1024 * 1024;
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -40,6 +44,12 @@ export async function onRequest(context) {
     return json({ error: 'POST only' }, 405);
   }
 
+  const clientIp = request.headers.get('CF-Connecting-IP') || 'anon';
+  const rateCheck = enforceStudioRateLimit(`transcribe:${clientIp}`, 30);
+  if (!rateCheck.allowed) {
+    return json({ error: 'Transcription rate limit exceeded' }, 429);
+  }
+
   // Check AI binding is available
   if (!env.AI) {
     return json({ error: 'AI binding not configured. Add "ai": {"binding":"AI"} to wrangler.json' }, 503);
@@ -55,6 +65,10 @@ export async function onRequest(context) {
 
   if (!audioBuffer || audioBuffer.byteLength < 1000) {
     return json({ error: 'Audio too short or empty', byteLength: audioBuffer?.byteLength }, 400);
+  }
+
+  if (audioBuffer.byteLength > MAX_TRANSCRIBE_BYTES) {
+    return json({ error: 'Audio chunk exceeds 2 MB limit' }, 413);
   }
 
   // Optional language hint from client

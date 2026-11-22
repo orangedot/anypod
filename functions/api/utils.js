@@ -135,6 +135,9 @@ export function isValidExternalUrl(urlString) {
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
       return false;
     }
+    if (parsed.username || parsed.password) {
+      return false;
+    }
     const host = parsed.hostname.toLowerCase();
     if (
       !host ||
@@ -168,18 +171,26 @@ export function isValidExternalUrl(urlString) {
       if (octets[0] === 192 && octets[1] === 168) return false;
       if (octets[0] === 169 && octets[1] === 254) return false;
       if (octets[0] === 100 && octets[1] >= 64 && octets[1] <= 127) return false;
+      if (octets[0] === 192 && octets[1] === 0 && (octets[2] === 0 || octets[2] === 2)) return false;
+      if (octets[0] === 198 && (octets[1] === 18 || octets[1] === 19)) return false;
+      if (octets[0] >= 224) return false; // Multicast & reserved
     }
 
-    // Filter IPv6 and IPv4-mapped IPv6 loopbacks
+    // Filter IPv6 loopbacks, link-local, unique-local, multicast, IPv4-mapped & IPv4-compatible addresses
     if (host.startsWith('[') && host.endsWith(']')) {
-      const ipv6 = host.slice(1, -1).toLowerCase();
+      const ipv6 = host.slice(1, -1).split('%')[0].toLowerCase();
       if (
-        ipv6 === '::1' || 
-        ipv6 === '::' || 
-        ipv6.startsWith('fe80:') || 
-        ipv6.startsWith('fc') || 
-        ipv6.startsWith('fd') || 
-        ipv6.includes('::ffff:')
+        ipv6 === '::1' ||
+        ipv6 === '::' ||
+        ipv6.startsWith('fe8') ||
+        ipv6.startsWith('fe9') ||
+        ipv6.startsWith('fea') ||
+        ipv6.startsWith('feb') ||
+        ipv6.startsWith('fc') ||
+        ipv6.startsWith('fd') ||
+        ipv6.startsWith('ff') ||
+        ipv6.includes('::ffff:') ||
+        /^::[0-9a-f.:]+$/i.test(ipv6)
       ) {
         return false;
       }
@@ -196,6 +207,31 @@ export function isValidExternalUrl(urlString) {
   } catch (e) {
     return false;
   }
+}
+
+export async function safeExternalFetch(urlString, options = {}, maxRedirects = 5) {
+  let currentUrl = urlString;
+  const redirectStatuses = new Set([301, 302, 303, 307, 308]);
+
+  for (let hop = 0; hop <= maxRedirects; hop++) {
+    if (!isValidExternalUrl(currentUrl)) {
+      throw new Error('Disallowed external URL');
+    }
+
+    const res = await fetch(currentUrl, { ...options, redirect: 'manual' });
+    if (!redirectStatuses.has(res.status)) {
+      return res;
+    }
+
+    const location = res.headers.get('location');
+    if (!location) {
+      return res;
+    }
+
+    currentUrl = new URL(location, currentUrl).toString();
+  }
+
+  throw new Error('Too many upstream redirects');
 }
 
 export function getCookieDomainAttr(request) {

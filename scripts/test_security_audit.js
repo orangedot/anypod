@@ -120,6 +120,98 @@ assert(
   'ch.url interpolated raw in href attribute'
 );
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. SSRF URL Validation & Safe Redirect Proxy Controls
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('\n--- 5. SSRF Defense & Proxy Redirect Validation ---');
+const { isValidExternalUrl } = await import(path.join(appDir, 'functions', 'api', 'utils.js'));
+
+const disallowedUrls = [
+  'http://127.0.0.1/feed.xml',
+  'http://169.254.169.254/latest/meta-data/',
+  'http://[::1]/feed.xml',
+  'http://[::7f00:1]/feed.xml',
+  'http://[::ffff:127.0.0.1]/feed.xml',
+  'http://[fe80::1%eth0]/feed.xml',
+  'http://192.0.2.1/test',
+  'http://198.18.0.1/test',
+  'http://224.0.0.1/test',
+  'http://2130706433/',
+  'http://0x7f000001/',
+  'https://user:pass@example.com/feed.xml',
+  'file:///etc/passwd'
+];
+for (const badUrl of disallowedUrls) {
+  assert(isValidExternalUrl(badUrl) === false, `SSRF blocks ${badUrl}`);
+}
+assert(isValidExternalUrl('https://feeds.simplecast.com/EmVW7VGp') === true, 'SSRF allows valid public HTTPS podcast feed');
+
+const utilsSrc = fs.readFileSync(path.join(appDir, 'functions', 'api', 'utils.js'), 'utf-8');
+assert(utilsSrc.includes("redirect: 'manual'"), 'safeExternalFetch uses redirect: manual to validate hops');
+
+for (const proxyFile of ['audio-proxy.js', 'chapters-proxy.js', 'transcript-proxy.js', 'feed.js']) {
+  const src = fs.readFileSync(path.join(appDir, 'functions', 'api', proxyFile), 'utf-8');
+  assert(src.includes('safeExternalFetch('), `${proxyFile} uses safeExternalFetch()`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. Auth, Fail-Closed Secrets & Studio Tenant Isolation
+// ─────────────────────────────────────────────────────────────────────────────
+console.log('\n--- 6. Auth, Fail-Closed Billing & Tenant Isolation ---');
+const sendLinkSrc = fs.readFileSync(path.join(appDir, 'functions', 'api', 'auth', 'send-link.js'), 'utf-8');
+assert(
+  sendLinkSrc.includes('isLocalDevRequest') && !sendLinkSrc.includes('isSandboxRestriction'),
+  'send-link.js never leaks verifyUrl on Resend 403/422 in production'
+);
+
+const verifySrc = fs.readFileSync(path.join(appDir, 'functions', 'api', 'auth', 'verify.js'), 'utf-8');
+assert(
+  verifySrc.includes('Number(existingToken.used) === 0'),
+  'verify.js fallback branch enforces single-use token (used === 0)'
+);
+
+const webhookSrc = fs.readFileSync(path.join(appDir, 'functions', 'api', 'stripe', 'webhook.js'), 'utf-8');
+assert(
+  webhookSrc.includes('!env || !env.STRIPE_WEBHOOK_SECRET'),
+  'stripe/webhook.js fails closed when STRIPE_WEBHOOK_SECRET is missing'
+);
+
+const planSrc = fs.readFileSync(path.join(appDir, 'functions', 'api', 'studio', 'plan.js'), 'utf-8');
+assert(
+  !planSrc.includes('!env.STUDIO_WEBHOOK_SECRET'),
+  'studio/plan.js does not allow self-upgrade when STUDIO_WEBHOOK_SECRET is missing'
+);
+
+const studioPrivateSrc = fs.readFileSync(path.join(appDir, 'workers', 'studio-private', 'index.js'), 'utf-8');
+assert(
+  !studioPrivateSrc.includes('anypod-studio-open-core-default-key'),
+  'studio-private/index.js contains no hardcoded default signing secret'
+);
+
+const showsSrc = fs.readFileSync(path.join(appDir, 'functions', 'api', 'studio', 'shows.js'), 'utf-8');
+assert(
+  showsSrc.includes('show.is_private && !isOwner'),
+  'studio/shows.js enforces owner auth for private shows'
+);
+
+const episodesSrc = fs.readFileSync(path.join(appDir, 'functions', 'api', 'studio', 'episodes.js'), 'utf-8');
+assert(
+  episodesSrc.includes('existingEpisode.show_id !== show.id'),
+  'studio/episodes.js prevents cross-show episode overwrite IDOR'
+);
+
+const uploadSrc = fs.readFileSync(path.join(appDir, 'functions', 'api', 'studio', 'upload.js'), 'utf-8');
+assert(
+  uploadSrc.includes('actualSize > allowedTicketSize'),
+  'studio/upload.js enforces signed ticket byte quota on PUT'
+);
+
+const embedSrc = fs.readFileSync(path.join(appDir, 'functions', 'embed', '[showSlug]', 'index.js'), 'utf-8');
+assert(
+  embedSrc.includes('show.is_private') && embedSrc.includes("status = 'published'"),
+  'embed player blocks private shows and unpublished drafts'
+);
+
 console.log(`\n========================================`);
 console.log(`Tests: ${totalTests - failedTests} passed, ${failedTests} failed, ${totalTests} total`);
 console.log(`========================================`);

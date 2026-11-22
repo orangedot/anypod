@@ -46,12 +46,17 @@ export async function onRequest(context) {
       userId = updateResult.results[0].user_id;
     } else {
       const existingToken = await db.prepare(
-        'SELECT user_id, token_hash, used, expires_at FROM auth_tokens WHERE token_hash = ?'
+        'SELECT user_id, token_hash, used, expires_at FROM auth_tokens WHERE token_hash = ? AND used = 0'
       ).bind(tokenHash).first();
 
-      if (existingToken && existingToken.token_hash && (await verifyToken(token, existingToken.token_hash))) {
+      if (existingToken && Number(existingToken.used) === 0 && existingToken.token_hash && (await verifyToken(token, existingToken.token_hash))) {
         if (existingToken.expires_at > Math.floor(Date.now() / 1000)) {
-          userId = existingToken.user_id;
+          const markUsed = await db.prepare(
+            'UPDATE auth_tokens SET used = 1 WHERE token_hash = ? AND used = 0'
+          ).bind(tokenHash).run();
+          if (markUsed?.meta?.changes === undefined || markUsed.meta.changes > 0) {
+            userId = existingToken.user_id;
+          }
         }
       }
     }

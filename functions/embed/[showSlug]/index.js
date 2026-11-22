@@ -664,7 +664,7 @@ export async function handleEmbedRequest(context, showSlug, episodeId) {
   }
 
   const show = await env.DB.prepare(
-    `SELECT id, owner_id, slug, title, description, author, email, cover_image_url, language, category, explicit, website_url, created_at
+    `SELECT id, owner_id, slug, title, description, author, email, cover_image_url, language, category, explicit, website_url, is_private, created_at
      FROM shows
      WHERE slug = ?
      LIMIT 1`
@@ -674,15 +674,23 @@ export async function handleEmbedRequest(context, showSlug, episodeId) {
     return new Response('Show Not Found', { status: 404, headers: EMBED_CORS_HEADERS });
   }
 
+  if (show.is_private) {
+    return new Response('Private Show: Embedding is disabled for private feeds', { status: 403, headers: EMBED_CORS_HEADERS });
+  }
+
+  const now = Math.floor(Date.now() / 1000);
   const { results: episodes } = await env.DB.prepare(
     `SELECT id, show_id, title, description, audio_key, audio_content_type, audio_byte_size, duration_seconds,
             episode_number, season_number, episode_type, explicit, transcript_key, chapters_key, waveform_peaks_json,
             published_at, created_at
      FROM episodes
-     WHERE show_id = ? AND published_at IS NOT NULL
+     WHERE show_id = ?
+       AND (status = 'published' OR status IS NULL)
+       AND published_at IS NOT NULL
+       AND published_at <= ?
      ORDER BY published_at DESC, created_at DESC
      LIMIT 50`
-  ).bind(show.id).all();
+  ).bind(show.id, now).all();
 
   const list = episodes || [];
   let targetEpisode = null;
@@ -695,9 +703,13 @@ export async function handleEmbedRequest(context, showSlug, episodeId) {
                 episode_number, season_number, episode_type, explicit, transcript_key, chapters_key, waveform_peaks_json,
                 published_at, created_at
          FROM episodes
-         WHERE show_id = ? AND id = ?
+         WHERE show_id = ?
+           AND id = ?
+           AND (status = 'published' OR status IS NULL)
+           AND published_at IS NOT NULL
+           AND published_at <= ?
          LIMIT 1`
-      ).bind(show.id, String(episodeId)).first();
+      ).bind(show.id, String(episodeId), now).first();
     }
   } else {
     targetEpisode = list[0] || null;

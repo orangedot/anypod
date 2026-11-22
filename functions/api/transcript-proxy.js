@@ -1,4 +1,4 @@
-import { isValidExternalUrl } from './utils.js';
+import { isValidExternalUrl, safeExternalFetch } from './utils.js';
 
 export async function onRequest(context) {
   const { request } = context;
@@ -25,7 +25,7 @@ export async function onRequest(context) {
   }
 
   try {
-    const upstreamRes = await fetch(targetUrl, {
+    const upstreamRes = await safeExternalFetch(targetUrl, {
       headers: {
         'User-Agent': 'Anypod/1.0 (+https://anypod.org)',
         'Accept': 'text/vtt, text/plain, application/x-subrip, */*'

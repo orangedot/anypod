@@ -1,5 +1,14 @@
 import { hashToken, getCorsHeaders, normalizeEmail } from '../utils.js';
 
+function isLocalDevRequest(request) {
+  try {
+    const host = new URL(request.url).hostname.toLowerCase();
+    return host === 'localhost' || host === '127.0.0.1';
+  } catch (_) {
+    return false;
+  }
+}
+
 export async function onRequest(context) {
   const { request, env } = context;
   const corsHeaders = getCorsHeaders(request, 'POST, OPTIONS');
@@ -126,14 +135,21 @@ export async function onRequest(context) {
     const verifyUrl = `${appUrl}/auth/verify/?token=${rawToken}`;
 
     const resendKey = env.RESEND_API_KEY;
+    const isLocalDev = isLocalDevRequest(request);
     if (!resendKey) {
-      return new Response(JSON.stringify({ 
-        success: true, 
-        devNotice: 'No RESEND_API_KEY configured. Click link below to sign in locally:',
-        verifyUrl 
-      }), {
+      if (isLocalDev) {
+        return new Response(JSON.stringify({
+          success: true,
+          devNotice: 'No RESEND_API_KEY configured. Click link below to sign in locally:',
+          verifyUrl
+        }), {
+          headers: corsHeaders,
+          status: 200
+        });
+      }
+      return new Response(JSON.stringify({ error: 'Email login service temporarily unavailable.' }), {
         headers: corsHeaders,
-        status: 200
+        status: 503
       });
     }
 
@@ -166,37 +182,16 @@ export async function onRequest(context) {
 
     if (!resendRes.ok) {
       const errText = await resendRes.text();
-      let isSandboxRestriction = false;
-      try {
-        const parsed = JSON.parse(errText);
-        if (
-          parsed.statusCode === 403 ||
-          parsed.statusCode === 422 ||
-          (parsed.message && (
-            parsed.message.includes('You can only send testing emails') ||
-            parsed.message.includes('testing email address')
-          )) ||
-          fromEmail.includes('resend.dev')
-        ) {
-          isSandboxRestriction = true;
-        }
-      } catch (e) {
-        if (fromEmail.includes('resend.dev')) {
-          isSandboxRestriction = true;
-        }
-      }
-
-      if (isSandboxRestriction) {
-        return new Response(JSON.stringify({ 
-          success: true, 
-          sandboxNotice: 'Resend Sandbox Mode (Only delivered to account owner):',
-          verifyUrl 
+      if (isLocalDev) {
+        return new Response(JSON.stringify({
+          success: true,
+          sandboxNotice: 'Local Dev Sandbox Mode:',
+          verifyUrl
         }), {
           headers: corsHeaders,
           status: 200
         });
       }
-
       throw new Error(`Resend email delivery failed (${resendRes.status}): ${errText}`);
     }
 

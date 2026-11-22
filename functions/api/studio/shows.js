@@ -41,6 +41,15 @@ export async function onRequest(context) {
       if (!show) {
         return new Response(JSON.stringify({ error: 'Show not found' }), { status: 404, headers });
       }
+      const viewer = await getUserFromRequest(request, env);
+      const isOwner = viewer ? await canUserManageShow(env, viewer, show) : false;
+      if (show.is_private && !isOwner) {
+        return new Response(JSON.stringify({ error: viewer ? 'Forbidden' : 'Unauthorized' }), { status: viewer ? 403 : 401, headers });
+      }
+      if (!isOwner) {
+        const { email: _omitEmail, owner_id: _omitOwner, ...publicShow } = show;
+        return new Response(JSON.stringify({ show: publicShow }), { status: 200, headers });
+      }
       return new Response(JSON.stringify({ show }), { status: 200, headers });
     }
 

@@ -42,8 +42,15 @@ export function enforceStudioRateLimit(clientKey, limitPerMinute = 30) {
   return { allowed: true, remaining: limitPerMinute - record.count, resetAt: record.windowStart + windowMs };
 }
 
+function resolveUploadSigningSecret(env) {
+  return (env && (env.STUDIO_UPLOAD_SECRET || env.SESSION_SECRET || env.RESEND_API_KEY)) || '';
+}
+
 export async function createSignedUploadTicket({ showSlug, objectKey, contentType, byteSize, userId, expiresInSeconds = 3600 }, env) {
-  const secret = (env && env.STUDIO_UPLOAD_SECRET) || (env && env.SESSION_SECRET) || 'anypod-studio-open-core-default-key';
+  const secret = resolveUploadSigningSecret(env);
+  if (!secret) {
+    throw new Error('Upload signing secret unconfigured');
+  }
   const expiresAt = Math.floor(Date.now() / 1000) + expiresInSeconds;
   const payload = `${showSlug}:${objectKey}:${contentType}:${byteSize}:${userId}:${expiresAt}`;
   const sigBytes = await hmacSha256(secret, payload);
@@ -70,7 +77,10 @@ export async function verifySignedUploadTicket({ showSlug, objectKey, contentTyp
   if (Number(expiresAt) < now) {
     return false;
   }
-  const secret = (env && env.STUDIO_UPLOAD_SECRET) || (env && env.SESSION_SECRET) || 'anypod-studio-open-core-default-key';
+  const secret = resolveUploadSigningSecret(env);
+  if (!secret) {
+    return false;
+  }
   const payload = `${showSlug}:${objectKey}:${contentType}:${byteSize}:${userId}:${expiresAt}`;
   const sigBytes = await hmacSha256(secret, payload);
   const expectedSig = toHex(sigBytes);

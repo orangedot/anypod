@@ -1,4 +1,4 @@
-import { getUserFromRequest, isValidExternalUrl, isListenerPro } from './utils.js';
+import { getUserFromRequest, isValidExternalUrl, isListenerPro, safeExternalFetch } from './utils.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -166,7 +166,7 @@ export async function onRequest(context) {
       if (ifNoneMatch) fetchHeaders['If-None-Match'] = ifNoneMatch;
       if (ifModifiedSince) fetchHeaders['If-Modified-Since'] = ifModifiedSince;
 
-      let upstreamRes = await fetch(targetUrl, {
+      let upstreamRes = await safeExternalFetch(targetUrl, {
         headers: fetchHeaders,
         cf: { cacheTtl: 900, cacheEverything: true },
         signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(15000) : undefined
@@ -179,7 +179,7 @@ export async function onRequest(context) {
       // Upstream fallback: if blocked by CDN/bot protection with 403/401, retry with AppleCoreMedia podcast UA
       if (!upstreamRes.ok && (upstreamRes.status === 403 || upstreamRes.status === 401)) {
         try {
-          const retryRes = await fetch(targetUrl, {
+          const retryRes = await safeExternalFetch(targetUrl, {
             headers: {
               ...fetchHeaders,
               'User-Agent': 'AppleCoreMedia/1.0.0.21E236 (Macintosh; U; Intel Mac OS X 14_4_1; en_us) Podcast/1.0'
@@ -787,7 +787,7 @@ async function fetchAndParseFeed(inputUrl) {
     fetchOptions.signal = AbortSignal.timeout(15000);
   }
 
-  let response = await fetch(inputUrl, fetchOptions);
+  let response = await safeExternalFetch(inputUrl, fetchOptions);
 
   if (!response.ok && (response.status === 403 || response.status === 401)) {
     try {
@@ -800,7 +800,7 @@ async function fetchAndParseFeed(inputUrl) {
       if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) {
         retryOptions.signal = AbortSignal.timeout(15000);
       }
-      const retryRes = await fetch(inputUrl, retryOptions);
+      const retryRes = await safeExternalFetch(inputUrl, retryOptions);
       if (retryRes.ok) {
         response = retryRes;
       }
@@ -1014,7 +1014,7 @@ function getRawTagContent(xmlSegment, tagName) {
  * Lazy on-demand fetcher for full HTML show notes of a single episode (avoids sending MBs of HTML during feed sync).
  */
 async function fetchSingleEpisodeContent(inputUrl, targetGuid) {
-  const response = await fetch(inputUrl, {
+  const response = await safeExternalFetch(inputUrl, {
     headers: {
       'User-Agent': 'Anypod/1.0 (+CloudflarePages)',
       'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'

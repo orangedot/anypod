@@ -76,7 +76,7 @@ export async function onRequest(context) {
       signature: sig
     }, env);
 
-    if (!validTicket) {
+    if (!validTicket || !showSlug || !objectKey.startsWith(`${showSlug}/`) || objectKey.includes('..')) {
       return new Response(JSON.stringify({ error: 'Invalid or expired upload signature' }), { status: 403, headers });
     }
 
@@ -84,8 +84,13 @@ export async function onRequest(context) {
       return new Response(JSON.stringify({ error: 'R2 AUDIO_BUCKET binding not configured' }), { status: 503, headers });
     }
 
+    const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
     const arrayBuf = await request.arrayBuffer();
     const actualSize = arrayBuf.byteLength;
+    const allowedTicketSize = byteSize > 0 ? Math.min(byteSize, MAX_UPLOAD_BYTES) : MAX_UPLOAD_BYTES;
+    if (actualSize > allowedTicketSize) {
+      return new Response(JSON.stringify({ error: 'Uploaded file exceeds signed ticket byte quota' }), { status: 413, headers });
+    }
 
     await env.AUDIO_BUCKET.put(objectKey, arrayBuf, {
       httpMetadata: { contentType }

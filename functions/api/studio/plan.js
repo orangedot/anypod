@@ -69,7 +69,7 @@ export async function onRequest(context) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers });
     }
 
-    if (payload.action === 'activate-pro-demo' && (!env.STUDIO_WEBHOOK_SECRET || env.STUDIO_ALLOW_SELF_UPGRADE === 'true')) {
+    if (payload.action === 'activate-pro-demo' && env.STUDIO_ALLOW_SELF_UPGRADE === 'true') {
       await applyPlanChange(env, { email: user.email, plan: 'pro', until: Math.floor(Date.now() / 1000) + 365 * 86400 });
       const plan = await getCreatorPlan(user, env);
       const usage = await getCreatorUsage(user, env);

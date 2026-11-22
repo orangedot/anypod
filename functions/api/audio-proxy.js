@@ -1,4 +1,4 @@
-import { isValidExternalUrl } from './utils.js';
+import { isValidExternalUrl, safeExternalFetch } from './utils.js';
 
 export async function onRequest(context) {
   const { request } = context;
@@ -48,7 +48,7 @@ export async function onRequest(context) {
       const sliceBuffers = await Promise.all(
         rawPairs.map(async (pair) => {
           try {
-            const res = await fetch(targetUrl, {
+            const res = await safeExternalFetch(targetUrl, {
               method: 'GET',
               headers: {
                 'Range': `bytes=${pair}`,
@@ -108,7 +108,7 @@ export async function onRequest(context) {
     }
     upstreamHeaders.set('User-Agent', 'Anypod/1.0 (+CloudflarePages)');
 
-    const upstreamResponse = await fetch(targetUrl, {
+    const upstreamResponse = await safeExternalFetch(targetUrl, {
       method: request.method,
       headers: upstreamHeaders
     });

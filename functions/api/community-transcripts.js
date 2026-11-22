@@ -115,20 +115,29 @@ export async function onRequest(context) {
   if (request.method === 'POST') {
     await ensureTranscriptsTable();
     try {
-      const body = await request.json();
+      const rawText = await request.text();
+      if (rawText.length > 262144) {
+        return new Response(JSON.stringify({ success: false, error: 'Payload too large (256 KB max)' }), {
+          headers: corsHeaders,
+          status: 413
+        });
+      }
+      const body = JSON.parse(rawText);
       const { episodeGuid, feedUrl, duration, bars, segments, transcriptUrl, source } = body;
 
-      if (!episodeGuid || (!bars && !segments)) {
-        return new Response(JSON.stringify({ success: false, error: 'Missing episodeGuid or timeline data' }), {
+      if (!episodeGuid || typeof episodeGuid !== 'string' || episodeGuid.length > 300 || (!bars && !segments)) {
+        return new Response(JSON.stringify({ success: false, error: 'Missing or invalid episodeGuid or timeline data' }), {
           headers: corsHeaders,
           status: 400
         });
       }
 
-      const barsStr = bars ? JSON.stringify(bars) : '[]';
-      const segStr = segments ? JSON.stringify(segments) : '[]';
-      const dur = typeof duration === 'number' ? duration : 0;
-      const src = source || 'probe';
+      const safeBars = Array.isArray(bars) ? bars.slice(0, 500) : [];
+      const safeSegments = Array.isArray(segments) ? segments.slice(0, 2000) : [];
+      const barsStr = JSON.stringify(safeBars);
+      const segStr = JSON.stringify(safeSegments);
+      const dur = typeof duration === 'number' && isFinite(duration) && duration >= 0 ? duration : 0;
+      const src = String(source || 'probe').slice(0, 40);
 
       await db.prepare(`
         INSERT INTO episode_transcripts (episode_guid, feed_url, duration, bars_json, segments_json, transcript_url, source, created_at)

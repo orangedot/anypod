@@ -27,31 +27,46 @@ export async function onRequest(context) {
     const showId = url.searchParams.get('showId');
     const showSlug = url.searchParams.get('showSlug') || url.searchParams.get('slug');
     const episodeId = url.searchParams.get('id') || url.searchParams.get('episodeId');
+    const viewer = await getUserFromRequest(request, env);
+    const now = Math.floor(Date.now() / 1000);
 
     if (episodeId) {
       const ep = await env.DB.prepare('SELECT * FROM episodes WHERE id = ?').bind(episodeId).first();
       if (!ep) {
         return new Response(JSON.stringify({ error: 'Episode not found' }), { status: 404, headers });
       }
+      const parentShow = await env.DB.prepare('SELECT id, owner_id, is_private FROM shows WHERE id = ?').bind(ep.show_id).first();
+      const isOwner = viewer && parentShow ? await canUserManageShow(env, viewer, parentShow) : false;
+      const isPublished = (ep.status === 'published' || !ep.status) && ep.published_at && ep.published_at <= now;
+      if (!isOwner && ((parentShow && parentShow.is_private) || !isPublished)) {
+        return new Response(JSON.stringify({ error: viewer ? 'Forbidden' : 'Unauthorized' }), { status: viewer ? 403 : 401, headers });
+      }
       return new Response(JSON.stringify({ episode: ep }), { status: 200, headers });
     }
 
-    let resolvedShowId = showId;
-    if (!resolvedShowId && showSlug) {
-      const show = await env.DB.prepare('SELECT id FROM shows WHERE slug = ?').bind(showSlug.trim().toLowerCase()).first();
-      if (!show) {
-        return new Response(JSON.stringify({ error: 'Show not found' }), { status: 404, headers });
-      }
-      resolvedShowId = show.id;
-    }
-
-    if (!resolvedShowId) {
+    let show = null;
+    if (showId) {
+      show = await env.DB.prepare('SELECT id, owner_id, is_private FROM shows WHERE id = ?').bind(showId).first();
+    } else if (showSlug) {
+      show = await env.DB.prepare('SELECT id, owner_id, is_private FROM shows WHERE slug = ?').bind(showSlug.trim().toLowerCase()).first();
+    } else {
       return new Response(JSON.stringify({ error: 'showId or showSlug parameter is required' }), { status: 400, headers });
     }
 
-    const rows = await env.DB.prepare(
-      'SELECT * FROM episodes WHERE show_id = ? ORDER BY published_at DESC, created_at DESC'
-    ).bind(resolvedShowId).all();
+    if (!show) {
+      return new Response(JSON.stringify({ error: 'Show not found' }), { status: 404, headers });
+    }
+
+    const isOwner = viewer ? await canUserManageShow(env, viewer, show) : false;
+    if (show.is_private && !isOwner) {
+      return new Response(JSON.stringify({ error: viewer ? 'Forbidden' : 'Unauthorized' }), { status: viewer ? 403 : 401, headers });
+    }
+
+    const rows = isOwner
+      ? await env.DB.prepare('SELECT * FROM episodes WHERE show_id = ? ORDER BY published_at DESC, created_at DESC').bind(show.id).all()
+      : await env.DB.prepare(
+          "SELECT * FROM episodes WHERE show_id = ? AND (status = 'published' OR status IS NULL) AND published_at IS NOT NULL AND published_at <= ? ORDER BY published_at DESC, created_at DESC"
+        ).bind(show.id, now).all();
 
     return new Response(JSON.stringify({ episodes: rows?.results || [] }), { status: 200, headers });
   }
@@ -104,6 +119,12 @@ export async function onRequest(context) {
     }
 
     const id = String(body.id || crypto.randomUUID());
+    if (body.id) {
+      const existingEpisode = await env.DB.prepare('SELECT id, show_id FROM episodes WHERE id = ?').bind(id).first();
+      if (existingEpisode && existingEpisode.show_id !== show.id) {
+        return new Response(JSON.stringify({ error: 'You are not authorized to modify this episode', code: 'FORBIDDEN' }), { status: 403, headers });
+      }
+    }
     const description = String(body.description || '').trim();
     const audioContentType = String(body.audio_content_type || body.audioContentType || 'audio/mpeg').trim();
     const durationSeconds = Math.max(0, Number(body.duration_seconds ?? body.durationSeconds ?? 0));
