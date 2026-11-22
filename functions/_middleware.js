@@ -51,6 +51,31 @@ async function logRequestToD1(db, entry) {
   } catch (_) {}
 }
 
+const STAGED_HSTS_HEADER = 'max-age=86400; includeSubDomains';
+
+function redirectWithHsts(destinationUrl, status = 301) {
+  return new Response(null, {
+    status,
+    headers: {
+      Location: destinationUrl,
+      'Strict-Transport-Security': STAGED_HSTS_HEADER
+    }
+  });
+}
+
+function withHsts(response) {
+  if (!response || response.headers.has('Strict-Transport-Security')) {
+    return response;
+  }
+  const headers = new Headers(response.headers);
+  headers.set('Strict-Transport-Security', STAGED_HSTS_HEADER);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
+}
+
 export async function onRequest(context) {
   const url = new URL(context.request.url);
   const hostname = url.hostname.toLowerCase();
@@ -58,56 +83,56 @@ export async function onRequest(context) {
   // 1. Canonical Redirect www.anypod.org -> anypod.org
   if (hostname === 'www.anypod.org') {
     url.hostname = 'anypod.org';
-    return Response.redirect(url.toString(), 301);
+    return redirectWithHsts(url.toString(), 301);
   }
 
   // 2. Subdomain Redirects to primary origin (ensures unpartitioned IndexedDB / storage access)
   if (hostname === 'dj.anypod.org') {
     const dest = new URL(url.pathname === '/' || url.pathname === '' ? '/dj' : url.pathname, 'https://anypod.org');
     dest.search = url.search;
-    return Response.redirect(dest.toString(), 301);
+    return redirectWithHsts(dest.toString(), 301);
   }
 
   // 3. sets.anypod.org & pulse.anypod.org -> anypod.org/sets
   if (hostname === 'sets.anypod.org' || hostname === 'pulse.anypod.org') {
     const dest = new URL(url.pathname === '/' || url.pathname === '' ? '/sets' : url.pathname, 'https://anypod.org');
     dest.search = url.search;
-    return Response.redirect(dest.toString(), 301);
+    return redirectWithHsts(dest.toString(), 301);
   }
 
   if (hostname === 'studio.anypod.org') {
     const dest = new URL(url.pathname === '/' || url.pathname === '' ? '/studio' : url.pathname, 'https://anypod.org');
     dest.search = url.search;
-    return Response.redirect(dest.toString(), 301);
+    return redirectWithHsts(dest.toString(), 301);
   }
 
   // 4. /dj, /dj/, and /dj.html rewrite directly to /dj.html
   if (url.pathname === '/dj' || url.pathname === '/dj/' || url.pathname === '/dj.html') {
     const assetUrl = new URL('/dj.html', url.origin);
-    return context.env.ASSETS.fetch(assetUrl);
+    return withHsts(await context.env.ASSETS.fetch(assetUrl));
   }
 
   // 5. /sets, /sets/, and /sets.html rewrite directly to /sets.html
   if (url.pathname === '/sets' || url.pathname === '/sets/' || url.pathname === '/sets.html') {
     const assetUrl = new URL('/sets.html', url.origin);
-    return context.env.ASSETS.fetch(assetUrl);
+    return withHsts(await context.env.ASSETS.fetch(assetUrl));
   }
 
   // 6. /audio and /audio/ rewrite directly to /audio.html
   if (url.pathname === '/audio' || url.pathname === '/audio/') {
     const assetUrl = new URL('/audio.html', url.origin);
-    return context.env.ASSETS.fetch(assetUrl);
+    return withHsts(await context.env.ASSETS.fetch(assetUrl));
   }
 
   if (url.pathname === '/studio' || url.pathname === '/studio/' || url.pathname === '/studio.html') {
     const assetUrl = new URL('/studio.html', url.origin);
-    return context.env.ASSETS.fetch(assetUrl);
+    return withHsts(await context.env.ASSETS.fetch(assetUrl));
   }
 
   const isApi = url.pathname.startsWith('/api/');
   const t0 = isApi ? Date.now() : 0;
 
-  const response = await context.next();
+  const response = withHsts(await context.next());
 
   if (isApi && context.env && context.env.DB) {
     const durationMs = Date.now() - t0;
