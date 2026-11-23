@@ -18,16 +18,16 @@
 
 | | Anypod | Spotify | Apple Podcasts | Pocket Casts |
 |---|:---:|:---:|:---:|:---:|
-| No account required | | | | |
-| No ads | | | | |
-| Open source | | | | |
-| Self-hostable | | | | |
-| Auto-deletes inactive accounts | | | | |
-| Offline playback (PWA) | | (app) | (app) | (app) |
-| Curated Audiobooks & Classic Literature | | | | |
-| Synchronized song lyrics (LRCLIB) | | | | |
-| Dual-deck DJ mixing mode | | | | |
-| HIIT / workout interval sequencer | | | | |
+| No account required | Yes | No | No | No |
+| No ads | Yes | No | Yes | Yes |
+| Open source (AGPLv3) | Yes | No | No | No |
+| Self-hostable | Yes | No | No | No |
+| Auto-deletes inactive accounts | Yes (90d) | No | No | No |
+| Offline playback (PWA) | Yes (PWA) | (app) | (app) | (app) |
+| Curated Audiobooks & Classic Literature | Yes | Yes | No | No |
+| Synchronized song lyrics (LRCLIB) | Yes | Yes | No | No |
+| Dual-deck DJ mixing mode | Yes | No | No | No |
+| HIIT / workout interval sequencer | Yes | No | No | No |
 
 ## Privacy, by Design
 
@@ -77,7 +77,7 @@
     <td align="center"><img src="docs/screenshots/mobile-player.png" alt="Mobile Active Playback (Dark)" /></td>
     <td align="center"><img src="docs/screenshots/mobile-mini.png" alt="Mobile Mini-Player (Dark)" /></td>
     <td align="center"><img src="docs/screenshots/mobile-feeds.png" alt="Mobile Subscribed Feeds (Dark)" /></td>
-    <td align="center"><img src="docs/screenshots/mobile-discover.png" onerror="this.src='docs/screenshots/discover-science-mobile-dark.png'" alt="Mobile AI Discover (Dark)" /></td>
+    <td align="center"><img src="docs/screenshots/discover-science-mobile-dark.png" alt="Mobile AI Discover (Dark)" /></td>
   </tr>
   <tr>
     <td align="center"><b>Active Playback (Dark)</b></td>
@@ -89,13 +89,13 @@
     <td align="center"><img src="docs/screenshots/mobile-player-light.png" alt="Mobile Active Playback (Light)" /></td>
     <td align="center"><img src="docs/screenshots/mobile-mini-light.png" alt="Mobile Mini-Player (Light)" /></td>
     <td align="center"><img src="docs/screenshots/mobile-feeds-light.png" alt="Mobile Subscribed Feeds (Light)" /></td>
-    <td align="center"><img src="docs/screenshots/discover-science-desktop-light.png" alt="Discover Light Theme" /></td>
+    <td align="center"><img src="docs/screenshots/feed_detail_clean_mobile.png" alt="Feed Detail (Mobile)" /></td>
   </tr>
   <tr>
     <td align="center"><b>Active Playback (Light)</b></td>
     <td align="center"><b>Mini-Player (Light)</b></td>
     <td align="center"><b>Subscribed Feeds (Light)</b></td>
-    <td align="center"><b>AI Discover (Light)</b></td>
+    <td align="center"><b>Feed Detail (Mobile)</b></td>
   </tr>
 </table>
 
