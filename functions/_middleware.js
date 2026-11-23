@@ -136,35 +136,38 @@ export async function onRequest(context) {
 
   if (isApi && context.env && context.env.DB) {
     const durationMs = Date.now() - t0;
-    let targetParam = '';
-    const rawTarget = url.searchParams.get('url');
-    if (rawTarget) {
-      try {
-        targetParam = new URL(rawTarget).hostname;
-      } catch (_) {
-        targetParam = rawTarget.slice(0, 80);
+    const shouldLog = response.status >= 400 || durationMs > 1500 || Math.random() < 0.02;
+    if (shouldLog) {
+      let targetParam = '';
+      const rawTarget = url.searchParams.get('url');
+      if (rawTarget) {
+        try {
+          targetParam = new URL(rawTarget).hostname;
+        } catch (_) {
+          targetParam = rawTarget.slice(0, 80);
+        }
+      } else if (url.searchParams.get('term')) {
+        targetParam = url.searchParams.get('term').slice(0, 50);
+      } else if (url.searchParams.get('guid')) {
+        targetParam = url.searchParams.get('guid').slice(0, 60);
       }
-    } else if (url.searchParams.get('term')) {
-      targetParam = url.searchParams.get('term').slice(0, 50);
-    } else if (url.searchParams.get('guid')) {
-      targetParam = url.searchParams.get('guid').slice(0, 60);
-    }
 
-    const cacheStatus = response.headers.get('cf-cache-status') || response.headers.get('x-cache') || 'NONE';
+      const cacheStatus = response.headers.get('cf-cache-status') || response.headers.get('x-cache') || 'NONE';
 
-    const logEntry = {
-      createdAt: Math.floor(Date.now() / 1000),
-      endpoint: url.pathname,
-      targetParam,
-      statusCode: response.status,
-      durationMs,
-      cacheStatus
-    };
+      const logEntry = {
+        createdAt: Math.floor(Date.now() / 1000),
+        endpoint: url.pathname,
+        targetParam,
+        statusCode: response.status,
+        durationMs,
+        cacheStatus
+      };
 
-    if (context.waitUntil) {
-      context.waitUntil(logRequestToD1(context.env.DB, logEntry));
-    } else {
-      logRequestToD1(context.env.DB, logEntry).catch(() => {});
+      if (context.waitUntil) {
+        context.waitUntil(logRequestToD1(context.env.DB, logEntry));
+      } else {
+        logRequestToD1(context.env.DB, logEntry).catch(() => {});
+      }
     }
   }
 
