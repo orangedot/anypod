@@ -252,7 +252,7 @@ const CURATED_CATEGORIES = [
   {
     "id": "science",
     "title": "Science & Cosmos",
-    "emoji": "🔬",
+    "emoji": "",
     "description": "Planetary science, cosmic mysteries, cutting-edge research, and ecology.",
     "totalShows": 50,
     "featured": [
@@ -299,26 +299,26 @@ const CURATED_CATEGORIES = [
       },
       {
         "id": "space",
-        "label": "🚀 Space & Cosmos"
+        "label": "Space & Cosmos"
       },
       {
         "id": "science",
-        "label": "🔬 Research & Physics"
+        "label": "Research & Physics"
       },
       {
         "id": "climate",
-        "label": "🌱 Climate & Energy"
+        "label": "Climate & Energy"
       },
       {
         "id": "nature",
-        "label": "🌿 Earth & Nature"
+        "label": "Earth & Nature"
       }
     ]
   },
   {
     "id": "democracy",
     "title": "Democracy & Free Press",
-    "emoji": "🏛️",
+    "emoji": "",
     "description": "Investigative journalism, civics, democratic integrity, and global affairs.",
     "totalShows": 50,
     "featured": [
@@ -365,26 +365,26 @@ const CURATED_CATEGORIES = [
       },
       {
         "id": "investigative",
-        "label": "🔍 Investigative"
+        "label": "Investigative"
       },
       {
         "id": "global",
-        "label": "🌐 Global Affairs"
+        "label": "Global Affairs"
       },
       {
         "id": "civics",
-        "label": "⚖️ Civics & Law"
+        "label": "Civics & Law"
       },
       {
         "id": "press",
-        "label": "📰 Free Press"
+        "label": "Free Press"
       }
     ]
   },
   {
     "id": "social",
     "title": "Social & Human Stories",
-    "emoji": "🌍",
+    "emoji": "",
     "description": "Culture, human experience, philosophy, psychology, and personal journeys.",
     "totalShows": 50,
     "featured": [
@@ -431,26 +431,26 @@ const CURATED_CATEGORIES = [
       },
       {
         "id": "culture",
-        "label": "🎭 Culture & Society"
+        "label": "Culture & Society"
       },
       {
         "id": "psychology",
-        "label": "🧠 Mind & Behavior"
+        "label": "Mind & Behavior"
       },
       {
         "id": "philosophy",
-        "label": "💡 Philosophy"
+        "label": "Philosophy"
       },
       {
         "id": "stories",
-        "label": "📖 Personal Stories"
+        "label": "Personal Stories"
       }
     ]
   },
   {
     "id": "entertainment",
     "title": "Entertainment & Culture",
-    "emoji": "🎭",
+    "emoji": "",
     "description": "Cinema, comedy, music, storytelling, and contemporary pop culture.",
     "totalShows": 50,
     "featured": [
@@ -497,26 +497,26 @@ const CURATED_CATEGORIES = [
       },
       {
         "id": "cinema",
-        "label": "🎬 Film & TV"
+        "label": "Film & TV"
       },
       {
         "id": "comedy",
-        "label": "😂 Comedy & Wit"
+        "label": "Comedy & Wit"
       },
       {
         "id": "music",
-        "label": "🎵 Music & Sound"
+        "label": "Music & Sound"
       },
       {
         "id": "pop",
-        "label": "🍿 Pop Culture"
+        "label": "Pop Culture"
       }
     ]
   },
   {
     "id": "sports",
     "title": "Sports & Athletics",
-    "emoji": "⚽",
+    "emoji": "",
     "description": "Global football, endurance athletics, performance science, and sports journalism.",
     "totalShows": 50,
     "featured": [
@@ -563,26 +563,26 @@ const CURATED_CATEGORIES = [
       },
       {
         "id": "football",
-        "label": "⚽ Football / Soccer"
+        "label": "Football / Soccer"
       },
       {
         "id": "endurance",
-        "label": "🏃 Endurance & Running"
+        "label": "Endurance & Running"
       },
       {
         "id": "analytics",
-        "label": "📊 Analytics & Tactics"
+        "label": "Analytics & Tactics"
       },
       {
         "id": "motorsport",
-        "label": "🏎️ F1 & Motorsport"
+        "label": "F1 & Motorsport"
       }
     ]
   },
   {
     "id": "technology",
     "title": "Technology & Future",
-    "emoji": "💻",
+    "emoji": "",
     "description": "Open source, software craftsmanship, artificial intelligence, security, and digital freedom.",
     "totalShows": 50,
     "featured": [
@@ -629,26 +629,26 @@ const CURATED_CATEGORIES = [
       },
       {
         "id": "opensource",
-        "label": "🐧 Open Source"
+        "label": "Open Source"
       },
       {
         "id": "ai",
-        "label": "🤖 AI & Machine Learning"
+        "label": "AI & Machine Learning"
       },
       {
         "id": "dev",
-        "label": "⚙️ Engineering & Code"
+        "label": "Engineering & Code"
       },
       {
         "id": "privacy",
-        "label": "🛡️ Security & Privacy"
+        "label": "Security & Privacy"
       }
     ]
   },
   {
     "id": "history",
     "title": "History & Ideas",
-    "emoji": "🏺",
+    "emoji": "",
     "description": "Epic historical journeys, archaeology, pivotal events, and intellectual evolution.",
     "totalShows": 50,
     "featured": [
@@ -695,19 +695,19 @@ const CURATED_CATEGORIES = [
       },
       {
         "id": "epic",
-        "label": "⚔️ Epic & Military History"
+        "label": "Epic & Military History"
       },
       {
         "id": "world",
-        "label": "🌍 World History"
+        "label": "World History"
       },
       {
         "id": "ideas",
-        "label": "💡 History of Ideas"
+        "label": "History of Ideas"
       },
       {
         "id": "archaeology",
-        "label": "🏛️ Ancient & Archaeology"
+        "label": "Ancient & Archaeology"
       }
     ]
   }
@@ -1131,9 +1131,9 @@ function buildStarterSuggestionsHTML(activeFilter = 'all', limit = 12) {
     { id: 'fr', label: 'français (6)' },
     { id: 'es', label: 'español (5)' },
     { id: 'other', label: 'global / other (2)' },
-    { id: 'climate', label: '🌱 climate & planet' },
-    { id: 'science', label: '🔬 science' },
-    { id: 'space', label: '🚀 space' }
+    { id: 'climate', label: 'climate & planet' },
+    { id: 'science', label: 'science' },
+    { id: 'space', label: 'space' }
   ];
 
   const filterPillsHTML = filters.map(f => `

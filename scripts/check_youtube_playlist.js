@@ -17,13 +17,13 @@ const playlistId = playlistInput.includes('list=')
   ? new URL(playlistInput).searchParams.get('list') 
   : playlistInput;
 
-console.log(`\n🔍 Inspecting YouTube Playlist: ${playlistId}\n`);
+console.log(`\nInspecting YouTube Playlist: ${playlistId}\n`);
 
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 async function run() {
   const url = `https://www.youtube.com/playlist?list=${playlistId}`;
-  console.log(`🌐 Fetching: ${url}`);
+  console.log(`Fetching: ${url}`);
 
   const res = await fetch(url, {
     headers: {
@@ -33,18 +33,18 @@ async function run() {
   });
 
   if (!res.ok) {
-    console.error(`❌ HTTP ${res.status}: Failed to fetch playlist page`);
+    console.error(`HTTP ${res.status}: Failed to fetch playlist page`);
     console.log('Trying InnerTube browse API with ANDROID/WEB client...');
     await testInnerTubeBrowse(playlistId);
     return;
   }
 
   const html = await res.text();
-  console.log(`📄 Received HTML (${(html.length / 1024).toFixed(1)} KB)`);
+  console.log(`Received HTML (${(html.length / 1024).toFixed(1)} KB)`);
 
   const match = html.match(/var ytInitialData = ({.*?});<\/script>/s) || html.match(/ytInitialData\s*=\s*({.*?});/s);
   if (!match) {
-    console.error('❌ ytInitialData not found in HTML response');
+    console.error('ytInitialData not found in HTML response');
     await testInnerTubeBrowse(playlistId);
     return;
   }
@@ -53,7 +53,7 @@ async function run() {
   try {
     data = JSON.parse(match[1]);
   } catch (err) {
-    console.error('❌ Failed to parse ytInitialData JSON:', err.message);
+    console.error('Failed to parse ytInitialData JSON:', err.message);
     process.exit(1);
   }
 
@@ -82,12 +82,12 @@ async function testInnerTubeBrowse(playlistId) {
   });
 
   if (!res.ok) {
-    console.error(`❌ InnerTube browse HTTP ${res.status}`);
+    console.error(`InnerTube browse HTTP ${res.status}`);
     process.exit(1);
   }
 
   const data = await res.json();
-  console.log('✅ Received InnerTube browse response');
+  console.log('Received InnerTube browse response');
   inspectData(data);
 }
 
@@ -128,7 +128,7 @@ function inspectData(data) {
     if (isRejected) rejectedShelfCount++;
     else realVideoCount++;
 
-    console.log(`[#${idx + 1}] ${isRejected ? '⛔ REJECTED' : '✅ VIDEO'} - "${title}"`);
+    console.log(`[#${idx + 1}] ${isRejected ? 'REJECTED' : 'VIDEO'} - "${title}"`);
     console.log(`     contentType: "${contentType}", contentId: "${contentId}"`);
     console.log(`     duration: "${durText || 'NONE'}" | watchEndpoint.videoId: ${endpointVId}`);
     console.log(`     path: ${path}`);

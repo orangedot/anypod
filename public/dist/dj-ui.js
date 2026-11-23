@@ -488,7 +488,7 @@
 
     const btnToggleFolders = document.getElementById('btn-toggle-folders');
     if (btnToggleFolders) {
-      btnToggleFolders.textContent = isAllCollapsed ? '📂 Expand All' : '📁 Collapse All';
+      btnToggleFolders.textContent = isAllCollapsed ? 'Expand All' : 'Collapse All';
     }
 
     const fragment = document.createDocumentFragment();
@@ -601,7 +601,7 @@
     const bpmEl = document.getElementById(`deck-${deckId.toLowerCase()}-bpm`);
 
     if (titleEl) titleEl.textContent = track.title;
-    if (artistEl) artistEl.textContent = `${track.isYouTube ? '🔴 ' : '🎙️ '}${track.podcastTitle || 'Traktor Pro'}`;
+    if (artistEl) artistEl.textContent = `${track.isYouTube ? '' : ''}${track.podcastTitle || 'Traktor Pro'}`;
     if (keyEl) keyEl.textContent = track.key || '8m';
     if (bpmEl) bpmEl.textContent = (track.bpm || 128.00).toFixed(2);
 
@@ -1615,7 +1615,7 @@
       const btn = document.getElementById(`btn-play-${deck.toLowerCase()}`);
       if (btn) {
         btn.classList.toggle('playing', !!playing);
-        btn.textContent = playing ? '❚❚' : '▶';
+        btn.textContent = playing ? '' : '▶';
       }
     });
 

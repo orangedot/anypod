@@ -411,7 +411,7 @@ async function captureShot(ws, send, tasteKey, deviceKey, themeKey, customOutPat
   const metrics = DEVICE_METRICS[deviceKey] || DEVICE_METRICS.desktop;
   const isLight = themeKey === 'light';
 
-  console.log(`\n📸 Capturing Discover Screenshot:`);
+  console.log(`\nCapturing Discover Screenshot:`);
   console.log(`   Persona Taste: ${fixture.name} (${tasteKey})`);
   console.log(`   Device:        ${deviceKey} (${metrics.width}x${metrics.height} @${metrics.deviceScaleFactor}x)`);
   console.log(`   Theme:         ${themeKey}`);
@@ -465,7 +465,7 @@ async function captureShot(ws, send, tasteKey, deviceKey, themeKey, customOutPat
   const fileName = customOutPath || path.join(outDir, `discover-${tasteKey}-${deviceKey}-${themeKey}.png`);
   fs.writeFileSync(fileName, Buffer.from(shot.data, 'base64'));
   const sizeKb = (fs.statSync(fileName).size / 1024).toFixed(1);
-  console.log(`   ✅ Saved: ${fileName} (${sizeKb} KB)`);
+  console.log(`   Saved: ${fileName} (${sizeKb} KB)`);
   return fileName;
 }
 
@@ -475,7 +475,7 @@ async function main() {
   const serverPort = await getAvailablePort(8793);
   const staticServer = await startStaticServer(serverPort);
   const targetUrl = options.url || `http://127.0.0.1:${serverPort}/`;
-  console.log(`🚀 Static server ready on port ${serverPort}`);
+  console.log(`Static server ready on port ${serverPort}`);
 
   const debugPort = await getAvailablePort(9228);
   const tmpProfile = `/tmp/anypod-shot-discover-${Date.now()}`;
@@ -547,7 +547,7 @@ async function main() {
   await new Promise(r => setTimeout(r, 800));
 
   if (options.all) {
-    console.log('🌟 Generating complete Discover showcase matrix...');
+    console.log('Generating complete Discover showcase matrix...');
     await captureShot(ws, send, 'science', 'desktop', 'dark', null, options.fullPage);
     await captureShot(ws, send, 'science', 'desktop', 'light', null, options.fullPage);
     await captureShot(ws, send, 'science', 'mobile', 'dark', null, options.fullPage);
@@ -560,7 +560,7 @@ async function main() {
 
   ws.close();
   cleanup();
-  console.log('\n🎉 Screenshot capture completed successfully!');
+  console.log('\nScreenshot capture completed successfully!');
 }
 
 main().catch(err => {

@@ -60,7 +60,7 @@ async function test() {
   });
 
   try {
-    console.log(`🧭 Loading ${url}...`);
+    console.log(`Loading ${url}...`);
     await page.goto(url, { waitUntil: 'domcontentloaded' });
     await new Promise(r => setTimeout(r, 1000));
 
@@ -69,7 +69,7 @@ async function test() {
       const shelves = document.querySelectorAll('.discover-shelf');
       return Array.from(shelves).map(s => s.id);
     });
-    console.log('✅ Found shelves:', shelfIds);
+    console.log('Found shelves:', shelfIds);
     if (shelfIds.length !== 8) {
       throw new Error(`Expected 8 shelves, found ${shelfIds.length}`);
     }
@@ -89,13 +89,13 @@ async function test() {
       const shelves = document.querySelectorAll('.discover-shelf');
       return Array.from(shelves).map(s => s.querySelectorAll('.discover-shelf-card').length);
     });
-    console.log('✅ Card counts per shelf:', cardCounts);
+    console.log('Card counts per shelf:', cardCounts);
     if (!cardCounts.every(c => c === 5)) {
       throw new Error(`Expected 5 cards per shelf, found: ${cardCounts.join(', ')}`);
     }
 
     // 3. Test clicking "See all 50" on shelf-democracy
-    console.log('🖱️ Clicking "See all 50" on Democracy shelf...');
+    console.log('Clicking "See all 50" on Democracy shelf...');
     await page.evaluate(() => {
       const btn = document.querySelector('#shelf-democracy .btn-shelf-see-all');
       if (btn) btn.click();
@@ -114,20 +114,20 @@ async function test() {
       return { isVisible, title, count, showsCount, subtopicsCount };
     });
 
-    console.log('✅ Modal state:', modalState);
+    console.log('Modal state:', modalState);
     if (!modalState.isVisible) throw new Error('Catalog modal did not open');
     if (modalState.showsCount !== 50) throw new Error(`Expected 50 shows in modal, got ${modalState.showsCount}`);
     if (modalState.subtopicsCount < 2) throw new Error('Expected subtopic pills');
 
     // 4. Test in-modal live search
-    console.log('🔍 Testing search input in modal...');
+    console.log('Testing search input in modal...');
     await page.type('#catalog-search-input', 'Frontline');
     await new Promise(r => setTimeout(r, 200));
 
     const searchCount = await page.evaluate(() => {
       return document.querySelectorAll('#catalog-grid .catalog-show-card').length;
     });
-    console.log(`✅ Filtered to ${searchCount} show(s) with "Frontline"`);
+    console.log(`Filtered to ${searchCount} show(s) with "Frontline"`);
     if (searchCount === 0 || searchCount > 5) throw new Error(`Search filtering failed, got ${searchCount}`);
 
     // Clear search
@@ -137,7 +137,7 @@ async function test() {
     await new Promise(r => setTimeout(r, 100));
 
     // 5. Test subtopic filter pill
-    console.log('🏷️ Testing subtopic pill click...');
+    console.log('Testing subtopic pill click...');
     await page.evaluate(() => {
       const pills = document.querySelectorAll('#catalog-subtopics-row .catalog-topic-pill');
       if (pills[1]) pills[1].click();
@@ -147,7 +147,7 @@ async function test() {
     const topicFilteredCount = await page.evaluate(() => {
       return document.querySelectorAll('#catalog-grid .catalog-show-card').length;
     });
-    console.log(`✅ Subtopic filtered to ${topicFilteredCount} show(s)`);
+    console.log(`Subtopic filtered to ${topicFilteredCount} show(s)`);
     if (topicFilteredCount === 0 || topicFilteredCount === 50) throw new Error(`Subtopic filtering failed, got ${topicFilteredCount}`);
 
     // 6. Test Escape closes modal
@@ -158,14 +158,14 @@ async function test() {
     const closed = await page.evaluate(() => {
       return document.getElementById('catalog-browser-modal').classList.contains('hidden');
     });
-    console.log('✅ Modal closed via Escape:', closed);
+    console.log('Modal closed via Escape:', closed);
     if (!closed) throw new Error('Modal did not close on Escape');
 
     if (errors.length > 0) {
       throw new Error(`Page errors encountered: ${errors.join('; ')}`);
     }
 
-    console.log('\n🎉 ALL SHELVES AND CATALOG MODAL INTERACTION TESTS PASSED!');
+    console.log('\nALL SHELVES AND CATALOG MODAL INTERACTION TESTS PASSED!');
   } finally {
     await browser.close().catch(() => {});
     server.close();
@@ -176,6 +176,6 @@ async function test() {
 test()
   .then(() => process.exit(0))
   .catch(err => {
-    console.error('❌ Interaction Test Failed:', err);
+    console.error('Interaction Test Failed:', err);
     process.exit(1);
   });

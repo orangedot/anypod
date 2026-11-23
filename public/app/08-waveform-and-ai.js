@@ -5,7 +5,7 @@
 //
 // 1. Interactive SoundCloud-style full-episode waveform canvas scrubber.
 // 2. Background audio probe using HTTP Range requests + Web Audio API.
-// 3. Classifies timeline segments into 🎙️ Speech (talking) vs 🎵 Music.
+// 3. Classifies timeline segments into Speech (talking) vs Music.
 // 4. Color-coded timeline bars across the entire episode (0:00 to end).
 // 5. Jump to next music / jump to next talk buttons.
 // 6. Caches episode timeline analysis permanently in localStorage.
@@ -897,20 +897,20 @@ function _showLiveCaption(text) {
   if (state.experimentalSettings.enableTranscript === false) return;
   console.log('[Caption] _showLiveCaption() called. dismissed=', _captionDismissed, ' text="' + text?.slice(0,50) + '"');
   if (_captionDismissed) {
-    console.log('[Caption] ❌ dismissed by user, skipped.');
+    console.log('[Caption] dismissed by user, skipped.');
     return;
   }
   const popup   = elements.liveCaptionPopup;
   const textEl  = elements.liveCaptionText;
   console.log('[Caption] popup el=', popup, '  textEl=', textEl);
   if (!popup || !textEl) {
-    console.warn('[Caption] ❌ DOM elements not found! liveCaptionPopup=', document.getElementById('live-caption-popup'));
+    console.warn('[Caption] DOM elements not found! liveCaptionPopup=', document.getElementById('live-caption-popup'));
     return;
   }
 
   textEl.textContent = text;
   popup.classList.remove('hidden');
-  console.log('[Caption] ✅ caption shown. popup classes=', popup.className);
+  console.log('[Caption] caption shown. popup classes=', popup.className);
 
   // Auto-hide after 8 s of no new cues
   if (_captionHideTimer) clearTimeout(_captionHideTimer);
@@ -931,7 +931,7 @@ function _hideLiveCaption(dismiss = false) {
 if (elements.btnCloseCaption) {
   elements.btnCloseCaption.addEventListener('click', () => _hideLiveCaption(true));
 } else {
-  console.warn('[Caption] ⚠️ btnCloseCaption not found in DOM — caption popup may not work!');
+  console.warn('[Caption] btnCloseCaption not found in DOM — caption popup may not work!');
 }
 
 // ── Live Transcription Engine (Cloudflare AI Whisper) ───────────────────
@@ -984,7 +984,7 @@ const liveTranscription = (() => {
       return;
     }
     cues.push({ start: Math.round(startSec), end: Math.round(endSec + 0.5), text: trimmed, live: true });
-    console.log('[LiveTranscript] _addCue() ✅ cue added. total=', cues.length);
+    console.log('[LiveTranscript] _addCue() cue added. total=', cues.length);
     if (state.experimentalSettings.enableTranscript) renderTranscriptView();
     _persistCues();
     _showLiveCaption(trimmed);
@@ -1002,12 +1002,12 @@ const liveTranscription = (() => {
       const midSec = (startSec + endSec) * 0.5;
       const barIdx = Math.min(state.episodeTimeline.bars.length - 1, Math.max(0, Math.floor((midSec / state.episodeTimeline.duration) * state.episodeTimeline.bars.length)));
       if (state.episodeTimeline.bars[barIdx]?.type === 'music') {
-        console.log(`[LiveTranscript] 🎵 Skipping Whisper transcription at ${midSec.toFixed(1)}s (classified as music)`);
+        console.log(`[LiveTranscript] Skipping Whisper transcription at ${midSec.toFixed(1)}s (classified as music)`);
         return;
       }
     }
 
-    console.log(`[LiveTranscript] 📤 sending chunk ${blob.size} bytes  [${startSec.toFixed(1)}s → ${endSec.toFixed(1)}s]`);
+    console.log(`[LiveTranscript] sending chunk ${blob.size} bytes  [${startSec.toFixed(1)}s → ${endSec.toFixed(1)}s]`);
 
     const lang = (state.currentEpisode && state.currentEpisode.language) || 'en';
     try {
@@ -1021,7 +1021,7 @@ const liveTranscription = (() => {
       });
 
       const data = await res.json();
-      console.log('[LiveTranscript] 📥 Whisper response:', data);
+      console.log('[LiveTranscript] Whisper response:', data);
 
       if (!res.ok) {
         console.warn('[LiveTranscript] /api/transcribe error:', data.error);
@@ -1062,9 +1062,9 @@ const liveTranscription = (() => {
         console.warn('[LiveTranscript] captureStream() failed:', e.message);
       }
       if (!stream) {
-        console.warn('[LiveTranscript] ❌ captureStream() not supported on this browser/OS.');
+        console.warn('[LiveTranscript] captureStream() not supported on this browser/OS.');
         if (elements.probeStatusPill) {
-          elements.probeStatusPill.textContent = '⚠️ Live transcript not supported here';
+          elements.probeStatusPill.textContent = 'Live transcript not supported here';
           elements.probeStatusPill.classList.remove('hidden');
           setTimeout(() => elements.probeStatusPill?.classList.add('hidden'), 3000);
         }
@@ -1099,7 +1099,7 @@ const liveTranscription = (() => {
     mediaRecorder.onstop = () => {
       const endTime = _currentTime();
       const blob = new Blob(chunks, { type: mime || 'audio/webm' });
-      console.log(`[LiveTranscript] 🎙 chunk stopped. ${chunks.length} parts, ${blob.size} bytes`);
+      console.log(`[LiveTranscript] chunk stopped. ${chunks.length} parts, ${blob.size} bytes`);
       _sendChunk(blob, chunkStart, endTime);
 
       // Schedule next chunk if still active & playing
@@ -1124,7 +1124,7 @@ const liveTranscription = (() => {
 
     // Show pill
     if (elements.probeStatusPill) {
-      elements.probeStatusPill.textContent = '🎙 Transcribing…';
+      elements.probeStatusPill.textContent = 'Transcribing…';
       elements.probeStatusPill.classList.remove('hidden');
     }
   }
@@ -2082,7 +2082,7 @@ function jumpToNextSegment(targetType) {
     }
     updateProgress();
     if (elements.probeStatusPill) {
-      elements.probeStatusPill.textContent = `⏭ Jumped to ${targetType === 'music' ? 'Music 🎵' : 'Talk 🎙️'} (${formatTime(nextSeg.start)})`;
+      elements.probeStatusPill.textContent = `⏭ Jumped to ${targetType === 'music' ? 'Music ' : 'Talk '} (${formatTime(nextSeg.start)})`;
       elements.probeStatusPill.classList.remove('hidden');
       setTimeout(() => elements.probeStatusPill.classList.add('hidden'), 2500);
     }
@@ -2231,7 +2231,7 @@ function setupWaveformInteractivity() {
       // Only compute speech/music label if Audio Classifier is active in settings
       const showClassifier = Boolean(state.experimentalSettings && state.experimentalSettings.enableAudioClassifier);
       const matchSeg = showClassifier ? segments.find(s => hoverSec >= s.start && hoverSec <= s.end) : null;
-      const typeLabel = matchSeg ? (matchSeg.type === 'music' ? '🎵 Music' : '🎙️ Talk') : '';
+      const typeLabel = matchSeg ? (matchSeg.type === 'music' ? 'Music' : 'Talk') : '';
 
       elements.waveformTooltip.textContent = `${formatTime(hoverSec)}${typeLabel ? ' · ' + typeLabel : ''}`;
       elements.waveformTooltip.style.left = `${pct * 100}%`;
@@ -2269,7 +2269,7 @@ function setupWaveformInteractivity() {
         syncExperimentalUI();
 
         const active = state.experimentalSettings.autoSkipSpeech;
-        showToast(active ? '⚡ auto-skip talk enabled' : 'auto-skip talk disabled');
+        showToast(active ? 'auto-skip talk enabled' : 'auto-skip talk disabled');
         return;
       }
 

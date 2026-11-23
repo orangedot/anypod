@@ -48,7 +48,7 @@ function buildCleanerEmailHtml({ email, appUrl, verifyUrl, opmlUrl, isFinalNotic
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0c0a09; color: #f5f5f4; padding: 40px 20px;">
   <div style="max-width: 500px; margin: 0 auto; background: #1c1917; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 36px 28px; text-align: center;">
     <div style="display: inline-block; width: 44px; height: 44px; background: rgba(216, 205, 190, 0.12); border-radius: 50%; line-height: 44px; font-size: 20px; margin-bottom: 18px;">
-      ${isFinalNotice ? '⚠️' : '🧹'}
+      ${isFinalNotice ? '' : ''}
     </div>
     <h1 style="color: #ffffff; font-size: 20px; margin-bottom: 12px; font-weight: 700; letter-spacing: -0.01em;">${title}</h1>
     <p style="color: #a8a29e; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">

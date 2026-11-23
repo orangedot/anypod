@@ -2511,7 +2511,7 @@ const DISCOVER_AI_TOPICS = {
     key: 'science',
     shelfId: 'science',
     label: 'Science & Cosmos',
-    icon: '🔬',
+    icon: '',
     shortLabel: 'Science & Cosmos',
     keywords: [
       'science', 'space', 'cosmos', 'universe', 'nasa', 'astronomy', 'astrophysics',
@@ -2525,7 +2525,7 @@ const DISCOVER_AI_TOPICS = {
     key: 'democracy',
     shelfId: 'democracy',
     label: 'Democracy & Free Press',
-    icon: '🏛️',
+    icon: '',
     shortLabel: 'Democracy & Press',
     keywords: [
       'democracy', 'press', 'investigative', 'civics', 'politics', 'election', 'court',
@@ -2538,7 +2538,7 @@ const DISCOVER_AI_TOPICS = {
     key: 'social',
     shelfId: 'social',
     label: 'Social & Human Stories',
-    icon: '🌍',
+    icon: '',
     shortLabel: 'Human Stories',
     keywords: [
       'social', 'human', 'stories', 'culture', 'psychology', 'philosophy', 'society',
@@ -2551,7 +2551,7 @@ const DISCOVER_AI_TOPICS = {
     key: 'entertainment',
     shelfId: 'entertainment',
     label: 'Entertainment & Culture',
-    icon: '🎭',
+    icon: '',
     shortLabel: 'Entertainment & Arts',
     keywords: [
       'entertainment', 'cinema', 'film', 'movies', 'music', 'comedy', 'pop culture',
@@ -2564,7 +2564,7 @@ const DISCOVER_AI_TOPICS = {
     key: 'sports',
     shelfId: 'sports',
     label: 'Sports & Athletics',
-    icon: '⚽',
+    icon: '',
     shortLabel: 'Sports & Athletics',
     keywords: [
       'sports', 'football', 'soccer', 'nba', 'nfl', 'athletics', 'endurance', 'running',
@@ -2577,7 +2577,7 @@ const DISCOVER_AI_TOPICS = {
     key: 'technology',
     shelfId: 'technology',
     label: 'Technology & Future',
-    icon: '💻',
+    icon: '',
     shortLabel: 'Technology & Future',
     keywords: [
       'technology', 'software', 'programming', 'developer', 'code', 'open source', 'ai',
@@ -2590,7 +2590,7 @@ const DISCOVER_AI_TOPICS = {
     key: 'history',
     shelfId: 'history',
     label: 'History & Ideas',
-    icon: '🏺',
+    icon: '',
     shortLabel: 'History & Ideas',
     keywords: [
       'history', 'ancient', 'war', 'empire', 'civilization', 'medieval', 'century',
@@ -2728,57 +2728,57 @@ function analyzeTasteProfile(currentState, force = false) {
     personaTitle = 'Curious Explorer';
     personaNarrative = 'Welcome to Anypod! We have prepared curated discovery shelves spanning planetary science, democracy & free press, technology, history, and human stories.';
     vibes.push(
-      { label: '🔬 Science & Cosmos', target: 'shelf-science' },
-      { label: '🏛️ Democracy & Press', target: 'shelf-democracy' },
-      { label: '💻 Tech & AI', target: 'shelf-technology' },
-      { label: '🏺 History & Ideas', target: 'shelf-history' }
+      { label: 'Science & Cosmos', target: 'shelf-science' },
+      { label: 'Democracy & Press', target: 'shelf-democracy' },
+      { label: 'Tech & AI', target: 'shelf-technology' },
+      { label: 'History & Ideas', target: 'shelf-history' }
     );
   } else if (top1 && top1.key === 'technology') {
     personaTitle = top2 && top2.key === 'democracy' ? 'Tech & Democracy Analyst' : 'Technological Futurist & Systems Strategist';
     personaNarrative = 'Your feeds trace the cutting edge of artificial intelligence, computing architectures, and digital evolution.';
-    vibes.push({ label: '💻 Tech & Future', target: 'shelf-technology' });
+    vibes.push({ label: 'Tech & Future', target: 'shelf-technology' });
     if (top2) vibes.push({ label: `${top2.def.icon} ${top2.def.shortLabel}`, target: `shelf-${top2.def.shelfId || top2.key}` });
     vibes.push({ label: durationVibe, target: null });
   } else if (top1 && top1.key === 'democracy') {
     personaTitle = top2 && top2.key === 'technology' ? 'Tech & Democracy Analyst' : 'Global Inquirer & Investigative Mind';
     personaNarrative = 'Your library seeks deep journalistic rigor, civics, democratic integrity, and global investigative reporting.';
-    vibes.push({ label: '🏛️ Democracy & Press', target: 'shelf-democracy' });
+    vibes.push({ label: 'Democracy & Press', target: 'shelf-democracy' });
     if (top2) vibes.push({ label: `${top2.def.icon} ${top2.def.shortLabel}`, target: `shelf-${top2.def.shelfId || top2.key}` });
     vibes.push({ label: durationVibe, target: null });
   } else if (top1 && top1.key === 'science') {
     personaTitle = 'Cosmic Explorer & Empirical Inquirer';
     personaNarrative = 'Your library reveals an insatiable appetite for science, astrophysics, and fundamental research.';
-    vibes.push({ label: '🔬 Science & Cosmos', target: 'shelf-science' });
+    vibes.push({ label: 'Science & Cosmos', target: 'shelf-science' });
     if (top2) vibes.push({ label: `${top2.def.icon} ${top2.def.shortLabel}`, target: `shelf-${top2.def.shelfId || top2.key}` });
     vibes.push({ label: durationVibe, target: null });
   } else if (top1 && top1.key === 'history') {
     personaTitle = 'Historical Scholar & Deep Systems Thinker';
     personaNarrative = 'Your listening journeys across civilizational turning points, ancient empires, and timeless ideas.';
-    vibes.push({ label: '🏺 History & Ideas', target: 'shelf-history' });
+    vibes.push({ label: 'History & Ideas', target: 'shelf-history' });
     if (top2) vibes.push({ label: `${top2.def.icon} ${top2.def.shortLabel}`, target: `shelf-${top2.def.shelfId || top2.key}` });
     vibes.push({ label: durationVibe, target: null });
   } else if (top1 && top1.key === 'social') {
     personaTitle = 'Humanist & Cultural Inquirer';
     personaNarrative = 'You explore human psychology, empathy, and rich narrative storytelling across cultures.';
-    vibes.push({ label: '🌍 Human Stories', target: 'shelf-social' });
+    vibes.push({ label: 'Human Stories', target: 'shelf-social' });
     if (top2) vibes.push({ label: `${top2.def.icon} ${top2.def.shortLabel}`, target: `shelf-${top2.def.shelfId || top2.key}` });
     vibes.push({ label: durationVibe, target: null });
   } else if (top1 && top1.key === 'entertainment') {
     personaTitle = 'Cultural Connoisseur & Arts Explorer';
     personaNarrative = 'Your collection embraces great cinema, music, comedy, and artistic discussions.';
-    vibes.push({ label: '🎭 Arts & Culture', target: 'shelf-entertainment' });
+    vibes.push({ label: 'Arts & Culture', target: 'shelf-entertainment' });
     if (top2) vibes.push({ label: `${top2.def.icon} ${top2.def.shortLabel}`, target: `shelf-${top2.def.shelfId || top2.key}` });
     vibes.push({ label: durationVibe, target: null });
   } else if (top1 && top1.key === 'sports') {
     personaTitle = 'Athletic Strategist & Sports Enthusiast';
     personaNarrative = 'Your feeds focus on high performance, analytics, football tactics, and athletic endurance.';
-    vibes.push({ label: '⚽ Sports & Athletics', target: 'shelf-sports' });
+    vibes.push({ label: 'Sports & Athletics', target: 'shelf-sports' });
     if (top2) vibes.push({ label: `${top2.def.icon} ${top2.def.shortLabel}`, target: `shelf-${top2.def.shelfId || top2.key}` });
     vibes.push({ label: durationVibe, target: null });
   } else {
     personaTitle = 'Scientific Polymath & Inquisitive Mind';
     personaNarrative = 'Your listening spans fundamental science, exploratory reporting, and thoughtful audio.';
-    vibes.push({ label: '🔬 Science & Cosmos', target: 'shelf-science' });
+    vibes.push({ label: 'Science & Cosmos', target: 'shelf-science' });
     if (top1) vibes.push({ label: `${top1.def.icon} ${top1.def.shortLabel}`, target: `shelf-${top1.def.shelfId || top1.key}` });
     vibes.push({ label: durationVibe, target: null });
   }
@@ -2818,7 +2818,7 @@ function buildDiscoverEpisodeCard(ep, whyNote, isExternal = false) {
     let icon = '✦';
     let text = String(whyNote || '').trim();
     const firstChar = text.slice(0, 2).trim();
-    if (['⏳', '✨', '✦', '🌱', '🚀', '🔬', '🎵', '⚡', '🧠', '🌐'].includes(firstChar) || ['⏳', '✨', '✦'].includes(text[0])) {
+    if (['⏳', '', '✦', '', '', '', '', '', '', ''].includes(firstChar) || ['⏳', '', '✦'].includes(text[0])) {
       icon = text.slice(0, 2).trim() || text[0];
       text = text.slice(icon.length).trim();
     }
@@ -2876,7 +2876,7 @@ function buildDiscoverShowCard(show, whyNote, idx = 0) {
   let icon = '✦';
   let text = String(whyNote || '').trim();
   const firstChar = text.slice(0, 2).trim();
-  if (['⏳', '✨', '✦', '🌱', '🚀', '🔬', '🎵', '⚡', '🧠', '🌐'].includes(firstChar) || ['⏳', '✨', '✦'].includes(text[0])) {
+  if (['⏳', '', '✦', '', '', '', '', '', '', ''].includes(firstChar) || ['⏳', '', '✦'].includes(text[0])) {
     icon = text.slice(0, 2).trim() || text[0];
     text = text.slice(icon.length).trim();
   }
@@ -3128,7 +3128,7 @@ function buildDiscoverRecentFeedCard(url) {
       <img class="feed-art" loading="lazy" decoding="async" width="64" height="64" src="${escapeHtml(art)}" alt="" onerror="this.onerror=null;this.src='${FALLBACK_ARTWORK}';">
       <div class="feed-info">
         <h4>${escapeHtml(title)}</h4>
-        <p><span class="hot-feed-chip">🔥 Hot</span> • ${escapeHtml(epCountLabel)}</p>
+        <p><span class="hot-feed-chip">Hot</span> • ${escapeHtml(epCountLabel)}</p>
       </div>
       <div class="feed-header-actions">
         <div class="ep-more-menu-wrap">
@@ -3321,7 +3321,7 @@ async function openCategoryCatalogModal(categoryKey) {
     if (elements.catalogGrid) {
       elements.catalogGrid.innerHTML = `
         <div class="catalog-empty-msg">
-          <p>⚠️ Unable to load catalog shows.</p>
+          <p>Unable to load catalog shows.</p>
         </div>
       `;
     }
@@ -3638,7 +3638,7 @@ function renderDiscover(forceRebuild = false) {
       whyNote = `⏳ Pick up where you left off • Resumes at ${formatTime(pos.position)}`;
     } else if (isFav) {
       score += 4.0;
-      whyNote = `✨ Favorite show cut • High engagement`;
+      whyNote = `Favorite show cut • High engagement`;
     }
 
     const text = `${ep.title || ''} ${ep.description || ''}`.toLowerCase();
@@ -3695,7 +3695,7 @@ function renderDiscover(forceRebuild = false) {
       }
     }
 
-    const whyNote = `✨ Recommended companion for your ${matchedTopicLabel} taste`;
+    const whyNote = `Recommended companion for your ${matchedTopicLabel} taste`;
     externalCandidates.push({ show, score, whyNote });
   });
 
@@ -3883,7 +3883,7 @@ function renderDiscover(forceRebuild = false) {
     recalibrateBtn.addEventListener('click', (e) => {
       e.preventDefault();
       recalibrateBtn.style.opacity = '0.5';
-      showToast('✨ AI taste profile recalibrated against your library!');
+      showToast('AI taste profile recalibrated against your library!');
       setTimeout(() => {
         _cachedTasteProfile = null;
         renderDiscover(true);
@@ -4009,7 +4009,7 @@ function wireEmptyStateEvents(targetRoot = document) {
           if (added) {
             const meta = state.feedMetadata[val] || {};
             if (meta.error) {
-              showToast(`⚠️ Could not load feed: ${meta.error}`, 4000);
+              showToast(`Could not load feed: ${meta.error}`, 4000);
               if (quickSubmit) {
                 quickSubmit.textContent = 'Add Feed';
                 quickSubmit.disabled = false;
@@ -4042,7 +4042,7 @@ function wireEmptyStateEvents(targetRoot = document) {
             }
           }
         } catch (err) {
-          showToast(`⚠️ Error adding feed: ${err?.message || 'Network error'}`, 4000);
+          showToast(`Error adding feed: ${err?.message || 'Network error'}`, 4000);
           if (quickSubmit) {
             quickSubmit.textContent = 'Add Feed';
             quickSubmit.disabled = false;

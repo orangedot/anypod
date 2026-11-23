@@ -46,10 +46,10 @@ function loadConfigFile() {
         } else {
           config = parseSimpleYaml(content);
         }
-        console.log(`📄 Loaded configuration from ${filePath}`);
+        console.log(`Loaded configuration from ${filePath}`);
         return config;
       } catch (err) {
-        console.warn(`⚠️ Failed to parse config file at ${filePath}:`, err.message);
+        console.warn(`Failed to parse config file at ${filePath}:`, err.message);
       }
     }
   }
@@ -96,13 +96,13 @@ export function syncConfigToEnv() {
   fs.writeFileSync(envPath, envLines.join('\n') + '\n', 'utf-8');
 
   // Friendly console banner
-  console.log('⚡ Anypod Environment Configuration:');
+  console.log('Anypod Environment Configuration:');
   console.log(`   - PORT:           ${envOut.PORT}`);
   console.log(`   - APP_URL:        ${envOut.APP_URL}`);
   console.log(`   - FROM_EMAIL:     ${envOut.FROM_EMAIL}`);
   console.log(`   - RESEND_API_KEY: ${envOut.RESEND_API_KEY ? '••••••••' + envOut.RESEND_API_KEY.slice(-4) : '(not set, offline magic-link mode enabled)'}`);
   console.log(`   - CRON_SECRET:    ${envOut.CRON_SECRET ? '••••••••' : '(not set)'}`);
-  console.log(`📁 Wrote ${envLines.length} variables to ${envPath}`);
+  console.log(`Wrote ${envLines.length} variables to ${envPath}`);
 
   return envOut;
 }

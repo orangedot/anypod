@@ -29,14 +29,14 @@ if (!fs.existsSync(catalogsDir)) {
 const scienceCatalog = {
   id: "science",
   title: "Science & Cosmos",
-  emoji: "🔬",
+  emoji: "",
   description: "Planetary science, cosmic mysteries, cutting-edge research, and ecology.",
   subtopics: [
     { id: "all", label: "All Shows" },
-    { id: "space", label: "🚀 Space & Cosmos" },
-    { id: "science", label: "🔬 Research & Physics" },
-    { id: "climate", label: "🌱 Climate & Energy" },
-    { id: "nature", label: "🌿 Earth & Nature" }
+    { id: "space", label: "Space & Cosmos" },
+    { id: "science", label: "Research & Physics" },
+    { id: "climate", label: "Climate & Energy" },
+    { id: "nature", label: "Earth & Nature" }
   ],
   featured: [
     { title: "NASA's Curious Universe", feed: "https://feeds.megaphone.fm/NATIONALAERONAUTICSANDSPACEADMINISTRATION8162188566", badge: "EN • Space", topic: "space", whyNote: "Explore cosmic wonders with NASA scientists" },
@@ -103,14 +103,14 @@ const scienceCatalog = {
 const democracyCatalog = {
   id: "democracy",
   title: "Democracy & Free Press",
-  emoji: "🏛️",
+  emoji: "",
   description: "Investigative journalism, civics, democratic integrity, and global affairs.",
   subtopics: [
     { id: "all", label: "All Shows" },
-    { id: "investigative", label: "🔍 Investigative" },
-    { id: "global", label: "🌐 Global Affairs" },
-    { id: "civics", label: "⚖️ Civics & Law" },
-    { id: "press", label: "📰 Free Press" }
+    { id: "investigative", label: "Investigative" },
+    { id: "global", label: "Global Affairs" },
+    { id: "civics", label: "Civics & Law" },
+    { id: "press", label: "Free Press" }
   ],
   featured: [
     { title: "Frontline PBS", feed: "https://feeds.feedburner.com/pbs/frontline", badge: "EN • Investigative", topic: "investigative", whyNote: "Deep investigative reporting on critical issues" },
@@ -177,14 +177,14 @@ const democracyCatalog = {
 const socialCatalog = {
   id: "social",
   title: "Social & Human Stories",
-  emoji: "🌍",
+  emoji: "",
   description: "Culture, human experience, philosophy, psychology, and personal journeys.",
   subtopics: [
     { id: "all", label: "All Shows" },
-    { id: "culture", label: "🎭 Culture & Society" },
-    { id: "psychology", label: "🧠 Mind & Behavior" },
-    { id: "philosophy", label: "💡 Philosophy" },
-    { id: "stories", label: "📖 Personal Stories" }
+    { id: "culture", label: "Culture & Society" },
+    { id: "psychology", label: "Mind & Behavior" },
+    { id: "philosophy", label: "Philosophy" },
+    { id: "stories", label: "Personal Stories" }
   ],
   featured: [
     { title: "This American Life", feed: "https://www.thisamericanlife.org/podcast/rss.xml", badge: "EN • Storytelling", topic: "stories", whyNote: "Pioneering journalistic storytelling and human empathy" },
@@ -251,14 +251,14 @@ const socialCatalog = {
 const entertainmentCatalog = {
   id: "entertainment",
   title: "Entertainment & Culture",
-  emoji: "🎭",
+  emoji: "",
   description: "Cinema, comedy, music, storytelling, and contemporary pop culture.",
   subtopics: [
     { id: "all", label: "All Shows" },
-    { id: "cinema", label: "🎬 Film & TV" },
-    { id: "comedy", label: "😂 Comedy & Wit" },
-    { id: "music", label: "🎵 Music & Sound" },
-    { id: "pop", label: "🍿 Pop Culture" }
+    { id: "cinema", label: "Film & TV" },
+    { id: "comedy", label: "Comedy & Wit" },
+    { id: "music", label: "Music & Sound" },
+    { id: "pop", label: "Pop Culture" }
   ],
   featured: [
     { title: "Song Exploder", feed: "https://feeds.simplecast.com/Z6tY_B0X", badge: "EN • Music", topic: "music", whyNote: "Musicians break down the creative anatomy of their songs" },
@@ -325,14 +325,14 @@ const entertainmentCatalog = {
 const sportsCatalog = {
   id: "sports",
   title: "Sports & Athletics",
-  emoji: "⚽",
+  emoji: "",
   description: "Global football, endurance athletics, performance science, and sports journalism.",
   subtopics: [
     { id: "all", label: "All Shows" },
-    { id: "football", label: "⚽ Football / Soccer" },
-    { id: "endurance", label: "🏃 Endurance & Running" },
-    { id: "analytics", label: "📊 Analytics & Tactics" },
-    { id: "motorsport", label: "🏎️ F1 & Motorsport" }
+    { id: "football", label: "Football / Soccer" },
+    { id: "endurance", label: "Endurance & Running" },
+    { id: "analytics", label: "Analytics & Tactics" },
+    { id: "motorsport", label: "F1 & Motorsport" }
   ],
   featured: [
     { title: "The Athletic Football Podcast", feed: "https://feeds.megaphone.fm/theathleticfootball", badge: "EN • Football", topic: "football", whyNote: "Authoritative insider analysis from premier football journalists" },
@@ -399,14 +399,14 @@ const sportsCatalog = {
 const technologyCatalog = {
   id: "technology",
   title: "Technology & Future",
-  emoji: "💻",
+  emoji: "",
   description: "Open source, software craftsmanship, artificial intelligence, security, and digital freedom.",
   subtopics: [
     { id: "all", label: "All Shows" },
-    { id: "opensource", label: "🐧 Open Source" },
-    { id: "ai", label: "🤖 AI & Machine Learning" },
-    { id: "dev", label: "⚙️ Engineering & Code" },
-    { id: "privacy", label: "🛡️ Security & Privacy" }
+    { id: "opensource", label: "Open Source" },
+    { id: "ai", label: "AI & Machine Learning" },
+    { id: "dev", label: "Engineering & Code" },
+    { id: "privacy", label: "Security & Privacy" }
   ],
   featured: [
     { title: "The Changelog", feed: "https://changelog.com/podcast/feed", badge: "EN • Open Source", topic: "opensource", whyNote: "Conversations with open source creators, hackers, and leaders" },
@@ -473,14 +473,14 @@ const technologyCatalog = {
 const historyCatalog = {
   id: "history",
   title: "History & Ideas",
-  emoji: "🏺",
+  emoji: "",
   description: "Epic historical journeys, archaeology, pivotal events, and intellectual evolution.",
   subtopics: [
     { id: "all", label: "All Shows" },
-    { id: "epic", label: "⚔️ Epic & Military History" },
-    { id: "world", label: "🌍 World History" },
-    { id: "ideas", label: "💡 History of Ideas" },
-    { id: "archaeology", label: "🏛️ Ancient & Archaeology" }
+    { id: "epic", label: "Epic & Military History" },
+    { id: "world", label: "World History" },
+    { id: "ideas", label: "History of Ideas" },
+    { id: "archaeology", label: "Ancient & Archaeology" }
   ],
   featured: [
     { title: "Dan Carlin's Hardcore History", feed: "https://feeds.feedburner.com/dancarlin/history?format=xml", badge: "EN • Epic", topic: "epic", whyNote: "Epic, intense deep-dives into humanity's most dramatic crucibles" },
@@ -556,7 +556,7 @@ const catalogs = [
 for (const cat of catalogs) {
   const filePath = path.join(catalogsDir, `${cat.id}.json`);
   fs.writeFileSync(filePath, JSON.stringify(cat, null, 2), 'utf8');
-  console.log(`✅ Saved catalog: ${cat.id}.json (${cat.shows.length} shows, 5 featured)`);
+  console.log(`Saved catalog: ${cat.id}.json (${cat.shows.length} shows, 5 featured)`);
 }
 
 // Also write index manifest catalogs.json
@@ -570,4 +570,4 @@ const catalogIndex = catalogs.map(c => ({
   subtopics: c.subtopics
 }));
 fs.writeFileSync(path.join(catalogsDir, 'index.json'), JSON.stringify(catalogIndex, null, 2), 'utf8');
-console.log(`🎉 Successfully generated all 7 catalogs (350 curated shows total) + index.json!`);
+console.log(`Successfully generated all 7 catalogs (350 curated shows total) + index.json!`);

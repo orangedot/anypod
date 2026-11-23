@@ -1,7 +1,7 @@
 {
   "id": "democracy",
   "title": "Democracy & Free Press",
-  "emoji": "🏛️",
+  "emoji": "",
   "description": "Investigative journalism, civics, democratic integrity, and global affairs.",
   "subtopics": [
     {
@@ -10,19 +10,19 @@
     },
     {
       "id": "investigative",
-      "label": "🔍 Investigative"
+      "label": "Investigative"
     },
     {
       "id": "global",
-      "label": "🌐 Global Affairs"
+      "label": "Global Affairs"
     },
     {
       "id": "civics",
-      "label": "⚖️ Civics & Law"
+      "label": "Civics & Law"
     },
     {
       "id": "press",
-      "label": "📰 Free Press"
+      "label": "Free Press"
     }
   ],
   "featured": [

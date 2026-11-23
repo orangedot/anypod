@@ -22,7 +22,7 @@ const modulePath = path.resolve(__dirname, '../public/app/01-state-and-dom.js');
 const moduleJs = fs.readFileSync(modulePath, 'utf8');
 const match = moduleJs.match(/const CURATED_SCIENCE_FEEDS = (\[[\s\S]*?\n\]);/);
 if (!match) {
-  console.error('❌ Could not locate CURATED_SCIENCE_FEEDS in 01-state-and-dom.js');
+  console.error('Could not locate CURATED_SCIENCE_FEEDS in 01-state-and-dom.js');
   process.exit(1);
 }
 
@@ -30,7 +30,7 @@ let curatedFeeds;
 try {
   curatedFeeds = (new Function(`return ${match[1]}`))();
 } catch (err) {
-  console.error('❌ Failed to parse CURATED_SCIENCE_FEEDS:', err.message);
+  console.error('Failed to parse CURATED_SCIENCE_FEEDS:', err.message);
   process.exit(1);
 }
 
@@ -119,7 +119,7 @@ async function searchApplePodcasts(title) {
 }
 
 async function main() {
-  console.log(`\n🎙️  Testing ${curatedFeeds.length} Curated Shows Worldwide...\n`);
+  console.log(`\nTesting ${curatedFeeds.length} Curated Shows Worldwide...\n`);
 
   const results = [];
   const broken = [];
@@ -137,11 +137,11 @@ async function main() {
 
     for (const { item, check } of batchResults) {
       if (check.ok) {
-        const redirected = check.finalUrl !== item.feed ? ` (➡️ ${check.finalUrl.slice(0, 45)}...)` : '';
-        console.log(`  ✅ [${item.badge}] ${item.title} — ${check.episodes} eps${redirected}`);
+        const redirected = check.finalUrl !== item.feed ? ` (${check.finalUrl.slice(0, 45)}...)` : '';
+        console.log(`  [${item.badge}] ${item.title} — ${check.episodes} eps${redirected}`);
         results.push({ item, check });
       } else {
-        console.log(`  ❌ [${item.badge}] ${item.title} — ${check.error} (${item.feed})`);
+        console.log(`  [${item.badge}] ${item.title} — ${check.error} (${item.feed})`);
         broken.push({ item, check });
       }
     }
@@ -152,24 +152,24 @@ async function main() {
   console.log(`────────────────────────────────────────────────────────────\n`);
 
   if (broken.length > 0 && shouldResolve) {
-    console.log(`🔍 Searching Apple Podcasts directory for replacement URLs for ${broken.length} shows...\n`);
+    console.log(`Searching Apple Podcasts directory for replacement URLs for ${broken.length} shows...\n`);
     for (const { item, check } of broken) {
       const candidate = await searchApplePodcasts(item.title);
       if (candidate && candidate.feedUrl) {
         const verify = await testFeedUrl(candidate.feedUrl);
         if (verify.ok) {
-          console.log(`  ✨ Found live feed for "${item.title}":`);
+          console.log(`  Found live feed for "${item.title}":`);
           console.log(`     Old: ${item.feed}`);
           console.log(`     New: ${candidate.feedUrl} (${verify.episodes} eps)\n`);
         } else {
-          console.log(`  ⚠️  Candidate for "${item.title}" also failed (${candidate.feedUrl})\n`);
+          console.log(`  Candidate for "${item.title}" also failed (${candidate.feedUrl})\n`);
         }
       } else {
-        console.log(`  ❓ No alternative found on iTunes for "${item.title}"\n`);
+        console.log(`  No alternative found on iTunes for "${item.title}"\n`);
       }
     }
   } else if (broken.length > 0) {
-    console.log(`💡 Tip: Run with --resolve to automatically find live replacement feed URLs:`);
+    console.log(`Tip: Run with --resolve to automatically find live replacement feed URLs:`);
     console.log(`   node scripts/check_curated_feeds.js --resolve\n`);
   }
 }

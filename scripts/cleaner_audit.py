@@ -324,7 +324,7 @@ def render_audit_report(audit: Dict[str, Any], dry_run: bool = True) -> None:
     """Print visually quiet, human-readable terminal audit."""
     print()
     print(f"{Colors.BOLD}╭──────────────────────────────────────────────────────────────╮{Colors.RESET}")
-    print(f"{Colors.BOLD}│      🧹 ANYPOD CLEANER MONDAY: INACTIVE ACCOUNT AUDIT        │{Colors.RESET}")
+    print(f"{Colors.BOLD}│      ANYPOD CLEANER MONDAY: INACTIVE ACCOUNT AUDIT        │{Colors.RESET}")
     print(f"{Colors.BOLD}╰──────────────────────────────────────────────────────────────╯{Colors.RESET}")
     print(f"  Mode:             {Colors.YELLOW}DRY-RUN (No emails sent, no data modified){Colors.RESET}" if dry_run else f"{Colors.RED}LIVE EXECUTION{Colors.RESET}")
     print(f"  Data Source:      Cloudflare D1 (podany-db) via {Colors.CYAN}{audit['engine']}{Colors.RESET}")
@@ -333,12 +333,12 @@ def render_audit_report(audit: Dict[str, Any], dry_run: bool = True) -> None:
     print(f"  {Colors.GRAY}{'─' * 62}{Colors.RESET}")
 
     # Section 1: Active Users (< 60 days)
-    print(f"\n{Colors.BOLD}🟢 Active & Healthy Accounts (< 60 Days Inactive):{Colors.RESET} {len(audit['active_cohort'])} users")
+    print(f"\n{Colors.BOLD}Active & Healthy Accounts (< 60 Days Inactive):{Colors.RESET} {len(audit['active_cohort'])} users")
     for u in audit["active_cohort"]:
         print(f"  • {Colors.CYAN}{u['short_id']}{Colors.RESET} ({u['email']}) — {Colors.GREEN}{u['inactive_days']} days inactive{Colors.RESET} (Last active: {u['last_active']})")
 
     # Section 2: 60-Day Warning Needed
-    print(f"\n{Colors.BOLD}🟡 Due for 60-Day Check-in Email (60–79 Days Inactive):{Colors.RESET} {len(audit['to_warn_60d'])} users")
+    print(f"\n{Colors.BOLD}Due for 60-Day Check-in Email (60–79 Days Inactive):{Colors.RESET} {len(audit['to_warn_60d'])} users")
     if audit["to_warn_60d"]:
         for u in audit["to_warn_60d"]:
             print(f"  • {Colors.YELLOW}{u['short_id']}{Colors.RESET} ({u['email']}) — {Colors.YELLOW}{u['inactive_days']} days inactive{Colors.RESET} (Last active: {u['last_active']})")
@@ -351,7 +351,7 @@ def render_audit_report(audit: Dict[str, Any], dry_run: bool = True) -> None:
         print(f"  {Colors.DIM}(Already notified at 60d: {', '.join(u['short_id'] for u in audit['already_warned_60d'])}){Colors.RESET}")
 
     # Section 3: 80-Day Final Notice Needed
-    print(f"\n{Colors.BOLD}🟠 Due for 80-Day Final Notice (80–89 Days Inactive):{Colors.RESET} {len(audit['to_warn_80d'])} users")
+    print(f"\n{Colors.BOLD}Due for 80-Day Final Notice (80–89 Days Inactive):{Colors.RESET} {len(audit['to_warn_80d'])} users")
     if audit["to_warn_80d"]:
         for u in audit["to_warn_80d"]:
             print(f"  • {Colors.RED}{u['short_id']}{Colors.RESET} ({u['email']}) — {Colors.RED}{u['inactive_days']} days inactive{Colors.RESET}")
@@ -360,7 +360,7 @@ def render_audit_report(audit: Dict[str, Any], dry_run: bool = True) -> None:
         print(f"  {Colors.GRAY}None currently in the 80–89d window.{Colors.RESET}")
 
     # Section 4: 90-Day Deletions
-    print(f"\n{Colors.BOLD}🔴 Due for Deletion (≥ 90 Days Inactive - GDPR Art. 5):{Colors.RESET} {len(audit['to_delete_90d'])} users")
+    print(f"\n{Colors.BOLD}Due for Deletion (≥ 90 Days Inactive - GDPR Art. 5):{Colors.RESET} {len(audit['to_delete_90d'])} users")
     if audit["to_delete_90d"]:
         for u in audit["to_delete_90d"]:
             print(f"  • {Colors.RED}{u['short_id']}{Colors.RESET} ({u['email']}) — {u['inactive_days']} days inactive (Permanent wipe)")
@@ -368,7 +368,7 @@ def render_audit_report(audit: Dict[str, Any], dry_run: bool = True) -> None:
         print(f"  {Colors.GRAY}Zero accounts scheduled for immediate deletion.{Colors.RESET}")
 
     print(f"\n  {Colors.GRAY}{'─' * 62}{Colors.RESET}")
-    print(f"{Colors.BOLD}💡 Lifecycle Next Steps:{Colors.RESET}")
+    print(f"{Colors.BOLD}Lifecycle Next Steps:{Colors.RESET}")
     if audit["to_warn_60d"]:
         print(f"  • Run with live dispatch: {Colors.CYAN}python3 scripts/cleaner_audit.py --run{Colors.RESET}")
         print(f"    (Dispatches Resend email to {', '.join(u['email'] for u in audit['to_warn_60d'])} and updates warned_30d_at)")

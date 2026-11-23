@@ -15,12 +15,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const appDir = path.resolve(__dirname, '..');
 
-console.log('🔍 Running Anypod Pre-Flight Deployment Checks...');
+console.log('Running Anypod Pre-Flight Deployment Checks...');
 
 // 1. Check functions directory & critical endpoints
 const functionsDir = path.join(appDir, 'functions');
 if (!fs.existsSync(functionsDir)) {
-  console.error('❌ CRITICAL ERROR: app/functions directory not found! Aborting deploy.');
+  console.error('CRITICAL ERROR: app/functions directory not found! Aborting deploy.');
   process.exit(1);
 }
 
@@ -34,42 +34,42 @@ const requiredEndpoints = [
 for (const ep of requiredEndpoints) {
   const fullPath = path.join(functionsDir, ep);
   if (!fs.existsSync(fullPath)) {
-    console.error(`❌ CRITICAL ERROR: Missing required function endpoint: ${ep}! Aborting deploy.`);
+    console.error(`CRITICAL ERROR: Missing required function endpoint: ${ep}! Aborting deploy.`);
     process.exit(1);
   }
 }
-console.log('✅ Functions directory and required API endpoints verified.');
+console.log('Functions directory and required API endpoints verified.');
 
 // 2. Check wrangler.json target project name
 const wranglerJsonPath = path.join(appDir, 'wrangler.json');
 if (!fs.existsSync(wranglerJsonPath)) {
-  console.error('❌ CRITICAL ERROR: wrangler.json not found! Aborting deploy.');
+  console.error('CRITICAL ERROR: wrangler.json not found! Aborting deploy.');
   process.exit(1);
 }
 
 try {
   const wranglerConfig = JSON.parse(fs.readFileSync(wranglerJsonPath, 'utf8'));
   if (wranglerConfig.name !== 'anypod') {
-    console.error(`❌ CRITICAL ERROR: Target project is "${wranglerConfig.name}", expected "anypod"! Aborting deploy.`);
+    console.error(`CRITICAL ERROR: Target project is "${wranglerConfig.name}", expected "anypod"! Aborting deploy.`);
     process.exit(1);
   }
-  console.log(`✅ Verified target Cloudflare Pages project: ${wranglerConfig.name} (anypod.org / podany.pages.dev)`);
+  console.log(`Verified target Cloudflare Pages project: ${wranglerConfig.name} (anypod.org / podany.pages.dev)`);
 } catch (err) {
-  console.error('❌ Failed to parse wrangler.json:', err.message);
+  console.error('Failed to parse wrangler.json:', err.message);
   process.exit(1);
 }
 
 // 3. Test compilation of Cloudflare Pages Functions
-console.log('⚙️  Testing compilation of Cloudflare Pages Functions...');
+console.log('Testing compilation of Cloudflare Pages Functions...');
 const tmpOut = path.join(appDir, '.tmp-verify-bundle');
 try {
   execSync(`npx wrangler pages functions build --outdir "${tmpOut}"`, {
     cwd: appDir,
     stdio: 'pipe'
   });
-  console.log('✅ Functions bundle compiled successfully with zero errors.');
+  console.log('Functions bundle compiled successfully with zero errors.');
 } catch (err) {
-  console.error('❌ CRITICAL ERROR: Cloudflare Pages Functions failed to compile!');
+  console.error('CRITICAL ERROR: Cloudflare Pages Functions failed to compile!');
   if (err.stderr) console.error(err.stderr.toString());
   process.exit(1);
 } finally {
@@ -79,18 +79,18 @@ try {
 }
 
 // 4. Run automated production build & headless browser smoke test
-console.log('📦 Ensuring clean production build for verification...');
+console.log('Ensuring clean production build for verification...');
 execSync('node scripts/build.js', { cwd: appDir, stdio: 'inherit' });
 
-console.log('🧪 Executing automated headless browser smoke test...');
+console.log('Executing automated headless browser smoke test...');
 try {
   await runSmokeTest();
-  console.log('✅ Browser smoke test verified: zero runtime errors, state & navigation clean.');
+  console.log('Browser smoke test verified: zero runtime errors, state & navigation clean.');
 } catch (smokeErr) {
-  console.error('\n❌ CRITICAL DEPLOYMENT GATE: Headless browser smoke test failed!');
+  console.error('\nCRITICAL DEPLOYMENT GATE: Headless browser smoke test failed!');
   console.error(smokeErr.message);
-  console.error('🚫 DEPLOYMENT ABORTED: Fix the browser runtime errors before deploying to production.\n');
+  console.error('DEPLOYMENT ABORTED: Fix the browser runtime errors before deploying to production.\n');
   process.exit(1);
 }
 
-console.log('🎉 Pre-flight verification passed! Safe to deploy.\n');
+console.log('Pre-flight verification passed! Safe to deploy.\n');

@@ -1,15 +1,15 @@
-# Anypod
+# anypod.org
 
-> Private, ad-free, open-source podcast player and RSS client.
+> anypod.org — AGPLv3 open-source PWA podcast player and RSS client.
 
-Anypod is a modern web podcast client and progressive web app (PWA) designed with complete privacy:
+anypod.org (Anypod) is a modern web podcast client and progressive web app (PWA) designed with complete privacy:
 - No tracking, no user profiles, no advertisements.
 - Direct RSS podcast subscription without central server accounts.
 - YouTube audio streaming and channel feeds.
 - Built-in AI Taste profile running privately on-device.
 - Offline-ready Progressive Web App (PWA) via service worker and IndexedDB.
 - Optional client-side encrypted cloud sync.
-- User data automatically expires and deletes after 50 days of inactivity.
+- User data automatically expires and deletes after 90 days of inactivity.
 
 ## Features
 
@@ -27,7 +27,7 @@ Anypod is a modern web podcast client and progressive web app (PWA) designed wit
 - [Anypod Web App](https://anypod.org/): Private web podcast player and RSS client.
 - [DJ Studio](https://dj.anypod.org/): Dual-deck Web Audio DJ mixing console.
 - [Workout Sets](https://sets.anypod.org/): Interval training audio sequencer.
-- [Source Code](https://github.com/orangedot/anypod): Open-source MIT repository on GitHub.
+- [Source Code](https://github.com/orangedot/anypod): Open-source AGPLv3 repository on GitHub.
 - [Self-Hosting Guide](https://github.com/orangedot/anypod/blob/main/app/SELF_HOSTING.md): Deployment instructions for Cloudflare Pages and Docker.
 - [Feed Proxy API](https://anypod.org/api/feed): CORS-compliant RSS podcast feed proxy and parser.
 

@@ -12,13 +12,13 @@ function assert(condition, testName, details = '') {
   totalTests++;
   if (!condition) {
     failedTests++;
-    console.error(`❌ FAIL: ${testName} ${details ? `(${details})` : ''}`);
+    console.error(`FAIL: ${testName} ${details ? `(${details})` : ''}`);
   } else {
-    console.log(`✅ PASS: ${testName}`);
+    console.log(`PASS: ${testName}`);
   }
 }
 
-console.log('🔒 Running Anypod Security Verification Suite...\n');
+console.log('Running Anypod Security Verification Suite...\n');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. HTTP Security Headers & CSP
@@ -219,6 +219,6 @@ console.log(`========================================`);
 if (failedTests > 0) {
   process.exit(1);
 } else {
-  console.log('🎉 All security verification checks PASSED!');
+  console.log('All security verification checks PASSED!');
   process.exit(0);
 }

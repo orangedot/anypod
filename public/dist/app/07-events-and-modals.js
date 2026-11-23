@@ -745,7 +745,7 @@ function setupEventListeners() {
       if (added) {
         const meta = state.feedMetadata[val] || {};
         if (meta.error) {
-          showToast(`⚠️ Could not load feed: ${meta.error}`, 4000);
+          showToast(`Could not load feed: ${meta.error}`, 4000);
           elements.btnSubmitFeed.textContent = 'subscribe';
           elements.btnSubmitFeed.disabled = false;
         } else {
@@ -764,7 +764,7 @@ function setupEventListeners() {
         elements.btnSubmitFeed.disabled = false;
       }
     } catch (err) {
-      showToast(`⚠️ Error: ${err?.message || 'Failed to add feed'}`);
+      showToast(`Error: ${err?.message || 'Failed to add feed'}`);
       elements.btnSubmitFeed.textContent = 'subscribe';
       elements.btnSubmitFeed.disabled = false;
     }
@@ -1126,7 +1126,7 @@ function setupEventListeners() {
         showStatus('Storage access enabled! Reloading to load your saved data...');
         setTimeout(() => window.location.reload(), 600);
       } catch (_) {
-        showStatus('Still blocked. Please click the crossed eye icon (🚫👁️) in your Chrome URL bar and choose "Allow".');
+        showStatus('Still blocked. Please click the crossed eye icon () in your Chrome URL bar and choose "Allow".');
       }
     });
   }

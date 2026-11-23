@@ -3,31 +3,31 @@
 [![Live Web App](https://img.shields.io/badge/Live_App-anypod.org-f97316?style=for-the-badge&logo=cloudflare)](https://anypod.org)
 [![DJ Mode](https://img.shields.io/badge/DJ_Studio-dj.anypod.org-8b5cf6?style=for-the-badge)](https://dj.anypod.org)
 [![Workout Sets](https://img.shields.io/badge/Workout_Sets-sets.anypod.org-ef4444?style=for-the-badge)](https://sets.anypod.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
-[![Open Source](https://img.shields.io/badge/Open_Source-MIT-green?style=for-the-badge&logo=github)](https://github.com/orangedot/anypod)
+[![License: AGPLv3](https://img.shields.io/badge/License-AGPLv3-blue.svg?style=for-the-badge)](LICENSE)
+[![Open Source](https://img.shields.io/badge/Open_Source-AGPLv3-green?style=for-the-badge&logo=github)](https://github.com/orangedot/anypod)
 
-> 🌐 **Live App:** [**anypod.org**](https://anypod.org) — no account needed to start listening.  
-> 🎧 **DJ Studio:** [**dj.anypod.org**](https://dj.anypod.org) — dual-deck Web Audio DJ mixing console.  
+> **Live App:** [**anypod.org**](https://anypod.org) — no account needed to start listening.  
+> **DJ Studio:** [**dj.anypod.org**](https://dj.anypod.org) — dual-deck Web Audio DJ mixing console.  
 > ⏱️ **Workout Sets:** [**sets.anypod.org**](https://sets.anypod.org) — interval training sequencer with audio crossfading.
 
 **Your podcasts. No algorithm. No ads. No account required.**
 
-Anypod is a free, open-source podcast player that respects you. Open it, search any podcast, and start listening — no sign-up wall, no tracking, no data sold. Cloud sync is *optional* and the data you give us has an expiry date.
+**anypod.org** — AGPLv3 open-source PWA podcast player that respects you. Open it, search any podcast, and start listening — no sign-up wall, no tracking, no data sold. Cloud sync is *optional* and the data you give us has an expiry date.
 
 ## Why Anypod?
 
 | | Anypod | Spotify | Apple Podcasts | Pocket Casts |
 |---|:---:|:---:|:---:|:---:|
-| No account required | ✅ | ❌ | ❌ | ❌ |
-| No ads | ✅ | ❌ | ✅ | ✅ |
-| Open source | ✅ | ❌ | ❌ | ❌ |
-| Self-hostable | ✅ | ❌ | ❌ | ❌ |
-| Auto-deletes inactive accounts | ✅ | ❌ | ❌ | ❌ |
-| Offline playback (PWA) | ✅ | ✅ (app) | ✅ (app) | ✅ (app) |
-| Curated Audiobooks & Classic Literature | ✅ | ✅ | ❌ | ❌ |
-| Synchronized song lyrics (LRCLIB) | ✅ | ✅ | ❌ | ❌ |
-| Dual-deck DJ mixing mode | ✅ | ❌ | ❌ | ❌ |
-| HIIT / workout interval sequencer | ✅ | ❌ | ❌ | ❌ |
+| No account required | | | | |
+| No ads | | | | |
+| Open source | | | | |
+| Self-hostable | | | | |
+| Auto-deletes inactive accounts | | | | |
+| Offline playback (PWA) | | (app) | (app) | (app) |
+| Curated Audiobooks & Classic Literature | | | | |
+| Synchronized song lyrics (LRCLIB) | | | | |
+| Dual-deck DJ mixing mode | | | | |
+| HIIT / workout interval sequencer | | | | |
 
 ## Privacy, by Design
 
@@ -101,7 +101,7 @@ Anypod is a free, open-source podcast player that respects you. Open it, search 
 
 ## Core Features
 
-### 🧠 Local AI Taste Profiling & Narrated Discover
+### Local AI Taste Profiling & Narrated Discover
 - **100% Private On-Device Profiling**: Analyzes your subscribed library, listening history, completion rates, and queued tracks completely in the browser. Zero telemetry, zero cloud tracking.
 - **Dynamic Listening Personas**: Derives an editorial listener identity (e.g. *Cosmic Explorer & Deep Systems Thinker*, *Sonic Architect & Electronic Connoisseur*) with personalized narrative headlines and vibe tags.
 - **Full-Screen Edge-to-Edge Grid**: Takes advantage of the full screen width with responsive 2-column cards (`repeat(2, minmax(0, 1fr))` / 2x 50% width), matching Timeline and Library spacing.
@@ -112,33 +112,33 @@ Anypod is a free, open-source podcast player that respects you. Open it, search 
   - *Curated Global Catalog*: 50 international science and climate shows filterable by language and topic.
 - **Optional Local LLM Hook**: Automatically connects to local Ollama (`localhost:11434`) if running to generate live generative commentary, with instant fallback to client-side heuristic copy.
 
-### 🎧 Audio, Podcast & Audiobook Playback
+### Audio, Podcast & Audiobook Playback
 - **Podcast & Audiobook RSS Enclosures**: High-fidelity streaming of MP3, M4A, AAC with Range request support (`HTTP 206`).
 - **Curated Audiobooks & Literature**: Direct access to public-domain classic novels, short fiction, poetry, and serialized audio drama.
 - **Continuous Background Playback**: Android and iOS lockscreen support via MediaSession with multi-density artwork (96px up to 512px).
 - **Zero-Stall Network Recovery**: Automatic reconnect watchdog and immediate fallback to `/api/audio-proxy` on CDN/demux errors (Code 4) without blocking in background tabs.
 - **Offline Audio Caching (PWA)**: Service worker with CacheStorage management and byte-range streaming for offline listening.
 
-### 📜 Lyrics, Chapters & Show Notes
+### Lyrics, Chapters & Show Notes
 - **Synchronized Lyrics (LRCLIB)**: Line-by-line synchronized lyrics in player and show notes with smooth auto-scroll, current line highlighting, and tap-to-seek.
 - **Podcasting 2.0 Chapters**: Native support for `<podcast:chapters>` (JSON specification) with chapter titles, images, and external URLs.
 - **Interactive Timestamps**: Clickable show note timestamps for direct chapter and topic jumping.
 - **Deep Search**: Fast search across podcast titles, episode descriptions, show notes, and transcripts.
 
-### 🎛️ Playlist & Feed Management
+### Playlist & Feed Management
 - **Smart Sorting & Filtering**: Sort by newest, oldest, longest, shortest, or alphabetical. Filter by unplayed, played, or downloaded.
 - **Played Episodes to End**: Automatically groups finished episodes at the bottom of the feed by default.
 - **Queue & Shuffle**: On-the-fly queueing, "Play All", shuffle playback, and non-destructive skip (keeps your place in Continue Listening).
 - **OPML Import/Export**: Easy 1-click import and export of your subscription library.
 
-### 🌐 Cross-Device Sync & Auth
+### Cross-Device Sync & Auth
 - **Passwordless Magic Links**: Instant login via Resend with cryptographic session hashing.
 - **Edge SQLite (Cloudflare D1)**: Synchronizes subscribed feeds and playback positions across mobile and desktop.
 - **Cross-Subdomain Session Sharing**: Single login session automatically shared between `anypod.org` and `dj.anypod.org`.
 
 ---
 
-## 🎚️ Companion Apps & Specialized Modes
+## Companion Apps & Specialized Modes
 
 ### 1. DJ Studio (`dj.anypod.org` / `/dj`)
 - **Dual-Deck Web Audio Engine**: Independent Deck A & Deck B players supporting high-fidelity Web Audio files with equal-power crossfader.
@@ -164,9 +164,9 @@ Anypod is a free, open-source podcast player that respects you. Open it, search 
 
 ## Guides & Documentation
 
-- 🎧 **[DJ Studio Console Guide & Feature Roadmap](docs/DJ_STUDIO_ROADMAP.md)** — Control-by-control implementation audit, active vs. planned features, and multi-device audio routing (Bluetooth PFL cueing + USB-C/Jack main out).
+- **[DJ Studio Console Guide & Feature Roadmap](docs/DJ_STUDIO_ROADMAP.md)** — Control-by-control implementation audit, active vs. planned features, and multi-device audio routing (Bluetooth PFL cueing + USB-C/Jack main out).
 - ⏱️ **[Workout Sets & Interval DJ Guide](docs/SETS.md)** — Architecture, dual-deck crossfade curves, and configuration for the interval sequencer.
-- 🚀 **[Self-Hosting Guide](SELF_HOSTING.md)** — Run your own Anypod instance on Cloudflare Pages or Docker.
+- **[Self-Hosting Guide](SELF_HOSTING.md)** — Run your own Anypod instance on Cloudflare Pages or Docker.
 
 ---
 
@@ -476,8 +476,8 @@ Anypod is free, open-source, and built with care.
 If it saves you from another tracking-heavy podcast app, consider:
 
 - ⭐ **[Star the repo](https://github.com/orangedot/anypod)** — helps others find it
-- 💬 **[Open a Discussion](https://github.com/orangedot/anypod/discussions)** — share your setup, request features, report bugs
-- 🛠️ **Contribute** — PRs welcome, especially self-hosting improvements and new audio features
+- **[Open a Discussion](https://github.com/orangedot/anypod/discussions)** — share your setup, request features, report bugs
+- **Contribute** — PRs welcome, especially self-hosting improvements and new audio features
 
 ## License
 

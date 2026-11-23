@@ -65,7 +65,7 @@ export async function profileDiscoverTab() {
   const page = await browser.newPage();
 
   try {
-    console.log(`🧭 Loading local dist from ${url}...`);
+    console.log(`Loading local dist from ${url}...`);
     await page.goto(url, { waitUntil: 'domcontentloaded' });
     await new Promise(r => setTimeout(r, 1200));
 
@@ -168,16 +168,16 @@ export async function profileDiscoverTab() {
       };
     });
 
-    console.log(`\n📊 Discover Tab Switch Benchmark (400 episodes & 5 library feeds):`);
-    console.log(`   🚀 First Switch (Hydration):`);
+    console.log(`\nDiscover Tab Switch Benchmark (400 episodes & 5 library feeds):`);
+    console.log(`   First Switch (Hydration):`);
     console.log(`      ⏱️  Blocking click time: ${firstSwitch.clickSynchronousMs.toFixed(1)} ms`);
-    console.log(`      🖼️  Time to paint:       ${firstSwitch.renderFrameMs.toFixed(1)} ms`);
-    console.log(`      📚 Shelves preserved:   ${firstSwitch.shelfCount}/7`);
-    console.log(`   ⚡ Return Switch (In-Place 0ms Navigation):`);
+    console.log(`      Time to paint:       ${firstSwitch.renderFrameMs.toFixed(1)} ms`);
+    console.log(`      Shelves preserved:   ${firstSwitch.shelfCount}/7`);
+    console.log(`   Return Switch (In-Place 0ms Navigation):`);
     console.log(`      ⏱️  Blocking click time: ${returnSwitch.clickSynchronousMs.toFixed(1)} ms`);
-    console.log(`      🖼️  Time to paint:       ${returnSwitch.renderFrameMs.toFixed(1)} ms`);
-    console.log(`      📚 Shelves preserved:   ${returnSwitch.shelfCount}/7`);
-    console.log(`   🛡️ Library Integrity:`);
+    console.log(`      Time to paint:       ${returnSwitch.renderFrameMs.toFixed(1)} ms`);
+    console.log(`      Shelves preserved:   ${returnSwitch.shelfCount}/7`);
+    console.log(`   Library Integrity:`);
     console.log(`      Initial episodes: ${firstSwitch.initialEpCount}, Final episodes: ${returnSwitch.finalEpCount} (Pollution: ${returnSwitch.finalEpCount - 400})`);
 
     return { firstSwitch, returnSwitch };

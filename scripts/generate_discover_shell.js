@@ -39,7 +39,7 @@ try {
     CURATED_CATEGORIES = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
   }
 } catch (err) {
-  console.warn('⚠️ Could not load catalogs/index.json:', err.message);
+  console.warn('Could not load catalogs/index.json:', err.message);
 }
 
 export function generateDiscoverShellHtml() {
@@ -47,10 +47,10 @@ export function generateDiscoverShellHtml() {
     title: 'Curious Explorer',
     narrative: 'Welcome to Anypod! We have prepared curated discovery shelves spanning planetary science, democracy & free press, technology, history, and human stories.',
     vibes: [
-      { label: '🔬 Science & Cosmos', target: 'shelf-science' },
-      { label: '🏛️ Democracy & Press', target: 'shelf-democracy' },
-      { label: '💻 Tech & AI', target: 'shelf-technology' },
-      { label: '🏺 History & Ideas', target: 'shelf-history' }
+      { label: 'Science & Cosmos', target: 'shelf-science' },
+      { label: 'Democracy & Press', target: 'shelf-democracy' },
+      { label: 'Tech & AI', target: 'shelf-technology' },
+      { label: 'History & Ideas', target: 'shelf-history' }
     ],
     stats: '350 curated shows across 7 genres',
     engineLabel: 'curated multi-genre catalog'
@@ -65,7 +65,7 @@ export function generateDiscoverShellHtml() {
       let icon = '✦';
       let note = String(show.whyNote || `Curated ${cat.title} selection`).trim();
       const firstChar = note.slice(0, 2).trim();
-      if (['⏳', '✨', '✦', '🌱', '🚀', '🔬', '🎵', '⚡', '🧠', '🌐'].includes(firstChar) || ['⏳', '✨', '✦'].includes(note[0])) {
+      if (['⏳', '', '✦', '', '', '', '', '', '', ''].includes(firstChar) || ['⏳', '', '✦'].includes(note[0])) {
         icon = note.slice(0, 2).trim() || note[0];
         note = note.slice(icon.length).trim();
       }

@@ -106,7 +106,7 @@ function startStaticServer(rootDir) {
 }
 
 export async function runSmokeTest() {
-  console.log('🧪 Starting automated headless browser smoke test...');
+  console.log('Starting automated headless browser smoke test...');
 
   if (!fs.existsSync(path.join(distDir, 'index.html'))) {
     throw new Error(`public/dist/index.html not found! Run 'npm run build' first.`);
@@ -117,9 +117,9 @@ export async function runSmokeTest() {
     throw new Error('Could not locate Google Chrome or Chromium executable on this machine.');
   }
 
-  console.log(`🌐 Serving dist from: ${distDir}`);
+  console.log(`Serving dist from: ${distDir}`);
   const { server, port, url } = await startStaticServer(distDir);
-  console.log(`🔌 Local test server listening at: ${url}`);
+  console.log(`Local test server listening at: ${url}`);
 
   const pageErrors = [];
   const consoleErrors = [];
@@ -127,7 +127,7 @@ export async function runSmokeTest() {
   const tempProfileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chrome-smoke-'));
 
   try {
-    console.log(`🚀 Launching headless Chrome via: ${chromePath}`);
+    console.log(`Launching headless Chrome via: ${chromePath}`);
     browser = await puppeteer.launch({
       executablePath: chromePath,
       headless: 'new',
@@ -149,7 +149,7 @@ export async function runSmokeTest() {
 
     // Collect runtime errors
     page.on('pageerror', (err) => {
-      console.error(`💥 [Browser PageError] ${err.message}`);
+      console.error(`[Browser PageError] ${err.message}`);
       pageErrors.push(err.message + (err.stack ? '\n' + err.stack : ''));
     });
 
@@ -160,16 +160,16 @@ export async function runSmokeTest() {
         if (text.includes('favicon.ico') || text.includes('failed to load resource: the server responded with a status of 404')) {
           return;
         }
-        console.error(`🔴 [Browser ConsoleError] ${text}`);
+        console.error(`[Browser ConsoleError] ${text}`);
         consoleErrors.push(text);
       }
     });
 
-    console.log(`🧭 Navigating to ${url}...`);
+    console.log(`Navigating to ${url}...`);
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
 
     // Step 1: Verify DOM and state presence
-    console.log('🔍 Checking DOM and state initialization...');
+    console.log('Checking DOM and state initialization...');
     const stateCheck = await page.evaluate(() => {
       const hasState = typeof window.state === 'object' && window.state !== null;
       const discoverContainer = !!document.getElementById('discover-content-container');
@@ -191,10 +191,10 @@ export async function runSmokeTest() {
     if (stateCheck.tabsCount === 0) {
       throw new Error('No navigation tabs found in DOM.');
     }
-    console.log(`✅ DOM and state initialized (${stateCheck.tabsCount} navigation tabs verified).`);
+    console.log(`DOM and state initialized (${stateCheck.tabsCount} navigation tabs verified).`);
 
     // Step 2: Simulate tab clicks (navigation)
-    console.log('🖱️ Simulating tab navigation (timeline & discover)...');
+    console.log('Simulating tab navigation (timeline & discover)...');
     await page.evaluate(() => {
       const tabTimeline = document.getElementById('tab-timeline');
       if (tabTimeline) tabTimeline.click();
@@ -208,7 +208,7 @@ export async function runSmokeTest() {
     });
 
     // Step 3: Verify Show Notes HTML sanitization against XSS payloads in live browser
-    console.log('🛡️ Verifying Show Notes HTML sanitization against XSS payloads...');
+    console.log('Verifying Show Notes HTML sanitization against XSS payloads...');
     const sanitizeResult = await page.evaluate(() => {
       if (typeof window.formatShowNotesHtml !== 'function') {
         return { ok: false, reason: 'formatShowNotesHtml is not exported or defined' };
@@ -252,7 +252,7 @@ export async function runSmokeTest() {
     if (!sanitizeResult.ok) {
       throw new Error('Show notes HTML sanitization failed in live browser: ' + JSON.stringify(sanitizeResult));
     }
-    console.log('✅ Live browser XSS sanitization verified: all malicious handlers stripped, valid timestamps preserved.');
+    console.log('Live browser XSS sanitization verified: all malicious handlers stripped, valid timestamps preserved.');
 
     // Step 4: Verify deferred player engine loads cleanly on demand
     if (typeof (await page.evaluate(() => typeof window.ensurePlayerLoaded)) === 'string') {
@@ -264,7 +264,7 @@ export async function runSmokeTest() {
       if (!playerCheck.skipped && !playerCheck.loaded) {
         throw new Error('On-demand ensurePlayerLoaded() failed to expose __realPlayEpisode');
       }
-      console.log('✅ On-demand Audio Player engine verified (player.min.js loaded cleanly).');
+      console.log('On-demand Audio Player engine verified (player.min.js loaded cleanly).');
     }
 
     // Step 5: Wait for idle execution (timers, lazy observers)
@@ -277,7 +277,7 @@ export async function runSmokeTest() {
       throw new Error(`Smoke test failed with ${totalErrors.length} browser error(s):\n\n` + totalErrors.join('\n\n'));
     }
 
-    console.log('🎉 Browser smoke test passed with 0 runtime errors!\n');
+    console.log('Browser smoke test passed with 0 runtime errors!\n');
     return true;
   } finally {
     if (browser) await browser.close().catch(() => {});
@@ -297,7 +297,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       process.exit(0);
     })
     .catch((err) => {
-      console.error('\n❌ CRITICAL ERROR IN BROWSER SMOKE TEST:');
+      console.error('\nCRITICAL ERROR IN BROWSER SMOKE TEST:');
       console.error(err.message);
       process.exit(1);
     });

@@ -28,7 +28,7 @@
     <div>
       <header class="header-bar">
         <a href="/" class="brand-link" title="Anypod Home">
-          <div class="brand-icon">⚡</div>
+          <div class="brand-icon"></div>
           <div>
             <div class="brand-title">DJ ANYPOD <span>SETS</span></div>
             <span class="brand-subtitle">30-Min Workout & Loop Studio</span>
@@ -80,13 +80,13 @@
       <!-- 3-Way Mode Navigation Bar -->
       <nav class="mode-tabs-bar" aria-label="Sets Workspace Views">
         <button type="button" class="mode-tab-btn active" data-tab="player" id="tab-btn-player">
-          <span>🔥 Workout</span>
+          <span>Workout</span>
         </button>
         <button type="button" class="mode-tab-btn" data-tab="builder" id="tab-btn-builder">
-          <span>📋 Routine (30m)</span>
+          <span>Routine (30m)</span>
         </button>
         <button type="button" class="mode-tab-btn" data-tab="studio" id="tab-btn-studio">
-          <span>🎛️ Loop Studio</span>
+          <span>Loop Studio</span>
         </button>
       </nav>
     </div>
@@ -100,7 +100,7 @@
         <div class="player-top-row">
           <div class="top-badges-left">
             <span class="interval-type-badge badge-work" id="badge-interval-type">WORK</span>
-            <span class="flow-mode-badge" id="badge-playback-mode" title="Audio Loop / Flow Mode">🔁 A-B LOOP</span>
+            <span class="flow-mode-badge" id="badge-playback-mode" title="Audio Loop / Flow Mode">A-B LOOP</span>
           </div>
           <div class="round-meta">
             <div class="round-title" id="label-round-progress">Round 1 of 8</div>
@@ -153,7 +153,7 @@
             </div>
 
             <button type="button" class="audio-dj-link" id="btn-edit-active-loop" title="Edit Loop in Loop Studio">
-              ✂️
+              
             </button>
             <a href="/dj.html" class="audio-dj-link" id="audio-dj-link" target="_blank" title="Open in DJ Studio">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -182,7 +182,7 @@
             <span>∞ Loop Hold</span>
           </button>
           <button type="button" class="btn-gym-pill" id="btn-beat-overlay" title="Layer a 128 BPM Workout Beat Under Podcasts/Audio During Work">
-            <span>🥁 Beat Overlay</span>
+            <span>Beat Overlay</span>
           </button>
         </div>
 
@@ -251,7 +251,7 @@
       <!-- 30-Minute & Fast Presets Selector -->
       <div class="preset-card">
         <div class="preset-header">
-          <span class="preset-title">🔥 30-Minute & Express Workout Presets</span>
+          <span class="preset-title">30-Minute & Express Workout Presets</span>
           <span style="font-size: 10px; color: #9ca3af;">Tap any template to load</span>
         </div>
         <div class="preset-grid">
@@ -294,7 +294,7 @@
         </div>
         <div class="routine-manage-row">
           <input type="text" class="url-input" id="input-routine-title" value="30-Min HIIT Sweat Session" style="flex: 1;">
-          <button type="button" class="btn-save-routine" id="btn-save-custom-routine">💾 Save Routine</button>
+          <button type="button" class="btn-save-routine" id="btn-save-custom-routine">Save Routine</button>
         </div>
         <div class="saved-routines-chips" id="saved-routines-list"></div>
       </div>
@@ -318,7 +318,7 @@
       <section class="studio-card">
         <div class="studio-card-header">
           <div class="studio-card-title">
-            <span>🎧 1. Load Source Audio / Podcast / YouTube Short</span>
+            <span>1. Load Source Audio / Podcast / YouTube Short</span>
           </div>
           <div class="studio-source-tabs">
             <button type="button" class="source-tab-btn active" data-srctab="library">Anypod Library</button>
@@ -360,7 +360,7 @@
       <section class="studio-card">
         <div class="studio-card-header">
           <div class="studio-card-title">
-            <span>✂️ 2. Visual Loop Clipper & Trimmer</span>
+            <span>2. Visual Loop Clipper & Trimmer</span>
           </div>
           <span id="studio-loaded-badge" style="font-size: 11px; color: #d8b4fe; font-weight: 800;">909 Deep Tech Beat</span>
         </div>
@@ -377,8 +377,8 @@
                 <input type="number" class="url-input" id="studio-loop-bpm" value="128" min="60" max="220" style="width: 68px; padding: 4px 8px;">
                 <label style="font-size: 10px; color: #9ca3af; font-weight: 800;">Mode:</label>
                 <select class="select-block-type" id="studio-loop-mode">
-                  <option value="loop">🔁 Seamless A-B Loop</option>
-                  <option value="flow">🌊 Continuous Podcast Flow</option>
+                  <option value="loop">Seamless A-B Loop</option>
+                  <option value="flow">Continuous Podcast Flow</option>
                 </select>
               </div>
             </div>
@@ -418,10 +418,10 @@
 
           <!-- Save / Apply / Export Actions -->
           <div style="display: flex; gap: 8px; flex-wrap: wrap; padding-top: 6px; border-top: 1px solid var(--border-subtle);">
-            <button type="button" class="btn-studio-action primary-purple" id="btn-save-to-crate">➕ Save to Loop Crate</button>
-            <button type="button" class="btn-studio-action primary-red" id="btn-apply-all-work">⚡ Apply to All WORK Intervals</button>
+            <button type="button" class="btn-studio-action primary-purple" id="btn-save-to-crate">Save to Loop Crate</button>
+            <button type="button" class="btn-studio-action primary-red" id="btn-apply-all-work">Apply to All WORK Intervals</button>
             <button type="button" class="btn-studio-action" id="btn-export-wav" title="Render & Download Sliced WAV Audio Loop">⬇️ Export WAV Loop</button>
-            <button type="button" class="btn-studio-action" id="btn-sync-dj-cues" title="Save Loop into DJ Studio (dj.html) Hot Cues">🎛️ Sync to DJ Studio</button>
+            <button type="button" class="btn-studio-action" id="btn-sync-dj-cues" title="Save Loop into DJ Studio (dj.html) Hot Cues">Sync to DJ Studio</button>
           </div>
         </div>
       </section>
@@ -430,7 +430,7 @@
       <section class="studio-card">
         <div class="studio-card-header">
           <div class="studio-card-title">
-            <span>⚡ 3. Auto-Slice Podcast / YouTube into 30-Min Workout</span>
+            <span>3. Auto-Slice Podcast / YouTube into 30-Min Workout</span>
           </div>
           <span style="font-size: 10px; color: #9ca3af;">One-Click 30m Generator</span>
         </div>
@@ -462,21 +462,21 @@
           <div class="slicer-field">
             <label>Audio Mapping Mode</label>
             <select id="slicer-audio-mode">
-              <option value="highlights" selected>🔥 Highlight Drops (A-B Loops)</option>
-              <option value="flow">🌊 Continuous Flow + Beat Overlay</option>
+              <option value="highlights" selected>Highlight Drops (A-B Loops)</option>
+              <option value="flow">Continuous Flow + Beat Overlay</option>
             </select>
           </div>
           <div class="slicer-field">
             <label>Rest Audio</label>
             <select id="slicer-rest-mode">
-              <option value="duck" selected>🔉 Chill / Ducked Audio</option>
-              <option value="silent">🔇 Beeps Only (Silent Rest)</option>
+              <option value="duck" selected>Chill / Ducked Audio</option>
+              <option value="silent">Beeps Only (Silent Rest)</option>
             </select>
           </div>
         </div>
 
         <button type="button" class="btn-studio-action primary-red" id="btn-generate-30m-workout" style="justify-content: center; padding: 12px; font-size: 12px;">
-          🚀 Generate 30-Minute Workout from Loaded Source & Launch Player
+          Generate 30-Minute Workout from Loaded Source & Launch Player
         </button>
       </section>
 
@@ -484,7 +484,7 @@
       <section class="studio-card">
         <div class="studio-card-header">
           <div class="studio-card-title">
-            <span>📦 4. My Loop Crate (Saved Training Loops)</span>
+            <span>4. My Loop Crate (Saved Training Loops)</span>
           </div>
           <span id="crate-count-label" style="font-size: 11px; color: #9ca3af;">0 Loops</span>
         </div>

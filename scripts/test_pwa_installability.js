@@ -5,15 +5,15 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(__dirname, '../public');
 
-console.log('🧪 Running PWA & Homescreen Installability Test Suite...\n');
+console.log('Running PWA & Homescreen Installability Test Suite...\n');
 
 let failed = false;
 function assert(condition, message) {
   if (!condition) {
-    console.error(`❌ FAIL: ${message}`);
+    console.error(`FAIL: ${message}`);
     failed = true;
   } else {
-    console.log(`✅ PASS: ${message}`);
+    console.log(`PASS: ${message}`);
   }
 }
 
@@ -80,8 +80,8 @@ assert(swContent.includes('/icon-180.png'), 'sw.js APP_SHELL includes icon-180.p
 
 console.log('\n----------------------------------------');
 if (failed) {
-  console.error('❌ One or more PWA installability tests failed.');
+  console.error('One or more PWA installability tests failed.');
   process.exit(1);
 } else {
-  console.log('🎉 ALL PWA & Homescreen Installability tests PASSED with 100% compliance!');
+  console.log('ALL PWA & Homescreen Installability tests PASSED with 100% compliance!');
 }

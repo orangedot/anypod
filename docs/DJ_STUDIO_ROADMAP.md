@@ -1,27 +1,27 @@
-# 🎧 DJ Anypod Studio — Roadmap, Implemented Controls & Future Features
+# DJ Anypod Studio — Roadmap, Implemented Controls & Future Features
 
 This document provides a comprehensive audit of all console buttons and controls in **DJ Anypod Studio** (`dj.anypod.org` / `/dj`), detailing what is currently active, what is visual-only, and the technical specification for upcoming features (including dual-output headphone pre-listening via Bluetooth and USB-C).
 
 ---
 
-## 🎛️ Control Status & Architecture Matrix
+## Control Status & Architecture Matrix
 
 ### 1. Master Console (Top Bar)
 
 | Control | Intended DJ Behavior | Current Implementation Status | Notes |
 | :--- | :--- | :---: | :--- |
-| **FX 1 (DLY / REV / ON / D/W Knob)** | Deck A FX Unit: Delay, Reverb toggle and Dry/Wet mix knob | ✅ **Implemented** | Tempo-synced feedback Delay (DLY) and algorithmic Reverb (REV) routed through Web Audio chain with wet/dry crossmix. |
-| **FX 2 (FLT / GATE / ON / D/W Knob)** | Deck B FX Unit: Filter sweep, Beat Gater toggle and Dry/Wet mix knob | ✅ **Implemented** | Resonant bandpass Filter Sweep (FLT) and tempo-synced square-wave Beat Gater (GATE) with wet/dry crossmix. |
-| **SNAP** | Quantizes cues and loop points to the nearest grid marker | 🟡 **Visual UI** | Button toggles active state. Full beatgrid lock planned. |
-| **QUANT (Quantize)** | Quantizes play/cue triggers to the next full musical beat | 🟡 **Visual UI** | Button toggles active state. Full beatgrid lock planned. |
-| **MASTER BPM Display** | Displays the global reference tempo (e.g., `140.00`) | ✅ **Implemented** | Live display bound to `state.masterBpm`. |
-| **TAP** | Calculates BPM by averaging manual tap intervals | ✅ **Implemented** | Averages millisecond delta of consecutive taps (60–190 BPM). |
-| **SYNC (Master Sync)** | Locks both Decks A & B playback rate to the Master BPM | ✅ **Implemented** | Dynamically calculates and sets `playbackRate` on both decks. |
-| **MASTER VU (Stereo LEDs)** | Live stereo output level meter | ✅ **Implemented** | Real-time `AnalyserNode` monitoring master compressor output. |
-| **VOL (Master Volume Knob)** | Controls overall studio output gain | ✅ **Implemented** | Drag-adjustable knob linked to master dynamics compressor threshold/gain. |
-| **Live Player** | Returns to the standard single-stream podcast player | ✅ **Implemented** | Direct navigation link to `/`. |
-| **Sets** | Opens the Workout Interval DJ Sequencer | ✅ **Implemented** | Direct navigation link to `/sets.html`. |
-| **⛶ (Fullscreen)** | Toggles browser fullscreen mode | ✅ **Implemented** | Native Fullscreen API integration. |
+| **FX 1 (DLY / REV / ON / D/W Knob)** | Deck A FX Unit: Delay, Reverb toggle and Dry/Wet mix knob | **Implemented** | Tempo-synced feedback Delay (DLY) and algorithmic Reverb (REV) routed through Web Audio chain with wet/dry crossmix. |
+| **FX 2 (FLT / GATE / ON / D/W Knob)** | Deck B FX Unit: Filter sweep, Beat Gater toggle and Dry/Wet mix knob | **Implemented** | Resonant bandpass Filter Sweep (FLT) and tempo-synced square-wave Beat Gater (GATE) with wet/dry crossmix. |
+| **SNAP** | Quantizes cues and loop points to the nearest grid marker | **Visual UI** | Button toggles active state. Full beatgrid lock planned. |
+| **QUANT (Quantize)** | Quantizes play/cue triggers to the next full musical beat | **Visual UI** | Button toggles active state. Full beatgrid lock planned. |
+| **MASTER BPM Display** | Displays the global reference tempo (e.g., `140.00`) | **Implemented** | Live display bound to `state.masterBpm`. |
+| **TAP** | Calculates BPM by averaging manual tap intervals | **Implemented** | Averages millisecond delta of consecutive taps (60–190 BPM). |
+| **SYNC (Master Sync)** | Locks both Decks A & B playback rate to the Master BPM | **Implemented** | Dynamically calculates and sets `playbackRate` on both decks. |
+| **MASTER VU (Stereo LEDs)** | Live stereo output level meter | **Implemented** | Real-time `AnalyserNode` monitoring master compressor output. |
+| **VOL (Master Volume Knob)** | Controls overall studio output gain | **Implemented** | Drag-adjustable knob linked to master dynamics compressor threshold/gain. |
+| **Live Player** | Returns to the standard single-stream podcast player | **Implemented** | Direct navigation link to `/`. |
+| **Sets** | Opens the Workout Interval DJ Sequencer | **Implemented** | Direct navigation link to `/sets.html`. |
+| **(Fullscreen)** | Toggles browser fullscreen mode | **Implemented** | Native Fullscreen API integration. |
 
 ---
 
@@ -29,11 +29,11 @@ This document provides a comprehensive audit of all console buttons and controls
 
 | Control | Intended DJ Behavior | Current Implementation Status | Notes |
 | :--- | :--- | :---: | :--- |
-| **SYNC (Deck Header)** | Synchronizes individual deck tempo to master clock | ✅ **Implemented** | Deck tempo sync toggle and master deck designation. |
-| **MASTER (Deck Header)** | Designates this deck as tempo master for the opposing deck | ✅ **Implemented** | Master clock assignment; opposing slaved decks sync to this deck's BPM. |
-| **Telemetry Badges** | Key (Camelot/OpenKey notation), BPM, and Track Duration | ✅ **Implemented** | Automatic client-side DSP detection (onset flux BPM + Krumhansl-Schmuckler chroma key) with click-to-reanalyze. |
-| **Multiband Waveform** | Scrolling RGB frequency-split waveform with needle | ✅ **Implemented** | 60fps canvas rendering with high/mid/low energy coloring, scratching, and scrubbing. |
-| **Overview Stripe** | Full-track amplitude envelope with cue flags and playhead | ✅ **Implemented** | Clickable stripe for instantaneous scrub/seek across entire track. |
+| **SYNC (Deck Header)** | Synchronizes individual deck tempo to master clock | **Implemented** | Deck tempo sync toggle and master deck designation. |
+| **MASTER (Deck Header)** | Designates this deck as tempo master for the opposing deck | **Implemented** | Master clock assignment; opposing slaved decks sync to this deck's BPM. |
+| **Telemetry Badges** | Key (Camelot/OpenKey notation), BPM, and Track Duration | **Implemented** | Automatic client-side DSP detection (onset flux BPM + Krumhansl-Schmuckler chroma key) with click-to-reanalyze. |
+| **Multiband Waveform** | Scrolling RGB frequency-split waveform with needle | **Implemented** | 60fps canvas rendering with high/mid/low energy coloring, scratching, and scrubbing. |
+| **Overview Stripe** | Full-track amplitude envelope with cue flags and playhead | **Implemented** | Clickable stripe for instantaneous scrub/seek across entire track. |
 
 ---
 
@@ -41,15 +41,15 @@ This document provides a comprehensive audit of all console buttons and controls
 
 | Control | Intended DJ Behavior | Current Implementation Status | Notes |
 | :--- | :--- | :---: | :--- |
-| **Play / Pause (`▶` / `❚❚`)** | Starts or pauses deck playback | ✅ **Implemented** | Fully wired for Web Audio files, synth beats, and streaming audio. |
-| **CUE** | Returns playhead to Cue 1 and pauses; previews on hold | ✅ **Implemented** | Pauses playback and seeks to Cue 0. |
-| **CUP (Cue Play)** | Immediately jumps to Cue 1 and starts playback | ✅ **Implemented** | Triggers Cue 0 and calls `play()`. |
-| **Hot Cues (1, 2, 3, 4)** | Instant jump/set; hold (700ms) to clear cue point | ✅ **Implemented** | Persistent cue storage in `localStorage` (`anypod_dj_cues`). |
-| **LOOP 4** | Activates seamless 4-beat loop at current playback head | ✅ **Implemented** | Toggles loop mode and sets in/out loop boundaries. |
-| **½ / 2× (Loop Halve / Double)** | Dynamically halves or doubles active loop length | ✅ **Implemented** | Seamless real-time loop duration scaling (factor of 0.5x or 2.0x). |
-| **TEMPO Fader (-20% to +20%)** | Continuous pitch / speed slider with percentage readout | ✅ **Implemented** | Smooth audio rate scaling via Web Audio & audio playback rate. |
-| **Pitch Nudge (`−` / `+`)** | Fine tempo nudge (±0.5% adjustments) for manual beatmatching | ✅ **Implemented** | Step adjustments with live slider and badge updates. Hold or shortcut nudge support. |
-| **Touch Jog Wheel / Scratch** | Vinyl mode scratching and nudge spin | ✅ **Implemented** | Physical modeling `VinylScratchAudio` synth with needle friction, formant filtering, and pitch audio. |
+| **Play / Pause (`▶` / ``)** | Starts or pauses deck playback | **Implemented** | Fully wired for Web Audio files, synth beats, and streaming audio. |
+| **CUE** | Returns playhead to Cue 1 and pauses; previews on hold | **Implemented** | Pauses playback and seeks to Cue 0. |
+| **CUP (Cue Play)** | Immediately jumps to Cue 1 and starts playback | **Implemented** | Triggers Cue 0 and calls `play()`. |
+| **Hot Cues (1, 2, 3, 4)** | Instant jump/set; hold (700ms) to clear cue point | **Implemented** | Persistent cue storage in `localStorage` (`anypod_dj_cues`). |
+| **LOOP 4** | Activates seamless 4-beat loop at current playback head | **Implemented** | Toggles loop mode and sets in/out loop boundaries. |
+| **½ / 2× (Loop Halve / Double)** | Dynamically halves or doubles active loop length | **Implemented** | Seamless real-time loop duration scaling (factor of 0.5x or 2.0x). |
+| **TEMPO Fader (-20% to +20%)** | Continuous pitch / speed slider with percentage readout | **Implemented** | Smooth audio rate scaling via Web Audio & audio playback rate. |
+| **Pitch Nudge (`−` / `+`)** | Fine tempo nudge (±0.5% adjustments) for manual beatmatching | **Implemented** | Step adjustments with live slider and badge updates. Hold or shortcut nudge support. |
+| **Touch Jog Wheel / Scratch** | Vinyl mode scratching and nudge spin | **Implemented** | Physical modeling `VinylScratchAudio` synth with needle friction, formant filtering, and pitch audio. |
 
 ---
 
@@ -57,13 +57,13 @@ This document provides a comprehensive audit of all console buttons and controls
 
 | Control | Intended DJ Behavior | Current Implementation Status | Notes |
 | :--- | :--- | :---: | :--- |
-| **GAIN Knobs (CH A / CH B)** | Pre-amplification trim (-12 dB to +12 dB) | ✅ **Implemented** | Web Audio `GainNode` before EQ stage. |
-| **HI / MID / LOW Knobs** | 3-Band Isolator / Shelf Equalizer (-24 dB to +12 dB) | ✅ **Implemented** | High-shelf, peaking, and low-shelf `BiquadFilterNodes`. Double-click resets to center. |
-| **FILTER Knobs** | Bipolar Color Filter (CCW = Lowpass, CW = Highpass) | ✅ **Implemented** | Morphing filter with resonant peak at cutoff. Double-click resets to center. |
-| **Channel Level Meters** | Multi-segment LED VU meters for each channel | ✅ **Implemented** | Driven by per-deck `AnalyserNode` instances. |
-| **Vertical Volume Faders** | Channel level control (0.0 to 1.0) | ✅ **Implemented** | Individual linear/logarithmic volume faders. |
-| **Crossfader** | Smooth crossfade between Channel A and Channel B | ✅ **Implemented** | Equal-power panning curve (`Math.cos` / `Math.sin`). |
-| **🎧 PFL (Pre-Fade Listen)** | Sends channel pre-fader audio to headphone monitor bus | ✅ **Implemented** | Full multi-mode routing: Bluetooth/USB multi-device (`setSinkId`), Splitter Cable (L=Master, R=Cue), and Stereo Cue Mix. |
+| **GAIN Knobs (CH A / CH B)** | Pre-amplification trim (-12 dB to +12 dB) | **Implemented** | Web Audio `GainNode` before EQ stage. |
+| **HI / MID / LOW Knobs** | 3-Band Isolator / Shelf Equalizer (-24 dB to +12 dB) | **Implemented** | High-shelf, peaking, and low-shelf `BiquadFilterNodes`. Double-click resets to center. |
+| **FILTER Knobs** | Bipolar Color Filter (CCW = Lowpass, CW = Highpass) | **Implemented** | Morphing filter with resonant peak at cutoff. Double-click resets to center. |
+| **Channel Level Meters** | Multi-segment LED VU meters for each channel | **Implemented** | Driven by per-deck `AnalyserNode` instances. |
+| **Vertical Volume Faders** | Channel level control (0.0 to 1.0) | **Implemented** | Individual linear/logarithmic volume faders. |
+| **Crossfader** | Smooth crossfade between Channel A and Channel B | **Implemented** | Equal-power panning curve (`Math.cos` / `Math.sin`). |
+| **PFL (Pre-Fade Listen)** | Sends channel pre-fader audio to headphone monitor bus | **Implemented** | Full multi-mode routing: Bluetooth/USB multi-device (`setSinkId`), Splitter Cable (L=Master, R=Cue), and Stereo Cue Mix. |
 
 ---
 
@@ -71,18 +71,18 @@ This document provides a comprehensive audit of all console buttons and controls
 
 | Control | Intended DJ Behavior | Current Implementation Status | Notes |
 | :--- | :--- | :---: | :--- |
-| **Search Input & `✕`** | Instant search across titles, artists, and channels | ✅ **Implemented** | Live filtering with clear button. |
-| **Sidebar Navigation** | Filter by All, Podcasts, Audiobooks, Downloads, Queue, Favorites | ✅ **Implemented** | Real-time counts and reactive filtering. |
-| **+ Add URL** | Quick-import audio streams or podcast RSS feeds | ✅ **Implemented** | Parses feeds, saves to IndexedDB, displays success toast. |
-| **📁 Collapse All / 📂 Expand All** | Batch expand/collapse all folder headers | ✅ **Implemented** | **Default state:** All folders start collapsed for clean initial view. |
-| **Folder Headers (Click)** | Expand/collapse individual playlist folder | ✅ **Implemented** | Accordion toggle with track counter badges. |
-| **◄ LOAD A / LOAD B ►** | Load selected track into Deck A or Deck B | ✅ **Implemented** | Direct CDN fallback, IndexedDB caching, and audio player initialization. |
+| **Search Input & `✕`** | Instant search across titles, artists, and channels | **Implemented** | Live filtering with clear button. |
+| **Sidebar Navigation** | Filter by All, Podcasts, Audiobooks, Downloads, Queue, Favorites | **Implemented** | Real-time counts and reactive filtering. |
+| **+ Add URL** | Quick-import audio streams or podcast RSS feeds | **Implemented** | Parses feeds, saves to IndexedDB, displays success toast. |
+| **Collapse All / Expand All** | Batch expand/collapse all folder headers | **Implemented** | **Default state:** All folders start collapsed for clean initial view. |
+| **Folder Headers (Click)** | Expand/collapse individual playlist folder | **Implemented** | Accordion toggle with track counter badges. |
+| **◄ LOAD A / LOAD B ►** | Load selected track into Deck A or Deck B | **Implemented** | Direct CDN fallback, IndexedDB caching, and audio player initialization. |
 
 ---
 
-## 🚀 Future Roadmap & Pending Features
+## Future Roadmap & Pending Features
 
-### 1. 🎧 Headphone Cueing / Pre-Listening (PFL) over Bluetooth + USB-C / Jack
+### 1. Headphone Cueing / Pre-Listening (PFL) over Bluetooth + USB-C / Jack
 
 A critical requirement for live DJ mixing is pre-listening to the incoming track in headphones (CUE/PFL) while the main mix plays through the master PA speakers. In a web browser environment, this is achieved through two architectures:
 
@@ -117,7 +117,7 @@ For platforms that restrict `setSinkId` (such as iOS Safari), provide a 1-click 
 
 ---
 
-### 2. 🎛️ Audio FX Processors (FX 1 & FX 2)
+### 2. Audio FX Processors (FX 1 & FX 2)
 Route audio through modular Web Audio nodes when FX units are activated:
 - **Delay (DLY)**: Tempo-synchronized feedback delay (1/2 beat, 3/4 beat, 1 beat).
 - **Reverb (REV)**: Algorithmic or ConvolverNode impulse response for spatial transitions.
@@ -131,5 +131,5 @@ Route audio through modular Web Audio nodes when FX units are activated:
 
 ---
 
-### 4. 🎵 Beatgrid Lock & Real Quantization
+### 4. Beatgrid Lock & Real Quantization
 - Analyze transient peaks or read ID3 beat markers to lock Hot Cue presses to the nearest 16th-note transient.

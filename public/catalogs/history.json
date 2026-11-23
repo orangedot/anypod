@@ -1,7 +1,7 @@
 {
   "id": "history",
   "title": "History & Ideas",
-  "emoji": "🏺",
+  "emoji": "",
   "description": "Epic historical journeys, archaeology, pivotal events, and intellectual evolution.",
   "subtopics": [
     {
@@ -10,19 +10,19 @@
     },
     {
       "id": "epic",
-      "label": "⚔️ Epic & Military History"
+      "label": "Epic & Military History"
     },
     {
       "id": "world",
-      "label": "🌍 World History"
+      "label": "World History"
     },
     {
       "id": "ideas",
-      "label": "💡 History of Ideas"
+      "label": "History of Ideas"
     },
     {
       "id": "archaeology",
-      "label": "🏛️ Ancient & Archaeology"
+      "label": "Ancient & Archaeology"
     }
   ],
   "featured": [

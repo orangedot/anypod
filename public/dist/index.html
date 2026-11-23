@@ -20,6 +20,40 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Anypod">
   <meta name="application-name" content="Anypod">
+  <link rel="canonical" href="https://anypod.org/">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "anypod.org",
+    "alternateName": "Anypod",
+    "url": "https://anypod.org",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "Any",
+    "description": "anypod.org — AGPLv3 open-source PWA podcast player with offline playback, client-side audio processing, zero-egress studio hosting, and optional expiring cloud sync.",
+    "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+    "codeRepository": "https://github.com/orangedot/anypod",
+    "sameAs": [
+      "https://github.com/orangedot/anypod"
+    ],
+    "author": {
+      "@type": "Organization",
+      "name": "Anypod",
+      "url": "https://anypod.org",
+      "email": "hello@anypod.org"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Anypod",
+      "url": "https://anypod.org"
+    },
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    }
+  }
+  </script>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="ard" type="application/json" href="/.well-known/ard.json">
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
@@ -36,7 +70,7 @@
 /*# sourceMappingURL=style.min.css.map */
 </style>
 </head>
-<body data-player-src="player.min.js?v=1795371766832">
+<body data-player-src="player.min.js?v=1795473537043">
   <!-- Cloud Sync & Magic Auth Modal -->
   <div class="modal-overlay hidden" id="auth-modal">
     <div class="modal-card auth-modal-card">
@@ -187,7 +221,7 @@
           </div>
           <div class="storage-banner-text">
             <strong>Enable Storage in Chrome Address Bar</strong>
-            <span>Chrome has blocked site data for this domain. To save your queue, feeds, and playback spots across visits, click the <strong>crossed-out eye / storage icon (🚫👁️)</strong> in the top-right of your Chrome URL bar and select <strong>"Sites can save data"</strong> (or reload).</span>
+            <span>Chrome has blocked site data for this domain. To save your queue, feeds, and playback spots across visits, click the <strong>crossed-out eye / storage icon ()</strong> in the top-right of your Chrome URL bar and select <strong>"Sites can save data"</strong> (or reload).</span>
           </div>
         </div>
         <div class="storage-banner-actions">
@@ -277,7 +311,7 @@
         </div>
         <div class="welcome-manifesto-footer">
           <div class="persona-vibes">
-            <span class="persona-vibe-chip clickable" data-target-shelf="shelf-science">🔬 Science &amp; Cosmos</span><span class="persona-vibe-chip clickable" data-target-shelf="shelf-democracy">🏛️ Democracy &amp; Press</span><span class="persona-vibe-chip clickable" data-target-shelf="shelf-technology">💻 Tech &amp; AI</span><span class="persona-vibe-chip clickable" data-target-shelf="shelf-history">🏺 History &amp; Ideas</span>
+            <span class="persona-vibe-chip clickable" data-target-shelf="shelf-science">Science &amp; Cosmos</span><span class="persona-vibe-chip clickable" data-target-shelf="shelf-democracy">Democracy &amp; Press</span><span class="persona-vibe-chip clickable" data-target-shelf="shelf-technology">Tech &amp; AI</span><span class="persona-vibe-chip clickable" data-target-shelf="shelf-history">History &amp; Ideas</span>
           </div>
           <div class="persona-stats">
             <span>350 curated shows across 7 genres</span>
@@ -474,7 +508,7 @@
         <div class="discover-shelf-header">
           <div class="discover-shelf-title-wrap">
             <h3 class="discover-shelf-title">
-              <span>🔬</span>
+              <span></span>
               <span>Science &amp; Cosmos</span>
             </h3>
             <p class="discover-shelf-sub">Planetary science, cosmic mysteries, cutting-edge research, and ecology.</p>
@@ -623,7 +657,7 @@
         <div class="discover-shelf-header">
           <div class="discover-shelf-title-wrap">
             <h3 class="discover-shelf-title">
-              <span>🏛️</span>
+              <span></span>
               <span>Democracy &amp; Free Press</span>
             </h3>
             <p class="discover-shelf-sub">Investigative journalism, civics, democratic integrity, and global affairs.</p>
@@ -652,7 +686,7 @@
         <div class="discover-shelf-header">
           <div class="discover-shelf-title-wrap">
             <h3 class="discover-shelf-title">
-              <span>🌍</span>
+              <span></span>
               <span>Social &amp; Human Stories</span>
             </h3>
             <p class="discover-shelf-sub">Culture, human experience, philosophy, psychology, and personal journeys.</p>
@@ -681,7 +715,7 @@
         <div class="discover-shelf-header">
           <div class="discover-shelf-title-wrap">
             <h3 class="discover-shelf-title">
-              <span>🎭</span>
+              <span></span>
               <span>Entertainment &amp; Culture</span>
             </h3>
             <p class="discover-shelf-sub">Cinema, comedy, music, storytelling, and contemporary pop culture.</p>
@@ -710,7 +744,7 @@
         <div class="discover-shelf-header">
           <div class="discover-shelf-title-wrap">
             <h3 class="discover-shelf-title">
-              <span>⚽</span>
+              <span></span>
               <span>Sports &amp; Athletics</span>
             </h3>
             <p class="discover-shelf-sub">Global football, endurance athletics, performance science, and sports journalism.</p>
@@ -739,7 +773,7 @@
         <div class="discover-shelf-header">
           <div class="discover-shelf-title-wrap">
             <h3 class="discover-shelf-title">
-              <span>💻</span>
+              <span></span>
               <span>Technology &amp; Future</span>
             </h3>
             <p class="discover-shelf-sub">Open source, software craftsmanship, artificial intelligence, security, and digital freedom.</p>
@@ -768,7 +802,7 @@
         <div class="discover-shelf-header">
           <div class="discover-shelf-title-wrap">
             <h3 class="discover-shelf-title">
-              <span>🏺</span>
+              <span></span>
               <span>History &amp; Ideas</span>
             </h3>
             <p class="discover-shelf-sub">Epic historical journeys, archaeology, pivotal events, and intellectual evolution.</p>
@@ -991,10 +1025,12 @@
         </div>
 
         <div class="settings-card" id="card-open-source">
-          <h3>open source &amp; repository</h3>
+          <h3>open source &amp; contact</h3>
           <p>anypod is local-first, privacy-respecting open-source software licensed under the gnu agplv3.</p>
           <div class="settings-actions">
             <a href="https://github.com/orangedot/anypod" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">GitHub (Open Source)</a>
+            <a href="https://github.com/orangedot/anypod/issues" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Report an Issue</a>
+            <a href="mailto:hello@anypod.org" class="btn btn-secondary">hello@anypod.org</a>
           </div>
         </div>
       </section>
@@ -1160,7 +1196,7 @@
       <div class="modal-card modal-card-wide catalog-modal-card">
         <div class="modal-header">
           <div class="catalog-modal-header-info">
-            <h2 id="catalog-modal-title">🔬 Science &amp; Cosmos</h2>
+            <h2 id="catalog-modal-title">Science &amp; Cosmos</h2>
             <span class="catalog-modal-count-badge" id="catalog-modal-count">50 shows</span>
           </div>
           <button class="btn-close" id="btn-close-catalog-modal" aria-label="close">&times;</button>
@@ -1557,6 +1593,6 @@
 
   </div>
 
-  <script src="app.min.js?v=1795371766832" defer></script>
+  <script src="app.min.js?v=1795473537043" defer></script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 {
   "id": "science",
   "title": "Science & Cosmos",
-  "emoji": "🔬",
+  "emoji": "",
   "description": "Planetary science, cosmic mysteries, cutting-edge research, and ecology.",
   "subtopics": [
     {
@@ -10,19 +10,19 @@
     },
     {
       "id": "space",
-      "label": "🚀 Space & Cosmos"
+      "label": "Space & Cosmos"
     },
     {
       "id": "science",
-      "label": "🔬 Research & Physics"
+      "label": "Research & Physics"
     },
     {
       "id": "climate",
-      "label": "🌱 Climate & Energy"
+      "label": "Climate & Energy"
     },
     {
       "id": "nature",
-      "label": "🌿 Earth & Nature"
+      "label": "Earth & Nature"
     }
   ],
   "featured": [

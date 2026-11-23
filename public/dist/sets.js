@@ -1256,7 +1256,7 @@
       if (seg) {
         const isFlow = seg.playbackMode === 'flow';
         el.badgePlaybackMode.style.display = 'inline-flex';
-        el.badgePlaybackMode.textContent = isFlow ? '🌊 FLOW MODE' : '🔁 A-B LOOP';
+        el.badgePlaybackMode.textContent = isFlow ? 'FLOW MODE' : 'A-B LOOP';
       } else {
         el.badgePlaybackMode.style.display = 'none';
       }
@@ -1474,7 +1474,7 @@
     el.btnBeatOverlay.classList.toggle('active-beat', audioEngine.beatOverlayEnabled);
     const cur = timeline[currentIdx];
     audioEngine.updateBeatOverlayState(state === 'running', cur?.block?.type || 'work');
-    showToast(audioEngine.beatOverlayEnabled ? '🥁 128 BPM Workout Beat Overlay ON' : 'Beat Overlay OFF');
+    showToast(audioEngine.beatOverlayEnabled ? '128 BPM Workout Beat Overlay ON' : 'Beat Overlay OFF');
   });
 
   // ───────────────────────────────────────────────────────────────────
@@ -1640,8 +1640,8 @@
         const isFlow = seg?.playbackMode === 'flow';
         const rangeStr = seg
           ? (isFlow
-              ? `🌊 Flow (from ${formatTime(seg.startTimeSec || 0)})`
-              : `🔁 Loop ${formatTime(seg.startTimeSec || 0)}→${formatTime(seg.endTimeSec || block.durationSec)}`)
+              ? `Flow (from ${formatTime(seg.startTimeSec || 0)})`
+              : `Loop ${formatTime(seg.startTimeSec || 0)}→${formatTime(seg.endTimeSec || block.durationSec)}`)
           : '';
 
         bItem.innerHTML = `
@@ -2096,7 +2096,7 @@
           <div class="studio-track-title">${escapeHtml(item.title)}</div>
           <div class="studio-track-sub">${escapeHtml(item.podcastTitle)} • ${formatTime(item.durationSec)}</div>
         </div>
-        <span class="btn-crate-mini">Load ✂️</span>
+        <span class="btn-crate-mini">Load </span>
       `;
       row.addEventListener('click', () => {
         loadSourceIntoStudio(item);
@@ -2118,7 +2118,7 @@
           <div class="studio-track-title">${escapeHtml(beat.title)}</div>
           <div class="studio-track-sub">${beat.bpm} BPM • Procedural Offline WAV</div>
         </div>
-        <span class="btn-crate-mini">Load ✂️</span>
+        <span class="btn-crate-mini">Load </span>
       `;
       row.addEventListener('click', () => {
         loadSourceIntoStudio(beat);
@@ -2143,13 +2143,13 @@
         <div class="crate-loop-top">
           <div>
             <div class="crate-loop-title">${escapeHtml(loop.title)}</div>
-            <div class="crate-loop-meta">${loop.playbackMode === 'flow' ? '🌊 Flow' : `🔁 ${formatTime(loop.startTimeSec || 0)} → ${formatTime(loop.endTimeSec || 20)} (${Math.round(len)}s)`} • ${loop.bpm || 128} BPM</div>
+            <div class="crate-loop-meta">${loop.playbackMode === 'flow' ? 'Flow' : `${formatTime(loop.startTimeSec || 0)} → ${formatTime(loop.endTimeSec || 20)} (${Math.round(len)}s)`} • ${loop.bpm || 128} BPM</div>
           </div>
         </div>
         <div class="crate-loop-actions">
-          <button type="button" class="btn-crate-mini" data-action="edit">✂️ Edit</button>
-          <button type="button" class="btn-crate-mini" data-action="apply-work">⚡ Set All Work</button>
-          <button type="button" class="btn-crate-mini" data-action="delete">🗑️</button>
+          <button type="button" class="btn-crate-mini" data-action="edit">Edit</button>
+          <button type="button" class="btn-crate-mini" data-action="apply-work">Set All Work</button>
+          <button type="button" class="btn-crate-mini" data-action="delete"></button>
         </div>
       `;
 
@@ -2713,7 +2713,7 @@
         d.innerHTML = `
           <div>
             <div class="sample-name" style="color:#d8b4fe;">${escapeHtml(loop.title)}</div>
-            <div class="sample-sub">${loop.playbackMode === 'flow' ? '🌊 Continuous Flow' : `🔁 Loop ${formatTime(loop.startTimeSec || 0)} → ${formatTime(loop.endTimeSec || 20)}`} • ${loop.bpm || 128} BPM</div>
+            <div class="sample-sub">${loop.playbackMode === 'flow' ? 'Continuous Flow' : `Loop ${formatTime(loop.startTimeSec || 0)} → ${formatTime(loop.endTimeSec || 20)}`} • ${loop.bpm || 128} BPM</div>
           </div>
           <span class="btn-sample-pick" style="color:#a855f7;">Select</span>
         `;

@@ -1,7 +1,7 @@
 {
   "id": "social",
   "title": "Social & Human Stories",
-  "emoji": "🌍",
+  "emoji": "",
   "description": "Culture, human experience, philosophy, psychology, and personal journeys.",
   "subtopics": [
     {
@@ -10,19 +10,19 @@
     },
     {
       "id": "culture",
-      "label": "🎭 Culture & Society"
+      "label": "Culture & Society"
     },
     {
       "id": "psychology",
-      "label": "🧠 Mind & Behavior"
+      "label": "Mind & Behavior"
     },
     {
       "id": "philosophy",
-      "label": "💡 Philosophy"
+      "label": "Philosophy"
     },
     {
       "id": "stories",
-      "label": "📖 Personal Stories"
+      "label": "Personal Stories"
     }
   ],
   "featured": [

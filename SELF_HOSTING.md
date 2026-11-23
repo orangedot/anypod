@@ -1,6 +1,6 @@
-# 🐳 Anypod Self-Hosting Guide
+# Anypod Self-Hosting Guide
 
-Willkommen beim Self-Hosting von **Anypod**! 😊
+Willkommen beim Self-Hosting von **Anypod**! 
 
 Dieser Guide ist für alle gedacht, die Anypod komplett unabhängig und privat auf dem eigenen Heimserver, NAS (z. B. Synology, Unraid, TrueNAS) oder Raspberry Pi betreiben möchten.
 
@@ -8,7 +8,7 @@ Alles läuft zu 100 % lokal in Docker mit lokaler SQLite-Datenbank – ohne Zwan
 
 ---
 
-## ⚡ Schnellstart in 60 Sekunden
+## Schnellstart in 60 Sekunden
 
 ### 1. Repository klonen
 ```bash
@@ -22,11 +22,11 @@ docker compose up -d
 ```
 
 ### 3. Loslegen!
-Öffne einfach **http://localhost:8788** (oder die IP deines Servers, z. B. `http://192.168.1.100:8788`) im Browser! 🎉
+Öffne einfach **http://localhost:8788** (oder die IP deines Servers, z. B. `http://192.168.1.100:8788`) im Browser! 
 
 ---
 
-## 💾 Lokaler Speicher & Datenpersistenz
+## Lokaler Speicher & Datenpersistenz
 
 Alle Daten von Anypod werden im gemounteten Verzeichnis `./data` gespeichert:
 
@@ -47,7 +47,7 @@ Alle Daten von Anypod werden im gemounteten Verzeichnis `./data` gespeichert:
 
 ---
 
-## ⚙️ Konfiguration
+## Konfiguration
 
 Anypod unterstützt Konfiguration sowohl über **Environment-Variablen** (in `docker-compose.yml` oder `.env`) als auch über eine **Konfigurationsdatei** (`config.yaml` oder `config.json`).
 
@@ -110,14 +110,14 @@ Alternativ als JSON (`./data/config.json`):
 
 ---
 
-## 🔑 Offline-Login & Magic Links
+## Offline-Login & Magic Links
 
 Anypod nutzt passwortloses Magic-Link-Login. Du musst dafür **keinen E-Mail-Dienst einrichten**:
 
 1. Wenn **`RESEND_API_KEY` leer** ist, läuft Anypod im **Offline-Modus**.
 2. Gib deine E-Mail im Login-Dialog ein.
 3. Der Magic-Login-Link wird:
-   - **Direkt im Browser-Dialog als klickbarer Button angezeigt** 🪄
+   - **Direkt im Browser-Dialog als klickbarer Button angezeigt** 
    - **In den Docker-Logs ausgegeben** (`docker compose logs -f anypod`)
 4. Ein Klick genügt, und du bist eingeloggt und deine Feeds & Hörstände synchronisieren sich lokal auf deinem Server!
 
@@ -125,7 +125,7 @@ Anypod nutzt passwortloses Magic-Link-Login. Du musst dafür **keinen E-Mail-Die
 
 ---
 
-## 📦 Production Bundler
+## Production Bundler
 
 Anypod enthält einen integrierten Bundler mit `esbuild`, der HTML, CSS und modernstes JavaScript für maximale Performance minifiziert:
 
@@ -141,7 +141,7 @@ npm run build
 
 ---
 
-## 🔒 Reverse Proxy (Nginx / Caddy / Traefik)
+## Reverse Proxy (Nginx / Caddy / Traefik)
 
 Wenn du Anypod hinter einem Reverse Proxy mit SSL (HTTPS) betreibst:
 
@@ -185,7 +185,7 @@ docker compose -f docker-compose.yml -f docker-compose.jwilder.yml up -d
 
 ---
 
-## 🏛️ Architektur: Warum SQLite statt MariaDB?
+## Architektur: Warum SQLite statt MariaDB?
 
 Eine häufige Frage von Sysadmins: *„Warum kein MariaDB / MySQL im separaten Container?“*
 
@@ -196,7 +196,7 @@ Eine häufige Frage von Sysadmins: *„Warum kein MariaDB / MySQL im separaten C
 
 ---
 
-## 💾 Storage Management & Caching
+## Storage Management & Caching
 
 ### 1. Offline-Audio & Cover-Cache (Client PWA)
 Anypod verfügt über einen integrierten Service Worker mit **HTTP 206 Range-Request Support**:
@@ -211,7 +211,7 @@ Für Self-Hosters, die Feeds serverseitig spiegeln möchten:
 
 ---
 
-## 🧹 Automatischer Inaktivitäts-Cleanup ("Cleaner Monday")
+## Automatischer Inaktivitäts-Cleanup ("Cleaner Monday")
 
 Anypod schützt die Privatsphäre und hält die lokale Datenbank sauber:
 - Accounts, die 30 Tage inaktiv sind, erhalten einen Hinweis.
@@ -228,7 +228,7 @@ Du kannst den Cleanup wöchentlich per System-Cronjob auf deinem Host anstoßen:
 
 ---
 
-## 🔄 Updates
+## Updates
 
 Um deine lokale Anypod-Instanz auf den neuesten Stand zu bringen:
 
@@ -239,4 +239,4 @@ docker compose up -d
 ```
 Deine SQLite-Datenbank und Konfiguration in `./data` bleiben dabei 100 % erhalten!
 
-Viel Spaß beim Hören! 🎧😊
+Viel Spaß beim Hören! 

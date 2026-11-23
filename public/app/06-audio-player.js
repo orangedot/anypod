@@ -1479,7 +1479,7 @@ function updateProgress() {
           state._autoSkipTimer = setTimeout(() => {
             if (state.experimentalSettings.autoSkipSpeech && isEnginePlaying()) {
               jumpToNextSegment('music');
-              showToast('⚡ skipped talk section');
+              showToast('skipped talk section');
             }
             state._autoSkipTimer = null;
           }, 1500);

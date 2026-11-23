@@ -461,7 +461,7 @@
     const done = dirs.filter(function (d) { return dist[d.id]; }).length;
     const pct = Math.round((done / dirs.length) * 100);
     const isPrivate = Boolean(state.show && state.show.is_private);
-    const privateBanner = '<div class="st-card" style="margin-bottom:14px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);"><div class="st-card-head"><div><h3 class="st-card-title">' + (isPrivate ? '🔒 Private Show (ICPS Token Gating Active)' : 'Individual Subscriber Feeds (ICPS)') + '</h3><p class="st-card-sub">' + (isPrivate ? 'This podcast feed is protected. Only listeners with authorized subscriber tokens can fetch the feed and stream audio.' : 'Issue unique, revocable tokenized feed URLs for employees, paying members, or private groups.') + '</p></div><button type="button" class="st-btn st-btn-sm ' + (isPrivate ? 'st-btn-primary' : '') + '" data-open-tokens="1">Manage Subscriber Tokens</button></div></div>';
+    const privateBanner = '<div class="st-card" style="margin-bottom:14px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);"><div class="st-card-head"><div><h3 class="st-card-title">' + (isPrivate ? 'Private Show (ICPS Token Gating Active)' : 'Individual Subscriber Feeds (ICPS)') + '</h3><p class="st-card-sub">' + (isPrivate ? 'This podcast feed is protected. Only listeners with authorized subscriber tokens can fetch the feed and stream audio.' : 'Issue unique, revocable tokenized feed URLs for employees, paying members, or private groups.') + '</p></div><button type="button" class="st-btn st-btn-sm ' + (isPrivate ? 'st-btn-primary' : '') + '" data-open-tokens="1">Manage Subscriber Tokens</button></div></div>';
 
     const cards = dirs.map(function (d) {
       const checked = !!dist[d.id];

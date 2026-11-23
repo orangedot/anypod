@@ -42,7 +42,7 @@ const DEFAULT_TEST_FEEDS = [
 
 function logHeader(title) {
   console.log('\n' + '='.repeat(64));
-  console.log(` 🎧 ${title}`);
+  console.log(` ${title}`);
   console.log('='.repeat(64));
 }
 
@@ -85,11 +85,11 @@ async function testAudioStreamUrl(audioUrl, title = '') {
       console.log(`  [HEAD] Accept-Ranges: ${results.acceptRanges}`);
     } else {
       results.issues.push(`HEAD returned HTTP ${headRes.status}`);
-      console.log(`  ⚠️ [HEAD] Non-200 HTTP status: ${headRes.status}`);
+      console.log(`  [HEAD] Non-200 HTTP status: ${headRes.status}`);
     }
   } catch (err) {
     results.issues.push(`HEAD request failed: ${err.message}`);
-    console.log(`  ⚠️ [HEAD] Failed: ${err.message}`);
+    console.log(`  [HEAD] Failed: ${err.message}`);
   }
 
   // 2. Test HTTP 206 Partial Content (Byte Range Request: 0-1024)
@@ -111,25 +111,25 @@ async function testAudioStreamUrl(audioUrl, title = '') {
 
     if (is206) {
       results.directRange = true;
-      console.log(`  [RANGE 206] ✅ Valid partial content supported! (Content-Range: ${contentRange})`);
+      console.log(`  [RANGE 206] Valid partial content supported! (Content-Range: ${contentRange})`);
     } else if (rangeRes.status === 200) {
-      console.log(`  [RANGE 200] ⚠️ Server ignored Range header and sent full body (HTTP 200). Mobile scrubbing may stall.`);
+      console.log(`  [RANGE 200] Server ignored Range header and sent full body (HTTP 200). Mobile scrubbing may stall.`);
       results.issues.push('Server does not support HTTP 206 partial content');
     } else {
-      console.log(`  [RANGE] ❌ Range request failed with HTTP ${rangeRes.status}`);
+      console.log(`  [RANGE] Range request failed with HTTP ${rangeRes.status}`);
       results.issues.push(`Range request HTTP ${rangeRes.status}`);
     }
   } catch (err) {
     results.issues.push(`Range request error: ${err.message}`);
-    console.log(`  [RANGE] ❌ Error: ${err.message}`);
+    console.log(`  [RANGE] Error: ${err.message}`);
   }
 
   // 3. Overall Verdict
   const isHealthy = results.directHead && results.directRange;
   if (isHealthy) {
-    console.log(`  Verdict: ✅ DIRECT STREAM HEALTHY (Native playback will work cleanly in background)`);
+    console.log(`  Verdict: DIRECT STREAM HEALTHY (Native playback will work cleanly in background)`);
   } else {
-    console.log(`  Verdict: ⚠️ CDN REQUIRES AUDIO-PROXY (Native audio may encounter Code 4 / demux drop without proxy)`);
+    console.log(`  Verdict: CDN REQUIRES AUDIO-PROXY (Native audio may encounter Code 4 / demux drop without proxy)`);
   }
 
   return results;
@@ -149,7 +149,7 @@ async function testFeedAudioSources(feedUrl, feedName = '') {
     });
 
     if (!res.ok) {
-      console.error(`❌ Could not fetch feed (HTTP ${res.status})`);
+      console.error(`Could not fetch feed (HTTP ${res.status})`);
       return;
     }
 
@@ -171,7 +171,7 @@ async function testFeedAudioSources(feedUrl, feedName = '') {
     }
 
     if (episodes.length === 0) {
-      console.log('⚠️ No audio enclosures found in feed.');
+      console.log('No audio enclosures found in feed.');
       return;
     }
 
@@ -180,7 +180,7 @@ async function testFeedAudioSources(feedUrl, feedName = '') {
       await testAudioStreamUrl(ep.audioUrl, ep.title);
     }
   } catch (err) {
-    console.error(`❌ Feed test failed: ${err.message}`);
+    console.error(`Feed test failed: ${err.message}`);
   }
 }
 
@@ -207,7 +207,7 @@ async function main() {
   }
 
   console.log('\n' + '='.repeat(64));
-  console.log(' ✨ Audio source verification check complete.');
+  console.log(' Audio source verification check complete.');
   console.log('='.repeat(64) + '\n');
 }
 

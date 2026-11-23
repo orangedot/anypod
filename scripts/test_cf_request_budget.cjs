@@ -164,13 +164,13 @@ function startServer() {
 }
 
 async function run() {
-  console.log('⚡ Starting Cloudflare Request Budget Verification...');
+  console.log('Starting Cloudflare Request Budget Verification...');
   const { server, port } = await startServer();
   const baseUrl = `http://127.0.0.1:${port}`;
   const chromePath = findChromeExecutable();
 
   if (!chromePath) {
-    console.error('❌ Chrome executable not found');
+    console.error('Chrome executable not found');
     server.close();
     process.exit(1);
   }
@@ -200,10 +200,10 @@ async function run() {
   await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
   await new Promise(r => setTimeout(r, 400));
   interceptedApiRequests.length = 0; // Reset after initial boot
-  console.log('✅ Page loaded successfully');
+  console.log('Page loaded successfully');
 
   // Test 1: Verify Zero-CPU On-Device XML Parsing via ?raw=1
-  console.log('🧪 Testing Zero-CPU On-Device XML Parsing...');
+  console.log('Testing Zero-CPU On-Device XML Parsing...');
   const feedResult = await page.evaluate(async () => {
     const testFeeds = [
       'https://feeds.npr.org/510289/podcast.xml',
@@ -227,13 +227,13 @@ async function run() {
   const serverParsedPosts = interceptedApiRequests.filter(r => r.url.endsWith('/api/feed') && r.method === 'POST');
   console.log(`   Zero-CPU GET /api/feed?raw=1 count: ${rawFeedGets.length}, Server POST /api/feed count: ${serverParsedPosts.length}`);
   if (rawFeedGets.length === 3 && serverParsedPosts.length === 0) {
-    console.log('✅ Test 1 PASSED: 100% of RSS feeds fetched via 0ms-CPU ?raw=1 byte stream and parsed on-device');
+    console.log('Test 1 PASSED: 100% of RSS feeds fetched via 0ms-CPU ?raw=1 byte stream and parsed on-device');
   } else {
     console.log('ℹ️ Feed sync requests recorded:', interceptedApiRequests.map(r => `${r.method} ${r.url}`));
   }
 
   // Test 2: Position Sync Coalescing
-  console.log('🧪 Testing Playback Position Batch Coalescing...');
+  console.log('Testing Playback Position Batch Coalescing...');
   const posResult = await page.evaluate(async () => {
     window.state.sessionToken = 'mock_session_token_123';
     // Trigger rapid position updates for 3 different episodes (simulating marking played or scrub)
@@ -253,14 +253,14 @@ async function run() {
     const parsedBody = JSON.parse(lastPosPost.postData || '{}');
     console.log('   Position post payload keys:', Object.keys(parsedBody));
     if (parsedBody.updates && Array.isArray(parsedBody.updates)) {
-      console.log(`✅ Test 2 PASSED: Coalesced ${parsedBody.updates.length} position updates into single batched D1 request`);
+      console.log(`Test 2 PASSED: Coalesced ${parsedBody.updates.length} position updates into single batched D1 request`);
     } else {
-      console.log('✅ Test 2 PASSED: Position sync request sent with valid payload');
+      console.log('Test 2 PASSED: Position sync request sent with valid payload');
     }
   }
 
   // Test 3: Unified Search In-Memory LRU Cache
-  console.log('🧪 Testing Unified Search 10-minute LRU Cache...');
+  console.log('Testing Unified Search 10-minute LRU Cache...');
   interceptedApiRequests.length = 0; // Clear recorded requests
 
   await page.evaluate(async () => {
@@ -279,14 +279,14 @@ async function run() {
   console.log(`   Search Pass 2 network calls (identical query): ${searchReqCountPass2}`);
 
   if (searchReqCountPass2 === 0) {
-    console.log('✅ Test 3 PASSED: Repeated search used 0 network calls (hit in-memory cache)');
+    console.log('Test 3 PASSED: Repeated search used 0 network calls (hit in-memory cache)');
   } else {
-    console.error(`❌ Test 3 FAILED: Expected 0 calls on cache hit, got ${searchReqCountPass2}`);
+    console.error(`Test 3 FAILED: Expected 0 calls on cache hit, got ${searchReqCountPass2}`);
   }
 
   await browser.close();
   server.close();
-  console.log('\n🎉 All Cloudflare Request Budget tests completed successfully!\n');
+  console.log('\nAll Cloudflare Request Budget tests completed successfully!\n');
 }
 
 run().catch(err => {

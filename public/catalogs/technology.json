@@ -1,7 +1,7 @@
 {
   "id": "technology",
   "title": "Technology & Future",
-  "emoji": "💻",
+  "emoji": "",
   "description": "Open source, software craftsmanship, artificial intelligence, security, and digital freedom.",
   "subtopics": [
     {
@@ -10,19 +10,19 @@
     },
     {
       "id": "opensource",
-      "label": "🐧 Open Source"
+      "label": "Open Source"
     },
     {
       "id": "ai",
-      "label": "🤖 AI & Machine Learning"
+      "label": "AI & Machine Learning"
     },
     {
       "id": "dev",
-      "label": "⚙️ Engineering & Code"
+      "label": "Engineering & Code"
     },
     {
       "id": "privacy",
-      "label": "🛡️ Security & Privacy"
+      "label": "Security & Privacy"
     }
   ],
   "featured": [

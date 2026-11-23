@@ -1,7 +1,7 @@
 {
   "id": "sports",
   "title": "Sports & Athletics",
-  "emoji": "⚽",
+  "emoji": "",
   "description": "Global football, endurance athletics, performance science, and sports journalism.",
   "subtopics": [
     {
@@ -10,19 +10,19 @@
     },
     {
       "id": "football",
-      "label": "⚽ Football / Soccer"
+      "label": "Football / Soccer"
     },
     {
       "id": "endurance",
-      "label": "🏃 Endurance & Running"
+      "label": "Endurance & Running"
     },
     {
       "id": "analytics",
-      "label": "📊 Analytics & Tactics"
+      "label": "Analytics & Tactics"
     },
     {
       "id": "motorsport",
-      "label": "🏎️ F1 & Motorsport"
+      "label": "F1 & Motorsport"
     }
   ],
   "featured": [

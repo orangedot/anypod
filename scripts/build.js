@@ -9,7 +9,7 @@ const rootDir = path.resolve(__dirname, '..');
 const publicDir = path.join(rootDir, 'public');
 const distDir = path.join(publicDir, 'dist');
 
-console.log('📦 Starting Anypod production build...');
+console.log('Starting Anypod production build...');
 
 // Ensure clean dist directory
 if (!fs.existsSync(distDir)) {
@@ -340,7 +340,7 @@ const playerExportBridge = `
 
 const assembledPlayerJs = `(function () {\n  'use strict';\n\n${playerImportBridge}\n${playerAppBody}\n${playerExportBridge}\n})();\n`;
 
-console.log(`🔧 Assembled in-memory: Core Shell (${coreAppModules.length} modules) + Player Engine (${playerAppModules.length} modules)`);
+console.log(`Assembled in-memory: Core Shell (${coreAppModules.length} modules) + Player Engine (${playerAppModules.length} modules)`);
 
 // Clean up legacy monolithic app.js if present
 const legacyAppJs = path.join(publicDir, 'app.js');
@@ -490,10 +490,10 @@ const playerMinSize = (fs.statSync(path.join(distDir, 'player.min.js')).size / 1
 const originalCssSize = (Buffer.byteLength(assembledCss, 'utf-8') / 1024).toFixed(1);
 const minCssSize = (fs.statSync(path.join(distDir, 'style.min.css')).size / 1024).toFixed(1);
 
-console.log(`✅ Core Shell JS:   ${coreMinSize} KB (public/dist/app.min.js)`);
-console.log(`✅ Player Engine JS: ${playerMinSize} KB (public/dist/player.min.js)`);
-console.log(`✅ Total JS:        ${(parseFloat(coreMinSize) + parseFloat(playerMinSize)).toFixed(1)} KB`);
-console.log(`✅ CSS:             ${originalCssSize} KB  →  ${minCssSize} KB (public/dist/style.min.css)`);
-console.log('✅ Static: Automatically copied all root assets & subdirectories to dist/');
-console.log('✅ HTML: Generated production public/dist/index.html');
-console.log('🎉 Production build complete!');
+console.log(`Core Shell JS:   ${coreMinSize} KB (public/dist/app.min.js)`);
+console.log(`Player Engine JS: ${playerMinSize} KB (public/dist/player.min.js)`);
+console.log(`Total JS:        ${(parseFloat(coreMinSize) + parseFloat(playerMinSize)).toFixed(1)} KB`);
+console.log(`CSS:             ${originalCssSize} KB  →  ${minCssSize} KB (public/dist/style.min.css)`);
+console.log('Static: Automatically copied all root assets & subdirectories to dist/');
+console.log('HTML: Generated production public/dist/index.html');
+console.log('Production build complete!');

@@ -292,7 +292,7 @@ function _renderInlineAnalysisSection(container) {
     const sourcePillText = hasCues ? (src || 'live') : (src || 'probe');
     innerHtml += `
       <div class="analysis-header">
-        <span>🔬 Audio Analysis</span>
+        <span>Audio Analysis</span>
         <span class="source-pill">${escapeHtml(sourcePillText)}</span>
       </div>
     `;
@@ -302,7 +302,7 @@ function _renderInlineAnalysisSection(container) {
       innerHtml += `<div class="transcript-segment-pills" style="justify-content:flex-start;">
         ${segments.slice(0, 20).map(s => `
           <button type="button" class="segment-jump-pill ${s.type === 'music' ? 'is-music' : 'is-speech'}" data-seconds="${s.start}">
-            ${s.type === 'music' ? '🎵' : '🎙️'} ${formatTime(s.start)}
+            ${s.type === 'music' ? '' : ''} ${formatTime(s.start)}
           </button>
         `).join('')}
       </div>`;
@@ -314,7 +314,7 @@ function _renderInlineAnalysisSection(container) {
       const preview = cues.slice(-3);
       innerHtml += `
         <div style="margin-top:0.75rem; font-size:0.82rem; color:var(--text-secondary);">
-          <strong style="color:var(--text-primary);">🎙 Live transcript</strong>
+          <strong style="color:var(--text-primary);">Live transcript</strong>
           ${preview.map(c => `<p style="margin:0.3rem 0 0; color:var(--text-primary);">"${escapeHtml(c.text)}"</p>`).join('')}
           ${cues.length > 3 ? `<button type="button" class="inline-link notes-open-transcript">see all ${cues.length} lines →</button>` : ''}
         </div>
@@ -325,7 +325,7 @@ function _renderInlineAnalysisSection(container) {
     const isTransOn = state.experimentalSettings.enableTranscript !== false;
     innerHtml += `
       <div class="notes-enable-hint">
-        <strong>🔬 Audio Analysis not active</strong><br>
+        <strong>Audio Analysis not active</strong><br>
         <button type="button" class="inline-link" id="inline-goto-settings">Enable Audio Classifier or ${isTransOn ? 'Live Transcript' : 'Interactive Transcripts'} in Experimental Settings →</button>
       </div>
     `;
@@ -434,7 +434,7 @@ function renderTranscriptView(filterText = '') {
       <div class="transcript-segment-pills">
         ${segments.slice(0, 16).map(s => `
           <button type="button" class="segment-jump-pill ${s.type === 'music' ? 'is-music' : 'is-speech'}" data-seconds="${s.start}">
-            <span>${s.type === 'music' ? '🎵 Music' : '🎙️ Talk'} · ${formatTime(s.start)}</span>
+            <span>${s.type === 'music' ? 'Music' : 'Talk'} · ${formatTime(s.start)}</span>
           </button>
         `).join('')}
       </div>
@@ -444,8 +444,8 @@ function renderTranscriptView(filterText = '') {
     const liveHtml = isLiveAvailable ? `
       <div style="margin: 1rem 0; padding: 0.75rem 1rem; background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-sm); font-size: 0.85rem;">
         ${isLiveEnabled
-          ? `<strong>🎙 Live transcription is on</strong> — text appears here as you listen.`
-          : `<strong>💡 Live Transcription available!</strong>
+          ? `<strong>Live transcription is on</strong> — text appears here as you listen.`
+          : `<strong>Live Transcription available!</strong>
              <button type="button" class="inline-link" id="transcript-goto-settings">Enable it in Experimental Settings →</button>`
         }
       </div>
@@ -464,12 +464,12 @@ function renderTranscriptView(filterText = '') {
 
     cuesList.innerHTML = `
       <div class="transcript-empty-state">
-        <div style="font-size: 2.2rem; margin-bottom: 0.75rem;">🎵</div>
+        <div style="font-size: 2.2rem; margin-bottom: 0.75rem;"></div>
         <h4>No Lyrics or Transcript Found</h4>
         ${summaryHtml}
         <div style="margin-top: 1rem;">
           <button type="button" class="btn btn-secondary btn-sm" id="btn-fetch-lyrics">
-            🎵 Search Lyrics on LRCLIB
+            Search Lyrics on LRCLIB
           </button>
         </div>
         ${liveHtml}
@@ -493,7 +493,7 @@ function renderTranscriptView(filterText = '') {
           setTimeout(() => {
             if (fetchLyricsBtn) {
               fetchLyricsBtn.disabled = false;
-              fetchLyricsBtn.textContent = '🎵 Search Lyrics on LRCLIB';
+              fetchLyricsBtn.textContent = 'Search Lyrics on LRCLIB';
             }
           }, 3000);
         }
@@ -660,8 +660,8 @@ function openShowNotes(targetEp, defaultTab = 'notes') {
     const musicInfo = parseMusicTrackInfo(ep.title || '', ep.podcastTitle || '');
     const musicParts = [];
     if (musicInfo.artist && musicInfo.track) {
-      musicParts.push(`<span class="meta-music-artist" style="font-weight: 600; color: var(--text-primary, #fff);">🎤 ${escapeHtml(musicInfo.artist)}</span>`);
-      musicParts.push(`<span class="meta-music-track" style="color: var(--accent, #3b82f6);">🎵 ${escapeHtml(musicInfo.track)}</span>`);
+      musicParts.push(`<span class="meta-music-artist" style="font-weight: 600; color: var(--text-primary, #fff);">${escapeHtml(musicInfo.artist)}</span>`);
+      musicParts.push(`<span class="meta-music-track" style="color: var(--accent, #3b82f6);">${escapeHtml(musicInfo.track)}</span>`);
     }
 
     // Check description for Album / Year hints (common in music descriptions: "Album: ...", "Released: 2024")
@@ -669,10 +669,10 @@ function openShowNotes(targetEp, defaultTab = 'notes') {
     const albumMatch = descText.match(/\b(?:album|from the album)[:\s]+([^,\n\r\.\<]+)/i);
     const yearMatch = descText.match(/\b(?:released|release date|year|℗|©)[:\s]*(?:[a-z]+\s+\d{1,2},?\s+)?(19\d{2}|20\d{2})\b/i);
     if (albumMatch && albumMatch[1] && albumMatch[1].trim().length < 50) {
-      musicParts.push(`<span class="meta-music-album">💿 ${escapeHtml(albumMatch[1].trim())}</span>`);
+      musicParts.push(`<span class="meta-music-album">${escapeHtml(albumMatch[1].trim())}</span>`);
     }
     if (yearMatch && yearMatch[1]) {
-      musicParts.push(`<span class="meta-music-year">📅 ${escapeHtml(yearMatch[1].trim())}</span>`);
+      musicParts.push(`<span class="meta-music-year">${escapeHtml(yearMatch[1].trim())}</span>`);
     }
 
     const standardParts = [
@@ -1067,7 +1067,7 @@ function updateChaptersTabBadge(source = '') {
     }
   }
   if (elements.chaptersSourceLabel && source) {
-    elements.chaptersSourceLabel.textContent = source === 'Podcasting 2.0' ? '✨ Podcasting 2.0 Chapters' : '📝 Show Notes Timestamps';
+    elements.chaptersSourceLabel.textContent = source === 'Podcasting 2.0' ? 'Podcasting 2.0 Chapters' : 'Show Notes Timestamps';
   }
   if (elements.chaptersCountText) {
     elements.chaptersCountText.textContent = hasChapters ? `${state.episodeChapters.length} chapters` : '';
@@ -1679,7 +1679,7 @@ function wireFeedsEmptyStateEvents() {
           if (added) {
             const meta = state.feedMetadata[val] || {};
             if (meta.error) {
-              showToast(`⚠️ Could not load feed: ${meta.error}`, 4000);
+              showToast(`Could not load feed: ${meta.error}`, 4000);
               if (quickSubmit) {
                 quickSubmit.textContent = 'Add Feed';
                 quickSubmit.disabled = false;
@@ -1708,7 +1708,7 @@ function wireFeedsEmptyStateEvents() {
             }
           }
         } catch (err) {
-          showToast(`⚠️ Error adding feed: ${err?.message || 'Network error'}`, 4000);
+          showToast(`Error adding feed: ${err?.message || 'Network error'}`, 4000);
           if (quickSubmit) {
             quickSubmit.textContent = 'Add Feed';
             quickSubmit.disabled = false;

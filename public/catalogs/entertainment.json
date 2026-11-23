@@ -1,7 +1,7 @@
 {
   "id": "entertainment",
   "title": "Entertainment & Culture",
-  "emoji": "🎭",
+  "emoji": "",
   "description": "Cinema, comedy, music, storytelling, and contemporary pop culture.",
   "subtopics": [
     {
@@ -10,19 +10,19 @@
     },
     {
       "id": "cinema",
-      "label": "🎬 Film & TV"
+      "label": "Film & TV"
     },
     {
       "id": "comedy",
-      "label": "😂 Comedy & Wit"
+      "label": "Comedy & Wit"
     },
     {
       "id": "music",
-      "label": "🎵 Music & Sound"
+      "label": "Music & Sound"
     },
     {
       "id": "pop",
-      "label": "🍿 Pop Culture"
+      "label": "Pop Culture"
     }
   ],
   "featured": [

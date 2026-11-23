@@ -99,7 +99,7 @@ function startStaticServer(port) {
 async function run() {
   const serverPort = await getAvailablePort(8780);
   const server = await startStaticServer(serverPort);
-  console.log(`🚀 Static server ready on http://127.0.0.1:${serverPort}`);
+  console.log(`Static server ready on http://127.0.0.1:${serverPort}`);
 
   const debugPort = await getAvailablePort(9228);
   const tmpProfile = `/tmp/anypod-shot-search-${Date.now()}`;
@@ -184,7 +184,7 @@ async function run() {
     const outPath = path.join(outDir, filename);
     fs.writeFileSync(outPath, Buffer.from(shot.data, 'base64'));
     const sizeKb = (fs.statSync(outPath).size / 1024).toFixed(1);
-    console.log(`📸 Saved: ${filename} (${sizeKb} KB, ${width}x${height})`);
+    console.log(`Saved: ${filename} (${sizeKb} KB, ${width}x${height})`);
     return outPath;
   }
 
@@ -287,7 +287,7 @@ async function run() {
               {
                 id: 'VeauURD-qLk',
                 guid: 'yt:VeauURD-qLk',
-                title: 'Daft Punk Greatest Hits 🔥 Best Songs & Playlist Full Album',
+                title: 'Daft Punk Greatest Hits Best Songs & Playlist Full Album',
                 author: 'Music EDM 2022',
                 podcastTitle: 'Music EDM',
                 duration: '1:11:15',
@@ -426,7 +426,7 @@ async function run() {
     await capture('feed_detail_clean_desktop.png', 1280, 850);
     await capture('feed_detail_clean_mobile.png', 390, 844);
 
-    console.log('🎉 All search and playback verification screenshots captured successfully!');
+    console.log('All search and playback verification screenshots captured successfully!');
   } finally {
     cleanup();
   }
