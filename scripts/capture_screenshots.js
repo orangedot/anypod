@@ -270,47 +270,62 @@ function inPageSetup(continueData, timelineData, feedsData) {
   const continueGrid = document.getElementById('continue-grid');
   const timelineList = document.getElementById('timeline-list');
 
-  function createCard(item) {
+  function parseDurToSec(durStr) {
+    const parts = String(durStr || '').split(':').map(Number);
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) return parts[0] * 60 + parts[1];
+    if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    return 1800;
+  }
+
+  function parseRelTime(timeStr) {
+    const now = Date.now();
+    if (timeStr === 'Yesterday') return now - 86400 * 1000;
+    const hMatch = String(timeStr || '').match(/(\d+)h ago/);
+    if (hMatch) return now - Number(hMatch[1]) * 3600 * 1000;
+    const dMatch = String(timeStr || '').match(/(\d+)d ago/);
+    if (dMatch) return now - Number(dMatch[1]) * 86400 * 1000;
+    return now - 3600 * 1000;
+  }
+
+  function createCard(item, idx) {
+    const guid = 'mock-' + idx + '-' + item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 24);
+    const durSec = parseDurToSec(item.dur);
+    if (typeof state !== 'undefined' && state.playbackPositions && item.pct) {
+      state.playbackPositions[guid] = {
+        position: Math.round((item.pct / 100) * durSec),
+        duration: durSec,
+        completed: false
+      };
+    }
+    const ep = {
+      guid,
+      podcastTitle: item.pod,
+      title: item.title,
+      artwork: item.art,
+      duration: durSec,
+      timestamp: parseRelTime(item.time),
+      feedUrl: 'https://anypod.org/feed/mock.xml'
+    };
+    if (item.active && typeof state !== 'undefined') {
+      state.currentEpisode = ep;
+      state.playbackStatus = 'playing';
+    }
+    if (typeof createEpisodeCard === 'function') {
+      return createEpisodeCard(ep, { type: 'timeline' }, idx);
+    }
     const card = document.createElement('div');
     card.className = 'episode-card' + (item.active ? ' playing' : '');
-
-    let cardHtml = '<div class="episode-card-top">';
-    cardHtml += '<img class="episode-artwork" loading="lazy" decoding="async" width="48" height="48" src="' + item.art + '">';
-    cardHtml += '<div class="episode-header-info">';
-    cardHtml += '<div class="episode-podcast-name">' + item.pod + '</div>';
-    cardHtml += '<div class="episode-title">' + item.title + '</div>';
-    cardHtml += '</div></div>';
-    cardHtml += '<div class="episode-desc">' + item.desc + '</div>';
-    if (item.pct) {
-      cardHtml += '<div class="ep-progress-track"><div class="ep-progress-fill" style="width: ' + item.pct + '%;"></div></div>';
-    }
-    cardHtml += '<div class="episode-footer">';
-    cardHtml += '<div class="episode-meta">';
-    cardHtml += '<span>' + item.time + '</span>';
-    cardHtml += '<span>' + item.dur + '</span>';
-    if (item.resume) {
-      cardHtml += '<span class="ep-resume-time">• ' + item.resume + '</span>';
-    }
-    cardHtml += '</div>';
-    cardHtml += '<div class="episode-card-actions">';
-    cardHtml += '<button class="btn-download-ep"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></button>';
-    cardHtml += '<button class="btn-queue-ep"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h7"></path><path d="M18 15v6M15 18h6"></path></svg></button>';
-    cardHtml += '<button class="btn-mark-played"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"></circle><polyline points="16 9 11 14 8 11"></polyline></svg></button>';
-    cardHtml += '<button class="btn-play-ep">' + (item.active ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>') + '</button>';
-    cardHtml += '</div></div>';
-
-    card.innerHTML = cardHtml;
     return card;
   }
 
   if (continueGrid) {
     continueGrid.innerHTML = '';
-    continueData.forEach(d => continueGrid.appendChild(createCard(d)));
+    continueData.forEach((d, idx) => continueGrid.appendChild(createCard(d, idx)));
   }
 
   if (timelineList) {
     timelineList.innerHTML = '';
-    timelineData.forEach(d => timelineList.appendChild(createCard(d)));
+    timelineData.forEach((d, idx) => timelineList.appendChild(createCard(d, idx + 100)));
   }
 
   function createFeedCard(f) {
