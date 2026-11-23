@@ -144,12 +144,8 @@ export async function onRequest(context) {
         try {
           targetParam = new URL(rawTarget).hostname;
         } catch (_) {
-          targetParam = rawTarget.slice(0, 80);
+          targetParam = '';
         }
-      } else if (url.searchParams.get('term')) {
-        targetParam = url.searchParams.get('term').slice(0, 50);
-      } else if (url.searchParams.get('guid')) {
-        targetParam = url.searchParams.get('guid').slice(0, 60);
       }
 
       const cacheStatus = response.headers.get('cf-cache-status') || response.headers.get('x-cache') || 'NONE';

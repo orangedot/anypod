@@ -1,34 +1,34 @@
 # Anypod Self-Hosting Guide
 
-Willkommen beim Self-Hosting von **Anypod**! 
+Welcome to self-hosting **anypod.org** (Anypod — AGPLv3 open-source PWA podcast player)!
 
-Dieser Guide ist für alle gedacht, die Anypod komplett unabhängig und privat auf dem eigenen Heimserver, NAS (z. B. Synology, Unraid, TrueNAS) oder Raspberry Pi betreiben möchten.
+This guide is for anyone who wants to run Anypod completely independently and privately on their own home server, NAS (e.g. Synology, Unraid, TrueNAS), VPS, or Raspberry Pi.
 
-Alles läuft zu 100 % lokal in Docker mit lokaler SQLite-Datenbank – ohne Zwang zu externen Cloud-Diensten.
+Everything runs 100% locally in Docker with a local SQLite database — no external cloud services required.
 
 ---
 
-## Schnellstart in 60 Sekunden
+## 60-Second Quickstart
 
-### 1. Repository klonen
+### 1. Clone the repository
 ```bash
 git clone https://github.com/orangedot/anypod.git
 cd anypod
 ```
 
-### 2. Container starten
+### 2. Start the container
 ```bash
 docker compose up -d
 ```
 
-### 3. Loslegen!
-Öffne einfach **http://localhost:8788** (oder die IP deines Servers, z. B. `http://192.168.1.100:8788`) im Browser! 
+### 3. Open the app
+Open **http://localhost:8788** (or your server's IP, e.g. `http://192.168.1.100:8788`) in your browser.
 
 ---
 
-## Lokaler Speicher & Datenpersistenz
+## Local Storage & Data Persistence
 
-Alle Daten von Anypod werden im gemounteten Verzeichnis `./data` gespeichert:
+All Anypod data is stored in the mounted `./data` directory:
 
 ```
 ./data/
@@ -38,55 +38,53 @@ Alle Daten von Anypod werden im gemounteten Verzeichnis `./data` gespeichert:
             └── 1d2c6f471d53ebbab1505a69a966ce3e563bc9428255f6f61ad83474526c0fe6.sqlite
 ```
 
-- **SQLite Datenbank**: Speichert alle Accounts, Feeds, Playback-Positionen, Sitzungen und Sync-Daten.
-- **Automatische Initialisierung**: Beim ersten Start wird das Datenbankschema (`schema.sql`) vollautomatisch aufgesetzt.
-- **Backups**: Für ein komplettes Backup musst du einfach nur den Ordner `./data` sichern:
+- **SQLite database:** Stores all accounts, feeds, playback positions, sessions, and sync data.
+- **Automatic initialization:** On first start, the database schema (`schema.sql`) is applied automatically.
+- **Backups:** To back up everything, archive the `./data` folder:
   ```bash
   tar -czvf anypod-backup-$(date +%F).tar.gz ./data
   ```
 
 ---
 
-## Konfiguration
+## Configuration
 
-Anypod unterstützt Konfiguration sowohl über **Environment-Variablen** (in `docker-compose.yml` oder `.env`) als auch über eine **Konfigurationsdatei** (`config.yaml` oder `config.json`).
+Anypod supports configuration via **environment variables** (in `docker-compose.yml` or `.env`) as well as a **configuration file** (`config.yaml` or `config.json`).
 
-### Konfigurations-Variablen
+### Configuration Variables
 
-| Variable | Standardwert | Beschreibung |
+| Variable | Default | Description |
 | :--- | :--- | :--- |
-| `PORT` | `8788` | Port, auf dem Anypod im Container lauscht |
-| `APP_URL` | `http://localhost:8788` | Externe URL deiner Instanz (z. B. `http://192.168.1.50:8788` oder deine Domain) |
-| `FROM_EMAIL` | `Anypod <login@anypod.local>` | Absenderadresse für E-Mails |
-| `RESEND_API_KEY` | *(leer)* | Optionaler API-Key für [Resend](https://resend.com) zum E-Mail-Versand |
-| `CRON_SECRET` | *(leer)* | Optionaler Token zum Absichern des Cleanup-Endpunkts (`/api/cron/cleanup`) |
+| `PORT` | `8788` | Port Anypod listens on inside the container |
+| `APP_URL` | `http://localhost:8788` | External URL of your instance (e.g. `http://192.168.1.50:8788` or your domain) |
+| `FROM_EMAIL` | `Anypod <login@anypod.local>` | Sender address for outgoing emails |
+| `RESEND_API_KEY` | *(empty)* | Optional API key for [Resend](https://resend.com) to send real emails |
+| `CRON_SECRET` | *(empty)* | Optional token to protect the cleanup endpoint (`/api/cron/cleanup`) |
 
 ---
 
-### Methode A: Über Environment-Variablen (`docker-compose.yml` oder `.env`)
+### Option A: Environment Variables (`docker-compose.yml` or `.env`)
 
-Kopiere `.env.example` nach `.env` und passe die Werte nach deinen Wünschen an:
+Copy `.env.example` to `.env` and adjust the values:
 
 ```bash
 cp .env.example .env
 ```
 
-Beispiel `.env`:
+Example `.env`:
 ```env
 PORT=8788
 APP_URL=http://192.168.1.50:8788
-FROM_EMAIL="Mein Podcast Player <anypod@home.arpa>"
+FROM_EMAIL="My Podcast Player <anypod@home.arpa>"
 RESEND_API_KEY=
-CRON_SECRET=super_geheimer_cron_schluessel_123
+CRON_SECRET=super_secret_cron_key_123
 ```
 
 ---
 
-### Methode B: Über Konfigurationsdatei (`config.yaml` oder `config.json`)
+### Option B: Configuration File (`config.yaml` or `config.json`)
 
-Wenn du lieber eine zentrale Konfigurationsdatei nutzt: Anypod liest automatisch eine `config.yaml` oder `config.json` ein!
-
-Lege sie einfach direkt in deinen `./data`-Ordner (`./data/config.yaml`):
+If you prefer a central config file, Anypod automatically reads `config.yaml` or `config.json` from your `./data` directory (`./data/config.yaml`):
 
 ```yaml
 # ./data/config.yaml
@@ -94,47 +92,44 @@ PORT: 8788
 APP_URL: "http://192.168.1.50:8788"
 FROM_EMAIL: "Anypod <login@anypod.local>"
 RESEND_API_KEY: ""
-CRON_SECRET: "super_geheimer_cron_schluessel_123"
+CRON_SECRET: "super_secret_cron_key_123"
 ```
 
-Alternativ als JSON (`./data/config.json`):
+Or as JSON (`./data/config.json`):
 ```json
 {
   "PORT": 8788,
   "APP_URL": "http://192.168.1.50:8788",
   "FROM_EMAIL": "Anypod <login@anypod.local>",
   "RESEND_API_KEY": "",
-  "CRON_SECRET": "super_geheimer_cron_schluessel_123"
+  "CRON_SECRET": "super_secret_cron_key_123"
 }
 ```
 
 ---
 
-## Offline-Login & Magic Links
+## Offline Login & Magic Links
 
-Anypod nutzt passwortloses Magic-Link-Login. Du musst dafür **keinen E-Mail-Dienst einrichten**:
+Anypod uses passwordless magic-link authentication. You do **not** need to configure an email provider to use it locally:
 
-1. Wenn **`RESEND_API_KEY` leer** ist, läuft Anypod im **Offline-Modus**.
-2. Gib deine E-Mail im Login-Dialog ein.
-3. Der Magic-Login-Link wird:
-   - **Direkt im Browser-Dialog als klickbarer Button angezeigt** 
-   - **In den Docker-Logs ausgegeben** (`docker compose logs -f anypod`)
-4. Ein Klick genügt, und du bist eingeloggt und deine Feeds & Hörstände synchronisieren sich lokal auf deinem Server!
+1. When **`RESEND_API_KEY` is empty**, Anypod runs in **offline auth mode**.
+2. Enter your email in the sign-in dialog.
+3. The magic login link is:
+   - **Displayed directly in the browser dialog as a clickable button**
+   - **Printed to the Docker logs** (`docker compose logs -f anypod`)
+4. One click signs you in and syncs your feeds and playback state to your local server.
 
-*Tipp für echte E-Mails:* Falls du echte E-Mails an dich selbst senden willst, hole dir einfach einen kostenlosen API-Key bei [resend.com](https://resend.com) (3.000 Mails/Monat gratis) und trage ihn bei `RESEND_API_KEY` ein.
+*Tip for real emails:* If you want actual emails delivered, add a free API key from [resend.com](https://resend.com) (3,000 emails/month free) to `RESEND_API_KEY`.
 
 ---
 
 ## Production Bundler
 
-Anypod enthält einen integrierten Bundler mit `esbuild`, der HTML, CSS und modernstes JavaScript für maximale Performance minifiziert:
+Anypod includes a built-in bundler using `scripts/build.js` that minifies and bundles HTML, CSS, and JavaScript into `public/dist/`.
 
-- **JS**: 190 KB → 102 KB (`public/dist/app.min.js`)
-- **CSS**: 64 KB → 51 KB (`public/dist/style.min.css`)
+When building the Docker image, the production build runs automatically (`npm run build`) and serves directly from `public/dist/`.
 
-Beim Bauen des Docker-Images wird der Production-Build automatisch ausgeführt (`npm run build`) und direkt aus `public/dist/` ausgeliefert.
-
-Möchtest du lokal außerhalb von Docker den Bundler manuell ausführen:
+To run the bundler manually outside Docker:
 ```bash
 npm run build
 ```
@@ -143,11 +138,11 @@ npm run build
 
 ## Reverse Proxy (Nginx / Caddy / Traefik)
 
-Wenn du Anypod hinter einem Reverse Proxy mit SSL (HTTPS) betreibst:
+When running Anypod behind a reverse proxy with TLS (HTTPS):
 
 ### Caddy
 ```caddy
-anypod.deinedomain.de {
+anypod.yourdomain.com {
     reverse_proxy localhost:8788
 }
 ```
@@ -156,10 +151,10 @@ anypod.deinedomain.de {
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name anypod.deinedomain.de;
+    server_name anypod.yourdomain.com;
 
-    ssl_certificate /pfad/zu/cert.pem;
-    ssl_certificate_key /pfad/zu/key.pem;
+    ssl_certificate /path/to/cert.pem;
+    ssl_certificate_key /path/to/key.pem;
 
     location / {
         proxy_pass http://127.0.0.1:8788;
@@ -171,72 +166,70 @@ server {
 }
 ```
 
-### jwilder/nginx-proxy & acme-companion (Automatisches Let's Encrypt SSL)
-Für Setups mit `jwilder/nginx-proxy` liegt direkt eine fertige Compose-Erweiterung (`docker-compose.jwilder.yml`) bei:
+### jwilder/nginx-proxy & acme-companion (Automatic Let's Encrypt SSL)
+For setups using `jwilder/nginx-proxy`, a compose override (`docker-compose.jwilder.yml`) is included:
 
 ```bash
-# Start mit automatischem SSL-Zertifikat via jwilder:
-VIRTUAL_HOST=podcasts.deinedomain.de \
-LETSENCRYPT_HOST=podcasts.deinedomain.de \
-LETSENCRYPT_EMAIL=deine@email.de \
+# Start with automatic SSL certificate via jwilder:
+VIRTUAL_HOST=podcasts.yourdomain.com \
+LETSENCRYPT_HOST=podcasts.yourdomain.com \
+LETSENCRYPT_EMAIL=you@yourdomain.com \
 docker compose -f docker-compose.yml -f docker-compose.jwilder.yml up -d
 ```
-*(Das setzt voraus, dass dein `jwilder/nginx-proxy` im Netzwerk `nginx-proxy` läuft).*
+*(Assumes `jwilder/nginx-proxy` is running on the `nginx-proxy` Docker network.)*
 
 ---
 
-## Architektur: Warum SQLite statt MariaDB?
+## Architecture: Why SQLite instead of MariaDB?
 
-Eine häufige Frage von Sysadmins: *„Warum kein MariaDB / MySQL im separaten Container?“*
+A common sysadmin question: *"Why not a separate MariaDB / MySQL container?"*
 
-1. **Cloudflare D1 Kompatibilität**: Anypod nutzt die Cloudflare D1 API (`db.prepare(...)`). D1 *ist* SQLite am Edge. Durch SQLite im Container läuft exakt dieselbe Codebasis lokal wie in der Cloud – ohne Abstraktions-Overhead.
-2. **0 MB Leerlauf-RAM**: MariaDB benötigt im Leerlauf 150–300 MB RAM und eigene Netzwerk-Sockets. SQLite läuft in-process, verbraucht 0 MB zusätzlichen RAM und hat keine Latenz.
-3. **Ausfallsicherheit**: Kein separater Datenbank-Container, der crashen oder Verbindungs-Timeouts werfen kann.
-4. **1-Klick Backup**: Die gesamte Datenbank ist eine einzige Datei in `./data/`. Kein `mysqldump` oder Stop-Container nötig.
+1. **Cloudflare D1 compatibility:** Anypod uses the Cloudflare D1 API (`db.prepare(...)`). D1 *is* SQLite at the edge. Using SQLite in Docker lets the exact same codebase run locally and in the cloud with zero ORM/abstraction overhead.
+2. **0 MB idle RAM:** MariaDB uses 150–300 MB RAM idle and requires a separate network socket. SQLite runs in-process with zero extra RAM overhead and no network latency.
+3. **Resilience:** No separate database container to crash or time out.
+4. **One-file backup:** The entire database lives in `./data/`. No `mysqldump` or container stop required.
 
 ---
 
 ## Storage Management & Caching
 
-### 1. Offline-Audio & Cover-Cache (Client PWA)
-Anypod verfügt über einen integrierten Service Worker mit **HTTP 206 Range-Request Support**:
-- Klicke bei einer Episode auf **„Download“**, um Audio und Cover auf dein Handy oder den Laptop herunterzuladen.
-- Im Tab **„Downloads“** kannst du Folgen ohne Internetverbindung offline hören.
-- Über den Button **„Clear Download“** oder in den Einstellungen lässt sich belegter Speicher jederzeit mit einem Klick freigeben.
+### 1. Offline Audio & Cover Cache (Client PWA)
+Anypod includes a Service Worker with **HTTP `206` Range-request support**:
+- Click **Download** on an episode to cache the audio and cover art locally on your phone or laptop.
+- Listen offline from the **Downloads** tab.
+- Free up space anytime via **Clear Download** or in Settings.
 
-### 2. Geplantes Server-seitiges Episoden-Archivieren & Auto-Pruning
-Für Self-Hosters, die Feeds serverseitig spiegeln möchten:
-- Viele Podcast-Feeds haben über 500 Folgen (50+ GB pro Podcast!). Ein ungefilterter Download aller Dateien würde jeden Server sprengen.
-- **Geplantes Storage-Management**: Automatisches tägliches Abrufen neuer Episoden per Cron, Caching der neuesten *N* Folgen (z. B. letzte 3 Episoden oder Folgen der letzten 14 Tage) und automatisches Löschen alter MP3s nach Ablauf der Frist, während Hörstände in der SQLite-Datenbank erhalten bleiben.
+### 2. Server-Side Episode Archiving & Auto-Pruning (Planned)
+For self-hosters who want to mirror feeds server-side:
+- Many podcast feeds have 500+ episodes (50+ GB per show). Unbounded mirroring would fill most disks.
+- **Planned storage management:** Daily cron fetch of new episodes, caching only the latest *N* episodes (e.g. last 3 episodes or last 14 days), and auto-pruning older MP3s while preserving playback state in SQLite.
 
 ---
 
-## Automatischer Inaktivitäts-Cleanup ("Cleaner Monday")
+## Automatic Inactivity Cleanup ("Cleaner Monday")
 
-Anypod schützt die Privatsphäre und hält die lokale Datenbank sauber:
-- Accounts, die 30 Tage inaktiv sind, erhalten einen Hinweis.
-- Nach 50 Tagen folgt die letzte Erinnerung.
-- Nach 60 Tagen werden inaktive Accounts und alle zugehörigen Daten DSGVO-konform restlos gelöscht.
-- In den Einstellungen gibt es zudem einen **"Delete Account & Wipe Cloud Sync"**-Button.
+Anypod minimizes stored data and keeps your local database clean:
+- Accounts inactive for **60 days** receive a first warning email with a one-click keep/export link.
+- After **80 days**, a final reminder is sent.
+- After **90 days**, inactive accounts and all associated sync data are permanently deleted.
+- Settings also includes a **"delete account & wipe cloud data"** button for immediate removal.
 
-Du kannst den Cleanup wöchentlich per System-Cronjob auf deinem Host anstoßen:
+You can trigger the cleanup weekly via a host cron job:
 
 ```bash
-# Jeden Montag um 04:00 Uhr morgens ausführen:
-0 4 * * 1 curl -s "http://localhost:8788/api/cron/cleanup?run=true&secret=DEIN_CRON_SECRET" > /dev/null
+# Run every Monday at 04:00 AM:
+0 4 * * 1 curl -s "http://localhost:8788/api/cron/cleanup?run=true&secret=YOUR_CRON_SECRET" > /dev/null
 ```
 
 ---
 
-## Updates
+## Updating
 
-Um deine lokale Anypod-Instanz auf den neuesten Stand zu bringen:
+To update your local Anypod instance:
 
 ```bash
 git pull
 docker compose build --no-cache
 docker compose up -d
 ```
-Deine SQLite-Datenbank und Konfiguration in `./data` bleiben dabei 100 % erhalten!
-
-Viel Spaß beim Hören! 
+Your SQLite database and configuration in `./data` are preserved across updates.
